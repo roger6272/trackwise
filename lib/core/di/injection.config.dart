@@ -131,6 +131,24 @@ import 'package:trackwise/features/items/domain/usecases/watch_items_usecase.dar
     as _i307;
 import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart'
     as _i913;
+import 'package:trackwise/features/profile/data/datasources/profile_remote_datasource.dart'
+    as _i772;
+import 'package:trackwise/features/profile/data/datasources/profile_remote_datasource_impl.dart'
+    as _i431;
+import 'package:trackwise/features/profile/data/repositories/profile_repository_impl.dart'
+    as _i950;
+import 'package:trackwise/features/profile/domain/repositories/profile_repository.dart'
+    as _i939;
+import 'package:trackwise/features/profile/domain/usecases/delete_account_usecase.dart'
+    as _i535;
+import 'package:trackwise/features/profile/domain/usecases/export_user_data_usecase.dart'
+    as _i764;
+import 'package:trackwise/features/profile/domain/usecases/get_profile_usecase.dart'
+    as _i582;
+import 'package:trackwise/features/profile/domain/usecases/update_profile_usecase.dart'
+    as _i373;
+import 'package:trackwise/features/profile/presentation/bloc/profile_bloc.dart'
+    as _i815;
 
 extension GetItInjectableX on _i174.GetIt {
 // initializes the registration of main-scope dependencies inside of GetIt
@@ -160,6 +178,11 @@ extension GetItInjectableX on _i174.GetIt {
             firestore: gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i862.BluetoothRepository>(
         () => _i516.BluetoothRepositoryImpl(gh<_i1001.BluetoothDataSource>()));
+    gh.lazySingleton<_i772.ProfileRemoteDataSource>(
+        () => _i431.ProfileRemoteDataSourceImpl(
+              firebaseAuth: gh<_i59.FirebaseAuth>(),
+              firestore: gh<_i974.FirebaseFirestore>(),
+            ));
     gh.lazySingleton<_i769.CheckBluetoothEnabledUseCase>(() =>
         _i769.CheckBluetoothEnabledUseCase(gh<_i862.BluetoothRepository>()));
     gh.lazySingleton<_i733.ClearDeviceLogsUseCase>(
@@ -199,6 +222,8 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i949.EventLogRemoteDataSource>(),
               gh<_i59.FirebaseAuth>(),
             ));
+    gh.lazySingleton<_i939.ProfileRepository>(() => _i950.ProfileRepositoryImpl(
+        dataSource: gh<_i772.ProfileRemoteDataSource>()));
     gh.lazySingleton<_i311.CreateItemUseCase>(
         () => _i311.CreateItemUseCase(gh<_i319.ItemRepository>()));
     gh.lazySingleton<_i64.DeleteItemUseCase>(
@@ -211,6 +236,20 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i159.UpdateItemUseCase(gh<_i319.ItemRepository>()));
     gh.lazySingleton<_i307.WatchItemsUseCase>(
         () => _i307.WatchItemsUseCase(gh<_i319.ItemRepository>()));
+    gh.lazySingleton<_i535.DeleteAccountUseCase>(
+        () => _i535.DeleteAccountUseCase(gh<_i939.ProfileRepository>()));
+    gh.lazySingleton<_i764.ExportUserDataUseCase>(
+        () => _i764.ExportUserDataUseCase(gh<_i939.ProfileRepository>()));
+    gh.lazySingleton<_i582.GetProfileUseCase>(
+        () => _i582.GetProfileUseCase(gh<_i939.ProfileRepository>()));
+    gh.lazySingleton<_i373.UpdateProfileUseCase>(
+        () => _i373.UpdateProfileUseCase(gh<_i939.ProfileRepository>()));
+    gh.factory<_i815.ProfileBloc>(() => _i815.ProfileBloc(
+          getProfile: gh<_i582.GetProfileUseCase>(),
+          updateProfile: gh<_i373.UpdateProfileUseCase>(),
+          exportUserData: gh<_i764.ExportUserDataUseCase>(),
+          deleteAccount: gh<_i535.DeleteAccountUseCase>(),
+        ));
     gh.factory<_i72.BluetoothBloc>(() => _i72.BluetoothBloc(
           gh<_i697.ScanDevicesUseCase>(),
           gh<_i907.StopScanUseCase>(),
