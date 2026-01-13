@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:provider/provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'auth/firebase_auth/firebase_user_provider.dart';
 import 'auth/firebase_auth/auth_util.dart';
 
@@ -18,24 +22,40 @@ import 'index.dart';
 import 'core/di/injection.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  GoRouter.optionURLReflectsImperativeAPIs = true;
-  usePathUrlStrategy();
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    GoRouter.optionURLReflectsImperativeAPIs = true;
+    usePathUrlStrategy();
 
-  await initFirebase();
+    await initFirebase();
 
-  // Initialize Clean Architecture Dependency Injection
-  await configureDependencies();
+    // Initialize Crashlytics
+    FlutterError.onError = (errorDetails) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
 
-  await FlutterFlowTheme.initialize();
+    // Catch errors that happen outside of the Flutter framework
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
 
-  final appState = FFAppState(); // Initialize FFAppState
-  await appState.initializePersistedState();
+    // Initialize Clean Architecture Dependency Injection
+    await configureDependencies();
 
-  runApp(ChangeNotifierProvider(
-    create: (context) => appState,
-    child: MyApp(),
-  ));
+    await FlutterFlowTheme.initialize();
+
+    final appState = FFAppState(); // Initialize FFAppState
+    await appState.initializePersistedState();
+
+    runApp(ChangeNotifierProvider(
+      create: (context) => appState,
+      child: MyApp(),
+    ));
+  }, (error, stack) {
+    // Catch any errors that escape the zone
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  });
 }
 
 class MyApp extends StatefulWidget {

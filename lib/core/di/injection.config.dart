@@ -15,6 +15,9 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:google_sign_in/google_sign_in.dart' as _i116;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:trackwise/core/di/register_module.dart' as _i510;
+import 'package:trackwise/core/services/analytics_service.dart' as _i590;
+import 'package:trackwise/core/services/crashlytics_service.dart' as _i813;
+import 'package:trackwise/core/services/performance_service.dart' as _i1004;
 import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasource.dart'
     as _i647;
 import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasource_impl.dart'
@@ -165,6 +168,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i974.FirebaseFirestore>(() => registerModule.firestore);
     gh.lazySingleton<_i59.FirebaseAuth>(() => registerModule.firebaseAuth);
     gh.lazySingleton<_i116.GoogleSignIn>(() => registerModule.googleSignIn);
+    gh.lazySingleton<_i590.AnalyticsService>(
+        () => _i590.AnalyticsService.create());
+    gh.lazySingleton<_i813.CrashlyticsService>(
+        () => _i813.CrashlyticsService.create());
+    gh.lazySingleton<_i1004.PerformanceService>(
+        () => _i1004.PerformanceService.create());
     gh.lazySingleton<_i41.ItemRemoteDataSource>(
         () => _i1046.ItemRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i1001.BluetoothDataSource>(
@@ -281,6 +290,10 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i28.WatchAuthStateUseCase(gh<_i578.AuthRepository>()));
     gh.factory<_i1020.GenerateCSVUseCase>(
         () => _i1020.GenerateCSVUseCase(gh<_i978.EventLogRepository>()));
+    gh.lazySingleton<_i23.GetChartDataUseCase>(
+        () => _i23.GetChartDataUseCase(gh<_i978.EventLogRepository>()));
+    gh.lazySingleton<_i1067.GetCumulativeChartDataUseCase>(() =>
+        _i1067.GetCumulativeChartDataUseCase(gh<_i978.EventLogRepository>()));
     gh.lazySingleton<_i1046.DeleteEventsForItemUseCase>(() =>
         _i1046.DeleteEventsForItemUseCase(gh<_i978.EventLogRepository>()));
     gh.lazySingleton<_i549.GetEventsByDateRangeUseCase>(() =>
@@ -289,10 +302,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i1052.GetEventsByItemUseCase(gh<_i978.EventLogRepository>()));
     gh.lazySingleton<_i142.InsertEventsUseCase>(
         () => _i142.InsertEventsUseCase(gh<_i978.EventLogRepository>()));
-    gh.lazySingleton<_i23.GetChartDataUseCase>(
-        () => _i23.GetChartDataUseCase(gh<_i978.EventLogRepository>()));
-    gh.lazySingleton<_i1067.GetCumulativeChartDataUseCase>(() =>
-        _i1067.GetCumulativeChartDataUseCase(gh<_i978.EventLogRepository>()));
     gh.factory<_i963.SendEmailWithCSVUseCase>(
         () => _i963.SendEmailWithCSVUseCase(
               mailDataSource: gh<_i676.FirestoreMailDataSource>(),
