@@ -10,6 +10,7 @@ import '../../../auth/presentation/bloc/auth_event.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
+import 'privacy_policy_page.dart';
 
 /// Profile page with settings and GDPR features.
 ///
@@ -317,9 +318,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showPrivacyPolicy(BuildContext context) {
-    // TODO: Navigate to privacy policy page or open URL
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Privacy Policy coming soon')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const PrivacyPolicyPage(),
+      ),
     );
   }
 
