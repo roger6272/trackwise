@@ -1,0 +1,487 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:trackwise/core/error/failures.dart';
+import 'package:trackwise/core/usecases/usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/entities/ble_connection_state.dart';
+import 'package:trackwise/features/bluetooth/domain/entities/ble_device.dart';
+import 'package:trackwise/features/bluetooth/domain/entities/ble_message.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/check_bluetooth_enabled_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/clear_device_logs_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/connect_device_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/disconnect_device_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/request_bluetooth_permissions_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/request_device_data_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/scan_devices_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/send_items_to_device_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/send_selected_item_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/send_time_sync_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/stop_scan_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/watch_connection_state_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/watch_device_messages_usecase.dart';
+import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_state.dart';
+
+// Mocks
+class MockScanDevicesUseCase extends Mock implements ScanDevicesUseCase {}
+
+class MockStopScanUseCase extends Mock implements StopScanUseCase {}
+
+class MockConnectDeviceUseCase extends Mock implements ConnectDeviceUseCase {}
+
+class MockDisconnectDeviceUseCase extends Mock implements DisconnectDeviceUseCase {}
+
+class MockWatchConnectionStateUseCase extends Mock implements WatchConnectionStateUseCase {}
+
+class MockWatchDeviceMessagesUseCase extends Mock implements WatchDeviceMessagesUseCase {}
+
+class MockSendItemsToDeviceUseCase extends Mock implements SendItemsToDeviceUseCase {}
+
+class MockSendSelectedItemUseCase extends Mock implements SendSelectedItemUseCase {}
+
+class MockSendTimeSyncUseCase extends Mock implements SendTimeSyncUseCase {}
+
+class MockRequestDeviceDataUseCase extends Mock implements RequestDeviceDataUseCase {}
+
+class MockClearDeviceLogsUseCase extends Mock implements ClearDeviceLogsUseCase {}
+
+class MockCheckBluetoothEnabledUseCase extends Mock implements CheckBluetoothEnabledUseCase {}
+
+class MockRequestBluetoothPermissionsUseCase extends Mock implements RequestBluetoothPermissionsUseCase {}
+
+void main() {
+  late BluetoothBloc bloc;
+  late MockScanDevicesUseCase mockScanDevices;
+  late MockStopScanUseCase mockStopScan;
+  late MockConnectDeviceUseCase mockConnectDevice;
+  late MockDisconnectDeviceUseCase mockDisconnectDevice;
+  late MockWatchConnectionStateUseCase mockWatchConnectionState;
+  late MockWatchDeviceMessagesUseCase mockWatchMessages;
+  late MockSendItemsToDeviceUseCase mockSendItems;
+  late MockSendSelectedItemUseCase mockSendSelectedItem;
+  late MockSendTimeSyncUseCase mockSendTimeSync;
+  late MockRequestDeviceDataUseCase mockRequestData;
+  late MockClearDeviceLogsUseCase mockClearLogs;
+  late MockCheckBluetoothEnabledUseCase mockCheckBluetoothEnabled;
+  late MockRequestBluetoothPermissionsUseCase mockRequestPermissions;
+
+  setUp(() {
+    mockScanDevices = MockScanDevicesUseCase();
+    mockStopScan = MockStopScanUseCase();
+    mockConnectDevice = MockConnectDeviceUseCase();
+    mockDisconnectDevice = MockDisconnectDeviceUseCase();
+    mockWatchConnectionState = MockWatchConnectionStateUseCase();
+    mockWatchMessages = MockWatchDeviceMessagesUseCase();
+    mockSendItems = MockSendItemsToDeviceUseCase();
+    mockSendSelectedItem = MockSendSelectedItemUseCase();
+    mockSendTimeSync = MockSendTimeSyncUseCase();
+    mockRequestData = MockRequestDeviceDataUseCase();
+    mockClearLogs = MockClearDeviceLogsUseCase();
+    mockCheckBluetoothEnabled = MockCheckBluetoothEnabledUseCase();
+    mockRequestPermissions = MockRequestBluetoothPermissionsUseCase();
+
+    bloc = BluetoothBloc(
+      mockScanDevices,
+      mockStopScan,
+      mockConnectDevice,
+      mockDisconnectDevice,
+      mockWatchConnectionState,
+      mockWatchMessages,
+      mockSendItems,
+      mockSendSelectedItem,
+      mockSendTimeSync,
+      mockRequestData,
+      mockClearLogs,
+      mockCheckBluetoothEnabled,
+      mockRequestPermissions,
+    );
+  });
+
+  tearDown(() {
+    bloc.close();
+  });
+
+  setUpAll(() {
+    registerFallbackValue(const NoParams());
+    registerFallbackValue(const ScanDevicesParams());
+    registerFallbackValue(const ConnectDeviceParams(''));
+    registerFallbackValue(const DisconnectDeviceParams(''));
+    registerFallbackValue(const WatchConnectionStateParams(''));
+    registerFallbackValue(const WatchDeviceMessagesParams(''));
+    registerFallbackValue(const SendTimeSyncParams(''));
+    registerFallbackValue(const ClearDeviceLogsParams(''));
+    registerFallbackValue(RequestDeviceDataParams(
+      deviceId: '',
+      type: DeviceDataType.prefs,
+    ));
+  });
+
+  test('initial state should be BluetoothState with initial status', () {
+    expect(bloc.state.status, BluetoothStatus.initial);
+    expect(bloc.state.discoveredDevices, isEmpty);
+    expect(bloc.state.connectedDevice, isNull);
+  });
+
+  group('RequestBluetoothPermissions', () {
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [checkingPermissions, ready] when permissions granted',
+      build: () {
+        when(() => mockRequestPermissions.call(any()))
+            .thenAnswer((_) async => const Right(true));
+        when(() => mockCheckBluetoothEnabled.call(any()))
+            .thenAnswer((_) async => const Right(true));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const RequestBluetoothPermissions()),
+      expect: () => [
+        const BluetoothState(status: BluetoothStatus.checkingPermissions),
+        const BluetoothState(
+          status: BluetoothStatus.ready,
+          permissionsGranted: true,
+        ),
+        const BluetoothState(
+          status: BluetoothStatus.ready,
+          permissionsGranted: true,
+          bluetoothEnabled: true,
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [checkingPermissions, permissionsDenied] when permissions denied',
+      build: () {
+        when(() => mockRequestPermissions.call(any()))
+            .thenAnswer((_) async => const Right(false));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const RequestBluetoothPermissions()),
+      expect: () => [
+        const BluetoothState(status: BluetoothStatus.checkingPermissions),
+        const BluetoothState(
+          status: BluetoothStatus.permissionsDenied,
+          permissionsGranted: false,
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [checkingPermissions, error] when permission request fails',
+      build: () {
+        when(() => mockRequestPermissions.call(any()))
+            .thenAnswer((_) async => const Left(BluetoothFailure('Failed')));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const RequestBluetoothPermissions()),
+      expect: () => [
+        const BluetoothState(status: BluetoothStatus.checkingPermissions),
+        const BluetoothState(
+          status: BluetoothStatus.error,
+          errorMessage: 'Failed',
+        ),
+      ],
+    );
+  });
+
+  group('CheckBluetoothEnabled', () {
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [ready] when bluetooth is enabled',
+      build: () {
+        when(() => mockCheckBluetoothEnabled.call(any()))
+            .thenAnswer((_) async => const Right(true));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const CheckBluetoothEnabled()),
+      expect: () => [
+        const BluetoothState(
+          status: BluetoothStatus.ready,
+          bluetoothEnabled: true,
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [bluetoothDisabled] when bluetooth is off',
+      build: () {
+        when(() => mockCheckBluetoothEnabled.call(any()))
+            .thenAnswer((_) async => const Right(false));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const CheckBluetoothEnabled()),
+      expect: () => [
+        const BluetoothState(
+          status: BluetoothStatus.bluetoothDisabled,
+          bluetoothEnabled: false,
+        ),
+      ],
+    );
+  });
+
+  group('StartScan', () {
+    final tDevices = [
+      const BleDevice(id: 'device-1', name: 'Test Device', rssi: -65),
+    ];
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [scanning, scanning with devices, ready] when scan succeeds',
+      build: () {
+        when(() => mockScanDevices.call(any()))
+            .thenAnswer((_) => Stream.value(Right(tDevices)));
+        when(() => mockStopScan.call(any()))
+            .thenAnswer((_) async => const Right(null));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const StartScan()),
+      wait: const Duration(milliseconds: 100),
+      expect: () => [
+        const BluetoothState(
+          status: BluetoothStatus.scanning,
+          discoveredDevices: [],
+        ),
+        BluetoothState(
+          status: BluetoothStatus.scanning,
+          discoveredDevices: tDevices,
+        ),
+        BluetoothState(
+          status: BluetoothStatus.ready,
+          discoveredDevices: tDevices,
+        ),
+      ],
+    );
+  });
+
+  group('StopScan', () {
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [ready] when stop scan called during scanning',
+      build: () {
+        when(() => mockStopScan.call(any()))
+            .thenAnswer((_) async => const Right(null));
+        return bloc;
+      },
+      seed: () => const BluetoothState(status: BluetoothStatus.scanning),
+      act: (bloc) => bloc.add(const StopScan()),
+      expect: () => [
+        const BluetoothState(status: BluetoothStatus.ready),
+      ],
+    );
+  });
+
+  group('ConnectToDevice', () {
+    const tDeviceId = 'test-device-id';
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [connecting] and sets up connection stream when connect called',
+      build: () {
+        when(() => mockWatchConnectionState.call(any()))
+            .thenAnswer((_) => Stream.value(const Right(BleConnectionState.connected)));
+        when(() => mockConnectDevice.call(any()))
+            .thenAnswer((_) async => const Right(true));
+        when(() => mockWatchMessages.call(any()))
+            .thenAnswer((_) => const Stream.empty());
+        when(() => mockSendTimeSync.call(any()))
+            .thenAnswer((_) async => const Right(null));
+        when(() => mockRequestData.call(any()))
+            .thenAnswer((_) async => const Right(null));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const ConnectToDevice(tDeviceId)),
+      wait: const Duration(milliseconds: 100),
+      expect: () => [
+        const BluetoothState(
+          status: BluetoothStatus.connecting,
+          connectingDeviceId: tDeviceId,
+        ),
+        // Connected state emitted from connection stream
+        isA<BluetoothState>().having(
+          (s) => s.status,
+          'status',
+          BluetoothStatus.connected,
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [connecting, error] when connection fails',
+      build: () {
+        when(() => mockWatchConnectionState.call(any()))
+            .thenAnswer((_) => const Stream.empty());
+        when(() => mockConnectDevice.call(any()))
+            .thenAnswer((_) async => const Left(BluetoothFailure('Connection failed')));
+        return bloc;
+      },
+      act: (bloc) => bloc.add(const ConnectToDevice(tDeviceId)),
+      expect: () => [
+        const BluetoothState(
+          status: BluetoothStatus.connecting,
+          connectingDeviceId: tDeviceId,
+        ),
+        const BluetoothState(
+          status: BluetoothStatus.error,
+          errorMessage: 'Connection failed',
+        ),
+      ],
+    );
+  });
+
+  group('DisconnectFromDevice', () {
+    const tDevice = BleDevice(id: 'device-1', name: 'Test', rssi: -65);
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [disconnecting, ready] when disconnect succeeds',
+      build: () {
+        when(() => mockDisconnectDevice.call(any()))
+            .thenAnswer((_) async => const Right(null));
+        return bloc;
+      },
+      seed: () => const BluetoothState(
+        status: BluetoothStatus.connected,
+        connectedDevice: tDevice,
+      ),
+      act: (bloc) => bloc.add(const DisconnectFromDevice()),
+      expect: () => [
+        const BluetoothState(
+          status: BluetoothStatus.disconnecting,
+          connectedDevice: tDevice,
+        ),
+        const BluetoothState(status: BluetoothStatus.ready),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits [disconnecting, error] when disconnect fails',
+      build: () {
+        when(() => mockDisconnectDevice.call(any()))
+            .thenAnswer((_) async => const Left(BluetoothFailure('Disconnect failed')));
+        return bloc;
+      },
+      seed: () => const BluetoothState(
+        status: BluetoothStatus.connected,
+        connectedDevice: tDevice,
+      ),
+      act: (bloc) => bloc.add(const DisconnectFromDevice()),
+      expect: () => [
+        const BluetoothState(
+          status: BluetoothStatus.disconnecting,
+          connectedDevice: tDevice,
+        ),
+        const BluetoothState(
+          status: BluetoothStatus.error,
+          connectedDevice: tDevice,
+          errorMessage: 'Disconnect failed',
+        ),
+      ],
+    );
+  });
+
+  group('MessageReceived', () {
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits state with lastMessage when message received',
+      build: () => bloc,
+      act: (bloc) {
+        final message = BleMessage(
+          type: BleMessageType.event,
+          data: {'event': 'increment', 'itemId': 'item-1'},
+          hasMore: false,
+          receivedAt: DateTime.now(),
+        );
+        bloc.add(MessageReceived(message));
+      },
+      expect: () => [
+        isA<BluetoothState>().having(
+          (s) => s.lastMessage?.type,
+          'lastMessage.type',
+          BleMessageType.event,
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'updates selectedItemId from prefs message',
+      build: () => bloc,
+      act: (bloc) {
+        final message = BleMessage(
+          type: BleMessageType.prefs,
+          data: [],
+          selectedId: 'selected-item-123',
+          hasMore: false,
+          receivedAt: DateTime.now(),
+        );
+        bloc.add(MessageReceived(message));
+      },
+      expect: () => [
+        isA<BluetoothState>().having(
+          (s) => s.selectedItemId,
+          'selectedItemId',
+          'selected-item-123',
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'updates hasMoreLogs from logs message',
+      build: () => bloc,
+      act: (bloc) {
+        final message = BleMessage(
+          type: BleMessageType.logs,
+          data: [],
+          hasMore: true,
+          receivedAt: DateTime.now(),
+        );
+        bloc.add(MessageReceived(message));
+      },
+      expect: () => [
+        isA<BluetoothState>().having(
+          (s) => s.hasMoreLogs,
+          'hasMoreLogs',
+          true,
+        ),
+      ],
+    );
+  });
+
+  group('ScanResultsUpdated', () {
+    final tDevices = [
+      const BleDevice(id: 'device-1', name: 'Test Device', rssi: -65),
+      const BleDevice(id: 'device-2', name: 'Test Device 2', rssi: -78),
+    ];
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'emits state with discoveredDevices',
+      build: () => bloc,
+      seed: () => const BluetoothState(status: BluetoothStatus.scanning),
+      act: (bloc) => bloc.add(ScanResultsUpdated(tDevices)),
+      expect: () => [
+        BluetoothState(
+          status: BluetoothStatus.scanning,
+          discoveredDevices: tDevices,
+        ),
+      ],
+    );
+  });
+
+  group('State helpers', () {
+    test('isScanning returns true when status is scanning', () {
+      const state = BluetoothState(status: BluetoothStatus.scanning);
+      expect(state.isScanning, true);
+    });
+
+    test('isConnected returns true when status is connected and device exists', () {
+      const state = BluetoothState(
+        status: BluetoothStatus.connected,
+        connectedDevice: BleDevice(id: '1', name: 'Test', rssi: -65),
+      );
+      expect(state.isConnected, true);
+    });
+
+    test('isConnected returns false when no device', () {
+      const state = BluetoothState(status: BluetoothStatus.connected);
+      expect(state.isConnected, false);
+    });
+
+    test('isConnecting returns true when status is connecting', () {
+      const state = BluetoothState(status: BluetoothStatus.connecting);
+      expect(state.isConnecting, true);
+    });
+  });
+}

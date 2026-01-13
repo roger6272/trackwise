@@ -1,0 +1,12 @@
+{
+  "projects": {},
+  "targets": {},
+  "etags": {
+    "trackwise-ibs6hd": {
+      "extensionInstances": {
+        "firestore-bigquery-export": "eca935180db90906b3e7a8bf3110e5c3334cf0ccb47b45463f432f07f8889f10",
+        "firestore-send-email": "b031e4b9b41b9a59558482d3292e239c6a526db6fad869276610cde2e322e9b2"
+      }
+    }
+  }
+}

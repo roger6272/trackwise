@@ -1,0 +1,11 @@
+# Configuration for Injectable code generation
+targets:
+  $default:
+    builders:
+      injectable_generator:injectable_builder:
+        enabled: true
+        options:
+          auto_register: true
+          # Generate for lib/core/di/injection.dart
+          generate_for:
+            - lib/core/di/injection.dart

@@ -1,0 +1,18 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "EventLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "item",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "event_name",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ]
+}
