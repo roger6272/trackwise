@@ -5,11 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
-import '../../../../flutter_flow/flutter_flow_drop_down.dart';
-import '../../../../flutter_flow/flutter_flow_icon_button.dart';
-import '../../../../flutter_flow/flutter_flow_theme.dart';
-import '../../../../flutter_flow/flutter_flow_widgets.dart';
-import '../../../../flutter_flow/form_field_controller.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/item.dart';
 import '../bloc/items_bloc.dart';
 import '../bloc/items_event.dart';
@@ -41,7 +37,6 @@ class _ItemFormPageState extends State<ItemFormPage> {
   late FocusNode reminderValueFocusNode;
 
   ReminderType? selectedReminder;
-  FormFieldController<ReminderType>? reminderDropdownController;
 
   bool _isLoading = false;
 
@@ -113,19 +108,15 @@ class _ItemFormPageState extends State<ItemFormPage> {
           },
           child: Scaffold(
             key: scaffoldKey,
-            backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             resizeToAvoidBottomInset: false,
             appBar: AppBar(
-              backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               automaticallyImplyLeading: false,
-              leading: FlutterFlowIconButton(
-                borderColor: Colors.transparent,
-                borderRadius: 30.0,
-                borderWidth: 1.0,
-                buttonSize: 60.0,
+              leading: IconButton(
                 icon: Icon(
                   Icons.arrow_back_rounded,
-                  color: FlutterFlowTheme.of(context).primaryText,
+                  color: Theme.of(context).colorScheme.onSurface,
                   size: 30.0,
                 ),
                 onPressed: () {
@@ -134,7 +125,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
               ),
               title: Text(
                 isEditMode ? 'Edit Item' : 'Create Item',
-                style: FlutterFlowTheme.of(context).titleLarge.override(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontFamily: 'Inter Tight',
                   fontSize: 20.0,
                   letterSpacing: 0.0,
@@ -165,7 +156,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             decoration: _buildInputDecoration(
                               hint: 'Enter item name...',
                             ),
-                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontFamily: 'Inter',
                               fontSize: 16.0,
                               letterSpacing: 0.0,
@@ -195,7 +186,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             decoration: _buildInputDecoration(
                               hint: 'Enter increment value...',
                             ),
-                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontFamily: 'Inter',
                               fontSize: 16.0,
                               letterSpacing: 0.0,
@@ -214,42 +205,39 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         ),
                         _buildFieldSection(
                           label: 'Reminder Type',
-                          child: FlutterFlowDropDown<ReminderType>(
-                            controller: reminderDropdownController ??=
-                                FormFieldController<ReminderType>(selectedReminder),
-                            options: [
-                              ReminderType.none,
-                              ReminderType.target,
-                              ReminderType.interval,
-                              ReminderType.everyTime,
-                            ],
-                            optionLabels: [
-                              'No Reminder',
-                              'Target Count',
-                              'Every X Increments',
-                              'Every Time',
+                          child: DropdownButtonFormField<ReminderType>(
+                            value: selectedReminder,
+                            items: const [
+                              DropdownMenuItem(value: ReminderType.none, child: Text('No Reminder')),
+                              DropdownMenuItem(value: ReminderType.target, child: Text('Target Count')),
+                              DropdownMenuItem(value: ReminderType.interval, child: Text('Every X Increments')),
+                              DropdownMenuItem(value: ReminderType.everyTime, child: Text('Every Time')),
                             ],
                             onChanged: (val) {
                               setState(() => selectedReminder = val);
                             },
-                            width: double.infinity,
-                            height: 56.0,
-                            textStyle: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontFamily: 'Inter',
                               fontSize: 16.0,
-                              letterSpacing: 0.0,
                             ),
                             icon: Icon(
                               Icons.keyboard_arrow_down_rounded,
-                              color: FlutterFlowTheme.of(context).secondaryText,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               size: 24.0,
                             ),
-                            fillColor: FlutterFlowTheme.of(context).alternate,
-                            elevation: 0,
-                            borderColor: FlutterFlowTheme.of(context).alternate,
-                            borderWidth: 1.0,
-                            borderRadius: 8.0,
-                            margin: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Theme.of(context).dividerColor,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                                borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                                borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                            ),
                           ),
                         ),
                         _buildFieldSection(
@@ -265,7 +253,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             decoration: _buildInputDecoration(
                               hint: 'Enter reminder value...',
                             ),
-                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontFamily: 'Inter',
                               fontSize: 16.0,
                               letterSpacing: 0.0,
@@ -287,39 +275,50 @@ class _ItemFormPageState extends State<ItemFormPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             Expanded(
-                              child: FFButtonWidget(
-                                onPressed: _isLoading ? null : () {
-                                  context.pop();
-                                },
-                                text: 'Cancel',
-                                options: FFButtonOptions(
-                                  height: 48.0,
-                                  color: FlutterFlowTheme.of(context).alternate,
-                                  textStyle: FlutterFlowTheme.of(context).titleSmall.override(
-                                    fontFamily: 'Inter Tight',
-                                    color: FlutterFlowTheme.of(context).primaryText,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
+                              child: SizedBox(
+                                height: 48.0,
+                                child: OutlinedButton(
+                                  onPressed: _isLoading ? null : () {
+                                    context.pop();
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Theme.of(context).dividerColor,
+                                    side: BorderSide.none,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                    ),
                                   ),
-                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter Tight',
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                            SizedBox(width: 16.0),
+                            const SizedBox(width: 16.0),
                             Expanded(
-                              child: FFButtonWidget(
-                                onPressed: _isLoading ? null : _handleSave,
-                                text: isEditMode ? 'Update' : 'Create',
-                                options: FFButtonOptions(
-                                  height: 48.0,
-                                  color: FlutterFlowTheme.of(context).primary,
-                                  textStyle: FlutterFlowTheme.of(context).titleSmall.override(
-                                    fontFamily: 'Inter Tight',
-                                    color: FlutterFlowTheme.of(context).info,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
+                              child: SizedBox(
+                                height: 48.0,
+                                child: ElevatedButton(
+                                  onPressed: _isLoading ? null : _handleSave,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                    ),
                                   ),
-                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: Text(
+                                    isEditMode ? 'Update' : 'Create',
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter Tight',
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -348,7 +347,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
       children: [
         Text(
           label,
-          style: FlutterFlowTheme.of(context).bodyMedium.override(
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontFamily: 'Inter',
             letterSpacing: 0.0,
             fontWeight: FontWeight.w600,
@@ -363,42 +362,42 @@ class _ItemFormPageState extends State<ItemFormPage> {
   InputDecoration _buildInputDecoration({required String hint}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: FlutterFlowTheme.of(context).bodyMedium.override(
+      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
         fontFamily: 'Inter',
-        color: FlutterFlowTheme.of(context).secondaryText,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontSize: 16.0,
         letterSpacing: 0.0,
       ),
       enabledBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: FlutterFlowTheme.of(context).alternate,
+          color: Theme.of(context).dividerColor,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       focusedBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: FlutterFlowTheme.of(context).primary,
+          color: AppColors.primary,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       errorBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: FlutterFlowTheme.of(context).error,
+          color: AppColors.error,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: FlutterFlowTheme.of(context).error,
+          color: AppColors.error,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       filled: true,
-      fillColor: FlutterFlowTheme.of(context).alternate,
+      fillColor: Theme.of(context).dividerColor,
       contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
     );
   }

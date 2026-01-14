@@ -535,7 +535,7 @@ class _MainPageWidgetState extends State<MainPageWidget>
                                 child: Slidable(
                                   endActionPane: ActionPane(
                                     motion: const ScrollMotion(),
-                                    extentRatio: 0.75,
+                                    extentRatio: 0.85,
                                     children: [
                                       SlidableAction(
                                         label: 'Activate',

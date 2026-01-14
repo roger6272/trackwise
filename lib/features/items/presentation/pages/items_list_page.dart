@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
-import '../../../../flutter_flow/flutter_flow_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../bloc/items_bloc.dart';
 import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
@@ -36,13 +36,13 @@ class _ItemsListPageState extends State<ItemsListPage> {
         },
         child: Scaffold(
           key: scaffoldKey,
-          backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             automaticallyImplyLeading: false,
             title: Text(
               'My Items',
-              style: FlutterFlowTheme.of(context).titleLarge,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             centerTitle: true,
             elevation: 2.0,
@@ -51,10 +51,10 @@ class _ItemsListPageState extends State<ItemsListPage> {
             onPressed: () {
               context.pushNamed(ItemFormPage.routeName);
             },
-            backgroundColor: FlutterFlowTheme.of(context).primary,
+            backgroundColor: AppColors.primary,
             child: Icon(
               Icons.add,
-              color: FlutterFlowTheme.of(context).info,
+              color: Colors.white,
               size: 24.0,
             ),
           ),
@@ -66,7 +66,7 @@ class _ItemsListPageState extends State<ItemsListPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(state.message),
-                      backgroundColor: FlutterFlowTheme.of(context).error,
+                      backgroundColor: AppColors.error,
                     ),
                   );
                 }
@@ -79,7 +79,7 @@ class _ItemsListPageState extends State<ItemsListPage> {
                       height: 50.0,
                       child: CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          FlutterFlowTheme.of(context).primary,
+                          AppColors.primary,
                         ),
                       ),
                     ),
@@ -95,12 +95,12 @@ class _ItemsListPageState extends State<ItemsListPage> {
                           Icon(
                             Icons.inbox_outlined,
                             size: 72.0,
-                            color: FlutterFlowTheme.of(context).secondaryText,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                           SizedBox(height: 16.0),
                           Text(
                             'No items yet',
-                            style: FlutterFlowTheme.of(context).headlineSmall.override(
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                               fontFamily: 'Inter Tight',
                               letterSpacing: 0.0,
                             ),
@@ -108,9 +108,9 @@ class _ItemsListPageState extends State<ItemsListPage> {
                           SizedBox(height: 8.0),
                           Text(
                             'Tap + to create your first item',
-                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontFamily: 'Inter',
-                              color: FlutterFlowTheme.of(context).secondaryText,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               letterSpacing: 0.0,
                             ),
                           ),
@@ -182,7 +182,7 @@ class _ItemsListPageState extends State<ItemsListPage> {
               onPressed: () => Navigator.pop(alertDialogContext, true),
               child: Text(
                 'Delete',
-                style: TextStyle(color: FlutterFlowTheme.of(context).error),
+                style: TextStyle(color: AppColors.error),
               ),
             ),
           ],

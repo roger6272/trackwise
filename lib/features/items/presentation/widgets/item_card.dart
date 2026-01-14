@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
-import '../../../../flutter_flow/flutter_flow_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/item.dart';
 
 class ItemCard extends StatelessWidget {
@@ -25,23 +25,23 @@ class ItemCard extends StatelessWidget {
       child: Slidable(
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
-          extentRatio: 0.6,
+          extentRatio: 0.75,
           children: [
             SlidableAction(
               label: 'Update',
-              backgroundColor: FlutterFlowTheme.of(context).primary,
+              backgroundColor: AppColors.primary,
               icon: Icons.edit,
               onPressed: (_) => onUpdate(),
             ),
             SlidableAction(
               label: 'Increment',
-              backgroundColor: FlutterFlowTheme.of(context).secondary,
+              backgroundColor: AppColors.secondary,
               icon: Icons.add,
               onPressed: (_) => onIncrement(),
             ),
             SlidableAction(
               label: 'Delete',
-              backgroundColor: FlutterFlowTheme.of(context).error,
+              backgroundColor: AppColors.error,
               icon: Icons.delete,
               onPressed: (_) => onDelete(),
             ),
@@ -49,10 +49,10 @@ class ItemCard extends StatelessWidget {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: FlutterFlowTheme.of(context).secondaryBackground,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(12.0),
             border: Border.all(
-              color: FlutterFlowTheme.of(context).alternate,
+              color: Theme.of(context).dividerColor,
               width: 1.0,
             ),
           ),
@@ -80,7 +80,7 @@ class ItemCard extends StatelessWidget {
                       children: [
                         Text(
                           item.name,
-                          style: FlutterFlowTheme.of(context).titleMedium.override(
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontFamily: 'Inter Tight',
                             letterSpacing: 0.0,
                           ),
@@ -88,9 +88,9 @@ class ItemCard extends StatelessWidget {
                         SizedBox(height: 4.0),
                         Text(
                           'Today: ${item.todayCount} • Total: ${item.count}',
-                          style: FlutterFlowTheme.of(context).bodySmall.override(
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontFamily: 'Inter',
-                            color: FlutterFlowTheme.of(context).secondaryText,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             letterSpacing: 0.0,
                           ),
                         ),
@@ -101,12 +101,12 @@ class ItemCard extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                     decoration: BoxDecoration(
-                      color: FlutterFlowTheme.of(context).alternate,
+                      color: Theme.of(context).dividerColor,
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                     child: Text(
                       '+${item.incrementBy}',
-                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.0,
@@ -125,14 +125,14 @@ class ItemCard extends StatelessWidget {
   Color _getReminderColor(BuildContext context) {
     switch (item.reminder) {
       case ReminderType.target:
-        return FlutterFlowTheme.of(context).primary;
+        return AppColors.primary;
       case ReminderType.interval:
-        return FlutterFlowTheme.of(context).secondary;
+        return AppColors.secondary;
       case ReminderType.everyTime:
-        return FlutterFlowTheme.of(context).tertiary;
+        return AppColors.tertiary;
       case ReminderType.none:
       default:
-        return FlutterFlowTheme.of(context).alternate;
+        return Theme.of(context).dividerColor;
     }
   }
 }

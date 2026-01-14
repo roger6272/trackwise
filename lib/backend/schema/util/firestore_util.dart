@@ -38,13 +38,13 @@ Map<String, dynamic> mapFromFirestore(Map<String, dynamic> data) =>
     mergeNestedFields(data)
         .where((k, _) => k != FirestoreUtilData.name)
         .map((key, value) {
-      // Handle Timestamp
+      // Handle Timestamp - convert to local time
       if (value is Timestamp) {
-        value = value.toDate();
+        value = value.toDate().toLocal();
       }
-      // Handle list of Timestamp
+      // Handle list of Timestamp - convert to local time
       if (value is Iterable && value.isNotEmpty && value.first is Timestamp) {
-        value = value.map((v) => (v as Timestamp).toDate()).toList();
+        value = value.map((v) => (v as Timestamp).toDate().toLocal()).toList();
       }
       // Handle GeoPoint
       if (value is GeoPoint) {

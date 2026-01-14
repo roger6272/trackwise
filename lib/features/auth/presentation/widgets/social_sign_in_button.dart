@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../../flutter_flow/flutter_flow_theme.dart';
-
 /// Social sign-in provider options.
 enum SocialProvider { google, apple }
 
@@ -27,7 +25,7 @@ class SocialSignInButton extends StatelessWidget {
         foregroundColor: _foregroundColor(context),
         backgroundColor: _backgroundColor(context),
         padding: const EdgeInsets.symmetric(vertical: 14),
-        side: BorderSide(color: FlutterFlowTheme.of(context).alternate),
+        side: BorderSide(color: Theme.of(context).dividerColor),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -56,13 +54,13 @@ class SocialSignInButton extends StatelessWidget {
   Color _foregroundColor(BuildContext context) {
     switch (provider) {
       case SocialProvider.google:
-        return FlutterFlowTheme.of(context).primaryText;
+        return Theme.of(context).colorScheme.onSurface;
       case SocialProvider.apple:
-        return FlutterFlowTheme.of(context).primaryText;
+        return Theme.of(context).colorScheme.onSurface;
     }
   }
 
   Color _backgroundColor(BuildContext context) {
-    return FlutterFlowTheme.of(context).secondaryBackground;
+    return Theme.of(context).colorScheme.surface;
   }
 }

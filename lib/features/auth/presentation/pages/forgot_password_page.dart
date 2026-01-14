@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../flutter_flow/flutter_flow_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -36,7 +36,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
-          backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           body: BlocConsumer<AuthBloc, AuthState>(
             listener: _handleAuthStateChange,
             builder: (context, state) {
@@ -45,8 +45,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      FlutterFlowTheme.of(context).primary,
-                      FlutterFlowTheme.of(context).tertiary,
+                      AppColors.primary,
+                      AppColors.tertiary,
                     ],
                     begin: const AlignmentDirectional(0.87, -1.0),
                     end: const AlignmentDirectional(-0.87, 1.0),
@@ -86,7 +86,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         onPressed: () => context.pop(),
         icon: Icon(
           Icons.arrow_back_ios,
-          color: FlutterFlowTheme.of(context).info,
+          color: Colors.white,
         ),
       ),
     );
@@ -98,15 +98,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       children: [
         Icon(
           Icons.flourescent_rounded,
-          color: FlutterFlowTheme.of(context).info,
+          color: Colors.white,
           size: 44,
         ),
         const SizedBox(width: 12),
         Text(
           'Trackwise',
-          style: FlutterFlowTheme.of(context).displaySmall.override(
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
                 fontFamily: 'Urbanist',
-                color: FlutterFlowTheme.of(context).info,
+                color: Colors.white,
                 letterSpacing: 0.0,
               ),
         ),
@@ -120,7 +120,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondaryBackground,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -136,20 +136,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           Icon(
             Icons.lock_reset,
             size: 64,
-            color: FlutterFlowTheme.of(context).primary,
+            color: AppColors.primary,
           ),
           const SizedBox(height: 16),
           Text(
             'Forgot Password?',
-            style: FlutterFlowTheme.of(context).headlineMedium,
+            style: Theme.of(context).textTheme.headlineMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             "Enter your email and we'll send you a link to reset your password.",
-            style: FlutterFlowTheme.of(context).bodyMedium.override(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontFamily: 'Plus Jakarta Sans',
-                  color: FlutterFlowTheme.of(context).secondaryText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   letterSpacing: 0.0,
                 ),
             textAlign: TextAlign.center,
@@ -195,8 +195,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     return ElevatedButton(
       onPressed: isLoading ? null : () => _resetPassword(context),
       style: ElevatedButton.styleFrom(
-        backgroundColor: FlutterFlowTheme.of(context).primary,
-        foregroundColor: FlutterFlowTheme.of(context).info,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -223,9 +223,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       onPressed: () => context.pop(),
       child: Text(
         'Back to Sign In',
-        style: FlutterFlowTheme.of(context).bodyMedium.override(
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontFamily: 'Plus Jakarta Sans',
-              color: FlutterFlowTheme.of(context).primary,
+              color: AppColors.primary,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.0,
             ),
@@ -246,7 +246,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Password reset email sent! Check your inbox.'),
-          backgroundColor: FlutterFlowTheme.of(context).success,
+          backgroundColor: AppColors.success,
         ),
       );
       // Go back to login after showing success message
@@ -259,7 +259,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(state.message),
-          backgroundColor: FlutterFlowTheme.of(context).error,
+          backgroundColor: AppColors.error,
         ),
       );
     }

@@ -59,13 +59,13 @@ class EventLogModel extends EventLog {
       userId = uidRef;
     }
 
-    // Parse created_time from Timestamp
+    // Parse created_time from Timestamp and convert to local time
     DateTime createdTime = DateTime.fromMillisecondsSinceEpoch(0);
     final createdTimeValue = data['created_time'];
     if (createdTimeValue is Timestamp) {
-      createdTime = createdTimeValue.toDate();
+      createdTime = createdTimeValue.toDate().toLocal();
     } else if (createdTimeValue is int) {
-      createdTime = DateTime.fromMillisecondsSinceEpoch(createdTimeValue);
+      createdTime = DateTime.fromMillisecondsSinceEpoch(createdTimeValue).toLocal();
     }
 
     return EventLogModel(

@@ -45,7 +45,7 @@ class PerformanceService {
     required int itemCount,
   }) async {
     final trace = _performance.newTrace('bluetooth_data_transfer');
-    trace.putMetric('item_count', itemCount);
+    trace.setMetric('item_count', itemCount);
     await trace.start();
 
     try {
@@ -106,7 +106,7 @@ class PerformanceService {
     required int eventCount,
   }) async {
     final trace = _performance.newTrace('csv_generation');
-    trace.putMetric('event_count', eventCount);
+    trace.setMetric('event_count', eventCount);
     await trace.start();
 
     try {
@@ -200,7 +200,7 @@ class PerformanceService {
 
     // Add custom metrics
     metrics?.forEach((key, value) {
-      trace.putMetric(key, value);
+      trace.setMetric(key, value);
     });
 
     await trace.start();

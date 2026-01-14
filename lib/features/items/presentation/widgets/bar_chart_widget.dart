@@ -159,6 +159,7 @@ class _AggregationSelector extends StatelessWidget {
         ),
       ],
       selected: {currentLevel},
+      showSelectedIcon: false,
       onSelectionChanged: (selection) {
         context.read<ChartsBloc>().add(
               ChangeAggregationLevel(selection.first),

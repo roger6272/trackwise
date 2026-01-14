@@ -255,7 +255,7 @@ class _EventLogTile extends StatelessWidget {
             ),
       ),
       subtitle: Text(
-        timeFormat.format(event.createdTime),
+        timeFormat.format(event.createdTime.toLocal()),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: colorScheme.outline,
             ),

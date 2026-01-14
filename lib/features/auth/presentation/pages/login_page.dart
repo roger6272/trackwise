@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../flutter_flow/flutter_flow_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
-          backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           body: BlocConsumer<AuthBloc, AuthState>(
             listener: _handleAuthStateChange,
             builder: (context, state) {
@@ -53,8 +53,8 @@ class _LoginPageState extends State<LoginPage> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      FlutterFlowTheme.of(context).primary,
-                      FlutterFlowTheme.of(context).tertiary,
+                      AppColors.primary,
+                      AppColors.tertiary,
                     ],
                     begin: const AlignmentDirectional(0.87, -1.0),
                     end: const AlignmentDirectional(-0.87, 1.0),
@@ -91,15 +91,15 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         Icon(
           Icons.flourescent_rounded,
-          color: FlutterFlowTheme.of(context).info,
+          color: Colors.white,
           size: 44,
         ),
         const SizedBox(width: 12),
         Text(
           'Trackwise',
-          style: FlutterFlowTheme.of(context).displaySmall.override(
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
                 fontFamily: 'Urbanist',
-                color: FlutterFlowTheme.of(context).info,
+                color: Colors.white,
                 letterSpacing: 0.0,
               ),
         ),
@@ -113,7 +113,7 @@ class _LoginPageState extends State<LoginPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondaryBackground,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -128,15 +128,15 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           Text(
             'Welcome Back',
-            style: FlutterFlowTheme.of(context).headlineMedium,
+            style: Theme.of(context).textTheme.headlineMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             'Sign in to continue tracking',
-            style: FlutterFlowTheme.of(context).bodyMedium.override(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontFamily: 'Plus Jakarta Sans',
-                  color: FlutterFlowTheme.of(context).secondaryText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   letterSpacing: 0.0,
                 ),
             textAlign: TextAlign.center,
@@ -221,9 +221,9 @@ class _LoginPageState extends State<LoginPage> {
         onPressed: () => context.push(ForgotPasswordPage.routePath),
         child: Text(
           'Forgot Password?',
-          style: FlutterFlowTheme.of(context).bodySmall.override(
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontFamily: 'Plus Jakarta Sans',
-                color: FlutterFlowTheme.of(context).primary,
+                color: AppColors.primary,
                 letterSpacing: 0.0,
               ),
         ),
@@ -235,8 +235,8 @@ class _LoginPageState extends State<LoginPage> {
     return ElevatedButton(
       onPressed: isLoading ? null : () => _signIn(context),
       style: ElevatedButton.styleFrom(
-        backgroundColor: FlutterFlowTheme.of(context).primary,
-        foregroundColor: FlutterFlowTheme.of(context).info,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -261,15 +261,15 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildDivider(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Divider(color: FlutterFlowTheme.of(context).alternate)),
+        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
-            style: FlutterFlowTheme.of(context).bodySmall,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
-        Expanded(child: Divider(color: FlutterFlowTheme.of(context).alternate)),
+        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
       ],
     );
   }
@@ -302,15 +302,15 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         Text(
           "Don't have an account? ",
-          style: FlutterFlowTheme.of(context).bodyMedium,
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         TextButton(
           onPressed: () => context.push(SignupPage.routePath),
           child: Text(
             'Sign Up',
-            style: FlutterFlowTheme.of(context).bodyMedium.override(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontFamily: 'Plus Jakarta Sans',
-                  color: FlutterFlowTheme.of(context).primary,
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.0,
                 ),
@@ -339,7 +339,7 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(state.message),
-          backgroundColor: FlutterFlowTheme.of(context).error,
+          backgroundColor: AppColors.error,
         ),
       );
       // Clear password on error

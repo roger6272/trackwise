@@ -104,6 +104,7 @@ class _FlutterFlowChoiceChipsState extends State<FlutterFlowChoiceChips> {
           data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
           child: ChoiceChip(
             selected: selected,
+            showCheckmark: false,
             onSelected: widget.onChanged != null
                 ? (isSelected) {
                     choiceChipValues = List.from(selectedValues);

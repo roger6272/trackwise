@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../flutter_flow/flutter_flow_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -45,7 +45,7 @@ class _SignupPageState extends State<SignupPage> {
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
-          backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           body: BlocConsumer<AuthBloc, AuthState>(
             listener: _handleAuthStateChange,
             builder: (context, state) {
@@ -54,8 +54,8 @@ class _SignupPageState extends State<SignupPage> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      FlutterFlowTheme.of(context).primary,
-                      FlutterFlowTheme.of(context).tertiary,
+                      AppColors.primary,
+                      AppColors.tertiary,
                     ],
                     begin: const AlignmentDirectional(0.87, -1.0),
                     end: const AlignmentDirectional(-0.87, 1.0),
@@ -95,7 +95,7 @@ class _SignupPageState extends State<SignupPage> {
         onPressed: () => context.pop(),
         icon: Icon(
           Icons.arrow_back_ios,
-          color: FlutterFlowTheme.of(context).info,
+          color: Colors.white,
         ),
       ),
     );
@@ -107,15 +107,15 @@ class _SignupPageState extends State<SignupPage> {
       children: [
         Icon(
           Icons.flourescent_rounded,
-          color: FlutterFlowTheme.of(context).info,
+          color: Colors.white,
           size: 44,
         ),
         const SizedBox(width: 12),
         Text(
           'Trackwise',
-          style: FlutterFlowTheme.of(context).displaySmall.override(
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
                 fontFamily: 'Urbanist',
-                color: FlutterFlowTheme.of(context).info,
+                color: Colors.white,
                 letterSpacing: 0.0,
               ),
         ),
@@ -129,7 +129,7 @@ class _SignupPageState extends State<SignupPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondaryBackground,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -144,15 +144,15 @@ class _SignupPageState extends State<SignupPage> {
         children: [
           Text(
             'Create Account',
-            style: FlutterFlowTheme.of(context).headlineMedium,
+            style: Theme.of(context).textTheme.headlineMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             'Start tracking your habits today',
-            style: FlutterFlowTheme.of(context).bodyMedium.override(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontFamily: 'Plus Jakarta Sans',
-                  color: FlutterFlowTheme.of(context).secondaryText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   letterSpacing: 0.0,
                 ),
             textAlign: TextAlign.center,
@@ -269,8 +269,8 @@ class _SignupPageState extends State<SignupPage> {
     return ElevatedButton(
       onPressed: isLoading ? null : () => _signUp(context),
       style: ElevatedButton.styleFrom(
-        backgroundColor: FlutterFlowTheme.of(context).primary,
-        foregroundColor: FlutterFlowTheme.of(context).info,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -295,15 +295,15 @@ class _SignupPageState extends State<SignupPage> {
   Widget _buildDivider(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Divider(color: FlutterFlowTheme.of(context).alternate)),
+        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
-            style: FlutterFlowTheme.of(context).bodySmall,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
-        Expanded(child: Divider(color: FlutterFlowTheme.of(context).alternate)),
+        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
       ],
     );
   }
@@ -336,15 +336,15 @@ class _SignupPageState extends State<SignupPage> {
       children: [
         Text(
           'Already have an account? ',
-          style: FlutterFlowTheme.of(context).bodyMedium,
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         TextButton(
           onPressed: () => context.pop(),
           child: Text(
             'Sign In',
-            style: FlutterFlowTheme.of(context).bodyMedium.override(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontFamily: 'Plus Jakarta Sans',
-                  color: FlutterFlowTheme.of(context).primary,
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.0,
                 ),
@@ -373,7 +373,7 @@ class _SignupPageState extends State<SignupPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(state.message),
-          backgroundColor: FlutterFlowTheme.of(context).error,
+          backgroundColor: AppColors.error,
         ),
       );
     }

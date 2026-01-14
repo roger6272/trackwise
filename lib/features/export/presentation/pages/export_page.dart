@@ -3,9 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../flutter_flow/flutter_flow_icon_button.dart';
-import '../../../../flutter_flow/flutter_flow_theme.dart';
-import '../../../../flutter_flow/flutter_flow_widgets.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/csv_export_config.dart';
 import '../bloc/export_bloc.dart';
 import '../bloc/export_event.dart';
@@ -73,7 +71,7 @@ class _ExportPageState extends State<ExportPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Export sent! Check your email.'),
-                backgroundColor: FlutterFlowTheme.of(context).success,
+                backgroundColor: AppColors.success,
               ),
             );
             context.pop();
@@ -82,7 +80,7 @@ class _ExportPageState extends State<ExportPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: FlutterFlowTheme.of(context).error,
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -97,25 +95,21 @@ class _ExportPageState extends State<ExportPage> {
             },
             child: Scaffold(
               key: scaffoldKey,
-              backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               appBar: AppBar(
-                backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                 automaticallyImplyLeading: false,
-                leading: FlutterFlowIconButton(
-                  borderColor: Colors.transparent,
-                  borderRadius: 30.0,
-                  borderWidth: 1.0,
-                  buttonSize: 60.0,
+                leading: IconButton(
                   icon: Icon(
                     Icons.arrow_back_rounded,
-                    color: FlutterFlowTheme.of(context).primaryText,
+                    color: Theme.of(context).colorScheme.onSurface,
                     size: 30.0,
                   ),
                   onPressed: () => context.pop(),
                 ),
                 title: Text(
                   'Export Data',
-                  style: FlutterFlowTheme.of(context).titleLarge.override(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontFamily: 'Inter Tight',
                     fontSize: 20.0,
                     letterSpacing: 0.0,
@@ -138,7 +132,7 @@ class _ExportPageState extends State<ExportPage> {
                           // Date Range Section
                           Text(
                             'Date Range',
-                            style: FlutterFlowTheme.of(context).titleMedium.override(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontFamily: 'Inter Tight',
                               letterSpacing: 0.0,
                               fontWeight: FontWeight.w600,
@@ -163,7 +157,7 @@ class _ExportPageState extends State<ExportPage> {
                           // Aggregation Level Section
                           Text(
                             'Aggregation Level',
-                            style: FlutterFlowTheme.of(context).titleMedium.override(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontFamily: 'Inter Tight',
                               letterSpacing: 0.0,
                               fontWeight: FontWeight.w600,
@@ -172,10 +166,10 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 12.0),
                           Container(
                             decoration: BoxDecoration(
-                              color: FlutterFlowTheme.of(context).alternate,
+                              color: Theme.of(context).dividerColor,
                               borderRadius: BorderRadius.circular(8.0),
                               border: Border.all(
-                                color: FlutterFlowTheme.of(context).alternate,
+                                color: Theme.of(context).dividerColor,
                               ),
                             ),
                             child: DropdownButtonHideUnderline(
@@ -183,8 +177,8 @@ class _ExportPageState extends State<ExportPage> {
                                 value: _aggregationLevel,
                                 isExpanded: true,
                                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                dropdownColor: FlutterFlowTheme.of(context).alternate,
-                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                dropdownColor: Theme.of(context).dividerColor,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   fontFamily: 'Inter',
                                   fontSize: 16.0,
                                   letterSpacing: 0.0,
@@ -206,9 +200,9 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 8.0),
                           Text(
                             _getAggregationDescription(_aggregationLevel),
-                            style: FlutterFlowTheme.of(context).bodySmall.override(
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontFamily: 'Inter',
-                              color: FlutterFlowTheme.of(context).secondaryText,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               letterSpacing: 0.0,
                             ),
                           ),
@@ -217,7 +211,7 @@ class _ExportPageState extends State<ExportPage> {
                           // Email Section
                           Text(
                             'Email Address',
-                            style: FlutterFlowTheme.of(context).titleMedium.override(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontFamily: 'Inter Tight',
                               letterSpacing: 0.0,
                               fontWeight: FontWeight.w600,
@@ -231,48 +225,48 @@ class _ExportPageState extends State<ExportPage> {
                             textInputAction: TextInputAction.done,
                             decoration: InputDecoration(
                               hintText: 'Enter your email address...',
-                              hintStyle: FlutterFlowTheme.of(context).bodyMedium.override(
+                              hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 fontFamily: 'Inter',
-                                color: FlutterFlowTheme.of(context).secondaryText,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 16.0,
                                 letterSpacing: 0.0,
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(context).alternate,
+                                  color: Theme.of(context).dividerColor,
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(context).primary,
+                                  color: AppColors.primary,
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(context).error,
+                                  color: AppColors.error,
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(context).error,
+                                  color: AppColors.error,
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               filled: true,
-                              fillColor: FlutterFlowTheme.of(context).alternate,
+                              fillColor: Theme.of(context).dividerColor,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16.0,
                                 vertical: 12.0,
                               ),
                             ),
-                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontFamily: 'Inter',
                               fontSize: 16.0,
                               letterSpacing: 0.0,
@@ -282,9 +276,9 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 8.0),
                           Text(
                             'The CSV file will be sent to this email address.',
-                            style: FlutterFlowTheme.of(context).bodySmall.override(
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontFamily: 'Inter',
-                              color: FlutterFlowTheme.of(context).secondaryText,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               letterSpacing: 0.0,
                             ),
                           ),
@@ -293,20 +287,23 @@ class _ExportPageState extends State<ExportPage> {
                           // Export Button
                           SizedBox(
                             width: double.infinity,
-                            child: FFButtonWidget(
+                            height: 52.0,
+                            child: ElevatedButton(
                               onPressed: isLoading ? null : _handleExport,
-                              text: isLoading ? 'Exporting...' : 'Export to Email',
-                              options: FFButtonOptions(
-                                height: 52.0,
-                                color: FlutterFlowTheme.of(context).primary,
-                                textStyle: FlutterFlowTheme.of(context).titleSmall.override(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                              ),
+                              child: Text(
+                                isLoading ? 'Exporting...' : 'Export to Email',
+                                style: const TextStyle(
                                   fontFamily: 'Inter Tight',
-                                  color: FlutterFlowTheme.of(context).info,
                                   fontSize: 16.0,
-                                  letterSpacing: 0.0,
                                   fontWeight: FontWeight.w600,
                                 ),
-                                borderRadius: BorderRadius.circular(8.0),
                               ),
                             ),
                           ),
@@ -316,14 +313,14 @@ class _ExportPageState extends State<ExportPage> {
                               child: Column(
                                 children: [
                                   CircularProgressIndicator(
-                                    color: FlutterFlowTheme.of(context).primary,
+                                    color: AppColors.primary,
                                   ),
                                   const SizedBox(height: 12.0),
                                   Text(
                                     'Generating and sending export...',
-                                    style: FlutterFlowTheme.of(context).bodySmall.override(
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                       fontFamily: 'Inter',
-                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                       letterSpacing: 0.0,
                                     ),
                                   ),
@@ -356,7 +353,7 @@ class _ExportPageState extends State<ExportPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         decoration: BoxDecoration(
-          color: FlutterFlowTheme.of(context).alternate,
+          color: Theme.of(context).dividerColor,
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: Row(
@@ -367,16 +364,16 @@ class _ExportPageState extends State<ExportPage> {
                 children: [
                   Text(
                     label,
-                    style: FlutterFlowTheme.of(context).bodySmall.override(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontFamily: 'Inter',
-                      color: FlutterFlowTheme.of(context).secondaryText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       letterSpacing: 0.0,
                     ),
                   ),
                   const SizedBox(height: 4.0),
                   Text(
                     _formatDate(date),
-                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontFamily: 'Inter',
                       fontSize: 16.0,
                       letterSpacing: 0.0,
@@ -387,7 +384,7 @@ class _ExportPageState extends State<ExportPage> {
             ),
             Icon(
               Icons.calendar_today,
-              color: FlutterFlowTheme.of(context).secondaryText,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               size: 24.0,
             ),
           ],
