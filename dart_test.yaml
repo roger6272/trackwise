@@ -1,0 +1,5 @@
+# Exclude e2e tests by default (require Firebase emulator)
+# Run e2e tests with: flutter test --tags e2e
+tags:
+  e2e:
+    skip: true
