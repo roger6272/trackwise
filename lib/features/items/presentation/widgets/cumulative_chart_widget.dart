@@ -1,25 +1,44 @@
-import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import '../../../charts/domain/entities/chart_data.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
-import '../../../charts/presentation/bloc/charts_event.dart';
 import '../../../charts/presentation/bloc/charts_state.dart';
 
-/// Line chart widget displaying cumulative (running total) data.
+/// Cumulative chart widget displaying running total data.
 ///
-/// Uses fl_chart to render a line chart showing growth over time.
-/// Shows the running total of events across the selected date range.
-class CumulativeChartWidget extends StatelessWidget {
+/// Custom implementation matching FlutterFlow design:
+/// - Purple bars with tap-to-select (same as bar chart)
+/// - Values are cumulative (running total)
+/// - Y-axis labels on left
+/// - X-axis date labels on bottom
+/// - Tooltip showing date and cumulative count on tap
+class CumulativeChartWidget extends StatefulWidget {
   const CumulativeChartWidget({super.key});
+
+  @override
+  State<CumulativeChartWidget> createState() => _CumulativeChartWidgetState();
+}
+
+class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
+  int? selectedIndex;
+  Offset? tooltipPosition;
+  int? tooltipValue;
+  DateTime? tooltipDate;
+
+  // Layout constants
+  static const double yAxisLabelWidth = 30.0;
+  static const double chartContentHorizontalPadding = 40.0;
+  static const double minBarHeight = 4.0;
+  static const double barAreaVerticalPadding = 30.0;
+  static const int divisions = 5;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChartsBloc, ChartsState>(
       buildWhen: (previous, current) {
-        // Only rebuild for cumulative chart states
         if (current is ChartsLoaded) {
           return current.isCumulativeChart;
         }
@@ -27,300 +46,239 @@ class CumulativeChartWidget extends StatelessWidget {
       },
       builder: (context, state) {
         if (state is ChartsLoading) {
-          return const _ChartContainer(
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (state is ChartsError) {
-          return _ChartContainer(
-            child: Center(
-              child: Text(
-                'Error: ${state.message}',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+          return Center(
+            child: Text(
+              'Error: ${state.message}',
+              style: const TextStyle(color: Colors.red),
             ),
           );
         }
 
         if (state is ChartsLoaded && state.isCumulativeChart) {
           if (state.chartData.isEmpty) {
-            return const _ChartContainer(
-              child: Center(child: Text('No data for selected range')),
-            );
+            return const Center(child: Text('No data for selected range'));
           }
 
-          return _ChartContainer(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ChartHeader(chartData: state.chartData),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: _LineChartContent(chartData: state.chartData),
-                ),
-              ],
-            ),
-          );
-        }
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final usableWidth = constraints.maxWidth;
+              final usableHeight = constraints.maxHeight;
+              final fontScale = (usableWidth / 375).clamp(0.8, 1.4);
+              final chartContentWidth = usableWidth - chartContentHorizontalPadding;
 
-        // Show button to switch to cumulative view if viewing bar chart
-        if (state is ChartsLoaded && state.isBarChart) {
-          return _SwitchToCumulativeButton(state: state);
+              return _buildChart(
+                state: state,
+                usableWidth: usableWidth,
+                usableHeight: usableHeight,
+                chartContentWidth: chartContentWidth,
+                fontScale: fontScale,
+              );
+            },
+          );
         }
 
         return const SizedBox.shrink();
       },
     );
   }
-}
 
-/// Container for chart with consistent styling.
-class _ChartContainer extends StatelessWidget {
-  final Widget child;
+  Widget _buildChart({
+    required ChartsLoaded state,
+    required double usableWidth,
+    required double usableHeight,
+    required double chartContentWidth,
+    required double fontScale,
+  }) {
+    final dataPoints = state.chartData.dataPoints;
+    final baseValues = dataPoints.map((dp) => dp.value).toList();
+    final dates = dataPoints.map((dp) => dp.date).toList();
 
-  const _ChartContainer({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 280,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-/// Header with title and total.
-class _ChartHeader extends StatelessWidget {
-  final ChartData chartData;
-
-  const _ChartHeader({required this.chartData});
-
-  @override
-  Widget build(BuildContext context) {
-    final lastValue = chartData.dataPoints.isNotEmpty
-        ? chartData.dataPoints.last.value
-        : 0;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Cumulative Total',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            Text(
-              'Running total: $lastValue',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-            ),
-          ],
-        ),
-        IconButton(
-          icon: const Icon(Icons.bar_chart),
-          tooltip: 'Switch to bar chart',
-          onPressed: () => _switchToBarChart(context),
-        ),
-      ],
-    );
-  }
-
-  void _switchToBarChart(BuildContext context) {
-    final bloc = context.read<ChartsBloc>();
-    final state = bloc.state;
-    if (state is ChartsLoaded) {
-      bloc.add(LoadBarChart(
-        startDate: state.startDate,
-        endDate: state.endDate,
-        itemId: state.itemId,
-      ));
+    // Calculate cumulative values (running total)
+    final values = <int>[];
+    int runningTotal = 0;
+    for (final v in baseValues) {
+      runningTotal += v;
+      values.add(runningTotal);
     }
-  }
-}
 
-/// Button to switch from bar chart to cumulative view.
-class _SwitchToCumulativeButton extends StatelessWidget {
-  final ChartsLoaded state;
+    final totalBars = values.length;
+    final maxY = values.isEmpty ? 0 : values.reduce((a, b) => a > b ? a : b);
+    final stepSize = ((maxY / divisions).ceil()).clamp(1, double.infinity).toInt();
+    final adjustedMaxY = stepSize * divisions;
 
-  const _SwitchToCumulativeButton({required this.state});
+    final barAreaHeight = usableHeight - barAreaVerticalPadding - 20;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: OutlinedButton.icon(
-        onPressed: () {
-          context.read<ChartsBloc>().add(LoadCumulativeChart(
-                startDate: state.startDate,
-                endDate: state.endDate,
-                itemId: state.itemId,
-              ));
-        },
-        icon: const Icon(Icons.show_chart),
-        label: const Text('Show Cumulative Chart'),
-      ),
-    );
-  }
-}
-
-/// The actual line chart using fl_chart.
-class _LineChartContent extends StatelessWidget {
-  final ChartData chartData;
-
-  const _LineChartContent({required this.chartData});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final maxY = chartData.maxValue.toDouble() * 1.1; // Add 10% padding
-    final minY = 0.0;
-
-    return LineChart(
-      LineChartData(
-        minY: minY,
-        maxY: maxY > 0 ? maxY : 10,
-        lineTouchData: LineTouchData(
-          enabled: true,
-          touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: colorScheme.inverseSurface,
-            tooltipPadding: const EdgeInsets.all(8),
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final index = spot.x.toInt();
-                if (index < 0 || index >= chartData.dataPoints.length) {
-                  return null;
-                }
-                final dataPoint = chartData.dataPoints[index];
-                final dateStr = DateFormat('MMM d, y').format(dataPoint.date);
-                return LineTooltipItem(
-                  '$dateStr\nTotal: ${dataPoint.value}',
-                  TextStyle(
-                    color: colorScheme.onInverseSurface,
-                    fontWeight: FontWeight.bold,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        setState(() {
+          selectedIndex = null;
+          tooltipPosition = null;
+          tooltipValue = null;
+          tooltipDate = null;
+        });
+      },
+      child: SizedBox(
+        width: usableWidth,
+        height: usableHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Column(
+              children: [
+                SizedBox(
+                  height: barAreaHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Y-axis labels
+                      SizedBox(
+                        width: yAxisLabelWidth,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(divisions + 1, (i) {
+                            final label = ((adjustedMaxY / divisions) * i).round();
+                            return Text(
+                              '$label',
+                              style: TextStyle(fontSize: 8 * fontScale),
+                            );
+                          }).reversed.toList(),
+                        ),
+                      ),
+                      // Bars
+                      SizedBox(
+                        width: chartContentWidth,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: _buildBars(
+                            totalBars: totalBars,
+                            barAreaHeight: barAreaHeight,
+                            values: values,
+                            dates: dates,
+                            adjustedMaxY: adjustedMaxY,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              }).toList();
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              getTitlesWidget: (value, meta) {
-                if (value == meta.max || value == meta.min) {
-                  return const SizedBox.shrink();
-                }
-                return Text(
-                  value.toInt().toString(),
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 10,
-                  ),
-                );
-              },
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 32,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= chartData.dataPoints.length) {
-                  return const SizedBox.shrink();
-                }
-
-                // Show fewer labels if many data points
-                final showEvery = chartData.count > 14
-                    ? (chartData.count / 5).ceil()
-                    : chartData.count > 7
-                        ? 2
-                        : 1;
-
-                if (index % showEvery != 0) {
-                  return const SizedBox.shrink();
-                }
-
-                final date = chartData.dataPoints[index].date;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    DateFormat('M/d').format(date),
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 10,
+                ),
+                // X-axis labels
+                SizedBox(
+                  height: 20,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: yAxisLabelWidth),
+                    child: Row(
+                      children: List.generate(totalBars, (i) {
+                        final date = dates[i];
+                        final showLabel = totalBars > 14
+                            ? (totalBars - 1 - i) % 5 == 0
+                            : true;
+                        return Expanded(
+                          child: Container(
+                            alignment: Alignment.topCenter,
+                            child: Text(
+                              showLabel ? DateFormat('dd').format(date) : '',
+                              style: TextStyle(fontSize: 7 * fontScale),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
+            // Tooltip
+            if (selectedIndex != null && tooltipPosition != null)
+              Positioned(
+                left: (tooltipPosition!.dx - 30).clamp(0, usableWidth - 80),
+                top: (tooltipPosition!.dy - 60).clamp(0, usableHeight - 50),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          tooltipDate != null
+                              ? DateFormat('MMM dd, yy').format(tooltipDate!)
+                              : '',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                        Text(
+                          'Count: ${tooltipValue ?? ''}',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxY > 0 ? maxY / 4 : 2.5,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: colorScheme.outlineVariant.withOpacity(0.5),
-            strokeWidth: 1,
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: chartData.dataPoints.asMap().entries.map((entry) {
-              return FlSpot(
-                entry.key.toDouble(),
-                entry.value.value.toDouble(),
-              );
-            }).toList(),
-            isCurved: true,
-            curveSmoothness: 0.3,
-            color: colorScheme.secondary,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: chartData.count <= 30,
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: 4,
-                  color: colorScheme.secondary,
-                  strokeWidth: 2,
-                  strokeColor: colorScheme.surface,
-                );
-              },
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              color: colorScheme.secondary.withOpacity(0.1),
-            ),
-          ),
-        ],
       ),
     );
+  }
+
+  List<Widget> _buildBars({
+    required int totalBars,
+    required double barAreaHeight,
+    required List<int> values,
+    required List<DateTime> dates,
+    required int adjustedMaxY,
+  }) {
+    return List.generate(totalBars, (i) {
+      final isSelected = selectedIndex == i;
+      final barHeight = adjustedMaxY > 0
+          ? max((values[i] / adjustedMaxY) * barAreaHeight, minBarHeight)
+          : minBarHeight;
+
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (details) {
+              final RenderBox box = context.findRenderObject() as RenderBox;
+              final localPosition = box.globalToLocal(details.globalPosition);
+              setState(() {
+                selectedIndex = isSelected ? null : i;
+                tooltipValue = values[i];
+                tooltipDate = dates[i];
+                tooltipPosition = localPosition;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              width: double.infinity,
+              height: barHeight,
+              color: isSelected ? Colors.grey : Colors.purple,
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant CumulativeChartWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clear selection when widget updates
+    setState(() {
+      selectedIndex = null;
+      tooltipPosition = null;
+      tooltipValue = null;
+      tooltipDate = null;
+    });
   }
 }

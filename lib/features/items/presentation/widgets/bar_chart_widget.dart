@@ -1,25 +1,43 @@
-import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import '../../../charts/domain/entities/chart_data.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
-import '../../../charts/presentation/bloc/charts_event.dart';
 import '../../../charts/presentation/bloc/charts_state.dart';
 
 /// Bar chart widget displaying aggregated event data.
 ///
-/// Uses fl_chart to render professional-looking bar charts.
-/// Supports daily, weekly, and monthly aggregation.
-class BarChartWidget extends StatelessWidget {
+/// Custom implementation matching FlutterFlow design:
+/// - Purple bars with tap-to-select
+/// - Y-axis labels on left
+/// - X-axis date labels on bottom
+/// - Tooltip showing date and count on tap
+class BarChartWidget extends StatefulWidget {
   const BarChartWidget({super.key});
+
+  @override
+  State<BarChartWidget> createState() => _BarChartWidgetState();
+}
+
+class _BarChartWidgetState extends State<BarChartWidget> {
+  int? selectedIndex;
+  Offset? tooltipPosition;
+  int? tooltipValue;
+  DateTime? tooltipDate;
+
+  // Layout constants
+  static const double yAxisLabelWidth = 30.0;
+  static const double chartContentHorizontalPadding = 40.0;
+  static const double minBarHeight = 3.0;
+  static const double barAreaVerticalPadding = 30.0;
+  static const int divisions = 5;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChartsBloc, ChartsState>(
       buildWhen: (previous, current) {
-        // Only rebuild for bar chart states
         if (current is ChartsLoaded) {
           return current.isBarChart;
         }
@@ -27,40 +45,38 @@ class BarChartWidget extends StatelessWidget {
       },
       builder: (context, state) {
         if (state is ChartsLoading) {
-          return const _ChartContainer(
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (state is ChartsError) {
-          return _ChartContainer(
-            child: Center(
-              child: Text(
-                'Error: ${state.message}',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+          return Center(
+            child: Text(
+              'Error: ${state.message}',
+              style: const TextStyle(color: Colors.red),
             ),
           );
         }
 
         if (state is ChartsLoaded && state.isBarChart) {
           if (state.chartData.isEmpty) {
-            return const _ChartContainer(
-              child: Center(child: Text('No data for selected range')),
-            );
+            return const Center(child: Text('No data for selected range'));
           }
 
-          return _ChartContainer(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ChartHeader(state: state),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: _BarChartContent(chartData: state.chartData),
-                ),
-              ],
-            ),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final usableWidth = constraints.maxWidth;
+              final usableHeight = constraints.maxHeight;
+              final fontScale = (usableWidth / 375).clamp(0.8, 1.4);
+              final chartContentWidth = usableWidth - chartContentHorizontalPadding;
+
+              return _buildChart(
+                state: state,
+                usableWidth: usableWidth,
+                usableHeight: usableHeight,
+                chartContentWidth: chartContentWidth,
+                fontScale: fontScale,
+              );
+            },
           );
         }
 
@@ -68,263 +84,192 @@ class BarChartWidget extends StatelessWidget {
       },
     );
   }
-}
 
-/// Container for chart with consistent styling.
-class _ChartContainer extends StatelessWidget {
-  final Widget child;
+  Widget _buildChart({
+    required ChartsLoaded state,
+    required double usableWidth,
+    required double usableHeight,
+    required double chartContentWidth,
+    required double fontScale,
+  }) {
+    final dataPoints = state.chartData.dataPoints;
+    final values = dataPoints.map((dp) => dp.value).toList();
+    final dates = dataPoints.map((dp) => dp.date).toList();
 
-  const _ChartContainer({required this.child});
+    final totalBars = values.length;
+    final maxY = values.isEmpty ? 0 : values.reduce((a, b) => a > b ? a : b);
+    final stepSize = ((maxY / divisions).ceil()).clamp(1, double.infinity).toInt();
+    final adjustedMaxY = stepSize * divisions;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 320,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
+    final barAreaHeight = usableHeight - barAreaVerticalPadding - 20;
 
-/// Header with title and aggregation level selector.
-class _ChartHeader extends StatelessWidget {
-  final ChartsLoaded state;
-
-  const _ChartHeader({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Activity',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            Text(
-              'Total: ${state.chartData.totalValue}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            ),
-          ],
-        ),
-        _AggregationSelector(currentLevel: state.aggregationLevel),
-      ],
-    );
-  }
-}
-
-/// Dropdown to select aggregation level.
-class _AggregationSelector extends StatelessWidget {
-  final AggregationLevel currentLevel;
-
-  const _AggregationSelector({required this.currentLevel});
-
-  @override
-  Widget build(BuildContext context) {
-    return SegmentedButton<AggregationLevel>(
-      segments: const [
-        ButtonSegment(
-          value: AggregationLevel.daily,
-          label: Text('D'),
-          tooltip: 'Daily',
-        ),
-        ButtonSegment(
-          value: AggregationLevel.weekly,
-          label: Text('W'),
-          tooltip: 'Weekly',
-        ),
-        ButtonSegment(
-          value: AggregationLevel.monthly,
-          label: Text('M'),
-          tooltip: 'Monthly',
-        ),
-      ],
-      selected: {currentLevel},
-      showSelectedIcon: false,
-      onSelectionChanged: (selection) {
-        context.read<ChartsBloc>().add(
-              ChangeAggregationLevel(selection.first),
-            );
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        setState(() {
+          selectedIndex = null;
+          tooltipPosition = null;
+          tooltipValue = null;
+          tooltipDate = null;
+        });
       },
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    );
-  }
-}
-
-/// The actual bar chart using fl_chart.
-class _BarChartContent extends StatelessWidget {
-  final ChartData chartData;
-
-  const _BarChartContent({required this.chartData});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final maxY = chartData.maxValue.toDouble() * 1.2; // Add 20% padding
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxY > 0 ? maxY : 10,
-        minY: 0,
-        barTouchData: BarTouchData(
-          enabled: true,
-          touchTooltipData: BarTouchTooltipData(
-            tooltipBgColor: colorScheme.inverseSurface,
-            tooltipPadding: const EdgeInsets.all(8),
-            tooltipMargin: 8,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              final dataPoint = chartData.dataPoints[group.x.toInt()];
-              final dateStr = _formatDate(dataPoint.date, chartData.aggregationLevel);
-              return BarTooltipItem(
-                '$dateStr\n${dataPoint.value}',
-                TextStyle(
-                  color: colorScheme.onInverseSurface,
-                  fontWeight: FontWeight.bold,
-                ),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              getTitlesWidget: (value, meta) {
-                if (value == meta.max || value == meta.min) {
-                  return const SizedBox.shrink();
-                }
-                return Text(
-                  value.toInt().toString(),
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 10,
+      child: SizedBox(
+        width: usableWidth,
+        height: usableHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Column(
+              children: [
+                SizedBox(
+                  height: barAreaHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Y-axis labels
+                      SizedBox(
+                        width: yAxisLabelWidth,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(divisions + 1, (i) {
+                            final label = ((adjustedMaxY / divisions) * i).round();
+                            return Text(
+                              '$label',
+                              style: TextStyle(fontSize: 8 * fontScale),
+                            );
+                          }).reversed.toList(),
+                        ),
+                      ),
+                      // Bars
+                      SizedBox(
+                        width: chartContentWidth,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: _buildBars(
+                            totalBars: totalBars,
+                            barAreaHeight: barAreaHeight,
+                            values: values,
+                            dates: dates,
+                            adjustedMaxY: adjustedMaxY,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 32,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= chartData.dataPoints.length) {
-                  return const SizedBox.shrink();
-                }
-
-                // Show fewer labels if many data points
-                final showEvery = chartData.count > 14
-                    ? (chartData.count / 7).ceil()
-                    : chartData.count > 7
-                        ? 2
-                        : 1;
-
-                if (index % showEvery != 0) {
-                  return const SizedBox.shrink();
-                }
-
-                final date = chartData.dataPoints[index].date;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    _formatAxisLabel(date, chartData.aggregationLevel),
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 10,
+                ),
+                // X-axis labels
+                SizedBox(
+                  height: 20,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: yAxisLabelWidth),
+                    child: Row(
+                      children: List.generate(totalBars, (i) {
+                        final date = dates[i];
+                        final showLabel = totalBars > 14
+                            ? (totalBars - 1 - i) % 5 == 0
+                            : true;
+                        return Expanded(
+                          child: Container(
+                            alignment: Alignment.topCenter,
+                            child: Text(
+                              showLabel ? DateFormat('dd').format(date) : '',
+                              style: TextStyle(fontSize: 7 * fontScale),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxY > 0 ? maxY / 4 : 2.5,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: colorScheme.outlineVariant.withOpacity(0.5),
-            strokeWidth: 1,
-          ),
-        ),
-        barGroups: chartData.dataPoints.asMap().entries.map((entry) {
-          return BarChartGroupData(
-            x: entry.key,
-            barRods: [
-              BarChartRodData(
-                toY: entry.value.value.toDouble(),
-                color: colorScheme.primary,
-                width: _calculateBarWidth(chartData.count),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            // Tooltip
+            if (selectedIndex != null && tooltipPosition != null)
+              Positioned(
+                left: (tooltipPosition!.dx - 30).clamp(0, usableWidth - 80),
+                top: (tooltipPosition!.dy - 60).clamp(0, usableHeight - 50),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          tooltipDate != null
+                              ? DateFormat('MMM dd, yy').format(tooltipDate!)
+                              : '',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                        Text(
+                          'Count: ${tooltipValue ?? ''}',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ],
-          );
-        }).toList(),
+          ],
+        ),
       ),
     );
   }
 
-  double _calculateBarWidth(int count) {
-    if (count <= 7) return 24;
-    if (count <= 14) return 16;
-    if (count <= 30) return 8;
-    return 4;
+  List<Widget> _buildBars({
+    required int totalBars,
+    required double barAreaHeight,
+    required List<int> values,
+    required List<DateTime> dates,
+    required int adjustedMaxY,
+  }) {
+    return List.generate(totalBars, (i) {
+      final isSelected = selectedIndex == i;
+      final barHeight = adjustedMaxY > 0
+          ? max((values[i] / adjustedMaxY) * barAreaHeight, minBarHeight)
+          : minBarHeight;
+
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (details) {
+              final RenderBox box = context.findRenderObject() as RenderBox;
+              final localPosition = box.globalToLocal(details.globalPosition);
+              setState(() {
+                selectedIndex = isSelected ? null : i;
+                tooltipValue = values[i];
+                tooltipDate = dates[i];
+                tooltipPosition = localPosition;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              width: double.infinity,
+              height: barHeight,
+              color: isSelected ? Colors.grey : Colors.purple,
+            ),
+          ),
+        ),
+      );
+    });
   }
 
-  String _formatAxisLabel(DateTime date, AggregationLevel level) {
-    switch (level) {
-      case AggregationLevel.daily:
-        return DateFormat('M/d').format(date);
-      case AggregationLevel.weekly:
-        return 'W${_weekNumber(date)}';
-      case AggregationLevel.monthly:
-        return DateFormat('MMM').format(date);
-    }
-  }
-
-  String _formatDate(DateTime date, AggregationLevel level) {
-    switch (level) {
-      case AggregationLevel.daily:
-        return DateFormat('MMM d, y').format(date);
-      case AggregationLevel.weekly:
-        return 'Week of ${DateFormat('MMM d').format(date)}';
-      case AggregationLevel.monthly:
-        return DateFormat('MMMM y').format(date);
-    }
-  }
-
-  int _weekNumber(DateTime date) {
-    final firstDayOfYear = DateTime(date.year, 1, 1);
-    final daysDiff = date.difference(firstDayOfYear).inDays;
-    return ((daysDiff + firstDayOfYear.weekday - 1) / 7).ceil();
+  @override
+  void didUpdateWidget(covariant BarChartWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clear selection when widget updates
+    setState(() {
+      selectedIndex = null;
+      tooltipPosition = null;
+      tooltipValue = null;
+      tooltipDate = null;
+    });
   }
 }
