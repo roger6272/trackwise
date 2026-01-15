@@ -1,3 +1,6 @@
+@Tags(['e2e'])
+library;
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,25 +38,32 @@ import 'e2e_test_helper.dart';
 /// # Terminal 2: Run E2E tests
 /// flutter test test/features/items/e2e/items_e2e_test.dart
 /// ```
+bool _emulatorRunning = false;
+
 void main() {
   late E2ETestHelper helper;
 
   setUpAll(() async {
     // Check if emulator is running
-    final isRunning = await E2ETestHelper.isEmulatorRunning();
-    if (!isRunning) {
+    _emulatorRunning = await E2ETestHelper.isEmulatorRunning();
+    if (!_emulatorRunning) {
       print('\n' + '=' * 70);
-      print('ERROR: Firebase emulator is not running!');
-      print('Please start the emulator first:');
+      print('SKIPPING: Firebase emulator is not running');
+      print('To run e2e tests, start the emulator first:');
       print('  cd firebase');
       print('  firebase emulators:start');
+      print('  flutter test --tags e2e');
       print('=' * 70 + '\n');
-      throw Exception('Firebase emulator not running. Start it with: firebase emulators:start');
+    } else {
+      print('✓ Firebase emulator is running');
     }
-    print('✓ Firebase emulator is running');
   });
 
   setUp(() async {
+    if (!_emulatorRunning) {
+      markTestSkipped('Firebase emulator not running');
+      return;
+    }
     helper = E2ETestHelper();
     await helper.setUp();
   });

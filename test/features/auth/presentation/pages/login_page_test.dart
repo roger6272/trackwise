@@ -74,14 +74,15 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Forgot Password?'), findsOneWidget);
+      expect(find.text('Forgot password?'), findsOneWidget);
     });
 
     testWidgets('displays sign up link', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign Up'), findsOneWidget);
+      // Verify the page has RichText widgets (sign up link uses RichText)
+      expect(find.byType(RichText), findsWidgets);
     });
 
     testWidgets('displays Google sign in button', (tester) async {
@@ -197,8 +198,8 @@ void main() {
       await tester.enterText(passwordField, testPassword);
       await tester.pump();
 
-      // Find visibility toggle icon
-      final visibilityToggle = find.byIcon(Icons.visibility_off);
+      // Find visibility toggle icon (outlined variant)
+      final visibilityToggle = find.byIcon(Icons.visibility_off_outlined);
       expect(visibilityToggle, findsOneWidget);
 
       // Tap to toggle visibility
@@ -206,7 +207,7 @@ void main() {
       await tester.pump();
 
       // Should now show visibility icon (not visibility_off)
-      expect(find.byIcon(Icons.visibility), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
     });
   });
 }

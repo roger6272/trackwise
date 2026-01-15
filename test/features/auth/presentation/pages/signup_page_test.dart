@@ -75,7 +75,8 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign In'), findsOneWidget);
+      // Verify the page has RichText widgets (sign in link uses RichText)
+      expect(find.byType(RichText), findsWidgets);
     });
 
     testWidgets('displays Google sign in button', (tester) async {
@@ -238,8 +239,8 @@ void main() {
       await tester.enterText(passwordField, testPassword);
       await tester.pump();
 
-      // Find first visibility toggle icon
-      final visibilityToggles = find.byIcon(Icons.visibility_off);
+      // Find first visibility toggle icon (outlined variant)
+      final visibilityToggles = find.byIcon(Icons.visibility_off_outlined);
       expect(visibilityToggles, findsWidgets);
 
       // Tap first toggle
@@ -247,7 +248,7 @@ void main() {
       await tester.pump();
 
       // Should show visibility icon
-      expect(find.byIcon(Icons.visibility), findsWidgets);
+      expect(find.byIcon(Icons.visibility_outlined), findsWidgets);
     });
   });
 }

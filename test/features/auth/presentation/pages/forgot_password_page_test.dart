@@ -67,18 +67,18 @@ void main() {
       expect(find.text('Send Reset Link'), findsOneWidget);
     });
 
-    testWidgets('displays back to sign in link', (tester) async {
+    testWidgets('displays back button', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Back to Sign In'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
     });
 
     testWidgets('displays forgot password title', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Forgot Password?'), findsOneWidget);
+      expect(find.text('Forgot Password'), findsOneWidget);
     });
 
     testWidgets('shows loading indicator when state is AuthLoading', (tester) async {
@@ -172,7 +172,7 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.arrow_back_ios), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
     });
   });
 }
