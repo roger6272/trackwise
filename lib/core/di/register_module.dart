@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:injectable/injectable.dart';
 
+import '../state/app_ui_state.dart';
+
 /// Module for registering external dependencies that cannot be annotated.
 ///
 /// This includes Firebase instances, third-party packages, and other
@@ -20,4 +22,8 @@ abstract class RegisterModule {
   /// Google Sign-In instance
   @lazySingleton
   GoogleSignIn get googleSignIn => GoogleSignIn(scopes: ['profile', 'email']);
+
+  /// App UI State singleton instance
+  @lazySingleton
+  AppUiState get appUiState => AppUiState();
 }

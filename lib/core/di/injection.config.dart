@@ -18,6 +18,7 @@ import 'package:trackwise/core/di/register_module.dart' as _i510;
 import 'package:trackwise/core/services/analytics_service.dart' as _i590;
 import 'package:trackwise/core/services/crashlytics_service.dart' as _i813;
 import 'package:trackwise/core/services/performance_service.dart' as _i1004;
+import 'package:trackwise/core/state/app_ui_state.dart' as _i237;
 import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasource.dart'
     as _i647;
 import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasource_impl.dart'
@@ -168,6 +169,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i974.FirebaseFirestore>(() => registerModule.firestore);
     gh.lazySingleton<_i59.FirebaseAuth>(() => registerModule.firebaseAuth);
     gh.lazySingleton<_i116.GoogleSignIn>(() => registerModule.googleSignIn);
+    gh.lazySingleton<_i237.AppUiState>(() => registerModule.appUiState);
     gh.lazySingleton<_i590.AnalyticsService>(
         () => _i590.AnalyticsService.create());
     gh.lazySingleton<_i813.CrashlyticsService>(
@@ -259,7 +261,7 @@ extension GetItInjectableX on _i174.GetIt {
           exportUserData: gh<_i764.ExportUserDataUseCase>(),
           deleteAccount: gh<_i535.DeleteAccountUseCase>(),
         ));
-    gh.factory<_i72.BluetoothBloc>(() => _i72.BluetoothBloc(
+    gh.lazySingleton<_i72.BluetoothBloc>(() => _i72.BluetoothBloc(
           gh<_i697.ScanDevicesUseCase>(),
           gh<_i907.StopScanUseCase>(),
           gh<_i679.ConnectDeviceUseCase>(),

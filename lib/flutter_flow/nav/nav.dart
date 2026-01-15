@@ -182,10 +182,9 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: ItemFormPage.routeName,
           path: ItemFormPage.routePath,
           builder: (context, params) => ItemFormPage(
-            item: params.getParam(
-              'item',
-              ParamType.Document,
-            ),
+            item: params.state.extra is Map
+                ? (params.state.extra as Map)['item']
+                : null,
           ),
         ),
         FFRoute(
