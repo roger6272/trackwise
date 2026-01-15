@@ -25,7 +25,7 @@ import '../widgets/event_log_list_widget.dart';
 /// Integrates with EventsBloc and ChartsBloc for data management.
 class ItemDetailPage extends StatelessWidget {
   static String routeName = 'ItemDetailPage';
-  static String routePath = '/items';
+  static String routePath = '/items/:id';
 
   // FF Colors
   static const Color _primary = Color(0xFF4B39EF);

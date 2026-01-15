@@ -350,7 +350,11 @@ class _ItemsListContentState extends State<_ItemsListContent> {
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
         onTap: () {
-          context.go('/items/${item.id}?name=${Uri.encodeComponent(item.name)}');
+          context.pushNamed(
+            'ItemDetailPage',
+            pathParameters: {'id': item.id},
+            queryParameters: {'name': item.name},
+          );
         },
         child: Slidable(
           endActionPane: ActionPane(

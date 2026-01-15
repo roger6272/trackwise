@@ -89,7 +89,9 @@
       "Skill(pm:issue-start)",
       "Bash(test:*)",
       "Skill(pm:issue-analyze)",
-      "Skill(requesting-code-review)"
+      "Skill(requesting-code-review)",
+      "Skill(brainstorming)",
+      "Bash(Select-String -Pattern \"\\(FAILED|Error\\)\" -Context 3,0)"
     ]
   }
 }
