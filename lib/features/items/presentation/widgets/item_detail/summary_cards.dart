@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Widget displaying summary statistics cards with slide/fade animations.
 ///
@@ -64,18 +65,23 @@ class _SummaryCardsState extends State<SummaryCards>
       child: SlideTransition(
         position: _slideAnimation,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: _SummaryCard(
                 value: widget.currentCount.toString(),
-                label: 'Current\nCount',
+                label: 'Current Count',
+                width: MediaQuery.sizeOf(context).width * 0.42,
               ),
             ),
-            const SizedBox(width: 12.0),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: _SummaryCard(
                 value: widget.average.toStringAsFixed(1),
                 label: 'Average',
+                width: MediaQuery.sizeOf(context).width * 0.42,
               ),
             ),
           ],
@@ -89,10 +95,12 @@ class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
     required this.value,
     required this.label,
+    required this.width,
   });
 
   final String value;
   final String label;
+  final double width;
 
   static const Color _alternate = Color(0xFFE0E3E7);
   static const Color _secondaryBackground = Color(0xFFFFFFFF);
@@ -102,6 +110,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: width,
       height: 80.0,
       decoration: BoxDecoration(
         color: _secondaryBackground,
@@ -115,19 +124,23 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: _primaryText,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0.0, 4.0, 0.0, 2.0),
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.interTight(
+                fontSize: 20.0,
+                fontWeight: FontWeight.w600,
+                color: _primaryText,
+              ),
             ),
           ),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 12,
+            style: GoogleFonts.inter(
+              fontSize: 12.0,
               color: _secondaryText,
             ),
           ),

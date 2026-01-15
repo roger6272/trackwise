@@ -55,6 +55,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   static const Color _primary = Color(0xFF4B39EF);
   static const Color _primaryBackground = Color(0xFFF1F4F8);
   static const Color _primaryText = Color(0xFF14181B);
+  static const Color _alternate = Color(0xFFE0E3E7);
 
   // Filter state
   String _aggregation = '1D';
@@ -77,100 +78,123 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         ),
       ],
       child: Builder(
-        builder: (context) => Scaffold(
-          backgroundColor: _primaryBackground,
-          appBar: AppBar(
+        builder: (context) => GestureDetector(
+          onTap: () {
+            FocusScope.of(context).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: Scaffold(
             backgroundColor: _primaryBackground,
-            automaticallyImplyLeading: false,
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: _primaryText,
-                size: 30.0,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            title: Text(
-              widget.itemName ?? 'Item Details',
-              style: GoogleFonts.interTight(
-                color: _primaryText,
-                fontWeight: FontWeight.w600,
-                fontSize: 22.0,
-              ),
-            ),
-            actions: [
-              IconButton(
+            appBar: AppBar(
+              backgroundColor: _primaryBackground,
+              automaticallyImplyLeading: false,
+              leading: IconButton(
                 icon: const Icon(
-                  Icons.refresh,
+                  Icons.arrow_back_rounded,
                   color: _primaryText,
+                  size: 30.0,
                 ),
-                tooltip: 'Refresh',
-                onPressed: () => _refreshData(context),
+                onPressed: () => Navigator.of(context).pop(),
               ),
-            ],
-            centerTitle: true,
-            elevation: 2.0,
-          ),
-          body: SafeArea(
-            top: true,
-            child: RefreshIndicator(
-              color: _primary,
-              onRefresh: () async => _refreshData(context),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 32.0),
+              title: Text(
+                widget.itemName ?? 'None',
+                style: GoogleFonts.interTight(
+                  color: _primaryText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 22.0,
+                ),
+              ),
+              actions: const [],
+              centerTitle: true,
+              elevation: 2.0,
+            ),
+            body: SafeArea(
+              top: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 0.0),
+                child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      FilterSection(
-                        aggregation: _aggregation,
-                        showSinceReset: _showSinceReset,
-                        selectedDate: _selectedDate,
-                        isCalendarCollapsed: _isCalendarCollapsed,
-                        onAggregationChanged: (value) {
-                          setState(() {
-                            _aggregation = value;
-                          });
-                          _reloadChart(context);
-                        },
-                        onShowSinceResetChanged: (value) {
-                          setState(() {
-                            _showSinceReset = value;
-                          });
-                        },
-                        onDateChanged: (date) {
-                          setState(() {
-                            _selectedDate = date;
-                          });
-                          _reloadChart(context);
-                        },
-                        onToggleCalendar: () {
-                          setState(() {
-                            _isCalendarCollapsed = !_isCalendarCollapsed;
-                          });
-                        },
+                      // Combined Filter + Stats container
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _alternate,
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 20.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.max,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Filter Section (no container - just the content)
+                              FilterSection(
+                                aggregation: _aggregation,
+                                showSinceReset: _showSinceReset,
+                                selectedDate: _selectedDate,
+                                isCalendarCollapsed: _isCalendarCollapsed,
+                                onAggregationChanged: (value) {
+                                  setState(() {
+                                    _aggregation = value;
+                                  });
+                                  _reloadChart(context);
+                                },
+                                onShowSinceResetChanged: (value) {
+                                  setState(() {
+                                    _showSinceReset = value;
+                                  });
+                                },
+                                onDateChanged: (date) {
+                                  setState(() {
+                                    _selectedDate = date;
+                                  });
+                                  _reloadChart(context);
+                                },
+                                onToggleCalendar: () {
+                                  setState(() {
+                                    _isCalendarCollapsed = !_isCalendarCollapsed;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 16.0),
+                      // Stats Section container
                       BlocBuilder<EventsBloc, EventsState>(
                         builder: (context, eventsState) {
                           final stats = _calculateStats(eventsState);
                           return Column(
                             children: [
-                              StatsSection(
-                                stats: stats,
-                                showCumulative: _showCumulative,
-                                onChartTypeChanged: (value) {
-                                  setState(() {
-                                    _showCumulative = value;
-                                  });
-                                  _reloadChart(context);
-                                },
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: _alternate,
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                child: StatsSection(
+                                  stats: stats,
+                                  showCumulative: _showCumulative,
+                                  onChartTypeChanged: (value) {
+                                    setState(() {
+                                      _showCumulative = value;
+                                    });
+                                    _reloadChart(context);
+                                  },
+                                ),
                               ),
-                              const SizedBox(height: 16.0),
-                              SummaryCards(
-                                currentCount: widget.currentCount ?? 0,
-                                average: stats.average,
+                              // Summary Cards container
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: _alternate,
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                child: SummaryCards(
+                                  currentCount: widget.currentCount ?? 0,
+                                  average: stats.average,
+                                ),
                               ),
                             ],
                           );
@@ -246,13 +270,5 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Reload the chart based on current settings.
   void _reloadChart(BuildContext context) {
     context.read<ChartsBloc>().add(_createChartEvent());
-  }
-
-  void _refreshData(BuildContext context) {
-    // Refresh events
-    context.read<EventsBloc>().add(LoadEvents(itemId: widget.itemId));
-
-    // Refresh charts
-    _reloadChart(context);
   }
 }

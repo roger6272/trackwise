@@ -40,66 +40,61 @@ class StatsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: _alternate,
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatsHeader(),
-          const SizedBox(height: 16.0),
-          _buildChartToggle(),
-          const SizedBox(height: 16.0),
-          _buildChartArea(),
-        ],
-      ),
-    );
-  }
-
-  /// Builds the stats header with total count and period comparison.
-  Widget _buildStatsHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Total count row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+        _buildStatsHeader(),
+        _buildComparisonLine(),
+        const SizedBox(height: 0.0),
+        _buildChartToggle(),
+        const SizedBox(height: 10.0),
+        _buildChartArea(context),
+      ],
+    );
+  }
+
+  /// Builds the stats header with total count.
+  Widget _buildStatsHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 5.0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
           children: [
-            Text(
-              '${stats.totalCount}',
-              style: GoogleFonts.outfit(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-                color: _primary,
+            Padding(
+              padding: const EdgeInsets.only(top: 5.0),
+              child: Text(
+                '${stats.totalCount}',
+                style: GoogleFonts.interTight(
+                  fontSize: 30.0,
+                  fontWeight: FontWeight.w600,
+                  color: _primary,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              'Total',
-              style: GoogleFonts.outfit(
-                fontSize: 26,
-                color: _primaryText,
+            Padding(
+              padding: const EdgeInsets.only(left: 5.0, top: 5.0),
+              child: Text(
+                'Total',
+                style: GoogleFonts.interTight(
+                  fontSize: 26.0,
+                  color: _primaryText,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        // Comparison line
-        _buildComparisonLine(),
-      ],
+      ),
     );
   }
 
   /// Builds the comparison line with prior count and percent change.
   Widget _buildComparisonLine() {
     final percentChange = stats.percentChange;
+    final showPercent = percentChange != null && percentChange != 0;
     final percentText = percentChange != null
-        ? '${percentChange >= 0 ? '+' : ''}${(percentChange * 100).toStringAsFixed(1)}%'
-        : '--';
+        ? '${(percentChange * 100).toStringAsFixed(1)}%'
+        : '';
 
     final percentColor = stats.isPositive
         ? _positiveColor
@@ -107,100 +102,118 @@ class StatsSection extends StatelessWidget {
             ? _negativeColor
             : _primaryText;
 
-    return Row(
-      children: [
-        Text(
-          'vs ${stats.priorPeriodCount}',
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            color: _primaryText,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(15.0, 0.0, 15.0, 0.0),
+      child: Row(
+        children: [
+          Text(
+            'vs ',
+            style: GoogleFonts.interTight(
+              fontSize: 15.0,
+              color: _primaryText,
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          percentText,
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            color: percentColor,
-            fontWeight: FontWeight.w500,
+          Text(
+            '${stats.priorPeriodCount}',
+            style: GoogleFonts.interTight(
+              fontSize: 15.0,
+              color: _primaryText,
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          stats.periodLabel,
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            color: _primaryText,
-          ),
-        ),
-      ],
+          if (showPercent) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 10.0),
+              child: Text(
+                percentText,
+                style: GoogleFonts.interTight(
+                  fontSize: 15.0,
+                  color: percentColor,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 5.0),
+              child: Text(
+                stats.periodLabel,
+                style: GoogleFonts.inter(
+                  fontSize: 15.0,
+                  color: _primaryText,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   /// Builds the chart type toggle switch.
   Widget _buildChartToggle() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'Increments',
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            color: _primaryText,
-            fontWeight: showCumulative ? FontWeight.normal : FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 0.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Increments',
+            style: GoogleFonts.inter(
+              fontSize: 12.0,
+              color: _primaryText,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Switch(
-          value: showCumulative,
-          onChanged: onChartTypeChanged,
-          activeColor: _primary,
-          inactiveTrackColor: const Color(0xFFA158FF),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          'Cumulative',
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            color: _primaryText,
-            fontWeight: showCumulative ? FontWeight.w600 : FontWeight.normal,
+          Switch.adaptive(
+            value: showCumulative,
+            onChanged: onChartTypeChanged,
+            activeColor: _primary,
+            inactiveTrackColor: const Color(0xFFA158FF),
           ),
-        ),
-      ],
+          Text(
+            'Cumulative',
+            style: GoogleFonts.inter(
+              fontSize: 12.0,
+              color: _primaryText,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   /// Builds the chart area with BlocBuilder for loading/error/chart states.
-  Widget _buildChartArea() {
-    return SizedBox(
-      height: 220.0,
-      child: BlocBuilder<ChartsBloc, ChartsState>(
-        builder: (context, state) {
-          if (state is ChartsLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: _primary),
-            );
-          }
+  Widget _buildChartArea(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width - 40,
+        height: 220.0,
+        child: BlocBuilder<ChartsBloc, ChartsState>(
+          builder: (context, state) {
+            if (state is ChartsLoading) {
+              return const Center(
+                child: CircularProgressIndicator(color: _primary),
+              );
+            }
 
-          if (state is ChartsError) {
-            return Center(
-              child: Text(
-                'Error: ${state.message}',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: _negativeColor,
+            if (state is ChartsError) {
+              return Center(
+                child: Text(
+                  'Error: ${state.message}',
+                  style: GoogleFonts.inter(
+                    fontSize: 14.0,
+                    color: _negativeColor,
+                  ),
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          // Show appropriate chart based on toggle
-          if (showCumulative) {
-            return const CumulativeChartWidget();
-          } else {
-            return const BarChartWidget();
-          }
-        },
+            // Show appropriate chart based on toggle
+            if (showCumulative) {
+              return const CumulativeChartWidget();
+            } else {
+              return const BarChartWidget();
+            }
+          },
+        ),
       ),
     );
   }

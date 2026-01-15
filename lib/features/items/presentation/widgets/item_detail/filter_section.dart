@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 /// A filter section widget for the item detail page.
@@ -33,67 +34,87 @@ class FilterSection extends StatelessWidget {
   static const Color _primary = Color(0xFF4B39EF);
   static const Color _alternate = Color(0xFFE0E3E7);
   static const Color _primaryBackground = Color(0xFFF1F4F8);
+  static const Color _secondaryText = Color(0xFF57636C);
   static const Color _primaryText = Color(0xFF14181B);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _alternate,
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildAggregationChips(),
-          const SizedBox(height: 16.0),
-          _buildResetToggle(),
-          const SizedBox(height: 16.0),
-          _buildDatePicker(),
-          if (!isCalendarCollapsed) ...[
-            const SizedBox(height: 16.0),
-            _buildCalendar(),
-          ],
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Aggregation chips - centered
+        _buildAggregationChips(),
+        const SizedBox(height: 20.0),
+        // Reset toggle chips - centered
+        _buildResetToggle(),
+        const SizedBox(height: 30.0),
+        // "Ends on" label row (only shown when not 1D)
+        if (aggregation != '1D')
+          Padding(
+            padding: const EdgeInsets.only(left: 22.0, right: 22.0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Ends on',
+                style: GoogleFonts.inter(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.normal,
+                  color: _primaryText,
+                ),
+              ),
+            ),
+          ),
+        // Date picker row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(32.0, 0.0, 25.0, 15.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _buildDatePicker(),
+          ),
+        ),
+        // Calendar (when expanded)
+        if (!isCalendarCollapsed) _buildCalendar(context),
+      ],
     );
   }
 
   Widget _buildAggregationChips() {
     return Wrap(
-      spacing: 8.0,
+      alignment: WrapAlignment.center,
+      spacing: 5.0,
       children: ['1D', '7D', '30D'].map((period) {
         final isSelected = aggregation == period;
-        return ChoiceChip(
-          label: Text(period),
-          selected: isSelected,
-          onSelected: (_) => onAggregationChanged(period),
-          selectedColor: _primary,
-          backgroundColor: _primaryBackground,
-          labelStyle: TextStyle(
-            color: isSelected ? Colors.white : _primaryText,
-            fontWeight: FontWeight.w500,
+        return GestureDetector(
+          onTap: () => onAggregationChanged(period),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            decoration: BoxDecoration(
+              color: isSelected ? _primary : _primaryBackground,
+              borderRadius: BorderRadius.circular(5.0),
+            ),
+            child: Text(
+              period,
+              style: GoogleFonts.inter(
+                fontSize: 14.0,
+                color: isSelected ? Colors.white : _secondaryText,
+              ),
+            ),
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          side: BorderSide.none,
         );
       }).toList(),
     );
   }
 
   Widget _buildResetToggle() {
-    return Row(
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 5.0,
       children: [
         _buildToggleChip(
           label: 'Total',
           isSelected: !showSinceReset,
           onTap: () => onShowSinceResetChanged(false),
         ),
-        const SizedBox(width: 8.0),
         _buildToggleChip(
           label: 'Since Last Reset',
           isSelected: showSinceReset,
@@ -111,16 +132,16 @@ class FilterSection extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         decoration: BoxDecoration(
           color: isSelected ? _primary : _primaryBackground,
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(5.0),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : _primaryText,
-            fontWeight: FontWeight.w500,
+          style: GoogleFonts.inter(
+            fontSize: 14.0,
+            color: isSelected ? Colors.white : _secondaryText,
           ),
         ),
       ),
@@ -129,74 +150,87 @@ class FilterSection extends StatelessWidget {
 
   Widget _buildDatePicker() {
     final dateFormat = DateFormat.yMMMd();
-    final showEndsOn = aggregation != '1D';
 
     return GestureDetector(
       onTap: onToggleCalendar,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: _primaryBackground,
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showEndsOn) ...[
-              Text(
-                'Ends on ',
-                style: TextStyle(
-                  color: _primaryText.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-            Text(
-              dateFormat.format(selectedDate),
-              style: const TextStyle(
-                color: _primaryText,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 4.0),
-            Icon(
-              isCalendarCollapsed ? Icons.expand_more : Icons.expand_less,
-              color: _primaryText,
-              size: 20.0,
-            ),
-          ],
+      child: Text(
+        dateFormat.format(selectedDate),
+        style: GoogleFonts.interTight(
+          color: _primaryText,
+          fontWeight: FontWeight.w500,
+          fontSize: 16.0,
         ),
       ),
     );
   }
 
-  Widget _buildCalendar() {
+  Widget _buildCalendar(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CalendarDatePicker(
-          initialDate: selectedDate,
-          firstDate: DateTime(2020),
-          lastDate: DateTime.now(),
-          onDateChanged: (date) {
-            onDateChanged(date);
-            onToggleCalendar();
-          },
+        Padding(
+          padding: const EdgeInsets.only(top: 10.0),
+          child: CalendarDatePicker(
+            initialDate: selectedDate,
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now(),
+            onDateChanged: onDateChanged,
+          ),
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: onToggleCalendar,
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                color: _primary,
-                fontWeight: FontWeight.w500,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(15.0, 10.0, 15.0, 10.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildCalendarButton(
+                context: context,
+                label: 'OK',
+                isPrimary: true,
+                onPressed: onToggleCalendar,
               ),
-            ),
+              const SizedBox(width: 10.0),
+              _buildCalendarButton(
+                context: context,
+                label: 'Cancel',
+                isPrimary: false,
+                onPressed: onToggleCalendar,
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCalendarButton({
+    required BuildContext context,
+    required String label,
+    required bool isPrimary,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 70.0,
+      height: 40.0,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isPrimary ? _primary : Colors.white,
+          foregroundColor: isPrimary ? Colors.white : _secondaryText,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18.0),
+            side: BorderSide(color: _alternate),
+          ),
+          padding: EdgeInsets.zero,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.interTight(
+            fontSize: 14.0,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 }
