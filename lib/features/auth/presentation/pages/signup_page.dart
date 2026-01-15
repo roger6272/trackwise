@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -50,6 +51,7 @@ class _SignupPageState extends State<SignupPage> {
             listener: _handleAuthStateChange,
             builder: (context, state) {
               return Container(
+                width: double.infinity,
                 height: double.infinity,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -57,26 +59,23 @@ class _SignupPageState extends State<SignupPage> {
                       AppColors.primary,
                       AppColors.tertiary,
                     ],
+                    stops: const [0.0, 1.0],
                     begin: const AlignmentDirectional(0.87, -1.0),
                     end: const AlignmentDirectional(-0.87, 1.0),
                   ),
+                  shape: BoxShape.rectangle,
                 ),
-                child: SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 24),
-                          _buildBackButton(context),
-                          const SizedBox(height: 24),
-                          _buildLogo(context),
-                          const SizedBox(height: 32),
-                          _buildSignupCard(context, state),
-                        ],
-                      ),
+                alignment: const AlignmentDirectional(0.0, -1.0),
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLogo(context),
+                        _buildSignupCard(context, state),
+                      ],
                     ),
                   ),
                 ),
@@ -88,269 +87,458 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  Widget _buildBackButton(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: IconButton(
-        onPressed: () => context.pop(),
-        icon: Icon(
-          Icons.arrow_back_ios,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-
   Widget _buildLogo(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.flourescent_rounded,
-          color: Colors.white,
-          size: 44,
-        ),
-        const SizedBox(width: 12),
-        Text(
-          'Trackwise',
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontFamily: 'Urbanist',
-                color: Colors.white,
-                letterSpacing: 0.0,
-              ),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 50.0, 0.0, 32.0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Padding(
+            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
+            child: Icon(
+              Icons.flourescent_rounded,
+              color: Colors.white,
+              size: 44.0,
+            ),
+          ),
+          Text(
+            'Trackwise',
+            style: GoogleFonts.interTight(
+              color: Colors.white,
+              fontSize: 25.0,
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSignupCard(BuildContext context, AuthState state) {
     final isLoading = state is AuthLoading;
+    final brightness = Theme.of(context).brightness;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Create Account',
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Start tracking your habits today',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'Plus Jakarta Sans',
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  letterSpacing: 0.0,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          _buildEmailField(context),
-          const SizedBox(height: 16),
-          _buildPasswordField(context),
-          const SizedBox(height: 16),
-          _buildConfirmPasswordField(context),
-          const SizedBox(height: 24),
-          _buildSignUpButton(context, isLoading),
-          const SizedBox(height: 16),
-          _buildDivider(context),
-          const SizedBox(height: 16),
-          _buildSocialButtons(context, isLoading),
-          const SizedBox(height: 24),
-          _buildSignInLink(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmailField(BuildContext context) {
-    return TextFormField(
-      controller: _emailController,
-      keyboardType: TextInputType.emailAddress,
-      textInputAction: TextInputAction.next,
-      decoration: InputDecoration(
-        labelText: 'Email',
-        hintText: 'Enter your email',
-        prefixIcon: const Icon(Icons.email_outlined),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(
+          maxWidth: 570.0,
         ),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your email';
-        }
-        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-          return 'Please enter a valid email';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildPasswordField(BuildContext context) {
-    return TextFormField(
-      controller: _passwordController,
-      obscureText: _obscurePassword,
-      textInputAction: TextInputAction.next,
-      decoration: InputDecoration(
-        labelText: 'Password',
-        hintText: 'Create a password',
-        prefixIcon: const Icon(Icons.lock_outline),
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscurePassword ? Icons.visibility_off : Icons.visibility,
-          ),
-          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter a password';
-        }
-        if (value.length < 6) {
-          return 'Password must be at least 6 characters';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildConfirmPasswordField(BuildContext context) {
-    return TextFormField(
-      controller: _confirmPasswordController,
-      obscureText: _obscureConfirmPassword,
-      textInputAction: TextInputAction.done,
-      onFieldSubmitted: (_) => _signUp(context),
-      decoration: InputDecoration(
-        labelText: 'Confirm Password',
-        hintText: 'Confirm your password',
-        prefixIcon: const Icon(Icons.lock_outline),
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-          ),
-          onPressed: () =>
-              setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please confirm your password';
-        }
-        if (value != _passwordController.text) {
-          return 'Passwords do not match';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildSignUpButton(BuildContext context, bool isLoading) {
-    return ElevatedButton(
-      onPressed: isLoading ? null : () => _signUp(context),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Text(
-              'Create Account',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        decoration: BoxDecoration(
+          color: AppColors.secondaryBackground(brightness),
+          boxShadow: const [
+            BoxShadow(
+              blurRadius: 4.0,
+              color: Color(0x33000000),
+              offset: Offset(0.0, 2.0),
             ),
-    );
-  }
-
-  Widget _buildDivider(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'OR',
-            style: Theme.of(context).textTheme.bodySmall,
+          ],
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        child: Align(
+          alignment: const AlignmentDirectional(0.0, 0.0),
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Get Started',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.interTight(
+                    color: AppColors.primaryText(brightness),
+                    fontSize: 36.0,
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 24.0),
+                  child: Text(
+                    'Create an account by using the form below.',
+                    textAlign: TextAlign.start,
+                    style: GoogleFonts.inter(
+                      color: AppColors.secondaryText(brightness),
+                      fontSize: 16.0,
+                      letterSpacing: 0.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                _buildEmailField(context, brightness),
+                _buildPasswordField(context, brightness),
+                _buildConfirmPasswordField(context, brightness),
+                _buildSignUpButton(context, isLoading, brightness),
+                _buildDivider(context, brightness),
+                _buildSocialButtons(context, isLoading, brightness),
+                _buildSignInLink(context, brightness),
+              ],
+            ),
           ),
         ),
-        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
-      ],
+      ),
     );
   }
 
-  Widget _buildSocialButtons(BuildContext context, bool isLoading) {
-    return Column(
-      children: [
-        SocialSignInButton(
-          provider: SocialProvider.google,
-          onPressed: isLoading
-              ? null
-              : () => context.read<AuthBloc>().add(const SignInWithGoogleEvent()),
+  Widget _buildEmailField(BuildContext context, Brightness brightness) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: TextFormField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          cursorColor: AppColors.primary,
+          style: GoogleFonts.inter(
+            color: AppColors.primaryText(brightness),
+            fontSize: 16.0,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.normal,
+          ),
+          decoration: InputDecoration(
+            labelText: 'Email',
+            labelStyle: GoogleFonts.inter(
+              color: AppColors.secondaryText(brightness),
+              fontSize: 16.0,
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.w500,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(
+                color: AppColors.alternate(brightness),
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.error,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.error,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            filled: true,
+            fillColor: AppColors.primaryBackground(brightness),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your email';
+            }
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              return 'Please enter a valid email';
+            }
+            return null;
+          },
         ),
-        if (Platform.isIOS) ...[
-          const SizedBox(height: 12),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField(BuildContext context, Brightness brightness) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: TextFormField(
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.password],
+          cursorColor: AppColors.primary,
+          style: GoogleFonts.inter(
+            color: AppColors.primaryText(brightness),
+            fontSize: 16.0,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.normal,
+          ),
+          decoration: InputDecoration(
+            labelText: 'Password',
+            labelStyle: GoogleFonts.inter(
+              color: AppColors.secondaryText(brightness),
+              fontSize: 16.0,
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.w500,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(
+                color: AppColors.alternate(brightness),
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.error,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.error,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            filled: true,
+            fillColor: AppColors.primaryBackground(brightness),
+            suffixIcon: InkWell(
+              onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+              focusNode: FocusNode(skipTraversal: true),
+              child: Icon(
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: AppColors.secondaryText(brightness),
+                size: 24.0,
+              ),
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter a password';
+            }
+            if (value.length < 6) {
+              return 'Password must be at least 6 characters';
+            }
+            return null;
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfirmPasswordField(BuildContext context, Brightness brightness) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: TextFormField(
+          controller: _confirmPasswordController,
+          obscureText: _obscureConfirmPassword,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _signUp(context),
+          cursorColor: AppColors.primary,
+          style: GoogleFonts.inter(
+            color: AppColors.primaryText(brightness),
+            fontSize: 16.0,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.normal,
+          ),
+          decoration: InputDecoration(
+            labelText: 'Confirm Password',
+            labelStyle: GoogleFonts.inter(
+              color: AppColors.secondaryText(brightness),
+              fontSize: 16.0,
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.w500,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(
+                color: AppColors.alternate(brightness),
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.error,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                color: AppColors.error,
+                width: 2.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            filled: true,
+            fillColor: AppColors.primaryBackground(brightness),
+            suffixIcon: InkWell(
+              onTap: () =>
+                  setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+              focusNode: FocusNode(skipTraversal: true),
+              child: Icon(
+                _obscureConfirmPassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: AppColors.secondaryText(brightness),
+                size: 24.0,
+              ),
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please confirm your password';
+            }
+            if (value != _passwordController.text) {
+              return 'Passwords do not match';
+            }
+            return null;
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignUpButton(BuildContext context, bool isLoading, Brightness brightness) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+      child: SizedBox(
+        width: double.infinity,
+        height: 44.0,
+        child: ElevatedButton(
+          onPressed: isLoading ? null : () => _signUp(context),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 3.0,
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text(
+                  'Create Account',
+                  style: GoogleFonts.interTight(
+                    color: Colors.white,
+                    fontSize: 16.0,
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider(BuildContext context, Brightness brightness) {
+    return Align(
+      alignment: const AlignmentDirectional(0.0, 0.0),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 24.0),
+        child: Text(
+          'Or sign up with',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            color: AppColors.secondaryText(brightness),
+            fontSize: 16.0,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialButtons(BuildContext context, bool isLoading, Brightness brightness) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+      child: Column(
+        children: [
           SocialSignInButton(
-            provider: SocialProvider.apple,
+            provider: SocialProvider.google,
             onPressed: isLoading
                 ? null
-                : () => context.read<AuthBloc>().add(const SignInWithAppleEvent()),
+                : () => context.read<AuthBloc>().add(const SignInWithGoogleEvent()),
           ),
+          if (Platform.isIOS) ...[
+            const SizedBox(height: 12),
+            SocialSignInButton(
+              provider: SocialProvider.apple,
+              onPressed: isLoading
+                  ? null
+                  : () => context.read<AuthBloc>().add(const SignInWithAppleEvent()),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildSignInLink(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'Already have an account? ',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        TextButton(
-          onPressed: () => context.pop(),
-          child: Text(
-            'Sign In',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'Plus Jakarta Sans',
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.0,
+  Widget _buildSignInLink(BuildContext context, Brightness brightness) {
+    return Align(
+      alignment: const AlignmentDirectional(0.0, 0.0),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 12.0),
+        child: InkWell(
+          splashColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          onTap: () => context.pop(),
+          child: RichText(
+            textScaler: MediaQuery.of(context).textScaler,
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Already have an account? ',
+                  style: GoogleFonts.inter(
+                    color: AppColors.primaryText(brightness),
+                    fontSize: 14.0,
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.normal,
+                  ),
                 ),
+                TextSpan(
+                  text: 'Sign in here',
+                  style: GoogleFonts.inter(
+                    color: AppColors.primary,
+                    fontSize: 14.0,
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -367,8 +555,8 @@ class _SignupPageState extends State<SignupPage> {
 
   void _handleAuthStateChange(BuildContext context, AuthState state) {
     if (state is Authenticated) {
-      // Navigate to main app
-      context.go('/items');
+      // Navigate to main app (root route shows ItemsListPage)
+      context.go('/');
     } else if (state is AuthError) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -376,6 +564,9 @@ class _SignupPageState extends State<SignupPage> {
           backgroundColor: AppColors.error,
         ),
       );
+      // Clear password fields on error for security and retry
+      _passwordController.clear();
+      _confirmPasswordController.clear();
     }
   }
 }
