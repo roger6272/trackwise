@@ -45,7 +45,12 @@ class GetCumulativeChartDataUseCase
     final Either<Failure, List<EventLog>> eventsResult;
 
     if (params.itemId != null) {
-      eventsResult = await repository.getEventsByItem(params.itemId!);
+      // Use item + date range filter for charts
+      eventsResult = await repository.getEventsByItemAndDateRange(
+        params.itemId!,
+        params.startDate,
+        params.endDate,
+      );
     } else {
       eventsResult = await repository.getEventsByDateRange(
         params.startDate,

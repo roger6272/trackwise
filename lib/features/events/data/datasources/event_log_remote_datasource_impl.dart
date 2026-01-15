@@ -110,6 +110,38 @@ class EventLogRemoteDataSourceImpl implements EventLogRemoteDataSource {
   }
 
   @override
+  Future<List<EventLogModel>> getEventsByItemAndDateRange(
+    String itemId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      // Query using DocumentReference for item field
+      final itemRef = firestore.doc('/Item/$itemId');
+
+      final snapshot = await firestore
+          .collection('EventLog')
+          .where('item', isEqualTo: itemRef)
+          .where(
+            'created_time',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+          )
+          .orderBy('created_time', descending: false)
+          .get();
+
+      final events = snapshot.docs
+          .map((doc) => EventLogModel.fromFirestore(doc))
+          .toList();
+
+      return events;
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to fetch events for item by date range: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error fetching events for item by date range: $e');
+    }
+  }
+
+  @override
   Future<void> deleteEventsForItem(String itemId) async {
     try {
       // Query using DocumentReference for item field

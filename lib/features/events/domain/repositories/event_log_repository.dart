@@ -58,6 +58,25 @@ abstract class EventLogRepository {
   /// - Left(ServerFailure): Firestore query failed
   Future<Either<Failure, List<EventLog>>> getEventsByItem(String itemId);
 
+  /// Fetches events for a specific item within a date range.
+  ///
+  /// Used for charting and analytics filtered by item.
+  /// Events are ordered by createdTime ascending for chart display.
+  ///
+  /// Parameters:
+  /// - [itemId]: ID of the item to fetch events for
+  /// - [startDate]: Start of date range (inclusive)
+  /// - [endDate]: End of date range (inclusive)
+  ///
+  /// Returns:
+  /// - Right(List<EventLog>): List of events in range (empty list if none)
+  /// - Left(ServerFailure): Firestore query failed
+  Future<Either<Failure, List<EventLog>>> getEventsByItemAndDateRange(
+    String itemId,
+    DateTime startDate,
+    DateTime endDate,
+  );
+
   /// Deletes all events for a specific item.
   ///
   /// Called when an item is deleted to clean up associated event logs.

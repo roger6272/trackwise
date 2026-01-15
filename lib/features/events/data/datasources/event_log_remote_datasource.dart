@@ -54,6 +54,25 @@ abstract class EventLogRemoteDataSource {
   /// Throws [ServerException] if the Firestore operation fails.
   Future<List<EventLogModel>> getEventsByItem(String itemId);
 
+  /// Fetches events for a specific item within a date range from Firestore.
+  ///
+  /// Queries the EventLog collection filtered by item_id and created_time.
+  /// Results are ordered by createdTime ascending for chart display.
+  ///
+  /// Parameters:
+  /// - [itemId]: ID of the item to fetch events for
+  /// - [startDate]: Start of date range (inclusive)
+  /// - [endDate]: End of date range (inclusive)
+  ///
+  /// Returns a list of EventLogModel objects.
+  ///
+  /// Throws [ServerException] if the Firestore operation fails.
+  Future<List<EventLogModel>> getEventsByItemAndDateRange(
+    String itemId,
+    DateTime startDate,
+    DateTime endDate,
+  );
+
   /// Deletes all events for a specific item from Firestore.
   ///
   /// Uses Firestore batch writes for atomic deletion of multiple documents.

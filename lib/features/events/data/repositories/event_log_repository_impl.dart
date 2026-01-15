@@ -82,6 +82,24 @@ class EventLogRepositoryImpl implements EventLogRepository {
   }
 
   @override
+  Future<Either<Failure, List<EventLog>>> getEventsByItemAndDateRange(
+    String itemId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      final events = await remoteDataSource.getEventsByItemAndDateRange(
+        itemId,
+        startDate,
+        endDate,
+      );
+      return Right(events);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> deleteEventsForItem(String itemId) async {
     try {
       await remoteDataSource.deleteEventsForItem(itemId);
