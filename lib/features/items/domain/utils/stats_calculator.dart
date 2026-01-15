@@ -87,7 +87,7 @@ class StatsCalculator {
     final currentPeriodEvents = filteredEvents.where((e) {
       final t = e.createdTime;
       final inRange =
-          t.isAfter(currentPeriodStart) && t.isBefore(endOfDay);
+          !t.isBefore(currentPeriodStart) && t.isBefore(endOfDay);
       if (!inRange) return false;
 
       // Apply reset filter if enabled
@@ -104,7 +104,7 @@ class StatsCalculator {
     final priorPeriodEvents = filteredEvents.where((e) {
       final t = e.createdTime;
       final inRange =
-          t.isAfter(priorPeriodStart) && t.isBefore(priorPeriodEnd);
+          !t.isBefore(priorPeriodStart) && t.isBefore(priorPeriodEnd);
       if (!inRange) return false;
 
       // Apply reset filter if enabled
@@ -152,7 +152,8 @@ class StatsCalculator {
       case '30D':
         return 30;
       default:
-        return 1;
+        throw ArgumentError(
+            'Invalid aggregation: $aggregation. Expected 1D, 7D, or 30D');
     }
   }
 
@@ -166,7 +167,8 @@ class StatsCalculator {
       case '30D':
         return 'MoM';
       default:
-        return 'DoD';
+        throw ArgumentError(
+            'Invalid aggregation: $aggregation. Expected 1D, 7D, or 30D');
     }
   }
 }

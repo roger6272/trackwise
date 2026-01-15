@@ -1,3 +1,9 @@
+// KNOWN LIMITATION: These tests require a mobile platform (Android/iOS emulator or device).
+// They will fail on desktop (Windows/macOS/Linux) with:
+//   "Unsupported operation: flutter_blue_plus is unsupported on this platform"
+// This is because flutter_blue_plus accesses Bluetooth hardware APIs that don't exist on desktop.
+// Run with: flutter test --device-id=<emulator_id>
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +24,7 @@ import 'package:trackwise/features/bluetooth/domain/usecases/send_items_to_devic
 import 'package:trackwise/features/bluetooth/domain/usecases/send_selected_item_usecase.dart';
 import 'package:trackwise/features/bluetooth/domain/usecases/send_time_sync_usecase.dart';
 import 'package:trackwise/features/bluetooth/domain/usecases/stop_scan_usecase.dart';
+import 'package:trackwise/features/bluetooth/domain/usecases/sync_device_data_usecase.dart';
 import 'package:trackwise/features/bluetooth/domain/usecases/watch_connection_state_usecase.dart';
 import 'package:trackwise/features/bluetooth/domain/usecases/watch_device_messages_usecase.dart';
 import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
@@ -51,6 +58,8 @@ class MockCheckBluetoothEnabledUseCase extends Mock implements CheckBluetoothEna
 
 class MockRequestBluetoothPermissionsUseCase extends Mock implements RequestBluetoothPermissionsUseCase {}
 
+class MockSyncDeviceDataUseCase extends Mock implements SyncDeviceDataUseCase {}
+
 void main() {
   late BluetoothBloc bloc;
   late MockScanDevicesUseCase mockScanDevices;
@@ -66,6 +75,7 @@ void main() {
   late MockClearDeviceLogsUseCase mockClearLogs;
   late MockCheckBluetoothEnabledUseCase mockCheckBluetoothEnabled;
   late MockRequestBluetoothPermissionsUseCase mockRequestPermissions;
+  late MockSyncDeviceDataUseCase mockSyncDeviceData;
 
   setUp(() {
     mockScanDevices = MockScanDevicesUseCase();
@@ -81,6 +91,7 @@ void main() {
     mockClearLogs = MockClearDeviceLogsUseCase();
     mockCheckBluetoothEnabled = MockCheckBluetoothEnabledUseCase();
     mockRequestPermissions = MockRequestBluetoothPermissionsUseCase();
+    mockSyncDeviceData = MockSyncDeviceDataUseCase();
 
     bloc = BluetoothBloc(
       mockScanDevices,
@@ -96,6 +107,7 @@ void main() {
       mockClearLogs,
       mockCheckBluetoothEnabled,
       mockRequestPermissions,
+      mockSyncDeviceData,
     );
   });
 

@@ -74,11 +74,23 @@ class BleMessageModel extends BleMessage {
 
     final parsed = decoded as Map<String, dynamic>;
     final typeStr = parsed['type'] as String?;
+    final type = _parseType(typeStr);
+    final data = parsed['data'];
+
+    // Extract selectedId based on message type:
+    // - For 'prefs': selected_id is at top level
+    // - For 'event' with 'switch': itemId is inside data object
+    String? selectedId = parsed['selected_id'] as String?;
+    if (selectedId == null && type == BleMessageType.event && data is Map<String, dynamic>) {
+      if (data['event'] == 'switch') {
+        selectedId = data['itemId'] as String?;
+      }
+    }
 
     return BleMessageModel(
-      type: _parseType(typeStr),
-      data: parsed['data'],
-      selectedId: parsed['selected_id'] as String?,
+      type: type,
+      data: data,
+      selectedId: selectedId,
       hasMore: parsed['hasMore'] == true,
       receivedAt: DateTime.now(),
     );

@@ -101,4 +101,19 @@ abstract class ItemRemoteDataSource {
   ///
   /// Throws [ServerException] if the Firestore operation fails.
   Future<void> resetDailyCount(String itemId);
+
+  /// Batch updates item counts from ESP32 device data.
+  ///
+  /// Used when receiving 'prefs' message from device. Only updates items
+  /// that exist in Firestore for the given user.
+  ///
+  /// Parameters:
+  /// - [userId]: User ID to filter items
+  /// - [itemData]: List of maps with {id, count, todaycount, lastResetTime}
+  ///
+  /// Throws [ServerException] if the Firestore batch operation fails.
+  Future<void> batchUpdateCounts(
+    String userId,
+    List<Map<String, dynamic>> itemData,
+  );
 }

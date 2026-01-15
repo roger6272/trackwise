@@ -91,7 +91,11 @@
       "Skill(pm:issue-analyze)",
       "Skill(requesting-code-review)",
       "Skill(brainstorming)",
-      "Bash(Select-String -Pattern \"\\(FAILED|Error\\)\" -Context 3,0)"
+      "Bash(Select-String -Pattern \"\\(FAILED|Error\\)\" -Context 3,0)",
+      "Skill(verification-before-completion)",
+      "Bash(dart run build_runner:*)",
+      "Skill(writing-plans)",
+      "Skill(subagent-driven-development)"
     ]
   }
 }

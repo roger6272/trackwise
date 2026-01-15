@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import 'package:injectable/injectable.dart';
 
+import '../../../../auth/firebase_auth/auth_util.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
@@ -18,6 +19,7 @@ import '../../domain/usecases/send_items_to_device_usecase.dart';
 import '../../domain/usecases/send_selected_item_usecase.dart';
 import '../../domain/usecases/send_time_sync_usecase.dart';
 import '../../domain/usecases/stop_scan_usecase.dart';
+import '../../domain/usecases/sync_device_data_usecase.dart';
 import '../../domain/usecases/watch_connection_state_usecase.dart';
 import '../../domain/usecases/watch_device_messages_usecase.dart';
 import 'bluetooth_event.dart';
@@ -46,6 +48,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final ClearDeviceLogsUseCase _clearLogs;
   final CheckBluetoothEnabledUseCase _checkBluetoothEnabled;
   final RequestBluetoothPermissionsUseCase _requestPermissions;
+  final SyncDeviceDataUseCase _syncDeviceData;
 
   // Stream subscriptions
   StreamSubscription<dynamic>? _scanSubscription;
@@ -73,6 +76,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._clearLogs,
     this._checkBluetoothEnabled,
     this._requestPermissions,
+    this._syncDeviceData,
   ) : super(const BluetoothState()) {
     // Register event handlers
     on<CheckBluetoothPermissions>(_onCheckPermissions);
@@ -148,7 +152,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     CheckBluetoothPermissions event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(status: BluetoothStatus.checkingPermissions));
+    // Don't change status if already connected
+    if (state.status != BluetoothStatus.connected) {
+      emit(state.copyWith(status: BluetoothStatus.checkingPermissions));
+    }
 
     final result = await _requestPermissions.call(const NoParams());
     result.fold(
@@ -158,9 +165,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       )),
       (granted) {
         if (granted) {
+          // Only set to ready if not already connected
           emit(state.copyWith(
             permissionsGranted: true,
-            status: BluetoothStatus.ready,
+            status: state.status == BluetoothStatus.connected
+                ? BluetoothStatus.connected
+                : BluetoothStatus.ready,
           ));
           // Check if Bluetooth is enabled
           add(const CheckBluetoothEnabled());
@@ -215,9 +225,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       )),
       (enabled) {
         if (enabled) {
+          // Only set to ready if not already connected
           emit(state.copyWith(
             bluetoothEnabled: true,
-            status: BluetoothStatus.ready,
+            status: state.status == BluetoothStatus.connected
+                ? BluetoothStatus.connected
+                : BluetoothStatus.ready,
           ));
         } else {
           emit(state.copyWith(
@@ -581,15 +594,24 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
   // ========== Message Handlers ==========
 
-  void _onMessageReceived(
+  Future<void> _onMessageReceived(
     MessageReceived event,
     Emitter<BluetoothState> emit,
-  ) {
+  ) async {
     emit(state.copyWith(
       lastMessage: event.message,
       selectedItemId: event.message.selectedId ?? state.selectedItemId,
       hasMoreLogs: event.message.hasMore,
     ));
+
+    // Sync device data to Firestore
+    final userId = currentUserUid;
+    if (userId.isNotEmpty) {
+      await _syncDeviceData.call(SyncDeviceDataParams(
+        message: event.message,
+        userId: userId,
+      ));
+    }
   }
 
   // ========== Cleanup ==========

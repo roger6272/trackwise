@@ -11,13 +11,13 @@ import '/flutter_flow/nav/nav.dart' show AppStateNotifier;
 import '../../../../core/di/injection.dart';
 import '../../../../core/state/app_ui_state.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../domain/entities/item.dart';
 import '../bloc/items_bloc.dart';
 import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
 import 'item_form_page.dart';
-import 'item_detail_page.dart';
 
 /// Wrapper that rebuilds when auth state changes
 class ItemsListPage extends StatelessWidget {
@@ -171,6 +171,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                     item,
                                     appUiState,
                                     isConnected,
+                                    bluetoothState.selectedItemId,
                                   );
                                 },
                               );
@@ -338,8 +339,11 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     Item item,
     AppUiState appUiState,
     bool isConnected,
+    String? selectedItemId,
   ) {
-    final isActivated = appUiState.activeItemId == item.id && isConnected;
+    // Use Bluetooth selectedItemId from device, fallback to appUiState
+    final activeId = selectedItemId ?? appUiState.activeItemId;
+    final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
     return Padding(
@@ -368,8 +372,8 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                 onPressed: (_) async {
                   if (isConnected) {
                     appUiState.activeItemId = item.id;
-                    // TODO: Send selected item to device via BluetoothBloc
-                    // context.read<BluetoothBloc>().add(SendSelectedItemEvent(item.id));
+                    // Send selected item to device
+                    context.read<BluetoothBloc>().add(SendSelectedItem(item.id));
                   } else {
                     await _showConnectDeviceDialog(context);
                   }

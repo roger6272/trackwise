@@ -155,9 +155,11 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     String itemId,
   ) async {
     try {
+      // Format must match FlutterFlow's send_selected_item_to_device.dart:
+      // {"cmd": "set_selected", "id": selectedId}
       final jsonData = jsonEncode({
-        'type': 'select',
-        'selected_id': itemId,
+        'cmd': 'set_selected',
+        'id': itemId,
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);

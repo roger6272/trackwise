@@ -28,9 +28,9 @@ class ItemModel extends Item {
   /// - todaycount → todayCount
   /// - increment_by → incrementBy
   /// - reminder_value → reminderValue
-  /// - user_id → userId
+  /// - uid (DocumentReference) → userId (String)
   ///
-  /// Converts timestamps from int milliseconds to DateTime.
+  /// Converts timestamps from Firestore Timestamp or int to DateTime.
   /// Converts reminder from String to ReminderType enum.
   ///
   /// Provides sensible defaults for missing fields:
@@ -42,22 +42,38 @@ class ItemModel extends Item {
   /// - timestamps: epoch 0
   factory ItemModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // FlutterFlow stores uid as DocumentReference to users collection
+    // Extract the user ID from the reference path
+    String userId = '';
+    final uidField = data['uid'];
+    if (uidField is DocumentReference) {
+      userId = uidField.id;
+    } else if (uidField is String) {
+      userId = uidField;
+    }
+
     return ItemModel(
       id: doc.id,
-      name: data['item_name'] as String,
+      name: data['item_name'] as String? ?? '',
       count: data['count'] as int? ?? 0,
       todayCount: data['todaycount'] as int? ?? 0,
       incrementBy: data['increment_by'] as int? ?? 1,
       reminder: _reminderFromString(data['reminder'] as String?),
       reminderValue: data['reminder_value'] as int? ?? 0,
-      lastResetTime: DateTime.fromMillisecondsSinceEpoch(
-        data['lastResetTime'] as int? ?? 0,
-      ),
-      lastUpdated: DateTime.fromMillisecondsSinceEpoch(
-        data['lastUpdated'] as int? ?? 0,
-      ),
-      userId: data['user_id'] as String,
+      lastResetTime: _parseDateTime(data['lastResetTime']),
+      lastUpdated: _parseDateTime(data['lastUpdated']),
+      userId: userId,
     );
+  }
+
+  /// Parse DateTime from various Firestore formats (Timestamp, int, DateTime)
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   /// Converts this ItemModel to a Firestore-compatible map.

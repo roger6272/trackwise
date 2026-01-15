@@ -93,4 +93,21 @@ abstract class ItemRepository {
   /// - Right(void): Daily count successfully reset
   /// - Left(ServerFailure): Firestore update operation failed
   Future<Either<Failure, void>> resetDailyCount(String itemId);
+
+  /// Batch updates item counts from ESP32 device data.
+  ///
+  /// Used when receiving 'prefs' message from device containing current
+  /// counts for all items. Only updates items that exist in Firestore.
+  ///
+  /// Parameters:
+  /// - [userId]: User ID to filter items
+  /// - [itemData]: List of maps containing {id, count, todaycount, lastResetTime}
+  ///
+  /// Returns:
+  /// - Right(void): Items successfully updated
+  /// - Left(ServerFailure): Firestore batch update failed
+  Future<Either<Failure, void>> batchUpdateCounts(
+    String userId,
+    List<Map<String, dynamic>> itemData,
+  );
 }

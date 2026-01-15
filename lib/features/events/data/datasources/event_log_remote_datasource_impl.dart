@@ -87,15 +87,21 @@ class EventLogRemoteDataSourceImpl implements EventLogRemoteDataSource {
       // Query using DocumentReference for item field
       final itemRef = firestore.doc('/Item/$itemId');
 
+      // Note: Not using orderBy in Firestore to avoid requiring composite index.
+      // Sorting in memory instead for simpler setup.
       final snapshot = await firestore
           .collection('EventLog')
           .where('item', isEqualTo: itemRef)
-          .orderBy('created_time', descending: true)
           .get();
 
-      return snapshot.docs
+      final events = snapshot.docs
           .map((doc) => EventLogModel.fromFirestore(doc))
           .toList();
+
+      // Sort in memory by created_time descending
+      events.sort((a, b) => b.createdTime.compareTo(a.createdTime));
+
+      return events;
     } on FirebaseException catch (e) {
       throw ServerException('Failed to fetch events for item: ${e.message}');
     } catch (e) {

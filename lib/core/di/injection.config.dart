@@ -73,6 +73,8 @@ import 'package:trackwise/features/bluetooth/domain/usecases/send_time_sync_usec
     as _i981;
 import 'package:trackwise/features/bluetooth/domain/usecases/stop_scan_usecase.dart'
     as _i907;
+import 'package:trackwise/features/bluetooth/domain/usecases/sync_device_data_usecase.dart'
+    as _i833;
 import 'package:trackwise/features/bluetooth/domain/usecases/watch_connection_state_usecase.dart'
     as _i385;
 import 'package:trackwise/features/bluetooth/domain/usecases/watch_device_messages_usecase.dart'
@@ -235,6 +237,11 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.lazySingleton<_i939.ProfileRepository>(() => _i950.ProfileRepositoryImpl(
         dataSource: gh<_i772.ProfileRemoteDataSource>()));
+    gh.lazySingleton<_i833.SyncDeviceDataUseCase>(
+        () => _i833.SyncDeviceDataUseCase(
+              gh<_i319.ItemRepository>(),
+              gh<_i978.EventLogRepository>(),
+            ));
     gh.lazySingleton<_i311.CreateItemUseCase>(
         () => _i311.CreateItemUseCase(gh<_i319.ItemRepository>()));
     gh.lazySingleton<_i64.DeleteItemUseCase>(
@@ -275,6 +282,7 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i733.ClearDeviceLogsUseCase>(),
           gh<_i769.CheckBluetoothEnabledUseCase>(),
           gh<_i269.RequestBluetoothPermissionsUseCase>(),
+          gh<_i833.SyncDeviceDataUseCase>(),
         ));
     gh.factory<_i517.ResetPasswordUseCase>(
         () => _i517.ResetPasswordUseCase(gh<_i578.AuthRepository>()));

@@ -135,4 +135,17 @@ class ItemRepositoryImpl implements ItemRepository {
       return Left(ServerFailure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> batchUpdateCounts(
+    String userId,
+    List<Map<String, dynamic>> itemData,
+  ) async {
+    try {
+      await remoteDataSource.batchUpdateCounts(userId, itemData);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
 }
