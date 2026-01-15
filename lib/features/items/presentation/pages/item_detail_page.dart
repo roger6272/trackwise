@@ -155,25 +155,24 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       BlocBuilder<EventsBloc, EventsState>(
                         builder: (context, eventsState) {
                           final stats = _calculateStats(eventsState);
-                          return StatsSection(
-                            stats: stats,
-                            showCumulative: _showCumulative,
-                            onChartTypeChanged: (value) {
-                              setState(() {
-                                _showCumulative = value;
-                              });
-                              _reloadChart(context);
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-                      BlocBuilder<EventsBloc, EventsState>(
-                        builder: (context, eventsState) {
-                          final stats = _calculateStats(eventsState);
-                          return SummaryCards(
-                            currentCount: widget.currentCount ?? 0,
-                            average: stats.average,
+                          return Column(
+                            children: [
+                              StatsSection(
+                                stats: stats,
+                                showCumulative: _showCumulative,
+                                onChartTypeChanged: (value) {
+                                  setState(() {
+                                    _showCumulative = value;
+                                  });
+                                  _reloadChart(context);
+                                },
+                              ),
+                              const SizedBox(height: 16.0),
+                              SummaryCards(
+                                currentCount: widget.currentCount ?? 0,
+                                average: stats.average,
+                              ),
+                            ],
                           );
                         },
                       ),
