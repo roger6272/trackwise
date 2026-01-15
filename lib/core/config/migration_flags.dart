@@ -34,9 +34,8 @@ class MigrationFlags {
   /// instead of Auth2LoginWidget, Auth2CreateWidget, Auth2ForgotPasswordWidget
   static const useNewAuthPages = true;
 
-  /// Use new ItemsListPage as main page instead of MainPageWidget
-  /// This is the most complex migration - requires all BLoCs and auth to be ready
-  static const useNewMainPage = false;
+  // Note: Items flow (ItemsListPage, ItemDetailPage, ItemFormPage) is always
+  // enabled via the new AppRouter - no flag needed since router handles it.
 
   // ============================================
   // Helpers
@@ -47,14 +46,12 @@ class MigrationFlags {
       useNewTheme ||
       useNewRouter ||
       useNewProfilePage ||
-      useNewAuthPages ||
-      useNewMainPage;
+      useNewAuthPages;
 
   /// Returns true if all migration flags are enabled (migration complete)
   static bool get allEnabled =>
       useNewTheme &&
       useNewRouter &&
       useNewProfilePage &&
-      useNewAuthPages &&
-      useNewMainPage;
+      useNewAuthPages;
 }
