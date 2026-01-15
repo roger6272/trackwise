@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/state/app_ui_state.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../domain/entities/item.dart';
+import '../../domain/repositories/item_repository.dart';
 import '../bloc/items_bloc.dart';
 import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
@@ -24,6 +28,14 @@ class ItemFormPage extends StatefulWidget {
 }
 
 class _ItemFormPageState extends State<ItemFormPage> {
+  // FF Colors
+  static const Color _primary = Color(0xFF4B39EF);
+  static const Color _alternate = Color(0xFFE0E3E7);
+  static const Color _primaryBackground = Color(0xFFF1F4F8);
+  static const Color _primaryText = Color(0xFF14181B);
+  static const Color _secondaryText = Color(0xFF57636C);
+  static const Color _error = Color(0xFFFF5963);
+
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final formKey = GlobalKey<FormState>();
 
@@ -108,15 +120,15 @@ class _ItemFormPageState extends State<ItemFormPage> {
           },
           child: Scaffold(
             key: scaffoldKey,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            backgroundColor: _primaryBackground,
             resizeToAvoidBottomInset: false,
             appBar: AppBar(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              backgroundColor: _primaryBackground,
               automaticallyImplyLeading: false,
               leading: IconButton(
                 icon: Icon(
                   Icons.arrow_back_rounded,
-                  color: Theme.of(context).colorScheme.onSurface,
+                  color: _primaryText,
                   size: 30.0,
                 ),
                 onPressed: () {
@@ -125,8 +137,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
               ),
               title: Text(
                 isEditMode ? 'Edit Item' : 'Create Item',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontFamily: 'Inter Tight',
+                style: GoogleFonts.interTight(
+                  color: _primaryText,
                   fontSize: 20.0,
                   letterSpacing: 0.0,
                   fontWeight: FontWeight.w600,
@@ -156,8 +168,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             decoration: _buildInputDecoration(
                               hint: 'Enter item name...',
                             ),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontFamily: 'Inter',
+                            style: GoogleFonts.inter(
+                              color: _primaryText,
                               fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
@@ -186,8 +198,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             decoration: _buildInputDecoration(
                               hint: 'Enter increment value...',
                             ),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontFamily: 'Inter',
+                            style: GoogleFonts.inter(
+                              color: _primaryText,
                               fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
@@ -216,25 +228,25 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             onChanged: (val) {
                               setState(() => selectedReminder = val);
                             },
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontFamily: 'Inter',
+                            style: GoogleFonts.inter(
+                              color: _primaryText,
                               fontSize: 16.0,
                             ),
                             icon: Icon(
                               Icons.keyboard_arrow_down_rounded,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: _secondaryText,
                               size: 24.0,
                             ),
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: Theme.of(context).dividerColor,
+                              fillColor: _alternate,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.0),
-                                borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                                borderSide: BorderSide(color: _alternate),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.0),
-                                borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                                borderSide: BorderSide(color: _alternate),
                               ),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                             ),
@@ -282,7 +294,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                     context.pop();
                                   },
                                   style: OutlinedButton.styleFrom(
-                                    backgroundColor: Theme.of(context).dividerColor,
+                                    backgroundColor: _alternate,
                                     side: BorderSide.none,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8.0),
@@ -290,9 +302,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   ),
                                   child: Text(
                                     'Cancel',
-                                    style: TextStyle(
-                                      fontFamily: 'Inter Tight',
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                    style: GoogleFonts.interTight(
+                                      color: _primaryText,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -306,7 +317,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 child: ElevatedButton(
                                   onPressed: _isLoading ? null : _handleSave,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
+                                    backgroundColor: _primary,
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8.0),
@@ -314,8 +325,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   ),
                                   child: Text(
                                     isEditMode ? 'Update' : 'Create',
-                                    style: const TextStyle(
-                                      fontFamily: 'Inter Tight',
+                                    style: GoogleFonts.interTight(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -347,8 +357,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontFamily: 'Inter',
+          style: GoogleFonts.inter(
+            color: _primaryText,
             letterSpacing: 0.0,
             fontWeight: FontWeight.w600,
           ),
@@ -362,42 +372,41 @@ class _ItemFormPageState extends State<ItemFormPage> {
   InputDecoration _buildInputDecoration({required String hint}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        fontFamily: 'Inter',
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      hintStyle: GoogleFonts.inter(
+        color: _secondaryText,
         fontSize: 16.0,
         letterSpacing: 0.0,
       ),
       enabledBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: Theme.of(context).dividerColor,
+          color: _alternate,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       focusedBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: AppColors.primary,
+          color: _primary,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       errorBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: AppColors.error,
+          color: _error,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: AppColors.error,
+          color: _error,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       filled: true,
-      fillColor: Theme.of(context).dividerColor,
+      fillColor: _alternate,
       contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
     );
   }
@@ -421,7 +430,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
         reminderValue: reminderValue,
       );
       context.read<ItemsBloc>().add(UpdateItemEvent(updatedItem));
-      context.pop(); // Go back immediately (optimistic)
+
+      // Sync with device after update
+      await _syncWithDevice();
+
+      if (mounted) context.pop();
     } else {
       // Create new item
       context.read<ItemsBloc>().add(CreateItemEvent(
@@ -431,7 +444,41 @@ class _ItemFormPageState extends State<ItemFormPage> {
         reminderValue: reminderValue,
         userId: currentUserUid,
       ));
-      // BLoC listener will pop after create
+
+      // Sync with device after create
+      await _syncWithDevice();
+
+      if (mounted) context.pop();
+    }
+  }
+
+  Future<void> _syncWithDevice() async {
+    try {
+      // Give Firestore a moment to update
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Fetch all items from repository
+      final itemRepository = sl<ItemRepository>();
+      final itemsResult = await itemRepository.getItems(currentUserUid);
+
+      final items = itemsResult.fold(
+        (failure) => <Item>[],
+        (items) => items,
+      );
+
+      if (items.isNotEmpty && mounted) {
+        // Send items to device
+        context.read<BluetoothBloc>().add(SendItemsToDevice(items));
+
+        // Send selected item to device
+        final appUiState = context.read<AppUiState>();
+        final activeItemId = appUiState.activeItemId;
+        if (activeItemId != 'none') {
+          context.read<BluetoothBloc>().add(SendSelectedItem(activeItemId));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error syncing with device: $e');
     }
   }
 

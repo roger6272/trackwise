@@ -467,41 +467,40 @@ class _MainPageWidgetState extends State<MainPageWidget>
                       ),
                     ),
                   ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 10.0, 0.0),
-                    child: StreamBuilder<List<ItemRecord>>(
-                      stream: queryItemRecord(
-                        queryBuilder: (itemRecord) => itemRecord.where(
-                          'uid',
-                          isEqualTo: currentUserReference,
+                  Expanded(
+                    child: Padding(
+                      padding:
+                          EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 10.0, 0.0),
+                      child: StreamBuilder<List<ItemRecord>>(
+                        stream: queryItemRecord(
+                          queryBuilder: (itemRecord) => itemRecord.where(
+                            'uid',
+                            isEqualTo: currentUserReference,
+                          ),
+                          limit: 10,
                         ),
-                        limit: 10,
-                      ),
-                      builder: (context, snapshot) {
-                        // Customize what your widget looks like when it's loading.
-                        if (!snapshot.hasData) {
-                          return Center(
-                            child: SizedBox(
-                              width: 50.0,
-                              height: 50.0,
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  FlutterFlowTheme.of(context).primary,
+                        builder: (context, snapshot) {
+                          // Customize what your widget looks like when it's loading.
+                          if (!snapshot.hasData) {
+                            return Center(
+                              child: SizedBox(
+                                width: 50.0,
+                                height: 50.0,
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    FlutterFlowTheme.of(context).primary,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        }
-                        List<ItemRecord> listViewItemRecordList =
-                            snapshot.data!;
+                            );
+                          }
+                          List<ItemRecord> listViewItemRecordList =
+                              snapshot.data!;
 
-                        return ListView.builder(
-                          padding: EdgeInsets.zero,
-                          primary: false,
-                          shrinkWrap: true,
-                          scrollDirection: Axis.vertical,
-                          itemCount: listViewItemRecordList.length,
+                          return ListView.builder(
+                            padding: EdgeInsets.only(bottom: 80.0),
+                            scrollDirection: Axis.vertical,
+                            itemCount: listViewItemRecordList.length,
                           itemBuilder: (context, listViewIndex) {
                             final listViewItemRecord =
                                 listViewItemRecordList[listViewIndex];
@@ -809,23 +808,19 @@ class _MainPageWidgetState extends State<MainPageWidget>
                               ),
                             );
                           },
-                        ).animateOnPageLoad(
-                            animationsMap['listViewOnPageLoadAnimation']!);
-                      },
+                          ).animateOnPageLoad(
+                              animationsMap['listViewOnPageLoadAnimation']!);
+                        },
+                      ),
                     ),
                   ),
-                  Flexible(
-                    child: Align(
-                      alignment: AlignmentDirectional(0.0, 1.0),
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 0.0, 16.0, 0.0),
-                        child: wrapWithModel(
-                          model: _model.navigationBarModel,
-                          updateCallback: () => safeSetState(() {}),
-                          child: NavigationBarWidget(),
-                        ),
-                      ),
+                  Padding(
+                    padding: EdgeInsetsDirectional.fromSTEB(
+                        16.0, 0.0, 16.0, 16.0),
+                    child: wrapWithModel(
+                      model: _model.navigationBarModel,
+                      updateCallback: () => safeSetState(() {}),
+                      child: NavigationBarWidget(),
                     ),
                   ),
                 ],
