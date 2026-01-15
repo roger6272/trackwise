@@ -8,31 +8,23 @@ import '../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../charts/presentation/bloc/charts_event.dart';
 import '../../../events/presentation/bloc/events_bloc.dart';
 import '../../../events/presentation/bloc/events_event.dart';
-import '../widgets/bar_chart_widget.dart';
-import '../widgets/cumulative_chart_widget.dart';
-import '../widgets/date_range_selector.dart';
-import '../widgets/event_log_list_widget.dart';
+import '../../../events/presentation/bloc/events_state.dart';
+import '../../domain/utils/stats_calculator.dart';
+import '../widgets/item_detail/filter_section.dart';
+import '../widgets/item_detail/stats_section.dart';
+import '../widgets/item_detail/summary_cards.dart';
 
 /// Page displaying detailed information about an item.
 ///
 /// Shows:
-/// - Item header with name and current count
-/// - Date range selector for filtering
-/// - Bar chart with daily/weekly/monthly aggregation
-/// - Cumulative chart showing running total
-/// - List of event logs
+/// - Filter section with aggregation, reset toggle, and date picker
+/// - Stats section with chart toggle and chart display
+/// - Summary cards showing current count and average
 ///
 /// Integrates with EventsBloc and ChartsBloc for data management.
-class ItemDetailPage extends StatelessWidget {
+class ItemDetailPage extends StatefulWidget {
   static String routeName = 'ItemDetailPage';
   static String routePath = '/items/:id';
-
-  // FF Colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _alternate = Color(0xFFE0E3E7);
-  static const Color _primaryBackground = Color(0xFFF1F4F8);
-  static const Color _primaryText = Color(0xFF14181B);
-  static const Color _secondaryText = Color(0xFF57636C);
 
   /// The ID of the item to display.
   final String itemId;
@@ -40,33 +32,48 @@ class ItemDetailPage extends StatelessWidget {
   /// Optional item name for the app bar.
   final String? itemName;
 
+  /// Current count of the item.
+  final int? currentCount;
+
+  /// Last reset time of the item.
+  final DateTime? lastResetTime;
+
   const ItemDetailPage({
     super.key,
     required this.itemId,
     this.itemName,
+    this.currentCount,
+    this.lastResetTime,
   });
 
   @override
-  Widget build(BuildContext context) {
-    // Calculate default date range (last 30 days)
-    final now = DateTime.now();
-    final endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-    final startDate = endDate.subtract(const Duration(days: 30));
+  State<ItemDetailPage> createState() => _ItemDetailPageState();
+}
 
+class _ItemDetailPageState extends State<ItemDetailPage> {
+  // FF Colors
+  static const Color _primary = Color(0xFF4B39EF);
+  static const Color _primaryBackground = Color(0xFFF1F4F8);
+  static const Color _primaryText = Color(0xFF14181B);
+
+  // Filter state
+  String _aggregation = '1D';
+  bool _showSinceReset = false;
+  DateTime _selectedDate = DateTime.now();
+  bool _isCalendarCollapsed = true;
+
+  // UI state
+  bool _showCumulative = false;
+
+  @override
+  Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => sl<EventsBloc>()
-            ..add(LoadEvents(itemId: itemId)),
+          create: (_) => sl<EventsBloc>()..add(LoadEvents(itemId: widget.itemId)),
         ),
         BlocProvider(
-          create: (_) => sl<ChartsBloc>()
-            ..add(LoadBarChart(
-              startDate: startDate,
-              endDate: endDate,
-              aggregationLevel: AggregationLevel.daily,
-              itemId: itemId,
-            )),
+          create: (_) => sl<ChartsBloc>()..add(_createChartEvent()),
         ),
       ],
       child: Builder(
@@ -76,7 +83,7 @@ class ItemDetailPage extends StatelessWidget {
             backgroundColor: _primaryBackground,
             automaticallyImplyLeading: false,
             leading: IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.arrow_back_rounded,
                 color: _primaryText,
                 size: 30.0,
@@ -84,7 +91,7 @@ class ItemDetailPage extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
             ),
             title: Text(
-              itemName ?? 'Item Details',
+              widget.itemName ?? 'Item Details',
               style: GoogleFonts.interTight(
                 color: _primaryText,
                 fontWeight: FontWeight.w600,
@@ -93,7 +100,7 @@ class ItemDetailPage extends StatelessWidget {
             ),
             actions: [
               IconButton(
-                icon: Icon(
+                icon: const Icon(
                   Icons.refresh,
                   color: _primaryText,
                 ),
@@ -112,120 +119,64 @@ class ItemDetailPage extends StatelessWidget {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 0.0),
+                  padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 32.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Date Range Selector Card
-                      Container(
-                        decoration: BoxDecoration(
-                          color: _alternate,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Date Range',
-                                style: GoogleFonts.interTight(
-                                  color: _primaryText,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12.0),
-                              const DateRangeSelector(),
-                            ],
-                          ),
-                        ),
+                      FilterSection(
+                        aggregation: _aggregation,
+                        showSinceReset: _showSinceReset,
+                        selectedDate: _selectedDate,
+                        isCalendarCollapsed: _isCalendarCollapsed,
+                        onAggregationChanged: (value) {
+                          setState(() {
+                            _aggregation = value;
+                          });
+                          _reloadChart(context);
+                        },
+                        onShowSinceResetChanged: (value) {
+                          setState(() {
+                            _showSinceReset = value;
+                          });
+                        },
+                        onDateChanged: (date) {
+                          setState(() {
+                            _selectedDate = date;
+                          });
+                          _reloadChart(context);
+                        },
+                        onToggleCalendar: () {
+                          setState(() {
+                            _isCalendarCollapsed = !_isCalendarCollapsed;
+                          });
+                        },
                       ),
                       const SizedBox(height: 16.0),
-                      // Bar Chart Card
-                      Container(
-                        decoration: BoxDecoration(
-                          color: _alternate,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Activity',
-                                style: GoogleFonts.interTight(
-                                  color: _primaryText,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12.0),
-                              const SizedBox(
-                                height: 200,
-                                child: BarChartWidget(),
-                              ),
-                            ],
-                          ),
-                        ),
+                      BlocBuilder<EventsBloc, EventsState>(
+                        builder: (context, eventsState) {
+                          final stats = _calculateStats(eventsState);
+                          return StatsSection(
+                            stats: stats,
+                            showCumulative: _showCumulative,
+                            onChartTypeChanged: (value) {
+                              setState(() {
+                                _showCumulative = value;
+                              });
+                              _reloadChart(context);
+                            },
+                          );
+                        },
                       ),
                       const SizedBox(height: 16.0),
-                      // Cumulative Chart Card
-                      Container(
-                        decoration: BoxDecoration(
-                          color: _alternate,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Cumulative Total',
-                                style: GoogleFonts.interTight(
-                                  color: _primaryText,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12.0),
-                              const SizedBox(
-                                height: 200,
-                                child: CumulativeChartWidget(),
-                              ),
-                            ],
-                          ),
-                        ),
+                      BlocBuilder<EventsBloc, EventsState>(
+                        builder: (context, eventsState) {
+                          final stats = _calculateStats(eventsState);
+                          return SummaryCards(
+                            currentCount: widget.currentCount ?? 0,
+                            average: stats.average,
+                          );
+                        },
                       ),
-                      const SizedBox(height: 16.0),
-                      // Event Log Card
-                      Container(
-                        decoration: BoxDecoration(
-                          color: _alternate,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Event Log',
-                                style: GoogleFonts.interTight(
-                                  color: _primaryText,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12.0),
-                              const EventLogListWidget(),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32), // Bottom padding
                     ],
                   ),
                 ),
@@ -237,33 +188,72 @@ class ItemDetailPage extends StatelessWidget {
     );
   }
 
+  /// Calculate statistics from the events state.
+  StatsResult _calculateStats(EventsState eventsState) {
+    if (eventsState is EventsLoaded) {
+      return StatsCalculator.calculate(
+        events: eventsState.events,
+        aggregation: _aggregation,
+        endDate: _selectedDate,
+        lastResetTime: widget.lastResetTime,
+        sinceResetOnly: _showSinceReset,
+      );
+    }
+    // Return empty stats if not loaded
+    return const StatsResult(
+      totalCount: 0,
+      priorPeriodCount: 0,
+      percentChange: null,
+      periodLabel: 'DoD',
+      average: 0.0,
+    );
+  }
+
+  /// Create a chart event based on current filters.
+  ChartsEvent _createChartEvent() {
+    // Calculate date range based on aggregation
+    final periodDays = _aggregation == '1D' ? 1 : (_aggregation == '7D' ? 7 : 30);
+    final endDate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      23,
+      59,
+      59,
+    );
+    final startDate = endDate.subtract(Duration(days: periodDays));
+
+    // Map aggregation string to AggregationLevel
+    final aggregationLevel = _aggregation == '1D'
+        ? AggregationLevel.daily
+        : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.weekly);
+
+    if (_showCumulative) {
+      return LoadCumulativeChart(
+        startDate: startDate,
+        endDate: endDate,
+        itemId: widget.itemId,
+      );
+    } else {
+      return LoadBarChart(
+        startDate: startDate,
+        endDate: endDate,
+        aggregationLevel: aggregationLevel,
+        itemId: widget.itemId,
+      );
+    }
+  }
+
+  /// Reload the chart based on current settings.
+  void _reloadChart(BuildContext context) {
+    context.read<ChartsBloc>().add(_createChartEvent());
+  }
+
   void _refreshData(BuildContext context) {
     // Refresh events
-    context.read<EventsBloc>().add(LoadEvents(itemId: itemId));
+    context.read<EventsBloc>().add(LoadEvents(itemId: widget.itemId));
 
     // Refresh charts
-    context.read<ChartsBloc>().add(const RefreshChart());
-  }
-}
-
-/// Simplified version of ItemDetailPage for use in navigation.
-///
-/// Use this when navigating from a list and you have all the info.
-class ItemDetailPageRoute extends StatelessWidget {
-  final String itemId;
-  final String itemName;
-
-  const ItemDetailPageRoute({
-    super.key,
-    required this.itemId,
-    required this.itemName,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ItemDetailPage(
-      itemId: itemId,
-      itemName: itemName,
-    );
+    _reloadChart(context);
   }
 }

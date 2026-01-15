@@ -357,7 +357,11 @@ class _ItemsListContentState extends State<_ItemsListContent> {
           context.pushNamed(
             'ItemDetailPage',
             pathParameters: {'id': item.id},
-            queryParameters: {'name': item.name},
+            queryParameters: {
+              'name': item.name,
+              'count': item.count.toString(),
+              'resetTime': item.lastResetTime.toIso8601String(),
+            },
           );
         },
         child: Slidable(

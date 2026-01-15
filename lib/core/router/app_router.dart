@@ -101,9 +101,13 @@ class AppRouter {
                   builder: (context, state) {
                     final itemId = state.pathParameters['id'] ?? '';
                     final itemName = state.uri.queryParameters['name'];
+                    final countStr = state.uri.queryParameters['count'];
+                    final resetStr = state.uri.queryParameters['resetTime'];
                     return ItemDetailPage(
                       itemId: itemId,
                       itemName: itemName,
+                      currentCount: countStr != null ? int.tryParse(countStr) : null,
+                      lastResetTime: resetStr != null ? DateTime.tryParse(resetStr) : null,
                     );
                   },
                 ),
