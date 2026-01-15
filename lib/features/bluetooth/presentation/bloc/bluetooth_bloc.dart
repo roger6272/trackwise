@@ -31,7 +31,7 @@ import 'bluetooth_state.dart';
 /// - Connection management with auto-reconnect
 /// - Data sending/receiving with ESP32
 /// - Message stream processing
-@injectable
+@lazySingleton
 class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final ScanDevicesUseCase _scanDevices;
   final StopScanUseCase _stopScan;
