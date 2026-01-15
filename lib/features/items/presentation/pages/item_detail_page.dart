@@ -183,6 +183,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                     });
                                     _reloadChart(context);
                                   },
+                                  range: _aggregation,
+                                  selectedDate: _selectedDate,
                                 ),
                               ),
                               // Summary Cards container

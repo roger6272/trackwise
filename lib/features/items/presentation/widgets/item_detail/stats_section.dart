@@ -24,11 +24,19 @@ class StatsSection extends StatelessWidget {
   /// Callback when chart type is toggled.
   final ValueChanged<bool> onChartTypeChanged;
 
+  /// The aggregation range: '1D', '7D', or '30D'.
+  final String range;
+
+  /// The selected end date for the chart.
+  final DateTime selectedDate;
+
   const StatsSection({
     super.key,
     required this.stats,
     required this.showCumulative,
     required this.onChartTypeChanged,
+    required this.range,
+    required this.selectedDate,
   });
 
   // FlutterFlow colors
@@ -208,9 +216,15 @@ class StatsSection extends StatelessWidget {
 
             // Show appropriate chart based on toggle
             if (showCumulative) {
-              return const CumulativeChartWidget();
+              return CumulativeChartWidget(
+                range: range,
+                selectedDate: selectedDate,
+              );
             } else {
-              return const BarChartWidget();
+              return BarChartWidget(
+                range: range,
+                selectedDate: selectedDate,
+              );
             }
           },
         ),

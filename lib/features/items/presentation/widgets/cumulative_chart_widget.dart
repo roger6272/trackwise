@@ -15,8 +15,20 @@ import '../../../charts/presentation/bloc/charts_state.dart';
 /// - Y-axis labels on left
 /// - X-axis date labels on bottom
 /// - Tooltip showing date and cumulative count on tap
+/// - Generates all time buckets (24 for 1D, 7 for 7D, 30 for 30D)
+/// - Shows 0 count bars for missing data
 class CumulativeChartWidget extends StatefulWidget {
-  const CumulativeChartWidget({super.key});
+  /// The aggregation range: '1D', '7D', or '30D'.
+  final String range;
+
+  /// The selected end date for the chart.
+  final DateTime selectedDate;
+
+  const CumulativeChartWidget({
+    super.key,
+    required this.range,
+    required this.selectedDate,
+  });
 
   @override
   State<CumulativeChartWidget> createState() => _CumulativeChartWidgetState();
@@ -34,6 +46,79 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
   static const double minBarHeight = 4.0;
   static const double barAreaVerticalPadding = 30.0;
   static const int divisions = 5;
+
+  // Range configuration matching FlutterFlow
+  static const Map<String, Map<String, dynamic>> rangeConfig = {
+    '1D': {
+      'bucketCount': 24,
+      'bucketType': 'hour',
+      'labelFormat': 'HH',
+      'keyFormat': 'yyyy-MM-dd HH',
+    },
+    '7D': {
+      'bucketCount': 7,
+      'bucketType': 'day',
+      'labelFormat': 'dd',
+      'keyFormat': 'yyyy-MM-dd',
+    },
+    '30D': {
+      'bucketCount': 30,
+      'bucketType': 'day',
+      'labelFormat': 'dd',
+      'keyFormat': 'yyyy-MM-dd',
+    },
+  };
+
+  /// Generate time buckets based on range and selected date.
+  List<DateTime> _generateTimeBuckets() {
+    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
+    final int bucketCount = config['bucketCount'];
+    final String bucketType = config['bucketType'];
+    final now = widget.selectedDate;
+
+    if (bucketType == 'hour') {
+      // 24 hourly buckets for the selected day
+      return List.generate(
+        bucketCount,
+        (i) => DateTime(now.year, now.month, now.day, i),
+      );
+    } else {
+      // Daily buckets ending on selected date
+      return List.generate(bucketCount, (i) {
+        return DateTime(now.year, now.month, now.day)
+            .subtract(Duration(days: bucketCount - 1 - i));
+      });
+    }
+  }
+
+  /// Map chart data to time buckets, filling 0 for missing data.
+  Map<String, int> _mapDataToBuckets(
+    List<DateTime> timeBuckets,
+    ChartsLoaded state,
+  ) {
+    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
+    final String keyFormat = config['keyFormat'];
+
+    // Initialize all buckets with 0
+    final Map<String, int> timeToCount = {
+      for (var t in timeBuckets) DateFormat(keyFormat).format(t): 0
+    };
+
+    // Fill in actual data from chart state
+    for (var dataPoint in state.chartData.dataPoints) {
+      String key;
+      if (widget.range == '1D') {
+        key = DateFormat(keyFormat).format(dataPoint.date);
+      } else {
+        key = DateFormat(keyFormat).format(dataPoint.date);
+      }
+      if (timeToCount.containsKey(key)) {
+        timeToCount[key] = (timeToCount[key] ?? 0) + dataPoint.value;
+      }
+    }
+
+    return timeToCount;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,10 +144,6 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
         }
 
         if (state is ChartsLoaded && state.isCumulativeChart) {
-          if (state.chartData.isEmpty) {
-            return const Center(child: Text('No data for selected range'));
-          }
-
           return LayoutBuilder(
             builder: (context, constraints) {
               final usableWidth = constraints.maxWidth;
@@ -93,9 +174,21 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     required double chartContentWidth,
     required double fontScale,
   }) {
-    final dataPoints = state.chartData.dataPoints;
-    final baseValues = dataPoints.map((dp) => dp.value).toList();
-    final dates = dataPoints.map((dp) => dp.date).toList();
+    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
+    final String labelFormat = config['labelFormat'];
+    final String keyFormat = config['keyFormat'];
+
+    // Generate time buckets
+    final timeBuckets = _generateTimeBuckets();
+
+    // Map data to buckets
+    final timeToCount = _mapDataToBuckets(timeBuckets, state);
+
+    // Get base values in order
+    final baseValues = timeBuckets.map((t) {
+      final k = DateFormat(keyFormat).format(t);
+      return timeToCount[k] ?? 0;
+    }).toList();
 
     // Calculate cumulative values (running total)
     final values = <int>[];
@@ -104,6 +197,8 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
       runningTotal += v;
       values.add(runningTotal);
     }
+
+    final labels = timeBuckets.map((t) => DateFormat(labelFormat).format(t)).toList();
 
     final totalBars = values.length;
     final maxY = values.isEmpty ? 0 : values.reduce((a, b) => a > b ? a : b);
@@ -158,7 +253,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                             totalBars: totalBars,
                             barAreaHeight: barAreaHeight,
                             values: values,
-                            dates: dates,
+                            timeBuckets: timeBuckets,
                             adjustedMaxY: adjustedMaxY,
                           ),
                         ),
@@ -173,15 +268,15 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                     padding: EdgeInsets.only(left: yAxisLabelWidth),
                     child: Row(
                       children: List.generate(totalBars, (i) {
-                        final date = dates[i];
-                        final showLabel = totalBars > 14
+                        // Show fewer labels for 30D to avoid crowding
+                        final showLabel = widget.range == '30D'
                             ? (totalBars - 1 - i) % 5 == 0
                             : true;
                         return Expanded(
                           child: Container(
                             alignment: Alignment.topCenter,
                             child: Text(
-                              showLabel ? DateFormat('dd').format(date) : '',
+                              showLabel ? labels[i] : '',
                               style: TextStyle(fontSize: 7 * fontScale),
                             ),
                           ),
@@ -233,7 +328,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     required int totalBars,
     required double barAreaHeight,
     required List<int> values,
-    required List<DateTime> dates,
+    required List<DateTime> timeBuckets,
     required int adjustedMaxY,
   }) {
     return List.generate(totalBars, (i) {
@@ -253,7 +348,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
               setState(() {
                 selectedIndex = isSelected ? null : i;
                 tooltipValue = values[i];
-                tooltipDate = dates[i];
+                tooltipDate = timeBuckets[i];
                 tooltipPosition = localPosition;
               });
             },
@@ -273,12 +368,13 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
   @override
   void didUpdateWidget(covariant CumulativeChartWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Clear selection when widget updates
-    setState(() {
-      selectedIndex = null;
-      tooltipPosition = null;
-      tooltipValue = null;
-      tooltipDate = null;
-    });
+    if (oldWidget.range != widget.range || oldWidget.selectedDate != widget.selectedDate) {
+      setState(() {
+        selectedIndex = null;
+        tooltipPosition = null;
+        tooltipValue = null;
+        tooltipDate = null;
+      });
+    }
   }
 }
