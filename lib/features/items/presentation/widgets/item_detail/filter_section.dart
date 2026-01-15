@@ -13,7 +13,7 @@ class FilterSection extends StatelessWidget {
     required this.aggregation,
     required this.showSinceReset,
     required this.selectedDate,
-    required this.showCalendar,
+    required this.isCalendarCollapsed,
     required this.onAggregationChanged,
     required this.onShowSinceResetChanged,
     required this.onDateChanged,
@@ -23,7 +23,7 @@ class FilterSection extends StatelessWidget {
   final String aggregation;
   final bool showSinceReset;
   final DateTime selectedDate;
-  final bool showCalendar; // true = collapsed
+  final bool isCalendarCollapsed;
   final ValueChanged<String> onAggregationChanged;
   final ValueChanged<bool> onShowSinceResetChanged;
   final ValueChanged<DateTime> onDateChanged;
@@ -52,7 +52,7 @@ class FilterSection extends StatelessWidget {
           _buildResetToggle(),
           const SizedBox(height: 16.0),
           _buildDatePicker(),
-          if (!showCalendar) ...[
+          if (!isCalendarCollapsed) ...[
             const SizedBox(height: 16.0),
             _buildCalendar(),
           ],
@@ -160,7 +160,7 @@ class FilterSection extends StatelessWidget {
             ),
             const SizedBox(width: 4.0),
             Icon(
-              showCalendar ? Icons.expand_more : Icons.expand_less,
+              isCalendarCollapsed ? Icons.expand_more : Icons.expand_less,
               color: _primaryText,
               size: 20.0,
             ),
