@@ -95,6 +95,17 @@ class AppRouter {
               path: '/',
               builder: (context, state) => const ItemsListPage(),
               routes: [
+                // ItemFormPage MUST come before ItemDetailPage to avoid
+                // 'items/form' matching 'items/:id' with id='form'
+                GoRoute(
+                  name: ItemFormPage.routeName,
+                  path: 'items/form',
+                  builder: (context, state) {
+                    final extra = state.extra as Map?;
+                    final item = extra?['item'] as Item?;
+                    return ItemFormPage(item: item);
+                  },
+                ),
                 GoRoute(
                   name: 'ItemDetailPage',
                   path: 'items/:id',
@@ -109,14 +120,6 @@ class AppRouter {
                       currentCount: countStr != null ? int.tryParse(countStr) : null,
                       lastResetTime: resetStr != null ? DateTime.tryParse(resetStr) : null,
                     );
-                  },
-                ),
-                GoRoute(
-                  name: ItemFormPage.routeName,
-                  path: ItemFormPage.routePath.replaceFirst('/', ''),
-                  builder: (context, state) {
-                    final item = state.extra as Item?;
-                    return ItemFormPage(item: item);
                   },
                 ),
               ],

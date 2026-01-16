@@ -22,12 +22,20 @@ class StatsResult extends Equatable {
   /// Average count per time unit (hourly for 1D, daily for 7D/30D).
   final double average;
 
+  /// Highest count in a single time bucket (hour for 1D, day for 7D/30D).
+  final int maxCount;
+
+  /// Lowest count in a single time bucket (hour for 1D, day for 7D/30D).
+  final int minCount;
+
   const StatsResult({
     required this.totalCount,
     required this.priorPeriodCount,
     required this.percentChange,
     required this.periodLabel,
     required this.average,
+    required this.maxCount,
+    required this.minCount,
   });
 
   /// Whether the percent change is positive (current > prior).
@@ -43,6 +51,8 @@ class StatsResult extends Equatable {
         percentChange,
         periodLabel,
         average,
+        maxCount,
+        minCount,
       ];
 }
 
@@ -133,12 +143,28 @@ class StatsCalculator {
     final divisor = aggregation == '1D' ? 24 : periodDays;
     final average = totalCount / divisor;
 
+    // Calculate max and min per time bucket
+    final bucketCounts = _aggregateIntoBuckets(
+      currentPeriodEvents.toList(),
+      aggregation,
+      currentPeriodStart,
+      endOfDay,
+    );
+    final maxCount = bucketCounts.isEmpty
+        ? 0
+        : bucketCounts.reduce((a, b) => a > b ? a : b);
+    final minCount = bucketCounts.isEmpty
+        ? 0
+        : bucketCounts.reduce((a, b) => a < b ? a : b);
+
     return StatsResult(
       totalCount: totalCount,
       priorPeriodCount: priorPeriodCount,
       percentChange: percentChange,
       periodLabel: periodLabel,
       average: average,
+      maxCount: maxCount,
+      minCount: minCount,
     );
   }
 
@@ -169,6 +195,45 @@ class StatsCalculator {
       default:
         throw ArgumentError(
             'Invalid aggregation: $aggregation. Expected 1D, 7D, or 30D');
+    }
+  }
+
+  /// Aggregates events into time buckets and returns counts per bucket.
+  ///
+  /// For '1D': 24 hourly buckets.
+  /// For '7D'/'30D': daily buckets.
+  static List<int> _aggregateIntoBuckets(
+    List<EventLog> events,
+    String aggregation,
+    DateTime periodStart,
+    DateTime periodEnd,
+  ) {
+    if (aggregation == '1D') {
+      // 24 hourly buckets
+      final buckets = List<int>.filled(24, 0);
+      for (final event in events) {
+        final hour = event.createdTime.hour;
+        buckets[hour] += event.increment;
+      }
+      return buckets;
+    } else {
+      // Daily buckets for 7D or 30D
+      final numDays = aggregation == '7D' ? 7 : 30;
+      final buckets = List<int>.filled(numDays, 0);
+      final startDay = DateTime(periodStart.year, periodStart.month, periodStart.day);
+
+      for (final event in events) {
+        final eventDay = DateTime(
+          event.createdTime.year,
+          event.createdTime.month,
+          event.createdTime.day,
+        );
+        final dayIndex = eventDay.difference(startDay).inDays;
+        if (dayIndex >= 0 && dayIndex < numDays) {
+          buckets[dayIndex] += event.increment;
+        }
+      }
+      return buckets;
     }
   }
 }

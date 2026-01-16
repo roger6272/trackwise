@@ -196,6 +196,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 child: SummaryCards(
                                   currentCount: widget.currentCount ?? 0,
                                   average: stats.average,
+                                  highestCount: stats.maxCount,
+                                  lowestCount: stats.minCount,
                                 ),
                               ),
                             ],
@@ -231,6 +233,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       percentChange: null,
       periodLabel: 'DoD',
       average: 0.0,
+      maxCount: 0,
+      minCount: 0,
     );
   }
 

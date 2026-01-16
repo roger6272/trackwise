@@ -3,17 +3,22 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Widget displaying summary statistics cards with slide/fade animations.
 ///
-/// Shows Current Count and Average values in two side-by-side cards
-/// that animate in when the widget is first displayed.
+/// Shows 4 cards in 2 rows:
+/// - Row 1: Current Count, Average Count
+/// - Row 2: Highest Count, Lowest Count
 class SummaryCards extends StatefulWidget {
   const SummaryCards({
     super.key,
     required this.currentCount,
     required this.average,
+    required this.highestCount,
+    required this.lowestCount,
   });
 
   final int currentCount;
   final double average;
+  final int highestCount;
+  final int lowestCount;
 
   @override
   State<SummaryCards> createState() => _SummaryCardsState();
@@ -60,29 +65,59 @@ class _SummaryCardsState extends State<SummaryCards>
 
   @override
   Widget build(BuildContext context) {
+    final cardWidth = MediaQuery.sizeOf(context).width * 0.42;
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: _SummaryCard(
-                value: widget.currentCount.toString(),
-                label: 'Current Count',
-                width: MediaQuery.sizeOf(context).width * 0.42,
-              ),
+            // Row 1: Current Count, Average Count
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: _SummaryCard(
+                    value: widget.currentCount.toString(),
+                    label: 'Current Count',
+                    width: cardWidth,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: _SummaryCard(
+                    value: widget.average.toStringAsFixed(1),
+                    label: 'Average Count',
+                    width: cardWidth,
+                  ),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: _SummaryCard(
-                value: widget.average.toStringAsFixed(1),
-                label: 'Average',
-                width: MediaQuery.sizeOf(context).width * 0.42,
-              ),
+            // Row 2: Highest Count, Lowest Count
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: _SummaryCard(
+                    value: widget.highestCount.toString(),
+                    label: 'Highest Count',
+                    width: cardWidth,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: _SummaryCard(
+                    value: widget.lowestCount.toString(),
+                    label: 'Lowest Count',
+                    width: cardWidth,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
