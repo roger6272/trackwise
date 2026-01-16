@@ -329,9 +329,14 @@ class WriteCallback : public BLECharacteristicCallbacks {
 
       struct tm tm;
       if (strptime(utc_time.c_str(), "%Y-%m-%d %H:%M:%S", &tm)) {
-        time_t parsedTime = mktime(&tm);
+        // Construct DateTime directly from parsed components
+        // This avoids mktime() which has timezone interpretation issues on ESP32
+        DateTime utcDt(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                       tm.tm_hour, tm.tm_min, tm.tm_sec);
+        time_t parsedTime = utcDt.unixtime();
+
         if (parsedTime > 1000000000) {              // Rough sanity check (post-2001)
-          rtc.adjust(DateTime(parsedTime));         // ✅ Set the RTC to the parsed time
+          rtc.adjust(utcDt);                        // ✅ Set the RTC to UTC time
 
           prefs.begin("counter", false);
           // ✅ Store timezone offset in Preferences
@@ -341,7 +346,9 @@ class WriteCallback : public BLECharacteristicCallbacks {
           localTimestamp = parsedTime + offsetMin * 60;
           localTime = DateTime(localTimestamp);  // ✅ Assign to global
 
-          Serial.print("🕒 Time set from app = ");
+          Serial.print("🕒 UTC time set = ");
+          Serial.println(utcDt.timestamp());
+          Serial.print("🕒 Local time = ");
           Serial.println(localTime.timestamp());
         } else {
           Serial.println("⚠️ Parsed time was too early — ignoring.");
