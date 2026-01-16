@@ -1,12 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart' as share;
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../bloc/profile_bloc.dart';
@@ -26,13 +23,8 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // FF Colors
+  // Static colors (theme-independent)
   static const Color _primary = Color(0xFF4B39EF);
-  static const Color _alternate = Color(0xFFE0E3E7);
-  static const Color _primaryBackground = Color(0xFFF1F4F8);
-  static const Color _primaryText = Color(0xFF14181B);
-  static const Color _secondaryText = Color(0xFF57636C);
-  static const Color _secondaryBackground = Color(0xFFFFFFFF);
   static const Color _error = Color(0xFFFF5963);
 
   @override
@@ -43,20 +35,29 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+
+    // Theme-aware colors
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final secondaryBackground = AppColors.secondaryBackground(brightness);
+    final alternate = AppColors.alternate(brightness);
+
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: Scaffold(
-        backgroundColor: _primaryBackground,
+        backgroundColor: primaryBackground,
         appBar: AppBar(
-          backgroundColor: _primaryBackground,
+          backgroundColor: primaryBackground,
           automaticallyImplyLeading: false,
           leading: IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.arrow_back_rounded,
-              color: _primaryText,
+              color: primaryText,
               size: 30.0,
             ),
             onPressed: () => context.pop(),
@@ -64,7 +65,7 @@ class _ProfilePageState extends State<ProfilePage> {
           title: Text(
             'Profile',
             style: GoogleFonts.interTight(
-              color: _primaryText,
+              color: primaryText,
               fontSize: 20.0,
               fontWeight: FontWeight.w600,
             ),
@@ -76,9 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
           top: true,
           child: BlocConsumer<ProfileBloc, ProfileState>(
             listener: (context, state) {
-              if (state is DataExported) {
-                _handleDataExported(context, state.jsonData);
-              } else if (state is AccountDeleted) {
+              if (state is AccountDeleted) {
                 _handleAccountDeleted(context);
               } else if (state is ProfileError) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -111,32 +110,35 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 24.0),
                       // Profile header
                       if (state is ProfileLoaded || state is ProfileUpdated)
-                        _buildProfileHeader(state),
+                        _buildProfileHeader(context, state),
                       const SizedBox(height: 24.0),
                       // Divider
                       Container(
                         width: double.infinity,
                         height: 1.0,
-                        color: _alternate,
+                        color: alternate,
                       ),
                       const SizedBox(height: 24.0),
                       // Account Settings
-                      _buildSectionTitle('Account Settings'),
+                      _buildSectionTitle(context, 'Account Settings'),
                       const SizedBox(height: 16.0),
-                      _buildSettingsCard([
+                      _buildSettingsCard(context, [
                         _buildSettingItem(
+                          context,
                           icon: Icons.person_outline,
                           title: 'Edit Profile',
                           onTap: () {},
                         ),
-                        _buildDivider(),
+                        _buildDivider(context),
                         _buildSettingItem(
+                          context,
                           icon: Icons.notifications_outlined,
                           title: 'Notifications',
                           onTap: () {},
                         ),
-                        _buildDivider(),
+                        _buildDivider(context),
                         _buildSettingItem(
+                          context,
                           icon: Icons.lock_outline,
                           title: 'Privacy & Security',
                           onTap: () => _showPrivacyPolicy(context),
@@ -144,17 +146,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       ]),
                       const SizedBox(height: 24.0),
                       // Data Management
-                      _buildSectionTitle('Data Management'),
+                      _buildSectionTitle(context, 'Data Management'),
                       const SizedBox(height: 16.0),
-                      _buildSettingsCard([
+                      _buildSettingsCard(context, [
                         _buildSettingItem(
+                          context,
                           icon: Icons.download_outlined,
                           title: 'Export My Data',
-                          onTap: () => _showExportConfirmation(context),
+                          onTap: () => context.push('/profile/export'),
                           isPrimary: true,
                         ),
-                        _buildDivider(),
+                        _buildDivider(context),
                         _buildSettingItem(
+                          context,
                           icon: Icons.backup_outlined,
                           title: 'Backup Settings',
                           onTap: () {},
@@ -162,16 +166,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       ]),
                       const SizedBox(height: 24.0),
                       // Support
-                      _buildSectionTitle('Support'),
+                      _buildSectionTitle(context, 'Support'),
                       const SizedBox(height: 16.0),
-                      _buildSettingsCard([
+                      _buildSettingsCard(context, [
                         _buildSettingItem(
+                          context,
                           icon: Icons.help_outline,
                           title: 'Help Center',
                           onTap: () {},
                         ),
-                        _buildDivider(),
+                        _buildDivider(context),
                         _buildSettingItem(
+                          context,
                           icon: Icons.contact_support_outlined,
                           title: 'Contact Us',
                           onTap: () {},
@@ -182,7 +188,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       Container(
                         width: double.infinity,
                         height: 1.0,
-                        color: _alternate,
+                        color: alternate,
                       ),
                       const SizedBox(height: 24.0),
                       // Logout button
@@ -199,7 +205,11 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileHeader(ProfileState state) {
+  Widget _buildProfileHeader(BuildContext context, ProfileState state) {
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
     final profile = state is ProfileLoaded
         ? state.profile
         : (state as ProfileUpdated).profile;
@@ -230,7 +240,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Text(
             profile.displayName ?? 'No name set',
             style: GoogleFonts.interTight(
-              color: _primaryText,
+              color: primaryText,
               fontSize: 24.0,
               fontWeight: FontWeight.w600,
             ),
@@ -239,7 +249,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Text(
             profile.email,
             style: GoogleFonts.inter(
-              color: _secondaryText,
+              color: secondaryText,
               fontSize: 14.0,
             ),
           ),
@@ -248,22 +258,24 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    final primaryText = AppColors.primaryText(Theme.of(context).brightness);
     return Text(
       title,
       style: GoogleFonts.interTight(
-        color: _primaryText,
+        color: primaryText,
         fontSize: 16.0,
         fontWeight: FontWeight.w600,
       ),
     );
   }
 
-  Widget _buildSettingsCard(List<Widget> children) {
+  Widget _buildSettingsCard(BuildContext context, List<Widget> children) {
+    final secondaryBackground = AppColors.secondaryBackground(Theme.of(context).brightness);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _secondaryBackground,
+        color: secondaryBackground,
         borderRadius: BorderRadius.circular(12.0),
       ),
       child: Padding(
@@ -273,12 +285,17 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildSettingItem({
+  Widget _buildSettingItem(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
     bool isPrimary = false,
   }) {
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -296,14 +313,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   Icon(
                     icon,
-                    color: isPrimary ? _primary : _primaryText,
+                    color: isPrimary ? _primary : primaryText,
                     size: 24.0,
                   ),
                   const SizedBox(width: 12.0),
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      color: isPrimary ? _primary : _primaryText,
+                      color: isPrimary ? _primary : primaryText,
                       fontSize: 16.0,
                     ),
                   ),
@@ -311,7 +328,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               Icon(
                 Icons.chevron_right,
-                color: _secondaryText,
+                color: secondaryText,
                 size: 20.0,
               ),
             ],
@@ -321,12 +338,13 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildDivider() {
+  Widget _buildDivider(BuildContext context) {
+    final alternate = AppColors.alternate(Theme.of(context).brightness);
     return Divider(
       height: 1.0,
       thickness: 0.5,
       indent: 52.0,
-      color: _alternate,
+      color: alternate,
     );
   }
 
@@ -355,39 +373,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           padding: const EdgeInsets.all(8.0),
         ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.day}/${date.year}';
-  }
-
-  void _showExportConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export Your Data'),
-        content: const Text(
-          'This will generate a JSON file containing all your data:\n\n'
-          '- Profile information\n'
-          '- All items\n'
-          '- All event logs\n\n'
-          'You can save or share this file.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<ProfileBloc>().add(const ExportUserDataEvent());
-            },
-            child: const Text('Export'),
-          ),
-        ],
       ),
     );
   }
@@ -505,40 +490,6 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context) => const PrivacyPolicyPage(),
       ),
     );
-  }
-
-  void _showTermsOfService(BuildContext context) {
-    // TODO: Navigate to terms of service page or open URL
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Terms of Service coming soon')),
-    );
-  }
-
-  Future<void> _handleDataExported(BuildContext context, String jsonData) async {
-    try {
-      // Save to temporary file
-      final directory = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final file = File('${directory.path}/trackwise_export_$timestamp.json');
-      await file.writeAsString(jsonData);
-
-      // Share the file
-      await share.SharePlus.instance.share(
-        share.ShareParams(
-          files: [share.XFile(file.path)],
-          subject: 'Trackwise Data Export',
-          text: 'Your Trackwise data export',
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save export: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   void _handleAccountDeleted(BuildContext context) {

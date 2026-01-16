@@ -30,6 +30,11 @@ class _ExportPageState extends State<ExportPage> {
   DateTime _endDate = DateTime.now();
   ExportAggregationLevel _aggregationLevel = ExportAggregationLevel.daily;
 
+  // FF Colors for consistent styling on light input backgrounds
+  static const Color _inputBackground = Color(0xFFE0E3E7);
+  static const Color _inputText = Color(0xFF14181B);
+  static const Color _inputHint = Color(0xFF57636C);
+
   @override
   void initState() {
     super.initState();
@@ -166,10 +171,10 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 12.0),
                           Container(
                             decoration: BoxDecoration(
-                              color: Theme.of(context).dividerColor,
+                              color: _inputBackground,
                               borderRadius: BorderRadius.circular(8.0),
                               border: Border.all(
-                                color: Theme.of(context).dividerColor,
+                                color: _inputBackground,
                               ),
                             ),
                             child: DropdownButtonHideUnderline(
@@ -177,11 +182,16 @@ class _ExportPageState extends State<ExportPage> {
                                 value: _aggregationLevel,
                                 isExpanded: true,
                                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                dropdownColor: Theme.of(context).dividerColor,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                dropdownColor: _inputBackground,
+                                style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 16.0,
                                   letterSpacing: 0.0,
+                                  color: _inputText,
+                                ),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: _inputHint,
                                 ),
                                 items: ExportAggregationLevel.values.map((level) {
                                   return DropdownMenuItem<ExportAggregationLevel>(
@@ -225,15 +235,15 @@ class _ExportPageState extends State<ExportPage> {
                             textInputAction: TextInputAction.done,
                             decoration: InputDecoration(
                               hintText: 'Enter your email address...',
-                              hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              hintStyle: const TextStyle(
                                 fontFamily: 'Inter',
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: _inputHint,
                                 fontSize: 16.0,
                                 letterSpacing: 0.0,
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).dividerColor,
+                                borderSide: const BorderSide(
+                                  color: _inputBackground,
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(8.0),
@@ -260,16 +270,17 @@ class _ExportPageState extends State<ExportPage> {
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               filled: true,
-                              fillColor: Theme.of(context).dividerColor,
+                              fillColor: _inputBackground,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16.0,
                                 vertical: 12.0,
                               ),
                             ),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 16.0,
                               letterSpacing: 0.0,
+                              color: _inputText,
                             ),
                             validator: _validateEmail,
                           ),
@@ -285,11 +296,12 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 32.0),
 
                           // Export Button
-                          SizedBox(
+                          Builder(
+                            builder: (blocContext) => SizedBox(
                             width: double.infinity,
                             height: 52.0,
                             child: ElevatedButton(
-                              onPressed: isLoading ? null : _handleExport,
+                              onPressed: isLoading ? null : () => _handleExport(blocContext),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
@@ -306,6 +318,7 @@ class _ExportPageState extends State<ExportPage> {
                                 ),
                               ),
                             ),
+                          ),
                           ),
                           if (isLoading) ...[
                             const SizedBox(height: 16.0),
@@ -353,7 +366,7 @@ class _ExportPageState extends State<ExportPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         decoration: BoxDecoration(
-          color: Theme.of(context).dividerColor,
+          color: _inputBackground,
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: Row(
@@ -364,27 +377,29 @@ class _ExportPageState extends State<ExportPage> {
                 children: [
                   Text(
                     label,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: const TextStyle(
                       fontFamily: 'Inter',
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: _inputHint,
+                      fontSize: 12.0,
                       letterSpacing: 0.0,
                     ),
                   ),
                   const SizedBox(height: 4.0),
                   Text(
                     _formatDate(date),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 16.0,
                       letterSpacing: 0.0,
+                      color: _inputText,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.calendar_today,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: _inputHint,
               size: 24.0,
             ),
           ],
@@ -442,12 +457,12 @@ class _ExportPageState extends State<ExportPage> {
     return null;
   }
 
-  void _handleExport() {
+  void _handleExport(BuildContext blocContext) {
     if (!formKey.currentState!.validate()) {
       return;
     }
 
-    context.read<ExportBloc>().add(ExportCSV(
+    blocContext.read<ExportBloc>().add(ExportCSV(
       startDate: _startDate,
       endDate: _endDate,
       aggregationLevel: _aggregationLevel,

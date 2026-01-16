@@ -10,6 +10,7 @@ import '/auth/firebase_auth/firebase_user_provider.dart' show trackwiseFirebaseU
 import '/flutter_flow/nav/nav.dart' show AppStateNotifier;
 import '../../../../core/di/injection.dart';
 import '../../../../core/state/app_ui_state.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -28,6 +29,9 @@ class ItemsListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+
     // Use StreamBuilder on trackwiseFirebaseUserStream to ensure we rebuild
     // when auth state changes. This stream also sets currentUser which
     // populates currentUserUid.
@@ -39,10 +43,10 @@ class ItemsListPage extends StatelessWidget {
             !snapshot.hasData ||
             currentUserUid.isEmpty) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF1F4F8),
+            backgroundColor: primaryBackground,
             body: Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF4B39EF)),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
           );
@@ -63,13 +67,10 @@ class _ItemsListContent extends StatefulWidget {
 class _ItemsListContentState extends State<_ItemsListContent> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // FF Colors
+  // Static colors (theme-independent)
   static const Color _primary = Color(0xFF4B39EF);
-  static const Color _alternate = Color(0xFFE0E3E7);
-  static const Color _primaryBackground = Color(0xFFF1F4F8);
-  static const Color _primaryText = Color(0xFF14181B);
-  static const Color _secondaryText = Color(0xFF57636C);
-  static const Color _activatedColor = Color(0xFFCAC6FF);
+  static const Color _activatedColorLight = Color(0xFFCAC6FF);
+  static const Color _activatedColorDark = Color(0xFF3D3A6D);
   static const Color _activateActionColor = Color(0xFF3C38B5);
   static const Color _deleteActionColor = Color(0xFFD11F43);
   static const Color _disabledActionColor = Color(0xFF565656);
@@ -77,6 +78,16 @@ class _ItemsListContentState extends State<_ItemsListContent> {
   @override
   Widget build(BuildContext context) {
     final appUiState = context.watch<AppUiState>();
+    final brightness = Theme.of(context).brightness;
+
+    // Theme-aware colors
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final alternate = AppColors.alternate(brightness);
+    final activatedColor = brightness == Brightness.dark
+        ? _activatedColorDark
+        : _activatedColorLight;
 
     // Auth is guaranteed to be ready by parent StreamBuilder
     return BlocProvider(
@@ -93,14 +104,14 @@ class _ItemsListContentState extends State<_ItemsListContent> {
             },
             child: Scaffold(
               key: scaffoldKey,
-              backgroundColor: _primaryBackground,
+              backgroundColor: primaryBackground,
               appBar: AppBar(
-                backgroundColor: _primaryBackground,
+                backgroundColor: primaryBackground,
                 automaticallyImplyLeading: false,
                 title: Text(
                   'Items',
                   style: GoogleFonts.interTight(
-                    color: _primaryText,
+                    color: primaryText,
                     fontWeight: FontWeight.w600,
                     fontSize: 20.0,
                   ),
@@ -119,13 +130,13 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                       alignment: Alignment.centerRight,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 0.0),
-                        child: _buildAddButton(context, isConnected),
+                        child: _buildAddButton(context, isConnected, primaryBackground),
                       ),
                     ),
                     // Total/Today Toggle
                     Padding(
                       padding: const EdgeInsets.fromLTRB(10.0, 16.0, 10.0, 0.0),
-                      child: _buildToggle(context, appUiState),
+                      child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
                     ),
                     // Items List
                     Expanded(
@@ -157,7 +168,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
 
                             if (state is ItemsLoaded) {
                               if (state.items.isEmpty) {
-                                return _buildEmptyState(context);
+                                return _buildEmptyState(context, primaryText, secondaryText);
                               }
 
                               return ListView.builder(
@@ -172,6 +183,10 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                     appUiState,
                                     isConnected,
                                     bluetoothState.selectedItemId,
+                                    primaryText,
+                                    secondaryText,
+                                    alternate,
+                                    activatedColor,
                                   );
                                 },
                               );
@@ -192,12 +207,12 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     );
   }
 
-  Widget _buildAddButton(BuildContext context, bool isConnected) {
+  Widget _buildAddButton(BuildContext context, bool isConnected, Color primaryBackground) {
     return Container(
       width: 40.0,
       height: 40.0,
       decoration: BoxDecoration(
-        color: _primaryBackground,
+        color: primaryBackground,
       ),
       child: IconButton(
         onPressed: () async {
@@ -221,20 +236,20 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     );
   }
 
-  Widget _buildToggle(BuildContext context, AppUiState appUiState) {
+  Widget _buildToggle(BuildContext context, AppUiState appUiState, Color primaryBackground, Color primaryText, Color secondaryText, Color alternate) {
     return Container(
-      decoration: const BoxDecoration(
-        color: _primaryBackground,
+      decoration: BoxDecoration(
+        color: primaryBackground,
       ),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 20.0),
         child: Container(
           height: 50.0,
           decoration: BoxDecoration(
-            color: _alternate,
+            color: alternate,
             borderRadius: BorderRadius.circular(12.0),
             border: Border.all(
-              color: _alternate,
+              color: alternate,
               width: 1.0,
             ),
           ),
@@ -257,10 +272,10 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                     child: Container(
                       height: 100.0,
                       decoration: BoxDecoration(
-                        color: !appUiState.isTodayToggle ? _primary : _alternate,
+                        color: !appUiState.isTodayToggle ? _primary : alternate,
                         borderRadius: BorderRadius.circular(10.0),
                         border: Border.all(
-                          color: !appUiState.isTodayToggle ? _primary : _alternate,
+                          color: !appUiState.isTodayToggle ? _primary : alternate,
                           width: 1.0,
                         ),
                       ),
@@ -274,8 +289,8 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                               'Total ',
                               style: GoogleFonts.inter(
                                 color: !appUiState.isTodayToggle
-                                    ? _primaryText
-                                    : _secondaryText,
+                                    ? Colors.white
+                                    : secondaryText,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -298,10 +313,10 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                     child: Container(
                       height: 100.0,
                       decoration: BoxDecoration(
-                        color: appUiState.isTodayToggle ? _primary : _alternate,
+                        color: appUiState.isTodayToggle ? _primary : alternate,
                         borderRadius: BorderRadius.circular(10.0),
                         border: Border.all(
-                          color: appUiState.isTodayToggle ? _primary : _alternate,
+                          color: appUiState.isTodayToggle ? _primary : alternate,
                           width: 1.0,
                         ),
                       ),
@@ -315,8 +330,8 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                               'Today',
                               style: GoogleFonts.inter(
                                 color: appUiState.isTodayToggle
-                                    ? _primaryText
-                                    : _secondaryText,
+                                    ? Colors.white
+                                    : secondaryText,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -340,6 +355,10 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     AppUiState appUiState,
     bool isConnected,
     String? selectedItemId,
+    Color primaryText,
+    Color secondaryText,
+    Color alternate,
+    Color activatedColor,
   ) {
     // Use Bluetooth selectedItemId from device, fallback to appUiState
     final activeId = selectedItemId ?? appUiState.activeItemId;
@@ -348,109 +367,112 @@ class _ItemsListContentState extends State<_ItemsListContent> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: InkWell(
-        splashColor: Colors.transparent,
-        focusColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        onTap: () {
-          context.pushNamed(
-            'ItemDetailPage',
-            pathParameters: {'id': item.id},
-            queryParameters: {
-              'name': item.name,
-              'count': item.count.toString(),
-              'resetTime': item.lastResetTime.toIso8601String(),
-            },
-          );
-        },
-        child: Slidable(
-          endActionPane: ActionPane(
-            motion: const ScrollMotion(),
-            extentRatio: 0.85,
-            children: [
-              SlidableAction(
-                label: 'Activate',
-                backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
-                icon: Icons.star_sharp,
-                onPressed: (_) async {
-                  if (isConnected) {
-                    appUiState.activeItemId = item.id;
-                    // Send selected item to device
-                    context.read<BluetoothBloc>().add(SendSelectedItem(item.id));
-                  } else {
-                    await _showConnectDeviceDialog(context);
-                  }
-                },
-              ),
-              SlidableAction(
-                label: 'Update',
-                backgroundColor: isConnected ? _primary : _disabledActionColor,
-                icon: Icons.settings_sharp,
-                onPressed: (_) async {
-                  if (isConnected) {
-                    context.pushNamed(
-                      ItemFormPage.routeName,
-                      extra: {'item': item},
-                    );
-                  } else {
-                    await _showConnectDeviceDialog(context);
-                  }
-                },
-              ),
-              SlidableAction(
-                label: 'Delete',
-                backgroundColor: isConnected ? _deleteActionColor : _disabledActionColor,
-                icon: Icons.delete_outline_rounded,
-                onPressed: (_) async {
-                  if (isConnected) {
-                    final confirmed = await _showDeleteConfirmation(context);
-                    if (confirmed && context.mounted) {
-                      if (appUiState.activeItemId == item.id) {
-                        appUiState.activeItemId = 'none';
-                      }
-                      context.read<ItemsBloc>().add(DeleteItemEvent(item.id));
-                      // TODO: Send updated item list to device
+      child: Slidable(
+        key: ValueKey(item.id),
+        endActionPane: ActionPane(
+          motion: const ScrollMotion(),
+          extentRatio: 0.85,
+          children: [
+            SlidableAction(
+              label: 'Activate',
+              backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
+              icon: Icons.star_sharp,
+              autoClose: false,
+              onPressed: (slidableContext) async {
+                if (isConnected) {
+                  appUiState.activeItemId = item.id;
+                  // Send selected item to device
+                  context.read<BluetoothBloc>().add(SendSelectedItem(item.id));
+                } else {
+                  await _showConnectDeviceDialog(context);
+                }
+                Slidable.of(slidableContext)?.close();
+              },
+            ),
+            SlidableAction(
+              label: 'Update',
+              backgroundColor: isConnected ? _primary : _disabledActionColor,
+              icon: Icons.settings_sharp,
+              autoClose: false,
+              onPressed: (slidableContext) async {
+                Slidable.of(slidableContext)?.close();
+                if (isConnected) {
+                  context.pushNamed(
+                    ItemFormPage.routeName,
+                    extra: {'item': item},
+                  );
+                } else {
+                  await _showConnectDeviceDialog(context);
+                }
+              },
+            ),
+            SlidableAction(
+              label: 'Delete',
+              backgroundColor: isConnected ? _deleteActionColor : _disabledActionColor,
+              icon: Icons.delete_outline_rounded,
+              autoClose: false,
+              onPressed: (slidableContext) async {
+                if (isConnected) {
+                  final confirmed = await _showDeleteConfirmation(context);
+                  if (confirmed && context.mounted) {
+                    if (appUiState.activeItemId == item.id) {
+                      appUiState.activeItemId = 'none';
                     }
-                  } else {
-                    await _showConnectDeviceDialog(context);
+                    context.read<ItemsBloc>().add(DeleteItemEvent(item.id));
                   }
-                },
-              ),
-            ],
+                } else {
+                  await _showConnectDeviceDialog(context);
+                }
+                Slidable.of(slidableContext)?.close();
+              },
+            ),
+          ],
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isActivated ? activatedColor : alternate,
+            borderRadius: BorderRadius.circular(8.0),
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: ListTile(
-              title: Text(
-                item.name,
-                style: GoogleFonts.interTight(
-                  color: !isConnected ? const Color(0xFF787878) : Colors.black,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 18.0,
-                ),
+          child: ListTile(
+            onTap: () {
+              context.pushNamed(
+                'ItemDetailPage',
+                pathParameters: {'id': item.id},
+                queryParameters: {
+                  'name': item.name,
+                  'count': item.count.toString(),
+                  'resetTime': item.lastResetTime.toIso8601String(),
+                },
+              );
+            },
+            title: Text(
+              item.name,
+              style: GoogleFonts.interTight(
+                color: !isConnected ? secondaryText : primaryText,
+                fontWeight: FontWeight.w600,
+                fontSize: 18.0,
               ),
-              subtitle: Text(
-                displayCount.toString(),
-                style: GoogleFonts.inter(
-                  color: _secondaryText,
-                  fontSize: 20.0,
-                ),
+            ),
+            subtitle: Text(
+              displayCount.toString(),
+              style: GoogleFonts.inter(
+                color: secondaryText,
+                fontSize: 20.0,
               ),
-              trailing: Icon(
-                Icons.drag_handle,
-                color: _secondaryText,
-                size: 22.0,
-              ),
-              tileColor: isActivated ? _activatedColor : _alternate,
-              dense: false,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 15.0,
-                vertical: 7.0,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
+            ),
+            trailing: Icon(
+              Icons.drag_handle,
+              color: secondaryText,
+              size: 22.0,
+            ),
+            tileColor: Colors.transparent,
+            dense: false,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 15.0,
+              vertical: 7.0,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
             ),
           ),
         ),
@@ -458,7 +480,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -466,13 +488,13 @@ class _ItemsListContentState extends State<_ItemsListContent> {
           Icon(
             Icons.inbox_outlined,
             size: 72.0,
-            color: _secondaryText,
+            color: secondaryText,
           ),
           const SizedBox(height: 16.0),
           Text(
             'No items yet',
             style: GoogleFonts.interTight(
-              color: _primaryText,
+              color: primaryText,
               fontSize: 24.0,
               fontWeight: FontWeight.w600,
             ),
@@ -481,7 +503,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
           Text(
             'Tap + to create your first item',
             style: GoogleFonts.inter(
-              color: _secondaryText,
+              color: secondaryText,
               fontSize: 14.0,
             ),
           ),

@@ -37,6 +37,7 @@ class EventLogRemoteDataSourceImpl implements EventLogRemoteDataSource {
       // Query using DocumentReference for uid field
       final userRef = firestore.doc('/users/$userId');
 
+      // Requires composite index: uid (ASC), created_time (DESC)
       final snapshot = await firestore
           .collection('EventLog')
           .where('uid', isEqualTo: userRef)

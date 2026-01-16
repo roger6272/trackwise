@@ -28,7 +28,7 @@ class MigrationFlags {
 
   /// Use new ProfilePage instead of ProfilePageWidget
   /// Requires: ProfileBloc and AuthBloc to be provided in main.dart
-  static const useNewProfilePage = false;
+  static const useNewProfilePage = true;
 
   /// Use new auth pages (LoginPage, SignupPage, ForgotPasswordPage)
   /// instead of Auth2LoginWidget, Auth2CreateWidget, Auth2ForgotPasswordWidget

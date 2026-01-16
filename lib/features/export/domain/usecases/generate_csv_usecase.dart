@@ -54,18 +54,22 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
   ) {
     final buffer = StringBuffer();
 
-    // Header row
-    buffer.writeln('Item Name,Date,Event Count');
+    // Header row - use Timestamp for raw, Date for aggregated
+    if (aggregationLevel == ExportAggregationLevel.raw) {
+      buffer.writeln('Item Name,Timestamp,Event Count');
+    } else {
+      buffer.writeln('Item Name,Date,Event Count');
+    }
 
     if (events.isEmpty) {
       return buffer.toString();
     }
 
     if (aggregationLevel == ExportAggregationLevel.raw) {
-      // Raw events - one row per event
+      // Raw events - one row per event with full timestamp
       for (final event in events) {
         buffer.writeln(
-          '${_escapeCSV(event.eventName)},${_formatDate(event.createdTime)},${event.increment}',
+          '${_escapeCSV(event.eventName)},${_formatDateTime(event.createdTime)},${event.increment}',
         );
       }
     } else {
@@ -127,6 +131,12 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
   /// Format date as YYYY-MM-DD.
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Format date with time as YYYY-MM-DD HH:MM:SS.
+  String _formatDateTime(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
   }
 
   /// Escape CSV value - wrap in quotes if contains comma, newline, or quote.
