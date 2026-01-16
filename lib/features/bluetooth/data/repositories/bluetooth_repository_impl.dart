@@ -4,7 +4,7 @@ import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failures.dart';
-import '../../../../custom_code/actions/prepare_b_l_e_read.dart' as old_ble;
+import '../../../../core/utils/ble_legacy.dart' as ble_legacy;
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
@@ -193,7 +193,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     try {
       // Use the OLD working code directly since it works and our new code doesn't
       // The old code handles everything: discover services, write command, read response
-      await old_ble.prepareBLERead(deviceId, type, page);
+      await ble_legacy.prepareBLERead(deviceId, type, page);
       return const Right(null);
     } catch (e) {
       return Left(BluetoothFailure('Failed to request data: ${e.toString()}'));

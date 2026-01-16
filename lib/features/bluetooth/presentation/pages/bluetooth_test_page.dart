@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../custom_code/actions/prepare_b_l_e_read.dart' as old_code;
+import '../../../../core/utils/ble_legacy.dart' as ble_legacy;
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
@@ -253,20 +253,20 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
     }
   }
 
-  /// Test using OLD code directly to compare behavior
-  Future<void> _testOldCodePrefs() async {
+  /// Test using BLE legacy wrapper directly to compare behavior
+  Future<void> _testLegacyCodePrefs() async {
     final deviceId = _bloc.state.connectedDevice?.id;
     if (deviceId == null) {
       _log('ERROR: Not connected to any device');
       return;
     }
 
-    _log('Calling OLD prepareBLERead("prefs", 0)...');
+    _log('Calling ble_legacy.prepareBLERead("prefs", 0)...');
     try {
-      await old_code.prepareBLERead(deviceId, "prefs", 0);
-      _log('OLD code completed successfully!');
+      await ble_legacy.prepareBLERead(deviceId, "prefs", 0);
+      _log('Legacy code completed successfully!');
     } catch (e) {
-      _log('OLD code error: $e');
+      _log('Legacy code error: $e');
     }
   }
 
@@ -563,9 +563,9 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
             label: const Text('Get Prefs'),
           ),
           ElevatedButton.icon(
-            onPressed: _testOldCodePrefs,
+            onPressed: _testLegacyCodePrefs,
             icon: const Icon(Icons.history_edu, size: 18),
-            label: const Text('OLD Code Prefs'),
+            label: const Text('Legacy Prefs'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
           ),
           ElevatedButton.icon(
