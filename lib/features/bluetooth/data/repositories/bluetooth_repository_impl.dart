@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/utils/ble_legacy.dart' as ble_legacy;
@@ -173,15 +174,17 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   Future<Either<Failure, void>> sendTimeSync(String deviceId) async {
     try {
       final now = DateTime.now();
+      // Format: "yyyy-MM-dd HH:mm:ss" as expected by ESP32 firmware
+      final formattedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now.toUtc());
       final jsonData = jsonEncode({
-        'type': 'time',
-        'timestamp': now.toUtc().millisecondsSinceEpoch ~/ 1000,
-        'timezone': now.timeZoneOffset.inHours,
+        'cmd': 'set_time',
+        'utc_time': formattedTime,
+        'offset': now.timeZoneOffset.inMinutes,
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to send time sync: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to send time sync: ${e.toString()}'));
     }
   }
 
