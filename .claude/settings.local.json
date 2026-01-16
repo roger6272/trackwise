@@ -96,7 +96,11 @@
       "Bash(dart run build_runner:*)",
       "Skill(writing-plans)",
       "Skill(subagent-driven-development)",
-      "Skill(superpowers:requesting-code-review)"
+      "Skill(superpowers:requesting-code-review)",
+      "Skill(pm:epic-start)",
+      "Skill(pm:prd-parse)",
+      "Bash(timeout:*)",
+      "Bash(adb:*)"
     ]
   }
 }

@@ -313,14 +313,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// ESP32 requires:
   /// - Max 180 bytes per chunk
   /// - 30ms delay between chunks
-  /// - Newline delimiter at end
   Future<void> _writeChunked(
     BluetoothCharacteristic char,
     String data,
   ) async {
-    // Add newline delimiter if not present
-    final dataWithDelimiter = data.endsWith('\n') ? data : '$data\n';
-    final bytes = utf8.encode(dataWithDelimiter);
+    // Send raw data without delimiter (matches old FlutterFlow behavior)
+    final bytes = utf8.encode(data);
 
     const mtu = BluetoothConstants.mtuLimit;
     const chunkDelay = Duration(milliseconds: BluetoothConstants.chunkDelayMs);

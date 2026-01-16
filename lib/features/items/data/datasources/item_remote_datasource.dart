@@ -51,7 +51,8 @@ abstract class ItemRemoteDataSource {
   /// Creates a new item in Firestore.
   ///
   /// If the item's ID is empty, generates a new Firestore document ID.
-  /// Sets initial count and todayCount to 0, and timestamps to current time.
+  /// Uses the count and todayCount from the provided item (for initial value support).
+  /// Sets lastUpdated to current time.
   ///
   /// Returns the created ItemModel with the generated ID and timestamps.
   ///

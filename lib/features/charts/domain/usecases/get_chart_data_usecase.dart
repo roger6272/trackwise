@@ -20,15 +20,19 @@ class GetChartDataParams extends Equatable {
   /// Optional item ID to filter events by a specific item.
   final String? itemId;
 
+  /// Optional time to filter events after (for "since last reset" mode).
+  final DateTime? sinceResetTime;
+
   const GetChartDataParams({
     required this.startDate,
     required this.endDate,
     this.aggregationLevel = AggregationLevel.daily,
     this.itemId,
+    this.sinceResetTime,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime];
 }
 
 /// Use case for generating aggregated chart data from events.
@@ -78,7 +82,12 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
     return eventsResult.fold(
       (failure) => Left(failure),
       (events) {
-        final aggregated = _aggregateEvents(events, params.aggregationLevel);
+        // Filter events after sinceResetTime if provided
+        final filteredEvents = params.sinceResetTime != null
+            ? events.where((e) => e.createdTime.isAfter(params.sinceResetTime!)).toList()
+            : events;
+
+        final aggregated = _aggregateEvents(filteredEvents, params.aggregationLevel);
         return Right(ChartData(
           dataPoints: aggregated,
           aggregationLevel: params.aggregationLevel,

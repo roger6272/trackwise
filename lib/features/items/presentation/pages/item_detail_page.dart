@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../charts/domain/entities/chart_data.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../charts/presentation/bloc/charts_event.dart';
@@ -51,12 +52,6 @@ class ItemDetailPage extends StatefulWidget {
 }
 
 class _ItemDetailPageState extends State<ItemDetailPage> {
-  // FF Colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _primaryBackground = Color(0xFFF1F4F8);
-  static const Color _primaryText = Color(0xFF14181B);
-  static const Color _alternate = Color(0xFFE0E3E7);
-
   // Filter state
   String _aggregation = '1D';
   bool _showSinceReset = false;
@@ -68,6 +63,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final alternate = AppColors.alternate(brightness);
+
     return MultiBlocProvider(
       providers: [
         BlocProvider(
@@ -84,14 +84,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             FocusManager.instance.primaryFocus?.unfocus();
           },
           child: Scaffold(
-            backgroundColor: _primaryBackground,
+            backgroundColor: primaryBackground,
             appBar: AppBar(
-              backgroundColor: _primaryBackground,
+              backgroundColor: primaryBackground,
               automaticallyImplyLeading: false,
               leading: IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_rounded,
-                  color: _primaryText,
+                  color: primaryText,
                   size: 30.0,
                 ),
                 onPressed: () => Navigator.of(context).pop(),
@@ -99,7 +99,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               title: Text(
                 widget.itemName ?? 'None',
                 style: GoogleFonts.interTight(
-                  color: _primaryText,
+                  color: primaryText,
                   fontWeight: FontWeight.w600,
                   fontSize: 22.0,
                 ),
@@ -121,7 +121,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       // Combined Filter + Stats container
                       Container(
                         decoration: BoxDecoration(
-                          color: _alternate,
+                          color: alternate,
                           borderRadius: BorderRadius.circular(8.0),
                         ),
                         child: Padding(
@@ -146,6 +146,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   setState(() {
                                     _showSinceReset = value;
                                   });
+                                  _reloadChart(context);
                                 },
                                 onDateChanged: (date) {
                                   setState(() {
@@ -171,7 +172,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                             children: [
                               Container(
                                 decoration: BoxDecoration(
-                                  color: _alternate,
+                                  color: alternate,
                                   borderRadius: BorderRadius.circular(8.0),
                                 ),
                                 child: StatsSection(
@@ -190,7 +191,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               // Summary Cards container
                               Container(
                                 decoration: BoxDecoration(
-                                  color: _alternate,
+                                  color: alternate,
                                   borderRadius: BorderRadius.circular(8.0),
                                 ),
                                 child: SummaryCards(
@@ -257,11 +258,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         ? AggregationLevel.daily
         : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.weekly);
 
+    // Use lastResetTime filter when "Since Last Reset" is selected
+    final sinceResetTime = _showSinceReset ? widget.lastResetTime : null;
+
     if (_showCumulative) {
       return LoadCumulativeChart(
         startDate: startDate,
         endDate: endDate,
         itemId: widget.itemId,
+        sinceResetTime: sinceResetTime,
       );
     } else {
       return LoadBarChart(
@@ -269,6 +274,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         endDate: endDate,
         aggregationLevel: aggregationLevel,
         itemId: widget.itemId,
+        sinceResetTime: sinceResetTime,
       );
     }
   }

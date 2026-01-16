@@ -34,15 +34,19 @@ class LoadBarChart extends ChartsEvent {
   /// Optional item ID to filter chart data to a specific item.
   final String? itemId;
 
+  /// Optional time to filter events after (for "since last reset" mode).
+  final DateTime? sinceResetTime;
+
   const LoadBarChart({
     required this.startDate,
     required this.endDate,
     this.aggregationLevel = AggregationLevel.daily,
     this.itemId,
+    this.sinceResetTime,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime];
 }
 
 /// Event to load cumulative chart data.
@@ -64,14 +68,18 @@ class LoadCumulativeChart extends ChartsEvent {
   /// Optional item ID to filter cumulative data to a specific item.
   final String? itemId;
 
+  /// Optional time to filter events after (for "since last reset" mode).
+  final DateTime? sinceResetTime;
+
   const LoadCumulativeChart({
     required this.startDate,
     required this.endDate,
     this.itemId,
+    this.sinceResetTime,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, itemId];
+  List<Object?> get props => [startDate, endDate, itemId, sinceResetTime];
 }
 
 /// Event to change the date range.

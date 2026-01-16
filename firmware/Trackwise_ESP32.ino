@@ -1,0 +1,761 @@
+// ESP32 BLE Counter Firmware – Final Version Matching Spec with Inline Comments
+
+#include <Preferences.h>  // For storing item data persistently
+#include <BLEDevice.h>    // Core BLE support
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>      // For BLE notification descriptors
+#include <ArduinoJson.h>  // For encoding/decoding JSON
+#include <RTClib.h>
+
+// BLE UUID definitions
+#define SERVICE_UUID "12345678-1234-1234-1234-123456789000"
+#define CHAR_READ_UUID "12345678-1234-1234-1234-123456789001"
+#define CHAR_NOTIFY_UUID "12345678-1234-1234-1234-123456789002"     // Reusing CHAR_NOTIFY_UUID for both real-time events and log syncs to reduce BLE characteristics.
+#define CHAR_SET_ITEMS_UUID "12345678-1234-1234-1234-123456789008"  //send list of items from the app to device
+#define CHAR_WRITE_UUID "12345678-1234-1234-1234-123456789010"      //combine clearlogs, setselected, settime
+
+
+// RAM-based log buffer setup
+#define MAX_LOG_ENTRIES 500
+#define maxPrefsSlots 20  // Max item slots supported
+
+#define REMINDER_NONE 0
+#define REMINDER_TARGET 1
+#define REMINDER_INTERVAL 2
+
+#define VIBRATION_PIN 5
+
+// Event struct to store count logs
+struct CountLog {
+  String itemId;
+  String itemName;
+  String event;
+  uint32_t timestamp;
+  int increment;
+  int count;
+  int reminder;
+  int reminderValue;
+};
+
+CountLog logs[MAX_LOG_ENTRIES];  //Create an array named logs that can hold up to MAX_LOG_ENTRIES items, where each item is a CountLog struct. This is the RAM!!!!!!!!!!!!!!!!!!!!!!
+int logWriteIndex = 0;           //keep track of which slot in log should a new event be stored in
+int logCount = 0;                //number of valid entries in the log
+
+// Current device state for selected item
+int currentItemIndex = 0;
+String currentItemId = "none";
+int itemCount = 0;
+int itemTodayCount = 0;
+int itemIncrement = 1;
+String itemName = "Item";
+unsigned long connectedAt = 0;
+bool didInitialSync = false;
+bool isConnected = false;
+int reminder = REMINDER_NONE;
+int reminderValue = 0;
+time_t lastResetTime = 0;
+Preferences prefs;  // Non-volatile storage instance
+unsigned long lastResetCheck = 0;
+String incomingJsonBuffer = "";
+enum ReadMode { READ_NONE,
+                READ_PREFS,
+                READ_LOGS };
+int currentPage = 0;
+const int pageSize = 2;  // how many logs per page
+RTC_DS3231 rtc;
+time_t localTimestamp;
+DateTime localTime;
+
+
+ReadMode currentReadMode = READ_NONE;
+
+// BLE characteristic pointers that will be used later to access data
+BLECharacteristic* NotifyChar;
+BLECharacteristic* syncChar;
+BLECharacteristic* setItemsChar;
+BLECharacteristic* writeChar;  //combine clearlogs and setselected
+BLECharacteristic* readChar;
+
+// For Vibration
+void triggerVibration(int duration = 300) {
+  digitalWrite(VIBRATION_PIN, HIGH);
+  delay(duration);
+  digitalWrite(VIBRATION_PIN, LOW);
+}
+
+// Store a new log event in RAM
+void logEvent(String event) {
+  logs[logWriteIndex] = {
+    currentItemId, itemName, event, rtc.now().unixtime(), itemIncrement, itemCount  //log current info to the current logwriteindex
+  };
+  logWriteIndex = (logWriteIndex + 1) % MAX_LOG_ENTRIES;
+  if (logCount < MAX_LOG_ENTRIES) logCount++;  //log up till 20
+}
+
+void notifyPrefsToApp() {
+  if (!isConnected || NotifyChar == nullptr) return;
+  String jsonOut = getPrefsJson();
+  jsonOut += "\n";  // For Flutter end-of-message detection
+
+  const int mtu = 20;
+  for (int i = 0; i < jsonOut.length(); i += mtu) {
+    String chunk = jsonOut.substring(i, min(i + mtu, (int)jsonOut.length()));
+    NotifyChar->setValue(chunk.c_str());
+    NotifyChar->notify();
+    delay(30);
+  }
+  Serial.println("✅ Finished sending prefs item list.");
+}
+
+// Convert ALL prefs into a JSON string to send to the app
+String getPrefsJson() {
+  StaticJsonDocument<2048> doc;
+
+  // Create the outer object
+  JsonObject root = doc.to<JsonObject>();
+  root["type"] = "prefs";
+
+  // Add the array as a nested field called "data"
+  JsonArray arr = root.createNestedArray("data");
+
+  prefs.begin("counter", false);
+  int total = prefs.getInt("item_total", 0);
+  for (int i = 0; i < total; i++) {
+    JsonObject item = arr.createNestedObject();
+    item["id"] = prefs.getString(("id_" + String(i)).c_str(), "");
+    item["name"] = prefs.getString(("n_" + String(i)).c_str(), "");
+    item["count"] = prefs.getInt(("c_" + String(i)).c_str(), 0);
+    item["todaycount"] = prefs.getInt(("tc_" + String(i)).c_str(), 0); //pref needs todaycount
+    item["lastResetTime"] = prefs.getULong(("lr_" + String(i)).c_str(), 0);
+  }
+
+  //Add selected_id to update the appstate
+  String selectedId = prefs.getString("selected_id", "");
+  root["selected_id"] = selectedId;
+  prefs.end();
+
+  String out;
+  serializeJson(root, out);
+  return out;
+}
+
+// Convert ALL pts into a JSON string to send to the app
+String getLogsAsString(int page) {
+  StaticJsonDocument<4096> doc;
+
+  // Create outer object
+  JsonObject root = doc.to<JsonObject>();
+  root["type"] = "logs";
+  root["page"] = 0;
+
+  // Add array as "data" field
+  JsonArray arr = root.createNestedArray("data");
+
+  int startIndex = page * pageSize;
+  int endIndex = min(startIndex + pageSize, logCount);
+
+  for (int i = startIndex; i < endIndex; i++) {
+    JsonObject o = arr.createNestedObject();
+    o["timestamp"] = logs[i].timestamp;
+    o["itemId"] = logs[i].itemId;
+    o["itemName"] = logs[i].itemName;
+    o["event"] = logs[i].event;
+    o["increment"] = logs[i].increment;
+    o["count"] = logs[i].count;
+    //o["todaycount"] = logs[i].todaycount; Log doesn't need today's count
+  }
+
+  root["hasMore"] = endIndex < logCount;
+
+  String out;
+  serializeJson(root, out);
+  return out;
+}
+
+// Clear all RAM log data (logWriteIndex = 0: reset the pointer to the first slot in logs. logCount = 0: keep the pointer from touching old data)
+void clearLogs() {
+  logWriteIndex = 0;
+  logCount = 0;
+}
+
+// Handle app updating the full list of items
+class SetItemsCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) override {
+    String chunk = String(c->getValue().c_str());
+    Serial.println("Received raw chunk:");
+    Serial.println(chunk);
+
+    incomingJsonBuffer.trim();
+    incomingJsonBuffer += chunk;
+
+    // Check if buffer ends with ']' (simple heuristic for end of JSON array)
+    if (incomingJsonBuffer.endsWith("]")) {
+      StaticJsonDocument<4096> doc;
+      DeserializationError err = deserializeJson(doc, incomingJsonBuffer);
+      if (err) {
+        Serial.print("JSON parse failed: ");
+        Serial.println(err.c_str());
+        incomingJsonBuffer = "";  // clear buffer on failure
+        return;
+      }
+
+      prefs.begin("counter", false);
+
+      for (int i = 0; i < maxPrefsSlots; i++) {  //loop through indexes and delete them
+        prefs.remove(("n_" + String(i)).c_str());
+        prefs.remove(("c_" + String(i)).c_str());
+        prefs.remove(("tc_" + String(i)).c_str());
+        prefs.remove(("i_" + String(i)).c_str());
+        prefs.remove(("id_" + String(i)).c_str());
+        prefs.remove(("r_" + String(i)).c_str());
+        prefs.remove(("rv_" + String(i)).c_str());
+        prefs.remove(("lr_" + String(i)).c_str());
+      }
+
+      int index = 0;
+      for (JsonObject item : doc.as<JsonArray>()) {  //assign an index to each item
+        if (index >= maxPrefsSlots) break;
+        String id = item["id"].as<String>();
+        String name = item["name"].as<String>();
+        int count = item["count"];
+        int todaycount = item["todaycount"];
+        int increment = item["increment"];
+        int reminder = item["reminder"];
+        int reminderValue = item["reminder_value"];
+        unsigned long lastResetTime = item.containsKey("lastResetTime") ? item["lastResetTime"] : 0;
+
+
+        prefs.putString(("id_" + String(index)).c_str(), id);
+        prefs.putString(("n_" + String(index)).c_str(), name);
+        prefs.putInt(("c_" + String(index)).c_str(), count);
+        prefs.putInt(("tc_" + String(index)).c_str(), todaycount);
+        prefs.putInt(("i_" + String(index)).c_str(), increment);
+        prefs.putInt(("r_" + String(index)).c_str(), reminder);
+        prefs.putInt(("rv_" + String(index)).c_str(), reminderValue);
+        prefs.putULong(("lr_" + String(index)).c_str(), lastResetTime);
+
+        Serial.printf("[%d] ID=%s Name=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu\n",
+              index, id.c_str(), name.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime);
+        index++;
+      }
+
+      prefs.putInt("item_total", index);
+
+      prefs.end();
+
+      clearLogs();
+      incomingJsonBuffer = "";
+      Serial.println("✅ Finished writing to prefs with index-based keys.");
+    }
+  }
+};
+
+
+
+class WriteCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) override {
+    String jsonStr = String(c->getValue().c_str());
+    jsonStr.trim();  // ⚠️ Trim whitespace and line breaks
+    Serial.print("📨 Received JSON string: '");
+    Serial.print(jsonStr);
+    Serial.println("'");
+
+    StaticJsonDocument<256> doc;
+    DeserializationError err = deserializeJson(doc, jsonStr);
+    if (err) {
+      Serial.print("❌ Command JSON parse error: ");
+      Serial.println(err.c_str());
+      return;
+    }
+
+    String cmd = doc["cmd"] | "";
+    cmd.trim();
+
+    if (cmd == "clear_logs") {  //////////////////// clear all event logs
+      clearLogs();
+      Serial.println("✅ Logs cleared.");
+
+    } else if (cmd == "set_selected") {  ///////////////////////// set selected item
+      String id = doc["id"] | "";
+      id.trim();  // ⚠️ Important to match stored prefs key
+
+      prefs.begin("counter", false);
+
+      int total = prefs.getInt("item_total", 0);
+      if (total == 0 || id == "none") {
+        Serial.println("⚠️ No items available to select.");
+        currentItemId = "none";
+        prefs.putString("selected_id", "none");
+        prefs.putInt("selected_index", 0);
+        prefs.end();
+        return;
+      }
+
+      bool found = false;
+      for (int i = 0; i < total; i++) {
+        String testId = prefs.getString(("id_" + String(i)).c_str(), "");  //loop through all index with each id compared with the target id
+        if (testId == id) {
+          currentItemId = id;
+          currentItemIndex = i;
+          prefs.putString("selected_id", id);
+          prefs.putInt("selected_index", i);
+          itemCount = prefs.getInt(("c_" + String(i)).c_str(), 0);
+          itemTodayCount = prefs.getInt(("tc_" + String(i)).c_str(), 0);
+          itemIncrement = prefs.getInt(("i_" + String(i)).c_str(), 1);
+          itemName = prefs.getString(("n_" + String(i)).c_str(), "Item");
+          reminder = prefs.getInt(("r_" + String(i)).c_str(), REMINDER_NONE);
+          reminderValue = prefs.getInt(("rv_" + String(i)).c_str(), 0);
+          lastResetTime = prefs.getULong(("lr_" + String(i)).c_str(), 0);
+
+          Serial.printf("✅ Selected item [%d]: %s (%s)\n", i, id.c_str(), itemName.c_str());
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        Serial.println("Selected ItemId unchanged:");
+        for (int i = 0; i < total; i++) {
+          Serial.println(prefs.getString(("id_" + String(i)).c_str(), ""));
+        }
+      }
+      prefs.end();
+
+    } else if (cmd == "set_time") {
+      String utc_time = doc["utc_time"] | "";
+      utc_time.trim();
+      int offsetMin = doc["offset"];       // timezone offset in minutes
+
+      struct tm tm;
+      if (strptime(utc_time.c_str(), "%Y-%m-%d %H:%M:%S", &tm)) {
+        time_t parsedTime = mktime(&tm);
+        if (parsedTime > 1000000000) {              // Rough sanity check (post-2001)
+          rtc.adjust(DateTime(parsedTime));         // ✅ Set the RTC to the parsed time
+
+          prefs.begin("counter", false);
+          // ✅ Store timezone offset in Preferences
+          prefs.putInt("timezone_offset", offsetMin);
+          prefs.end();
+
+          localTimestamp = parsedTime + offsetMin * 60;
+          localTime = DateTime(localTimestamp);  // ✅ Assign to global
+
+          Serial.print("🕒 Time set from app = ");
+          Serial.println(localTime.timestamp());
+        } else {
+          Serial.println("⚠️ Parsed time was too early — ignoring.");
+        }
+      } else {
+        Serial.println("❌ Failed to parse set_time value.");
+      }
+
+
+    } else if (cmd == "prepare_read") {
+      String type = doc["type"] | "";
+      currentPage = doc["page"] | 0;  // ← Parse page, default to 0
+
+      if (type == "prefs") {
+        currentReadMode = READ_PREFS;
+      } else if (type == "logs") {
+        currentReadMode = READ_LOGS;
+      }
+    }
+
+    else {
+      Serial.print("❓ Unknown command: ");
+      Serial.println(cmd);
+    }
+  }
+};
+
+
+// Track BLE connection state
+class ServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* p) override {
+    isConnected = true;
+    Serial.println("✅ Connected!");
+  }
+  void onDisconnect(BLEServer* p) override {
+    isConnected = false;
+    Serial.println("🔌 Client disconnected — restarting advertising...");
+    BLEDevice::startAdvertising();
+  }
+};
+
+// BLE peripheral and characteristic setup
+void setupBLE() {
+  BLEDevice::init("TallyCounter");
+  BLEServer* server = BLEDevice::createServer();
+  server->setCallbacks(new ServerCallbacks());
+  BLEService* svc = server->createService(SERVICE_UUID);
+
+  NotifyChar = svc->createCharacteristic(CHAR_NOTIFY_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  NotifyChar->addDescriptor(new BLE2902());
+
+  setItemsChar = svc->createCharacteristic(CHAR_SET_ITEMS_UUID, BLECharacteristic::PROPERTY_WRITE);
+  setItemsChar->setCallbacks(new SetItemsCallback());
+
+  writeChar = svc->createCharacteristic(CHAR_WRITE_UUID, BLECharacteristic::PROPERTY_WRITE);
+  writeChar->setCallbacks(new WriteCallback());
+
+
+  readChar = svc->createCharacteristic(CHAR_READ_UUID, BLECharacteristic::PROPERTY_READ);
+  readChar->setValue("[]");  // default empty
+
+  svc->start();
+  BLEDevice::getAdvertising()->addServiceUUID(SERVICE_UUID);
+  BLEDevice::getAdvertising()->setScanResponse(true);
+
+  //Set advertising parameters (intervals + connectable mode)
+  BLEDevice::getAdvertising()->setMinInterval(0x20);  // 32 * 0.625ms = 20ms
+  BLEDevice::getAdvertising()->setMaxInterval(0x40);  // 64 * 0.625ms = 40ms
+  BLEDevice::getAdvertising()->setScanResponse(true);
+  BLEDevice::getAdvertising()->setAppearance(0x0000);  // Optional: generic device
+  BLEDevice::getAdvertising()->start();
+
+
+}
+
+void updateReadChar() {
+  String jsonOut;
+  if (currentReadMode == READ_PREFS) {
+    jsonOut = getPrefsJson();
+    //Serial.println("PrefsSent - Details skipped");
+    Serial.printf("PrefsSent (%u bytes)\n", jsonOut.length());
+    Serial.println(jsonOut);
+  } else if (currentReadMode == READ_LOGS) {
+    jsonOut = getLogsAsString(currentPage);  // Convert all logs into one array
+    //Serial.println("LogsSent - Details skipped");
+    //Serial.println(jsonOut);  //////////////////////////////////////////////////Sent logs
+    Serial.printf("LogsSent page %u (%u bytes)\n", currentPage, jsonOut.length());
+    Serial.println(jsonOut);   // <- print full JSON here
+  } else {
+    return;
+  }
+
+  readChar->setValue(jsonOut.c_str());
+ //   if (currentReadMode == READ_LOGS) {
+ //   clearLogs();                        // ✅ ...before clearing RAM
+ // }
+  currentReadMode = READ_NONE;  // Reset after preparing
+}
+
+
+
+// Send event to app via notification. This will be called everytime a button is pressed
+void notifyEvent(String event) {
+  if (!isConnected || NotifyChar == nullptr) return;
+
+  StaticJsonDocument<512> doc;
+
+  // Create the standard JSON structure
+  JsonObject root = doc.to<JsonObject>();
+  root["type"] = "event";
+
+  // Create the data object with event details
+  JsonObject data = root.createNestedObject("data");
+  data["timestamp"] = rtc.now().unixtime();
+  data["itemId"] = currentItemId;
+  data["itemName"] = itemName;
+  data["event"] = event;
+  data["increment"] = itemIncrement;
+  data["count"] = itemCount;
+  //data["todaycount"] = itemTodayCount; //todayCount doesn't need to be logged separately
+
+  String s;
+  serializeJson(root, s);
+  s += "\n";  // 🧩 newline as end-of-message marker
+
+  const int mtu = 20;
+  for (int i = 0; i < s.length(); i += mtu) {
+    String chunk = s.substring(i, min(i + mtu, (int)s.length()));  //min to end the loop if empty info detected in the last round
+    NotifyChar->setValue(chunk.c_str());
+    NotifyChar->notify();
+    delay(30);  // ⏱ avoid congestion
+  }
+  //Serial.println("📤 Sent notifyEvent:");
+  //Serial.println(s);
+}
+
+/*
+void syncAllLogsToApp() {
+  if (!isConnected || NotifyChar == nullptr) return;
+
+  StaticJsonDocument<512> doc;
+
+  for (int i = 0; i < logCount; i++) {
+    doc.clear();
+    doc["type"] = "log";
+    doc["timestamp"] = logs[i].timestamp;
+    doc["itemID"] = logs[i].itemId;
+    doc["itemName"] = logs[i].itemName;
+    doc["event"] = logs[i].event;
+    doc["increment"] = logs[i].increment;
+    doc["count"] = logs[i].count;
+
+    String jsonOut;
+    serializeJson(doc, jsonOut);
+    jsonOut += "\n";  // 🧩 flutter side uses newline as delimiter
+
+    const int mtu = 20;  // max payload for default MTU (23)
+    for (int j = 0; j < jsonOut.length(); j += mtu) {
+      String chunk = jsonOut.substring(j, j + mtu);
+      NotifyChar->setValue(chunk.c_str());
+      NotifyChar->notify();
+      delay(30);  // avoid BLE flooding
+    }
+  }
+
+  Serial.println("✅ Sent all offline logs to app.");
+  clearLogs();  // Optional: clear after sync
+}
+*/
+
+// Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
+void handleCommand(char cmd) {
+  prefs.begin("counter", false);
+
+  int total = prefs.getInt("item_total", 0);
+  if (cmd == 'u') {
+    // Increment current item count and update in prefs using indexed keys
+    if (currentItemId == "none") {
+      Serial.println("No Item Selected");
+      return;
+    }
+    //update first
+    itemCount += itemIncrement;
+    itemTodayCount += itemIncrement;
+
+    //extract from prefs
+    reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
+    reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
+
+    if (reminder == REMINDER_TARGET && itemCount == reminderValue) {
+      triggerVibration();
+      // trigger vibration here
+    } else if (reminder == REMINDER_INTERVAL && reminderValue > 0 && itemCount > 0 && itemCount % reminderValue == 0){
+      triggerVibration();
+      // trigger vibration here
+    }
+
+    prefs.putInt(("c_" + String(currentItemIndex)).c_str(), itemCount);
+    prefs.putInt(("tc_" + String(currentItemIndex)).c_str(), itemTodayCount);
+
+    logEvent("increment");
+    if (isConnected) notifyPrefsToApp();  //this has more data and will update the UI. Need to be prioritized
+    delay(200);
+    if (isConnected) notifyEvent("increment");  //this could be sent later
+
+  } else if (cmd == 'r') {
+    // Reset current item count and update in prefs using indexed keys
+    if (currentItemId == "none") {
+      Serial.print("No Item Selected");
+      return;
+    }
+    itemCount = 0;
+    itemTodayCount = 0;
+    prefs.putInt(("c_" + String(currentItemIndex)).c_str(), itemCount);
+    prefs.putInt(("tc_" + String(currentItemIndex)).c_str(), itemTodayCount);
+
+    lastResetTime = rtc.now().unixtime();
+    prefs.putULong(("lr_" + String(currentItemIndex)).c_str(), lastResetTime);
+
+    logEvent("reset");
+
+    if (isConnected) notifyPrefsToApp();  //this has more data and will update the UI. Need to be prioritized
+    delay(200);
+    if (isConnected) notifyEvent("reset");  //this could be sent later
+
+
+  } else if (cmd == 's') {
+    if (total == 0) {
+      prefs.end();
+      return;
+    }
+
+    // Cycle to the next item index
+    currentItemIndex = (currentItemIndex + 1) % total;
+    currentItemId = prefs.getString(("id_" + String(currentItemIndex)).c_str(), "none");
+
+    // Update state with new selection
+    prefs.putString("selected_id", currentItemId);
+    prefs.putInt("selected_index", currentItemIndex);
+    itemCount = prefs.getInt(("c_" + String(currentItemIndex)).c_str(), 0);
+    itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
+    itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
+    itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
+    reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
+    reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
+    lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);  // ← Add this line
+
+
+    //logEvent("switch");
+    if (isConnected) notifyEvent("switch");
+
+    currentItemId = prefs.getString("selected_id", "none");
+
+    Serial.print("Switch to :");
+
+  }
+
+  prefs.end();
+
+
+  //DateTime now = rtc.now();
+  // 📢 Display current item status after any command
+  //  Serial.print("Time: ");
+  //Serial.print(now.month(), DEC);
+  //Serial.print('/');
+  //Serial.print(now.day(), DEC);
+  //Serial.print(" ");
+ // Serial.print(now.hour(), DEC);
+ // Serial.print(" ");
+  Serial.print(itemName);
+  Serial.print(" [ID: ");
+  Serial.print(currentItemId);
+  Serial.print("] Count: ");
+  Serial.print(itemCount);
+  Serial.print(", TodayCount: ");
+  Serial.print(itemTodayCount);
+  Serial.print(" (+");
+  Serial.print(itemIncrement);
+  Serial.println(")");
+
+}
+
+void updateLocalTime() {
+  DateTime nowUtc = rtc.now();
+
+  prefs.begin("counter", false);
+  int offsetMin = prefs.getInt("timezone_offset", 0);
+  prefs.end();
+
+  localTimestamp = nowUtc.unixtime() + offsetMin * 60;
+  localTime = DateTime(localTimestamp);
+}
+
+
+void resetTodayCountsIfNeeded(){//bool forceReset = false) {
+
+  updateLocalTime();
+
+  char todayStr[11]; // "YYYY-MM-DD" + null
+  snprintf(todayStr, sizeof(todayStr), "%04d-%02d-%02d", localTime.year(), localTime.month(), localTime.day());
+
+  prefs.begin("counter", false);
+  String last_reset_date = prefs.getString("last_reset_date", "");
+
+  if (last_reset_date != String(todayStr)) {
+  //if (forceReset || lastResetDate != String(todayStr)) { //for testing
+    Serial.println("🔄 New day detected. Resetting todayCount for all items.");
+    Serial.println(String(todayStr));
+
+    int total = prefs.getInt("item_total", 0);
+    for (int i = 0; i < total; i++) {//for debug
+      String key = "tc_" + String(i);//for debug
+      prefs.putInt(key.c_str(), 0);//for debug
+      Serial.println("Reset: " + key);//for debug
+    }
+    if (currentItemId != "none") {
+        itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
+    }
+
+
+    prefs.putString("last_reset_date", todayStr);
+  }// else {
+   // Serial.println("✅ todayCount is already up to date.");
+   // Serial.println(todayStr);
+  //}
+
+  prefs.end();
+}
+
+
+
+
+// Device boot initialization
+void setup() {
+  Serial.begin(115200);
+  if (!rtc.begin()) {
+    Serial.println("❌ RTC not found!");
+  } else {
+    Serial.println("✅ RTC connected.");
+  }
+  if (rtc.lostPower()) {
+    Serial.println("⚠️ RTC lost power. Setting to compile time.");
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+
+  prefs.begin("counter", false);
+  // ✅ Verify and store item_total
+  int verifiedTotal = 0;
+  for (int i = 0; i < maxPrefsSlots; i++) {
+    String id = prefs.getString(("id_" + String(i)).c_str(), "");
+    if (id.length() > 0) {
+      verifiedTotal++;
+    } else {
+      break;
+    }
+  }
+  prefs.putInt("item_total", verifiedTotal);
+  Serial.printf("✅ Verified item_total on boot: %d\n", verifiedTotal);
+
+
+  currentItemId = prefs.getString("selected_id", "none");
+  Serial.print("CurrentItemid:");
+  Serial.print(currentItemId);
+  currentItemIndex = prefs.getInt("selected_index", 0);
+  itemCount = prefs.getInt(("c_" + String(currentItemIndex)).c_str(), 0);
+  itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
+  itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
+  itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
+  reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
+  reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
+  lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
+
+  if (currentItemIndex >= verifiedTotal) {
+    currentItemIndex = 0;
+    prefs.putInt("selected_index", 0);
+    currentItemId = prefs.getString("id_0", "none");
+    prefs.putString("selected_id", currentItemId);
+    Serial.println("⚠️ selected_index out of bounds. Resetting to 0.");
+  }
+
+
+  prefs.end();
+  delay(100);
+
+
+
+  resetTodayCountsIfNeeded();
+  delay(100);
+
+  pinMode(VIBRATION_PIN, OUTPUT);
+  digitalWrite(VIBRATION_PIN, LOW);
+
+  setupBLE();
+}
+
+
+
+// Main loop waits for user commands from serial input
+void loop() {
+
+    if (millis() - lastResetCheck > 60000) {  // every 60 seconds. Might need to update this for battery life
+      resetTodayCountsIfNeeded();
+      lastResetCheck = millis();
+    }
+
+  if (currentReadMode == READ_PREFS || currentReadMode == READ_LOGS) {
+    updateReadChar();  // ✅ Actually update the value
+  }
+
+  if (Serial.available()) {
+    char cmd = Serial.read();
+    if (cmd == 'u' || cmd == 'r' || cmd == 's') {
+      handleCommand(cmd);
+    }
+  }
+  delay(10);
+}

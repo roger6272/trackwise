@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/theme/app_colors.dart';
+
 /// Widget displaying summary statistics cards with slide/fade animations.
 ///
 /// Shows 4 cards in 2 rows:
@@ -137,21 +139,22 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final double width;
 
-  static const Color _alternate = Color(0xFFE0E3E7);
-  static const Color _secondaryBackground = Color(0xFFFFFFFF);
-  static const Color _primaryText = Color(0xFF14181B);
-  static const Color _secondaryText = Color(0xFF57636C);
-
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final alternate = AppColors.alternate(brightness);
+    final secondaryBackground = AppColors.secondaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
     return Container(
       width: width,
       height: 80.0,
       decoration: BoxDecoration(
-        color: _secondaryBackground,
+        color: secondaryBackground,
         borderRadius: BorderRadius.circular(8.0),
         border: Border.all(
-          color: _alternate,
+          color: alternate,
           width: 0.0,
         ),
       ),
@@ -167,7 +170,7 @@ class _SummaryCard extends StatelessWidget {
               style: GoogleFonts.interTight(
                 fontSize: 20.0,
                 fontWeight: FontWeight.w600,
-                color: _primaryText,
+                color: primaryText,
               ),
             ),
           ),
@@ -176,7 +179,7 @@ class _SummaryCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 12.0,
-              color: _secondaryText,
+              color: secondaryText,
             ),
           ),
         ],

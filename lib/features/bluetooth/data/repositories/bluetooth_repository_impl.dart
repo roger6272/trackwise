@@ -96,6 +96,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   ) async {
     try {
       final jsonData = _formatItemsForEsp32(items);
+      print('📤 JSON sent to device: $jsonData');
       await dataSource.writeItems(deviceId, jsonData);
       return const Right(null);
     } catch (e) {

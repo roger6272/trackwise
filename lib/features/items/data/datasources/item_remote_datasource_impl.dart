@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -89,12 +90,12 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       final newItem = ItemModel(
         id: id,
         name: item.name,
-        count: 0,
-        todayCount: 0,
+        count: item.count,
+        todayCount: item.todayCount,
         incrementBy: item.incrementBy,
         reminder: item.reminder,
         reminderValue: item.reminderValue,
-        lastResetTime: now,
+        lastResetTime: item.lastResetTime,
         lastUpdated: now,
         userId: item.userId,
       );
@@ -137,6 +138,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       data.remove('user_id'); // Remove string version
       data['uid'] = userRef; // Add DocumentReference version
 
+      debugPrint('🔶 Firestore update data: $data');
       await firestore.collection('Item').doc(item.id).update(data);
 
       return updatedItem;

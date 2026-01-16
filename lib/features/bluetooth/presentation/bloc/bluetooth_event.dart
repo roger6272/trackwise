@@ -159,3 +159,14 @@ class ScanResultsUpdated extends BluetoothEvent {
   @override
   List<Object?> get props => [devices];
 }
+
+/// Internal event to update selected item ID from device prefs.
+/// Used during initial sync when device reports its currently selected item.
+class UpdateSelectedItemFromDevice extends BluetoothEvent {
+  final String itemId;
+
+  const UpdateSelectedItemFromDevice(this.itemId);
+
+  @override
+  List<Object?> get props => [itemId];
+}

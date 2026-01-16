@@ -61,7 +61,12 @@ class GetCumulativeChartDataUseCase
     return eventsResult.fold(
       (failure) => Left(failure),
       (events) {
-        final cumulative = _calculateCumulative(events);
+        // Filter events after sinceResetTime if provided
+        final filteredEvents = params.sinceResetTime != null
+            ? events.where((e) => e.createdTime.isAfter(params.sinceResetTime!)).toList()
+            : events;
+
+        final cumulative = _calculateCumulative(filteredEvents);
         return Right(ChartData(
           dataPoints: cumulative,
           aggregationLevel: AggregationLevel.daily,

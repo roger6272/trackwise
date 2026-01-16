@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../../charts/presentation/bloc/charts_state.dart';
 import '../../../domain/utils/stats_calculator.dart';
@@ -39,30 +40,31 @@ class StatsSection extends StatelessWidget {
     required this.selectedDate,
   });
 
-  // FlutterFlow colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _alternate = Color(0xFFE0E3E7);
-  static const Color _primaryText = Color(0xFF14181B);
+  // Semantic colors (same in both modes)
   static const Color _positiveColor = Color(0xFF017400);
   static const Color _negativeColor = Color(0xFF9F0202);
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    const primary = AppColors.primary;
+    final primaryText = AppColors.primaryText(brightness);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildStatsHeader(),
-        _buildComparisonLine(),
+        _buildStatsHeader(primary, primaryText),
+        _buildComparisonLine(primaryText),
         const SizedBox(height: 0.0),
-        _buildChartToggle(),
+        _buildChartToggle(primary, primaryText),
         const SizedBox(height: 10.0),
-        _buildChartArea(context),
+        _buildChartArea(context, primary),
       ],
     );
   }
 
   /// Builds the stats header with total count.
-  Widget _buildStatsHeader() {
+  Widget _buildStatsHeader(Color primary, Color primaryText) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 5.0),
       child: SingleChildScrollView(
@@ -76,7 +78,7 @@ class StatsSection extends StatelessWidget {
                 style: GoogleFonts.interTight(
                   fontSize: 30.0,
                   fontWeight: FontWeight.w600,
-                  color: _primary,
+                  color: primary,
                 ),
               ),
             ),
@@ -86,7 +88,7 @@ class StatsSection extends StatelessWidget {
                 'Total',
                 style: GoogleFonts.interTight(
                   fontSize: 26.0,
-                  color: _primaryText,
+                  color: primaryText,
                 ),
               ),
             ),
@@ -97,7 +99,7 @@ class StatsSection extends StatelessWidget {
   }
 
   /// Builds the comparison line with prior count and percent change.
-  Widget _buildComparisonLine() {
+  Widget _buildComparisonLine(Color primaryText) {
     final percentChange = stats.percentChange;
     final showPercent = percentChange != null && percentChange != 0;
     final percentText = percentChange != null
@@ -108,7 +110,7 @@ class StatsSection extends StatelessWidget {
         ? _positiveColor
         : stats.isNegative
             ? _negativeColor
-            : _primaryText;
+            : primaryText;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(15.0, 0.0, 15.0, 0.0),
@@ -118,14 +120,14 @@ class StatsSection extends StatelessWidget {
             'vs ',
             style: GoogleFonts.interTight(
               fontSize: 15.0,
-              color: _primaryText,
+              color: primaryText,
             ),
           ),
           Text(
             '${stats.priorPeriodCount}',
             style: GoogleFonts.interTight(
               fontSize: 15.0,
-              color: _primaryText,
+              color: primaryText,
             ),
           ),
           if (showPercent) ...[
@@ -145,7 +147,7 @@ class StatsSection extends StatelessWidget {
                 stats.periodLabel,
                 style: GoogleFonts.inter(
                   fontSize: 15.0,
-                  color: _primaryText,
+                  color: primaryText,
                 ),
               ),
             ),
@@ -156,7 +158,7 @@ class StatsSection extends StatelessWidget {
   }
 
   /// Builds the chart type toggle switch.
-  Widget _buildChartToggle() {
+  Widget _buildChartToggle(Color primary, Color primaryText) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 0.0),
       child: Row(
@@ -166,20 +168,20 @@ class StatsSection extends StatelessWidget {
             'Increments',
             style: GoogleFonts.inter(
               fontSize: 12.0,
-              color: _primaryText,
+              color: primaryText,
             ),
           ),
           Switch.adaptive(
             value: showCumulative,
             onChanged: onChartTypeChanged,
-            activeColor: _primary,
+            activeColor: primary,
             inactiveTrackColor: const Color(0xFFA158FF),
           ),
           Text(
             'Cumulative',
             style: GoogleFonts.inter(
               fontSize: 12.0,
-              color: _primaryText,
+              color: primaryText,
             ),
           ),
         ],
@@ -188,7 +190,7 @@ class StatsSection extends StatelessWidget {
   }
 
   /// Builds the chart area with BlocBuilder for loading/error/chart states.
-  Widget _buildChartArea(BuildContext context) {
+  Widget _buildChartArea(BuildContext context, Color primary) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: SizedBox(
@@ -197,8 +199,8 @@ class StatsSection extends StatelessWidget {
         child: BlocBuilder<ChartsBloc, ChartsState>(
           builder: (context, state) {
             if (state is ChartsLoading) {
-              return const Center(
-                child: CircularProgressIndicator(color: _primary),
+              return Center(
+                child: CircularProgressIndicator(color: primary),
               );
             }
 

@@ -31,7 +31,7 @@ class SendSelectedItemUseCase extends UseCase<void, SendSelectedItemParams> {
 
   @override
   Future<Either<Failure, void>> call(SendSelectedItemParams params) async {
-    // Validate itemId is not empty
+    // Validate itemId is not empty (allow 'none' for deselection)
     if (params.itemId.isEmpty) {
       return const Left(ValidationFailure('Item ID cannot be empty'));
     }

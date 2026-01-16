@@ -65,7 +65,7 @@ class StopWatchingItemsEvent extends ItemsEvent {}
 /// Event to create a new item.
 ///
 /// Uses CreateItemUseCase with validation. The repository will generate
-/// the item ID and set initial counts to 0.
+/// the item ID.
 ///
 /// After successful creation:
 /// - If watching: Stream will automatically emit updated list
@@ -75,6 +75,7 @@ class StopWatchingItemsEvent extends ItemsEvent {}
 /// ```dart
 /// bloc.add(CreateItemEvent(
 ///   name: 'Coffee',
+///   initialValue: 0,
 ///   incrementBy: 1,
 ///   reminder: ReminderType.target,
 ///   reminderValue: 20,
@@ -83,6 +84,7 @@ class StopWatchingItemsEvent extends ItemsEvent {}
 /// ```
 class CreateItemEvent extends ItemsEvent {
   final String name;
+  final int initialValue;
   final int incrementBy;
   final ReminderType reminder;
   final int reminderValue;
@@ -90,6 +92,7 @@ class CreateItemEvent extends ItemsEvent {
 
   const CreateItemEvent({
     required this.name,
+    this.initialValue = 0,
     required this.incrementBy,
     required this.reminder,
     required this.reminderValue,
@@ -97,7 +100,7 @@ class CreateItemEvent extends ItemsEvent {
   });
 
   @override
-  List<Object?> get props => [name, incrementBy, reminder, reminderValue, userId];
+  List<Object?> get props => [name, initialValue, incrementBy, reminder, reminderValue, userId];
 }
 
 /// Event to update an existing item.

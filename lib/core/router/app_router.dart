@@ -14,6 +14,7 @@ import '../../features/export/presentation/pages/export_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_search_page.dart';
 import '../../features/bluetooth/presentation/pages/device_management_page.dart';
+import '../../features/bluetooth/presentation/pages/bluetooth_test_page.dart';
 import '../../features/items/domain/entities/item.dart';
 
 /// App Router using GoRouter with shell navigation
@@ -140,6 +141,12 @@ class AppRouter {
                   name: DeviceManagementPage.routeName,
                   path: 'device',
                   builder: (context, state) => const DeviceManagementPage(),
+                ),
+                // Temporary test route - remove after Task #18
+                GoRoute(
+                  name: 'BluetoothTestPage',
+                  path: 'test',
+                  builder: (context, state) => const BluetoothTestPage(),
                 ),
               ],
             ),

@@ -8,12 +8,12 @@ import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../bloc/items_bloc.dart';
-import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
 
 class ItemFormPage extends StatefulWidget {
@@ -35,6 +35,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
   late TextEditingController nameController;
   late FocusNode nameFocusNode;
 
+  late TextEditingController initialValueController;
+  late FocusNode initialValueFocusNode;
+
   late TextEditingController incrementByController;
   late FocusNode incrementByFocusNode;
 
@@ -53,6 +56,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
     nameController = TextEditingController(text: widget.item?.name ?? '');
     nameFocusNode = FocusNode();
 
+    initialValueController = TextEditingController(
+      text: widget.item?.count.toString() ?? '0',
+    );
+    initialValueFocusNode = FocusNode();
+
     incrementByController = TextEditingController(
       text: widget.item?.incrementBy.toString() ?? '1',
     );
@@ -70,6 +78,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
   void dispose() {
     nameController.dispose();
     nameFocusNode.dispose();
+    initialValueController.dispose();
+    initialValueFocusNode.dispose();
     incrementByController.dispose();
     incrementByFocusNode.dispose();
     reminderValueController.dispose();
@@ -101,17 +111,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           if (state is ItemsError) {
             _showErrorDialog(context, state.message);
           }
-
-          // After successful create, LoadItemsEvent is triggered by BLoC
-          // We can pop here since the list page will update
-          if (state is ItemsLoading && !isEditMode) {
-            // After create, go back
-            Future.delayed(Duration(milliseconds: 500), () {
-              if (mounted) {
-                context.pop();
-              }
-            });
-          }
+          // Note: Pop is handled in _handleSave after sync completes
         },
         child: GestureDetector(
           onTap: () {
@@ -188,6 +188,41 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             },
                           ),
                         ),
+                        // Only show Initial Value field when creating (not editing)
+                        if (!isEditMode)
+                          _buildFieldSection(
+                            label: 'Initial Value',
+                            labelColor: primaryText,
+                            child: TextFormField(
+                              controller: initialValueController,
+                              focusNode: initialValueFocusNode,
+                              textInputAction: TextInputAction.next,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: _buildInputDecoration(
+                                hint: 'Enter initial count...',
+                                alternate: alternate,
+                                secondaryText: secondaryText,
+                              ),
+                              style: GoogleFonts.inter(
+                                color: primaryText,
+                                fontSize: 16.0,
+                                letterSpacing: 0.0,
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Initial value is required';
+                                }
+                                final intValue = int.tryParse(value);
+                                if (intValue == null || intValue < 0 || intValue > 999999) {
+                                  return 'Must be between 0 and 999999';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
                         _buildFieldSection(
                           label: 'Increment By',
                           labelColor: primaryText,
@@ -325,8 +360,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             Expanded(
                               child: SizedBox(
                                 height: 48.0,
-                                child: ElevatedButton(
-                                  onPressed: _isLoading ? null : _handleSave,
+                                child: Builder(
+                                  builder: (blocContext) => ElevatedButton(
+                                  onPressed: _isLoading ? null : () => _handleSave(blocContext),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.primary,
                                     foregroundColor: Colors.white,
@@ -340,6 +376,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                ),
                                 ),
                               ),
                             ),
@@ -430,50 +467,104 @@ class _ItemFormPageState extends State<ItemFormPage> {
     );
   }
 
-  Future<void> _handleSave() async {
+  Future<void> _handleSave(BuildContext blocContext) async {
+    debugPrint('🔵 _handleSave called');
+
     if (!formKey.currentState!.validate()) {
+      debugPrint('🔴 Form validation failed');
       return;
     }
+    debugPrint('🟢 Form validation passed');
 
     final name = nameController.text.trim();
+    final initialValue = int.tryParse(initialValueController.text) ?? 0;
     final incrementBy = int.parse(incrementByController.text);
     final reminderValue = int.parse(reminderValueController.text);
     final reminder = selectedReminder ?? ReminderType.none;
 
     if (isEditMode) {
-      // Update existing item
+      // Update existing item directly via repository to ensure we wait for completion
       final updatedItem = widget.item!.copyWith(
         name: name,
         incrementBy: incrementBy,
         reminder: reminder,
         reminderValue: reminderValue,
       );
-      context.read<ItemsBloc>().add(UpdateItemEvent(updatedItem));
 
-      // Sync with device after update
-      await _syncWithDevice();
+      debugPrint('🟡 Updating item: id=${updatedItem.id}, name=$name');
+      debugPrint('🟡 Original: incrementBy=${widget.item!.incrementBy}, reminder=${widget.item!.reminder}');
+      debugPrint('🟡 Form values: incrementBy=$incrementBy, reminder=$reminder');
+      debugPrint('🟡 Updated item: incrementBy=${updatedItem.incrementBy}, reminder=${updatedItem.reminder}');
 
-      if (mounted) context.pop();
+      final itemRepository = sl<ItemRepository>();
+      final result = await itemRepository.updateItem(updatedItem);
+
+      result.fold(
+        (failure) {
+          debugPrint('❌ Failed to update item: ${failure.message}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to update item: ${failure.message}')),
+            );
+          }
+        },
+        (item) async {
+          debugPrint('🟢 Item updated: ${item.id}');
+
+          // Sync with device after update
+          await _syncWithDevice();
+
+          if (mounted) context.pop();
+        },
+      );
     } else {
-      // Create new item
-      context.read<ItemsBloc>().add(CreateItemEvent(
+      // Create new item directly via repository to ensure we wait for completion
+      debugPrint('🟡 Creating item: name=$name, initialValue=$initialValue, userId=$currentUserUid');
+
+      final itemRepository = sl<ItemRepository>();
+      final now = DateTime.now();
+      final newItem = Item(
+        id: '', // Repository will generate
         name: name,
+        count: initialValue,
+        todayCount: initialValue,
         incrementBy: incrementBy,
         reminder: reminder,
         reminderValue: reminderValue,
+        lastResetTime: now,
+        lastUpdated: now,
         userId: currentUserUid,
-      ));
+      );
 
-      // Sync with device after create
-      await _syncWithDevice();
+      final result = await itemRepository.createItem(newItem);
 
-      if (mounted) context.pop();
+      result.fold(
+        (failure) {
+          debugPrint('❌ Failed to create item: ${failure.message}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to create item: ${failure.message}')),
+            );
+          }
+        },
+        (createdItem) async {
+          debugPrint('🟢 Item created with ID: ${createdItem.id}');
+
+          // Sync with device after create (item is guaranteed to exist now)
+          await _syncWithDevice();
+          debugPrint('🟢 _syncWithDevice completed');
+
+          if (mounted) context.pop();
+          debugPrint('🟢 Popped');
+        },
+      );
     }
   }
 
   Future<void> _syncWithDevice() async {
     try {
-      // Give Firestore a moment to update
+      debugPrint('🔄 _syncWithDevice started');
+      // Small delay to allow Firestore to propagate the write
       await Future.delayed(const Duration(milliseconds: 300));
 
       // Fetch all items from repository
@@ -481,23 +572,41 @@ class _ItemFormPageState extends State<ItemFormPage> {
       final itemsResult = await itemRepository.getItems(currentUserUid);
 
       final items = itemsResult.fold(
-        (failure) => <Item>[],
+        (failure) {
+          debugPrint('❌ Failed to fetch items: ${failure.message}');
+          return <Item>[];
+        },
         (items) => items,
       );
 
-      if (items.isNotEmpty && mounted) {
+      debugPrint('📦 Fetched ${items.length} items');
+      for (final item in items) {
+        debugPrint('📦 Item: ${item.name}, incrementBy=${item.incrementBy}, reminder=${item.reminder}');
+      }
+
+      if (mounted) {
         // Send items to device
+        debugPrint('📤 Sending ${items.length} items to device');
         context.read<BluetoothBloc>().add(SendItemsToDevice(items));
 
         // Send selected item to device
         final appUiState = context.read<AppUiState>();
         final activeItemId = appUiState.activeItemId;
+        debugPrint('⭐ Active item ID: $activeItemId');
         if (activeItemId != 'none') {
+          debugPrint('📤 Sending selected item: $activeItemId');
           context.read<BluetoothBloc>().add(SendSelectedItem(activeItemId));
         }
+
+        // Request prefs from device to get updated counts
+        debugPrint('📥 Requesting prefs from device');
+        context.read<BluetoothBloc>().add(
+          const RequestDeviceData(type: DeviceDataType.prefs),
+        );
       }
+      debugPrint('✅ _syncWithDevice completed');
     } catch (e) {
-      debugPrint('Error syncing with device: $e');
+      debugPrint('❌ Error syncing with device: $e');
     }
   }
 

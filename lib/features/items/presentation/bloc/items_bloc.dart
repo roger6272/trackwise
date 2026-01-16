@@ -148,6 +148,7 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
 
     final result = await createItemUseCase(CreateItemParams(
       name: event.name,
+      initialValue: event.initialValue,
       incrementBy: event.incrementBy,
       reminder: event.reminder,
       reminderValue: event.reminderValue,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/theme/app_colors.dart';
+
 /// A filter section widget for the item detail page.
 ///
 /// Provides controls for:
@@ -30,23 +32,23 @@ class FilterSection extends StatelessWidget {
   final ValueChanged<DateTime> onDateChanged;
   final VoidCallback onToggleCalendar;
 
-  // FlutterFlow colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _alternate = Color(0xFFE0E3E7);
-  static const Color _primaryBackground = Color(0xFFF1F4F8);
-  static const Color _secondaryText = Color(0xFF57636C);
-  static const Color _primaryText = Color(0xFF14181B);
-
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    const primary = AppColors.primary;
+    final alternate = AppColors.alternate(brightness);
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Aggregation chips - centered
-        _buildAggregationChips(),
+        _buildAggregationChips(primary, primaryBackground, secondaryText),
         const SizedBox(height: 20.0),
         // Reset toggle chips - centered
-        _buildResetToggle(),
+        _buildResetToggle(primary, primaryBackground, secondaryText),
         const SizedBox(height: 30.0),
         // "Ends on" label row (only shown when not 1D)
         if (aggregation != '1D')
@@ -59,7 +61,7 @@ class FilterSection extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 12.0,
                   fontWeight: FontWeight.normal,
-                  color: _primaryText,
+                  color: primaryText,
                 ),
               ),
             ),
@@ -69,16 +71,16 @@ class FilterSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(32.0, 0.0, 25.0, 15.0),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: _buildDatePicker(),
+            child: _buildDatePicker(primaryText),
           ),
         ),
         // Calendar (when expanded)
-        if (!isCalendarCollapsed) _buildCalendar(context),
+        if (!isCalendarCollapsed) _buildCalendar(context, primary, secondaryText, alternate),
       ],
     );
   }
 
-  Widget _buildAggregationChips() {
+  Widget _buildAggregationChips(Color primary, Color primaryBackground, Color secondaryText) {
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 5.0,
@@ -89,14 +91,14 @@ class FilterSection extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             decoration: BoxDecoration(
-              color: isSelected ? _primary : _primaryBackground,
+              color: isSelected ? primary : primaryBackground,
               borderRadius: BorderRadius.circular(5.0),
             ),
             child: Text(
               period,
               style: GoogleFonts.inter(
                 fontSize: 14.0,
-                color: isSelected ? Colors.white : _secondaryText,
+                color: isSelected ? Colors.white : secondaryText,
               ),
             ),
           ),
@@ -105,7 +107,7 @@ class FilterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildResetToggle() {
+  Widget _buildResetToggle(Color primary, Color primaryBackground, Color secondaryText) {
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 5.0,
@@ -114,11 +116,17 @@ class FilterSection extends StatelessWidget {
           label: 'Total',
           isSelected: !showSinceReset,
           onTap: () => onShowSinceResetChanged(false),
+          primary: primary,
+          primaryBackground: primaryBackground,
+          secondaryText: secondaryText,
         ),
         _buildToggleChip(
           label: 'Since Last Reset',
           isSelected: showSinceReset,
           onTap: () => onShowSinceResetChanged(true),
+          primary: primary,
+          primaryBackground: primaryBackground,
+          secondaryText: secondaryText,
         ),
       ],
     );
@@ -128,27 +136,30 @@ class FilterSection extends StatelessWidget {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
+    required Color primary,
+    required Color primaryBackground,
+    required Color secondaryText,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         decoration: BoxDecoration(
-          color: isSelected ? _primary : _primaryBackground,
+          color: isSelected ? primary : primaryBackground,
           borderRadius: BorderRadius.circular(5.0),
         ),
         child: Text(
           label,
           style: GoogleFonts.inter(
             fontSize: 14.0,
-            color: isSelected ? Colors.white : _secondaryText,
+            color: isSelected ? Colors.white : secondaryText,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildDatePicker() {
+  Widget _buildDatePicker(Color primaryText) {
     final dateFormat = DateFormat.yMMMd();
 
     return GestureDetector(
@@ -156,7 +167,7 @@ class FilterSection extends StatelessWidget {
       child: Text(
         dateFormat.format(selectedDate),
         style: GoogleFonts.interTight(
-          color: _primaryText,
+          color: primaryText,
           fontWeight: FontWeight.w500,
           fontSize: 16.0,
         ),
@@ -164,7 +175,10 @@ class FilterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildCalendar(BuildContext context) {
+  Widget _buildCalendar(BuildContext context, Color primary, Color secondaryText, Color alternate) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryBackground = AppColors.secondaryBackground(brightness);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -183,17 +197,23 @@ class FilterSection extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               _buildCalendarButton(
-                context: context,
                 label: 'OK',
                 isPrimary: true,
                 onPressed: onToggleCalendar,
+                primary: primary,
+                secondaryText: secondaryText,
+                secondaryBackground: secondaryBackground,
+                alternate: alternate,
               ),
               const SizedBox(width: 10.0),
               _buildCalendarButton(
-                context: context,
                 label: 'Cancel',
                 isPrimary: false,
                 onPressed: onToggleCalendar,
+                primary: primary,
+                secondaryText: secondaryText,
+                secondaryBackground: secondaryBackground,
+                alternate: alternate,
               ),
             ],
           ),
@@ -203,10 +223,13 @@ class FilterSection extends StatelessWidget {
   }
 
   Widget _buildCalendarButton({
-    required BuildContext context,
     required String label,
     required bool isPrimary,
     required VoidCallback onPressed,
+    required Color primary,
+    required Color secondaryText,
+    required Color secondaryBackground,
+    required Color alternate,
   }) {
     return SizedBox(
       width: 70.0,
@@ -214,12 +237,12 @@ class FilterSection extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isPrimary ? _primary : Colors.white,
-          foregroundColor: isPrimary ? Colors.white : _secondaryText,
+          backgroundColor: isPrimary ? primary : secondaryBackground,
+          foregroundColor: isPrimary ? Colors.white : secondaryText,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18.0),
-            side: BorderSide(color: _alternate),
+            side: BorderSide(color: alternate),
           ),
           padding: EdgeInsets.zero,
         ),
