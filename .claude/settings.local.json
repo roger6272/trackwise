@@ -95,7 +95,8 @@
       "Skill(verification-before-completion)",
       "Bash(dart run build_runner:*)",
       "Skill(writing-plans)",
-      "Skill(subagent-driven-development)"
+      "Skill(subagent-driven-development)",
+      "Skill(superpowers:requesting-code-review)"
     ]
   }
 }

@@ -23,14 +23,12 @@ import 'auth/firebase_auth/auth_util.dart';
 
 import 'backend/firebase/firebase_config.dart';
 import 'core/theme/app_theme.dart';
-import 'flutter_flow/flutter_flow_util.dart';
-import 'flutter_flow/nav/nav.dart';
-import 'index.dart';
+import 'app_state.dart';
 
 // Clean Architecture
 import 'core/di/injection.dart';
-import 'core/config/migration_flags.dart';
-import 'core/router/app_router.dart' as clean_router;
+import 'core/auth/auth_state_notifier.dart';
+import 'core/router/app_router.dart';
 
 void main() async {
   await runZonedGuarded(() async {
@@ -108,7 +106,7 @@ class MyAppScrollBehavior extends MaterialScrollBehavior {
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = AppTheme.themeMode;
 
-  late AppStateNotifier _appStateNotifier;
+  late AuthStateNotifier _authStateNotifier;
   late GoRouter _router;
   late Stream<BaseAuthUser> userStream;
 
@@ -132,19 +130,16 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-    _appStateNotifier = AppStateNotifier.instance;
-    // Use feature flag to determine which router to use
-    _router = MigrationFlags.useNewRouter
-        ? clean_router.AppRouter.createRouter(_appStateNotifier)
-        : createRouter(_appStateNotifier);
+    _authStateNotifier = AuthStateNotifier.instance;
+    _router = AppRouter.createRouter(_authStateNotifier);
     userStream = trackwiseFirebaseUserStream()
       ..listen((user) {
-        _appStateNotifier.update(user);
+        _authStateNotifier.update(user);
       });
     jwtTokenStream.listen((_) {});
     Future.delayed(
       Duration(milliseconds: 1000),
-      () => _appStateNotifier.stopShowingSplashImage(),
+      () => _authStateNotifier.stopShowingSplashImage(),
     );
   }
 

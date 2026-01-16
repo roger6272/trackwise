@@ -28,7 +28,87 @@ export 'package:intl/intl.dart';
 export 'package:cloud_firestore/cloud_firestore.dart'
     show DocumentReference, FirebaseFirestore;
 export 'package:page_transition/page_transition.dart';
-export 'nav/nav.dart';
+
+// Simplified ParamType for backward compatibility
+enum ParamType {
+  int,
+  double,
+  String,
+  bool,
+  DateTime,
+  DateTimeRange,
+  LatLng,
+  Color,
+  FFPlace,
+  FFUploadedFile,
+  JSON,
+  Document,
+  DocumentReference,
+  DataStruct,
+  Enum,
+  Action,
+  Widget,
+  Supabase,
+  PostgresRow,
+  SQLiteRow,
+}
+
+/// Serializes a parameter to a string for URL encoding.
+String? serializeParam(
+  dynamic param,
+  ParamType paramType, {
+  bool isList = false,
+}) {
+  if (param == null) return null;
+  if (isList) {
+    return (param as List)
+        .map((p) => serializeParam(p, paramType))
+        .join(',');
+  }
+  switch (paramType) {
+    case ParamType.int:
+      return param.toString();
+    case ParamType.double:
+      return param.toString();
+    case ParamType.String:
+      return param;
+    case ParamType.bool:
+      return param ? 'true' : 'false';
+    default:
+      return param?.toString();
+  }
+}
+
+/// Deserializes a string parameter back to its typed value.
+T? deserializeParam<T>(
+  dynamic param,
+  ParamType paramType,
+  bool isList, {
+  StructBuilder<T>? structBuilder,
+}) {
+  if (param == null) return null;
+  if (isList) {
+    final values = (param as String).split(',');
+    return values
+        .map((v) => deserializeParam<T>(v, paramType, false))
+        .whereType<T>()
+        .toList() as T;
+  }
+  switch (paramType) {
+    case ParamType.int:
+      return int.tryParse(param.toString()) as T?;
+    case ParamType.double:
+      return double.tryParse(param.toString()) as T?;
+    case ParamType.String:
+      return param as T?;
+    case ParamType.bool:
+      return (param == 'true') as T?;
+    default:
+      return null;
+  }
+}
+
+typedef StructBuilder<T> = T Function(Map<String, dynamic> data);
 
 T valueOrDefault<T>(T? value, T defaultValue) =>
     (value is String && value.isEmpty) || value == null ? defaultValue : value;

@@ -1,28 +1,4 @@
-// Export pages
-export '/account_profile_creation/auth_2_create/auth2_create_widget.dart'
-    show Auth2CreateWidget;
-export '/account_profile_creation/auth_2_login/auth2_login_widget.dart'
-    show Auth2LoginWidget;
-export '/account_profile_creation/auth_2_forgot_password/auth2_forgot_password_widget.dart'
-    show Auth2ForgotPasswordWidget;
-export '/account_profile_creation/bluetooth_search/bluetooth_search_widget.dart'
-    show BluetoothSearchWidget;
-export '/account_profile_creation/item_setup_page/item_setup_page_widget.dart'
-    show ItemSetupPageWidget;
-export '/account_profile_creation/item_update_page/item_update_page_widget.dart'
-    show ItemUpdatePageWidget;
-export '/account_profile_creation/connection_initiation/connection_initiation_widget.dart'
-    show ConnectionInitiationWidget;
-export '/account_profile_creation/device_management/device_management_widget.dart'
-    show DeviceManagementWidget;
-export '/account_profile_creation/main_page/main_page_widget.dart'
-    show MainPageWidget;
-export '/account_profile_creation/detail_page/detail_page_widget.dart'
-    show DetailPageWidget;
-export '/account_profile_creation/profile_page/profile_page_widget.dart'
-    show ProfilePageWidget;
-export '/account_profile_creation/download_page/download_page_widget.dart'
-    show DownloadPageWidget;
+// Export pages - Clean Architecture only
 export '/features/items/presentation/pages/items_list_page.dart'
     show ItemsListPage;
 export '/features/items/presentation/pages/item_form_page.dart'

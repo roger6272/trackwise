@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/auth/firebase_auth/firebase_user_provider.dart' show trackwiseFirebaseUserStream;
-import '/flutter_flow/nav/nav.dart' show AppStateNotifier;
 import '../../../../core/di/injection.dart';
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';

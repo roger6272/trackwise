@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '/flutter_flow/nav/nav.dart' show AppStateNotifier, appNavigatorKey;
+import '../auth/auth_state_notifier.dart';
 import '../widgets/app_shell.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
@@ -20,19 +20,19 @@ import '../../features/items/domain/entities/item.dart';
 class AppRouter {
   AppRouter._();
 
-  static GoRouter createRouter(AppStateNotifier appStateNotifier) {
+  static GoRouter createRouter(AuthStateNotifier authStateNotifier) {
     return GoRouter(
       initialLocation: '/',
       debugLogDiagnostics: true,
-      refreshListenable: appStateNotifier,
+      refreshListenable: authStateNotifier,
       navigatorKey: appNavigatorKey,
       redirect: (context, state) {
         // While loading (user state not yet determined), don't redirect
-        if (appStateNotifier.loading) {
+        if (authStateNotifier.loading) {
           return null;
         }
 
-        final loggedIn = appStateNotifier.loggedIn;
+        final loggedIn = authStateNotifier.loggedIn;
         final loggingIn = state.matchedLocation == LoginPage.routePath ||
             state.matchedLocation == SignupPage.routePath ||
             state.matchedLocation == ForgotPasswordPage.routePath;
@@ -48,9 +48,9 @@ class AppRouter {
         }
 
         // Handle saved redirect location
-        if (appStateNotifier.shouldRedirect) {
-          final redirectLocation = appStateNotifier.getRedirectLocation();
-          appStateNotifier.clearRedirectLocation();
+        if (authStateNotifier.shouldRedirect) {
+          final redirectLocation = authStateNotifier.getRedirectLocation();
+          authStateNotifier.clearRedirectLocation();
           return redirectLocation;
         }
 
@@ -79,7 +79,7 @@ class AppRouter {
           navigatorKey: GlobalKey<NavigatorState>(),
           builder: (context, state, child) {
             // Show loading while auth state is being determined
-            if (appStateNotifier.loading) {
+            if (authStateNotifier.loading) {
               return const Scaffold(
                 body: Center(
                   child: CircularProgressIndicator(),

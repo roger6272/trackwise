@@ -6,9 +6,9 @@
 
 import 'dart:async';
 
+import '../../../../app_state.dart';
 import '../../../../backend/schema/structs/index.dart';
 import '../../../../core/di/injection.dart';
-import '../../../../flutter_flow/flutter_flow_util.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';

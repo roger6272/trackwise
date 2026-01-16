@@ -9,8 +9,6 @@ export 'package:collection/collection.dart' show ListEquality;
 export 'package:flutter/material.dart' show Color, Colors;
 export 'package:from_css_color/from_css_color.dart';
 
-typedef StructBuilder<T> = T Function(Map<String, dynamic> data);
-
 abstract class BaseStruct {
   Map<String, dynamic> toSerializableMap();
   String serialize() => json.encode(toSerializableMap());

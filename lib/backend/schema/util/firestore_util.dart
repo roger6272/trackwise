@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:from_css_color/from_css_color.dart';
 
 import '/backend/schema/util/schema_util.dart';
-import '/flutter_flow/flutter_flow_util.dart';
+import '/core/utils/app_util.dart';
 
 typedef RecordBuilder<T> = T Function(DocumentSnapshot snapshot);
 

@@ -194,22 +194,179 @@ lib/
 
 ### Migration Strategy
 
-**Phase 1: Wire Up Existing Code**
+**Phase 1: Wire Up Existing Code** ✅ COMPLETE
 - Enable migration flags one by one
 - Test each flag thoroughly before enabling the next
 - Fix any issues in existing new implementations
 
-**Phase 2: Complete Missing Pages**
+**Phase 2: Complete Missing Pages** ✅ COMPLETE
 - Implement any pages not yet created
 - Ensure all routes work in AppRouter
 - Add widget tests for each page
 
-**Phase 3: Cleanup**
-- Remove all FF imports from features
-- Delete `flutter_flow/` directory
-- Delete `account_profile_creation/` directory
-- Delete `components/` directory
-- Remove migration flags system
+**Phase 3: Cleanup** 🔄 IN PROGRESS
+- Phase 3a: ✅ COMPLETE - AuthStateNotifier created, imports updated
+- Phase 3b: ✅ COMPLETE - FF imports removed from clean architecture code
+- Phase 3c: 🔄 PARTIAL - Deleted safe directories, blocked by BLE dependency
+- Phase 3d: ⏳ PENDING - Awaiting Phase 3c completion
+
+---
+
+## FlutterFlow Dependency Analysis
+
+> **CRITICAL**: This section was added after discovering that Phase 3 cleanup
+> cannot proceed without first replacing FF dependencies that the new clean
+> architecture code still relies on.
+
+### Summary
+
+| Category | Files Affected | Blocking Cleanup? |
+|----------|---------------|-------------------|
+| AppStateNotifier (auth state) | 2 | **YES - Critical** |
+| flutter_flow_util.dart | 15+ | **YES - Critical** |
+| custom_code/ actions | 23 | No (can delete) |
+| custom_code/ widgets | 3 | No (can delete) |
+| Backend schema | 6 | **YES - Uses FF utilities** |
+| components/ | 2 | No (can delete) |
+
+### Critical Dependency #1: AppStateNotifier
+
+**Location**: `lib/flutter_flow/nav/nav.dart`
+
+**What it provides**:
+```dart
+class AppStateNotifier extends ChangeNotifier {
+  BaseAuthUser? user;
+  bool get loading => user == null || showSplashImage;
+  bool get loggedIn => user?.loggedIn ?? false;
+  void update(BaseAuthUser newUser) { ... }
+}
+```
+
+**Used by**:
+| File | Usage |
+|------|-------|
+| `lib/core/router/app_router.dart:4` | `AppStateNotifier, appNavigatorKey` for auth-guarded routes |
+| `lib/features/items/presentation/pages/items_list_page.dart:10` | `AppStateNotifier` for auth stream |
+| `lib/main.dart:27` | Creates and provides the notifier |
+
+**Replacement needed**: Create `lib/core/auth/auth_state_notifier.dart` that:
+- Wraps Firebase auth state as ChangeNotifier
+- Provides `loggedIn`, `loading`, `user` getters
+- Works with GoRouter's `refreshListenable`
+
+### Critical Dependency #2: flutter_flow_util.dart
+
+**Location**: `lib/flutter_flow/flutter_flow_util.dart`
+
+**What it provides**:
+- `valueOrDefault<T>()` - null-safe default values
+- `dateTimeFormat()` - date formatting with relative time
+- `launchURL()` - URL launcher wrapper
+- Re-exports: `app_state.dart`, `lat_lng.dart`, `place.dart`, `nav/nav.dart`
+
+**Used by** (outside FF directories):
+| File | Reason |
+|------|--------|
+| `lib/main.dart` | App initialization |
+| `lib/app_state.dart` | App state utilities |
+| `lib/auth/firebase_auth/auth_util.dart` | Auth utilities |
+| `lib/auth/firebase_auth/firebase_auth_manager.dart` | Auth manager |
+| `lib/backend/backend.dart` | Backend utilities |
+| `lib/backend/schema/*.dart` (4 files) | Firestore document serialization |
+| `lib/backend/schema/util/*.dart` (2 files) | Schema utilities |
+| `lib/features/bluetooth/presentation/bridge/bluetooth_bridge.dart` | BLE bridge |
+
+**Replacement needed**: Create `lib/core/utils/` with:
+- `value_utils.dart` - `valueOrDefault<T>()`
+- `date_utils.dart` - `dateTimeFormat()` using intl package
+- `url_utils.dart` - `launchURL()` wrapper
+
+### Non-Critical Dependencies (Can Delete)
+
+**custom_code/actions/** (23 files):
+- All use FF imports but are **legacy code**
+- Functionality has been migrated to `features/bluetooth/` BLoC
+- Safe to delete after verifying BLoC covers all use cases
+
+**custom_code/widgets/** (3 files):
+- `event_log_bar_chart.dart` - Replaced by `features/charts/`
+- `event_log_cumulative_chart.dart` - Replaced by `features/charts/`
+- Safe to delete
+
+**components/** (2 files):
+- `navigation_bar_widget.dart` - Uses FF theme/util
+- Already replaced by bottom nav in `ItemsListPage`
+- Safe to delete
+
+**account_profile_creation/** (13 subdirectories):
+- All FF-generated page widgets
+- Already replaced by clean architecture pages
+- Safe to delete
+
+### Directories Status (Updated 2026-01-15)
+
+| Directory | Files | Status | Notes |
+|-----------|-------|--------|-------|
+| `lib/flutter_flow/` | 16 | 🔄 Partially cleaned | Deleted `nav/`, keeping utilities |
+| `lib/account_profile_creation/` | ~26 | ✅ DELETED | All old FF pages removed |
+| `lib/components/` | 2 | ✅ DELETED | Navigation bar removed |
+| `lib/custom_code/widgets/` | 2 | ✅ DELETED | Chart widgets removed |
+| `lib/custom_code/actions/` | 23 | ⚠️ BLOCKED | BLE code still used by clean arch |
+
+### Remaining Blocker: BLE Dependency
+
+**Issue**: `bluetooth_repository_impl.dart` and `bluetooth_test_page.dart` import `prepare_b_l_e_read.dart` from `custom_code/actions/`.
+
+**Root Cause**: The clean architecture BLE `requestData()` implementation delegates to the old FF code because:
+> "Use the OLD working code directly since it works and our new code doesn't"
+
+**To Complete Phase 3c**:
+1. Reimplement `prepareBLERead()` in clean architecture (`bluetooth_datasource.dart`)
+2. Remove dependency on `custom_code/actions/prepare_b_l_e_read.dart`
+3. Delete remaining `custom_code/actions/` directory
+4. Delete remaining `flutter_flow/` files
+
+**Risk**: BLE reimplementation is hardware-dependent and previous attempts failed. Consider deferring until core functionality is stable.
+
+### Phase 3 Execution Plan
+
+**Phase 3a: Create Clean Replacements** (NEW - Required first)
+1. Create `lib/core/auth/auth_state_notifier.dart`
+   - Implement ChangeNotifier wrapping Firebase auth
+   - Match AppStateNotifier's API
+2. Create `lib/core/utils/value_utils.dart`
+   - Copy `valueOrDefault<T>()` function
+3. Create `lib/core/utils/date_utils.dart`
+   - Copy `dateTimeFormat()` function
+4. Update `lib/core/router/app_router.dart`
+   - Import from new auth_state_notifier
+5. Update `lib/features/items/presentation/pages/items_list_page.dart`
+   - Import from new auth_state_notifier
+6. Update `lib/main.dart`
+   - Use new AuthStateNotifier
+7. Update backend schema files
+   - Replace FF util imports with core utils
+
+**Phase 3b: Remove FF Imports**
+1. Remove FF imports from `lib/features/`
+2. Remove FF imports from `lib/core/`
+3. Remove FF imports from `lib/auth/`
+4. Remove FF imports from `lib/backend/`
+5. Verify app builds and all tests pass
+
+**Phase 3c: Delete FF Directories**
+1. Delete `lib/custom_code/` (legacy, already replaced)
+2. Delete `lib/components/` (replaced by new nav)
+3. Delete `lib/account_profile_creation/` (replaced by features/auth)
+4. Delete `lib/flutter_flow/` (only after all imports removed)
+5. Clean up `lib/index.dart`
+
+**Phase 3d: Final Cleanup**
+1. Delete `lib/core/config/migration_flags.dart`
+2. Remove migration flag checks from code
+3. Update pubspec.yaml to remove unused FF dependencies
+4. Final build and test verification
 
 ### Existing Assets
 
