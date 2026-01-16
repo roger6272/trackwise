@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/state/app_ui_state.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../domain/entities/item.dart';
@@ -28,14 +29,6 @@ class ItemFormPage extends StatefulWidget {
 }
 
 class _ItemFormPageState extends State<ItemFormPage> {
-  // FF Colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _alternate = Color(0xFFE0E3E7);
-  static const Color _primaryBackground = Color(0xFFF1F4F8);
-  static const Color _primaryText = Color(0xFF14181B);
-  static const Color _secondaryText = Color(0xFF57636C);
-  static const Color _error = Color(0xFFFF5963);
-
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final formKey = GlobalKey<FormState>();
 
@@ -88,6 +81,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Theme-aware colors
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final alternate = AppColors.alternate(brightness);
+
     return BlocProvider(
       create: (context) => sl<ItemsBloc>(),
       child: BlocListener<ItemsBloc, ItemsState>(
@@ -120,15 +120,15 @@ class _ItemFormPageState extends State<ItemFormPage> {
           },
           child: Scaffold(
             key: scaffoldKey,
-            backgroundColor: _primaryBackground,
+            backgroundColor: primaryBackground,
             resizeToAvoidBottomInset: false,
             appBar: AppBar(
-              backgroundColor: _primaryBackground,
+              backgroundColor: primaryBackground,
               automaticallyImplyLeading: false,
               leading: IconButton(
                 icon: Icon(
                   Icons.arrow_back_rounded,
-                  color: _primaryText,
+                  color: primaryText,
                   size: 30.0,
                 ),
                 onPressed: () {
@@ -138,7 +138,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
               title: Text(
                 isEditMode ? 'Edit Item' : 'Create Item',
                 style: GoogleFonts.interTight(
-                  color: _primaryText,
+                  color: primaryText,
                   fontSize: 20.0,
                   letterSpacing: 0.0,
                   fontWeight: FontWeight.w600,
@@ -159,6 +159,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                       children: [
                         _buildFieldSection(
                           label: 'Item Name',
+                          labelColor: primaryText,
                           child: TextFormField(
                             controller: nameController,
                             focusNode: nameFocusNode,
@@ -167,9 +168,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             textInputAction: TextInputAction.next,
                             decoration: _buildInputDecoration(
                               hint: 'Enter item name...',
+                              alternate: alternate,
+                              secondaryText: secondaryText,
                             ),
                             style: GoogleFonts.inter(
-                              color: _primaryText,
+                              color: primaryText,
                               fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
@@ -187,6 +190,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         ),
                         _buildFieldSection(
                           label: 'Increment By',
+                          labelColor: primaryText,
                           child: TextFormField(
                             controller: incrementByController,
                             focusNode: incrementByFocusNode,
@@ -197,9 +201,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             ],
                             decoration: _buildInputDecoration(
                               hint: 'Enter increment value...',
+                              alternate: alternate,
+                              secondaryText: secondaryText,
                             ),
                             style: GoogleFonts.inter(
-                              color: _primaryText,
+                              color: primaryText,
                               fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
@@ -217,6 +223,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         ),
                         _buildFieldSection(
                           label: 'Reminder Type',
+                          labelColor: primaryText,
                           child: DropdownButtonFormField<ReminderType>(
                             value: selectedReminder,
                             items: const [
@@ -229,24 +236,25 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               setState(() => selectedReminder = val);
                             },
                             style: GoogleFonts.inter(
-                              color: _primaryText,
+                              color: primaryText,
                               fontSize: 16.0,
                             ),
+                            dropdownColor: alternate,
                             icon: Icon(
                               Icons.keyboard_arrow_down_rounded,
-                              color: _secondaryText,
+                              color: secondaryText,
                               size: 24.0,
                             ),
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: _alternate,
+                              fillColor: alternate,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.0),
-                                borderSide: BorderSide(color: _alternate),
+                                borderSide: BorderSide(color: alternate),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.0),
-                                borderSide: BorderSide(color: _alternate),
+                                borderSide: BorderSide(color: alternate),
                               ),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                             ),
@@ -254,6 +262,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         ),
                         _buildFieldSection(
                           label: 'Reminder Value',
+                          labelColor: primaryText,
                           child: TextFormField(
                             controller: reminderValueController,
                             focusNode: reminderValueFocusNode,
@@ -264,9 +273,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             ],
                             decoration: _buildInputDecoration(
                               hint: 'Enter reminder value...',
+                              alternate: alternate,
+                              secondaryText: secondaryText,
                             ),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontFamily: 'Inter',
+                            style: GoogleFonts.inter(
+                              color: primaryText,
                               fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
@@ -294,7 +305,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                     context.pop();
                                   },
                                   style: OutlinedButton.styleFrom(
-                                    backgroundColor: _alternate,
+                                    backgroundColor: alternate,
                                     side: BorderSide.none,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8.0),
@@ -303,7 +314,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   child: Text(
                                     'Cancel',
                                     style: GoogleFonts.interTight(
-                                      color: _primaryText,
+                                      color: primaryText,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -317,7 +328,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 child: ElevatedButton(
                                   onPressed: _isLoading ? null : _handleSave,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: _primary,
+                                    backgroundColor: AppColors.primary,
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8.0),
@@ -351,14 +362,18 @@ class _ItemFormPageState extends State<ItemFormPage> {
     );
   }
 
-  Widget _buildFieldSection({required String label, required Widget child}) {
+  Widget _buildFieldSection({
+    required String label,
+    required Widget child,
+    required Color labelColor,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: GoogleFonts.inter(
-            color: _primaryText,
+            color: labelColor,
             letterSpacing: 0.0,
             fontWeight: FontWeight.w600,
           ),
@@ -369,44 +384,48 @@ class _ItemFormPageState extends State<ItemFormPage> {
     );
   }
 
-  InputDecoration _buildInputDecoration({required String hint}) {
+  InputDecoration _buildInputDecoration({
+    required String hint,
+    required Color alternate,
+    required Color secondaryText,
+  }) {
     return InputDecoration(
       hintText: hint,
       hintStyle: GoogleFonts.inter(
-        color: _secondaryText,
+        color: secondaryText,
         fontSize: 16.0,
         letterSpacing: 0.0,
       ),
       enabledBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: _alternate,
+          color: alternate,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       focusedBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: _primary,
+          color: AppColors.primary,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       errorBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: _error,
+          color: AppColors.error,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderSide: BorderSide(
-          color: _error,
+          color: AppColors.error,
           width: 1.0,
         ),
         borderRadius: BorderRadius.circular(8.0),
       ),
       filled: true,
-      fillColor: _alternate,
+      fillColor: alternate,
       contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
     );
   }
