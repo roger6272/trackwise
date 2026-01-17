@@ -99,12 +99,13 @@ void notifyPrefsToApp() {
   String jsonOut = getPrefsJson();
   jsonOut += "\n";  // For Flutter end-of-message detection
 
-  const int mtu = 20;
+  // Use larger MTU for faster transfers (app negotiates 512, we use 180 for safety margin)
+  const int mtu = 180;
   for (int i = 0; i < jsonOut.length(); i += mtu) {
     String chunk = jsonOut.substring(i, min(i + mtu, (int)jsonOut.length()));
     NotifyChar->setValue(chunk.c_str());
     NotifyChar->notify();
-    delay(30);
+    delay(10);  // Reduced from 30ms - high priority connection can handle this
   }
   Serial.println("✅ Finished sending prefs item list.");
 }
@@ -539,12 +540,13 @@ void notifyEvent(String event) {
   serializeJson(root, s);
   s += "\n";  // 🧩 newline as end-of-message marker
 
-  const int mtu = 20;
+  // Use larger MTU for faster transfers (event JSON is typically ~150 bytes, fits in one chunk)
+  const int mtu = 180;
   for (int i = 0; i < s.length(); i += mtu) {
     String chunk = s.substring(i, min(i + mtu, (int)s.length()));  //min to end the loop if empty info detected in the last round
     NotifyChar->setValue(chunk.c_str());
     NotifyChar->notify();
-    delay(30);  // ⏱ avoid congestion
+    delay(10);  // Reduced from 30ms - high priority connection can handle this
   }
   //Serial.println("📤 Sent notifyEvent:");
   //Serial.println(s);
@@ -616,7 +618,7 @@ void handleCommand(char cmd) {
 
     logEvent("increment");
     if (isConnected) notifyPrefsToApp();  //this has more data and will update the UI. Need to be prioritized
-    delay(200);
+    delay(50);  // Reduced from 200ms - just need brief gap between notifications
     if (isConnected) notifyEvent("increment");  //this could be sent later
 
   } else if (cmd == 'r') {
@@ -636,7 +638,7 @@ void handleCommand(char cmd) {
     logEvent("reset");
 
     if (isConnected) notifyPrefsToApp();  //this has more data and will update the UI. Need to be prioritized
-    delay(200);
+    delay(50);  // Reduced from 200ms - just need brief gap between notifications
     if (isConnected) notifyEvent("reset");  //this could be sent later
 
 
