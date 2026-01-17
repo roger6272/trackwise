@@ -274,19 +274,26 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Future<List<ItemModel>> getDeletedItems(String userId) async {
     try {
+      debugPrint('🗑️ Datasource: getDeletedItems called for user $userId');
       final userRef = firestore.collection('users').doc(userId);
+      debugPrint('🗑️ Datasource: Querying Firestore...');
       final snapshot = await firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
+      debugPrint('🗑️ Datasource: Got ${snapshot.docs.length} total items');
 
-      return snapshot.docs
+      final deletedItems = snapshot.docs
           .map((doc) => ItemModel.fromFirestore(doc))
           .where((item) => item.deletedAt != null) // Only soft-deleted items
           .toList();
+      debugPrint('🗑️ Datasource: Found ${deletedItems.length} deleted items');
+      return deletedItems;
     } on FirebaseException catch (e) {
+      debugPrint('🗑️ Datasource: FirebaseException - ${e.message}');
       throw ServerException('Failed to fetch deleted items: ${e.message}');
     } catch (e) {
+      debugPrint('🗑️ Datasource: Exception - $e');
       throw ServerException('Unexpected error fetching deleted items: $e');
     }
   }

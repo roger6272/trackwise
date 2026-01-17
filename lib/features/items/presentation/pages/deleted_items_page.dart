@@ -3,10 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/item.dart';
 import '../bloc/deleted_items_bloc.dart';
 import '../bloc/deleted_items_event.dart';
@@ -16,11 +15,37 @@ import '../bloc/deleted_items_state.dart';
 ///
 /// Items are shown with their deletion date and days remaining before
 /// permanent deletion (90-day retention period).
-class DeletedItemsPage extends StatelessWidget {
+class DeletedItemsPage extends StatefulWidget {
   const DeletedItemsPage({super.key});
 
   static String routeName = 'DeletedItemsPage';
   static String routePath = '/deleted-items';
+
+  @override
+  State<DeletedItemsPage> createState() => _DeletedItemsPageState();
+}
+
+class _DeletedItemsPageState extends State<DeletedItemsPage> {
+  late final DeletedItemsBloc _deletedItemsBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _deletedItemsBloc = sl<DeletedItemsBloc>();
+
+    // Load items using currentUserUid from Firebase auth utilities
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (currentUserUid.isNotEmpty) {
+        _deletedItemsBloc.add(LoadDeletedItems(userId: currentUserUid));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _deletedItemsBloc.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,114 +53,77 @@ class DeletedItemsPage extends StatelessWidget {
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, authState) {
-        // Wait for authentication before loading
-        if (authState is! Authenticated) {
-          return Scaffold(
+    return BlocProvider.value(
+      value: _deletedItemsBloc,
+      child: GestureDetector(
+        onTap: () {
+          FocusScope.of(context).unfocus();
+          FocusManager.instance.primaryFocus?.unfocus();
+        },
+        child: Scaffold(
+          backgroundColor: primaryBackground,
+          appBar: AppBar(
             backgroundColor: primaryBackground,
-            appBar: AppBar(
-              backgroundColor: primaryBackground,
-              automaticallyImplyLeading: false,
-              leading: IconButton(
-                icon: Icon(
-                  Icons.arrow_back_rounded,
-                  color: primaryText,
-                  size: 30.0,
-                ),
-                onPressed: () => context.pop(),
+            automaticallyImplyLeading: false,
+            leading: IconButton(
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: primaryText,
+                size: 30.0,
               ),
-              title: Text(
-                'Recently Deleted',
-                style: GoogleFonts.interTight(
-                  color: primaryText,
-                  fontSize: 20.0,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              centerTitle: true,
-              elevation: 2.0,
+              onPressed: () => context.pop(),
             ),
-            body: const Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final userId = authState.user.id;
-
-        return BlocProvider(
-          create: (_) => sl<DeletedItemsBloc>()
-            ..add(LoadDeletedItems(userId: userId)),
-          child: GestureDetector(
-            onTap: () {
-              FocusScope.of(context).unfocus();
-              FocusManager.instance.primaryFocus?.unfocus();
-            },
-            child: Scaffold(
-              backgroundColor: primaryBackground,
-              appBar: AppBar(
-                backgroundColor: primaryBackground,
-                automaticallyImplyLeading: false,
-                leading: IconButton(
-                  icon: Icon(
-                    Icons.arrow_back_rounded,
-                    color: primaryText,
-                    size: 30.0,
-                  ),
-                  onPressed: () => context.pop(),
-                ),
-                title: Text(
-                  'Recently Deleted',
-                  style: GoogleFonts.interTight(
-                    color: primaryText,
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                centerTitle: true,
-                elevation: 2.0,
+            title: Text(
+              'Recently Deleted',
+              style: GoogleFonts.interTight(
+                color: primaryText,
+                fontSize: 20.0,
+                fontWeight: FontWeight.w600,
               ),
-              body: SafeArea(
-                top: true,
-                child: BlocConsumer<DeletedItemsBloc, DeletedItemsState>(
-                  listener: (context, state) {
-                    if (state is ItemRestored) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Item restored successfully'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
-                    }
-                    if (state is DeletedItemsError) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(state.message),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
-                    }
-                  },
-                  builder: (context, state) {
-                    if (state is DeletedItemsLoading) {
-                      return const Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    }
+            ),
+            centerTitle: true,
+            elevation: 2.0,
+          ),
+          body: SafeArea(
+            top: true,
+            child: BlocConsumer<DeletedItemsBloc, DeletedItemsState>(
+              listener: (context, state) {
+                if (state is ItemRestored) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Item restored successfully'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+                if (state is DeletedItemsError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              },
+              builder: (context, state) {
+                if (state is DeletedItemsLoading || state is DeletedItemsInitial) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
 
-                    final items = _getItemsFromState(state);
+                final items = _getItemsFromState(state);
 
-                    if (items.isEmpty) {
-                      return _buildEmptyState(context);
-                    }
+                if (items.isEmpty) {
+                  return _buildEmptyState(context);
+                }
 
-                    return _buildItemsList(context, items, state, userId);
-                  },
-                ),
-              ),
+                return _buildItemsList(context, items, state);
+              },
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -189,7 +177,6 @@ class DeletedItemsPage extends StatelessWidget {
     BuildContext context,
     List<Item> items,
     DeletedItemsState state,
-    String userId,
   ) {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -201,7 +188,7 @@ class DeletedItemsPage extends StatelessWidget {
         final item = items[index - 1];
         final isRestoring =
             state is ItemRestoring && state.itemId == item.id;
-        return _buildItemCard(context, item, isRestoring, userId);
+        return _buildItemCard(context, item, isRestoring);
       },
     );
   }
@@ -226,7 +213,6 @@ class DeletedItemsPage extends StatelessWidget {
     BuildContext context,
     Item item,
     bool isRestoring,
-    String userId,
   ) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
@@ -288,8 +274,11 @@ class DeletedItemsPage extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: isRestoring
                     ? null
-                    : () => context.read<DeletedItemsBloc>().add(
-                          RestoreDeletedItem(itemId: item.id, userId: userId),
+                    : () => _deletedItemsBloc.add(
+                          RestoreDeletedItem(
+                            itemId: item.id,
+                            userId: currentUserUid,
+                          ),
                         ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,

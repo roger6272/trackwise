@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -21,13 +22,18 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
     LoadDeletedItems event,
     Emitter<DeletedItemsState> emit,
   ) async {
+    debugPrint('🗑️ DeletedItemsBloc: Loading deleted items for user ${event.userId}');
     emit(const DeletedItemsLoading());
 
     final result = await _repository.getDeletedItems(event.userId);
 
     result.fold(
-      (failure) => emit(DeletedItemsError(message: failure.message)),
+      (failure) {
+        debugPrint('🗑️ DeletedItemsBloc: Error - ${failure.message}');
+        emit(DeletedItemsError(message: failure.message));
+      },
       (items) {
+        debugPrint('🗑️ DeletedItemsBloc: Loaded ${items.length} deleted items');
         _currentItems = items;
         emit(DeletedItemsLoaded(items: items));
       },
