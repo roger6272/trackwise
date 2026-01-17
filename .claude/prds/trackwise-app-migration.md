@@ -1,7 +1,7 @@
 ---
 name: trackwise-app-migration
 description: Complete migration from FlutterFlow to clean Flutter architecture
-status: implemented
+status: completed
 created: 2026-01-15T04:09:19Z
 ---
 
@@ -204,11 +204,11 @@ lib/
 - Ensure all routes work in AppRouter
 - Add widget tests for each page
 
-**Phase 3: Cleanup** 🔄 IN PROGRESS
+**Phase 3: Cleanup** ✅ COMPLETE
 - Phase 3a: ✅ COMPLETE - AuthStateNotifier created, imports updated
 - Phase 3b: ✅ COMPLETE - FF imports removed from clean architecture code
-- Phase 3c: 🔄 PARTIAL - Deleted safe directories, blocked by BLE dependency
-- Phase 3d: ⏳ PENDING - Awaiting Phase 3c completion
+- Phase 3c: ✅ COMPLETE - All FF directories deleted (BLE extracted to ble_legacy.dart)
+- Phase 3d: ✅ COMPLETE - migration_flags.dart removed, final cleanup done
 
 ---
 
@@ -304,30 +304,26 @@ class AppStateNotifier extends ChangeNotifier {
 - Already replaced by clean architecture pages
 - Safe to delete
 
-### Directories Status (Updated 2026-01-15)
+### Directories Status (Updated 2026-01-16)
 
 | Directory | Files | Status | Notes |
 |-----------|-------|--------|-------|
-| `lib/flutter_flow/` | 16 | 🔄 Partially cleaned | Deleted `nav/`, keeping utilities |
-| `lib/account_profile_creation/` | ~26 | ✅ DELETED | All old FF pages removed |
-| `lib/components/` | 2 | ✅ DELETED | Navigation bar removed |
-| `lib/custom_code/widgets/` | 2 | ✅ DELETED | Chart widgets removed |
-| `lib/custom_code/actions/` | 23 | ⚠️ BLOCKED | BLE code still used by clean arch |
+| `lib/flutter_flow/` | 0 | ✅ DELETED | All FF utilities removed |
+| `lib/account_profile_creation/` | 0 | ✅ DELETED | All old FF pages removed |
+| `lib/components/` | 0 | ✅ DELETED | Navigation bar removed |
+| `lib/custom_code/widgets/` | 0 | ✅ DELETED | Chart widgets removed |
+| `lib/custom_code/actions/` | 0 | ✅ DELETED | BLE extracted to core/utils/ble_legacy.dart |
 
-### Remaining Blocker: BLE Dependency
+### BLE Dependency: RESOLVED ✅
 
-**Issue**: `bluetooth_repository_impl.dart` and `bluetooth_test_page.dart` import `prepare_b_l_e_read.dart` from `custom_code/actions/`.
+**Solution**: BLE code was extracted to `lib/core/utils/ble_legacy.dart` without FlutterFlow dependencies. The clean architecture code now uses this standalone implementation.
 
-**Root Cause**: The clean architecture BLE `requestData()` implementation delegates to the old FF code because:
-> "Use the OLD working code directly since it works and our new code doesn't"
-
-**To Complete Phase 3c**:
-1. Reimplement `prepareBLERead()` in clean architecture (`bluetooth_datasource.dart`)
-2. Remove dependency on `custom_code/actions/prepare_b_l_e_read.dart`
-3. Delete remaining `custom_code/actions/` directory
-4. Delete remaining `flutter_flow/` files
-
-**Risk**: BLE reimplementation is hardware-dependent and previous attempts failed. Consider deferring until core functionality is stable.
+**What was done**:
+1. Extracted `prepareBLERead()` and related functions to `core/utils/ble_legacy.dart`
+2. Removed all imports of `custom_code/actions/`
+3. Deleted `custom_code/actions/` directory (23 files)
+4. Deleted all `flutter_flow/` files (16 files)
+5. Created `core/utils/serialization_util.dart` for backend schema utilities
 
 ### Phase 3 Execution Plan
 

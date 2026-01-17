@@ -146,8 +146,6 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
         return 1;
       case ReminderType.interval:
         return 2;
-      case ReminderType.everyTime:
-        return 2; // Same as interval for ESP32
     }
   }
 
