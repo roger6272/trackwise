@@ -6,6 +6,31 @@
 
 This is a Flutter app (Trackwise) being migrated from FlutterFlow to clean architecture.
 
+## Cross-Codebase Awareness
+
+**CRITICAL: Always consider ALL THREE codebases when making enhancements or troubleshooting:**
+
+1. **New App Code** (clean architecture)
+   - Location: `lib/features/`, `lib/core/`, `lib/backend/`
+   - This is the target architecture we're migrating to
+   - Uses BLoC pattern and clean architecture principles
+
+2. **Old App Code** (FlutterFlow)
+   - Location: `lib/flutter_flow/`, `lib/auth/`, `lib/custom_code/`
+   - Reference for existing behavior and business logic
+   - Check here to understand how features currently work
+
+3. **Firmware** (ESP32)
+   - Location: `firmware/Trackwise_ESP32/`
+   - BLE protocol, commands, and device behavior
+   - **Essential for BLE-related issues** - always check firmware to understand expected data formats, command sequences, and timing
+
+**Before any change:**
+- Check if the issue spans app ↔ firmware communication
+- Verify BLE command/response formats match between app and firmware
+- Review existing FlutterFlow implementation for reference behavior
+- Ensure new code maintains compatibility with firmware protocol
+
 ## Epics and Tasks (CCPM)
 
 **PRD is the source of truth, not the task list.**
