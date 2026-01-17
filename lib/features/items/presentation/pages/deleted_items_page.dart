@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
@@ -427,6 +429,14 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       // Send updated items list to device
       debugPrint('📤 Sending ${items.length} items to device after restore');
       bluetoothBloc.add(SendItemsToDevice(items));
+
+      // Send selected item to device
+      final appUiState = context.read<AppUiState>();
+      final activeItemId = appUiState.activeItemId;
+      if (activeItemId.isNotEmpty) {
+        debugPrint('📤 Sending selected item to device: $activeItemId');
+        bluetoothBloc.add(SendSelectedItem(activeItemId));
+      }
 
       // Request prefs from device to sync counts
       bluetoothBloc.add(RequestDeviceData(type: DeviceDataType.prefs));

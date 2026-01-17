@@ -108,7 +108,8 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   /// Formats items list for ESP32 consumption.
   ///
   /// Converts domain Item entities to JSON format expected by ESP32.
-  /// Note: count and todaycount are NOT sent - device is source of truth for counts.
+  /// Count and todaycount are sent for new/restored items - device preserves
+  /// its own counts for existing items but uses these values for new items.
   /// ```json
   /// [
   ///   {
@@ -117,7 +118,9 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   ///     "increment": 1,
   ///     "reminder": 0,
   ///     "reminder_value": 0,
-  ///     "lastResetTime": 1234567890
+  ///     "lastResetTime": 1234567890,
+  ///     "count": 10,
+  ///     "todaycount": 5
   ///   }
   /// ]
   /// ```
@@ -129,6 +132,8 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       'reminder': _reminderTypeToInt(item.reminder),
       'reminder_value': item.reminderValue,
       'lastResetTime': item.lastResetTime.toUtc().millisecondsSinceEpoch ~/ 1000,
+      'count': item.count,
+      'todaycount': item.todayCount,
     }).toList();
 
     return jsonEncode(itemList);
