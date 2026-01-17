@@ -70,7 +70,7 @@ void main() {
         ('NONE', ReminderType.none),
         ('TARGET', ReminderType.target),
         ('INTERVAL', ReminderType.interval),
-        ('EVERY_TIME', ReminderType.everyTime),
+        ('EVERY_TIME', ReminderType.none), // Legacy value maps to none
       ];
 
       for (final test in tests) {

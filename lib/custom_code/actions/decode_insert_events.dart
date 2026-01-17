@@ -63,6 +63,11 @@ Future<void> decodeInsertEvents(String message) async {
         final itemRef =
             FirebaseFirestore.instance.doc("/Item/${eventData['itemId']}");
         final timestamp = eventData['timestamp'] ?? 0;
+
+        // Debug: show what timestamp the device sent
+        final dateFromDevice = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000, isUtc: true);
+        debugPrint("📅 Event timestamp from device: $timestamp (UTC: $dateFromDevice, Local: ${dateFromDevice.toLocal()})");
+
         final event = eventData['event']?.toString() ?? 'unknown';
         final count = eventData['count'];
         final eventLogRef = FirebaseFirestore.instance

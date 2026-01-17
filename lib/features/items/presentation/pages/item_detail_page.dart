@@ -254,9 +254,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final startDate = endDate.subtract(Duration(days: periodDays));
 
     // Map aggregation string to AggregationLevel
+    // 1D = hourly (24 bars), 7D/30D = daily (7/30 bars)
     final aggregationLevel = _aggregation == '1D'
-        ? AggregationLevel.daily
-        : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.weekly);
+        ? AggregationLevel.hourly
+        : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.daily);
 
     // Use lastResetTime filter when "Since Last Reset" is selected
     final sinceResetTime = _showSinceReset ? widget.lastResetTime : null;

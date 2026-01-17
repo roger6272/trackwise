@@ -128,10 +128,7 @@ class ItemCard extends StatelessWidget {
         return AppColors.primary;
       case ReminderType.interval:
         return AppColors.secondary;
-      case ReminderType.everyTime:
-        return AppColors.tertiary;
       case ReminderType.none:
-      default:
         return Theme.of(context).dividerColor;
     }
   }

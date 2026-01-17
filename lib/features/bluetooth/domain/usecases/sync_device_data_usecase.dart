@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failures.dart';
@@ -110,12 +111,16 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       final count = eventData['count'] as int? ?? 0;
       final increment = eventData['increment'] as int? ?? 0;
 
+      // Debug: show what timestamp the device sent
+      final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
+      debugPrint('📅 Event timestamp: $timestampSeconds sec -> $createdTime (local: ${createdTime.toLocal()})');
+
       // Generate unique ID matching FlutterFlow format
       final id = '$itemId-$eventName-$timestampSeconds-$count';
 
       events.add(EventLog(
         id: id,
-        createdTime: DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000),
+        createdTime: createdTime,
         itemId: itemId,
         eventName: eventName,
         increment: increment,

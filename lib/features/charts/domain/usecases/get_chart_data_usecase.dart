@@ -119,11 +119,14 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
 
   /// Get the aggregation key for a date based on the level.
   ///
+  /// - Hourly: start of hour
   /// - Daily: start of day (midnight)
   /// - Weekly: Monday of the week
   /// - Monthly: first of the month
   DateTime _getAggregationKey(DateTime date, AggregationLevel level) {
     switch (level) {
+      case AggregationLevel.hourly:
+        return DateTime(date.year, date.month, date.day, date.hour);
       case AggregationLevel.daily:
         return DateTime(date.year, date.month, date.day);
       case AggregationLevel.weekly:

@@ -265,7 +265,6 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               DropdownMenuItem(value: ReminderType.none, child: Text('No Reminder')),
                               DropdownMenuItem(value: ReminderType.target, child: Text('Target Count')),
                               DropdownMenuItem(value: ReminderType.interval, child: Text('Every X Increments')),
-                              DropdownMenuItem(value: ReminderType.everyTime, child: Text('Every Time')),
                             ],
                             onChanged: (val) {
                               setState(() => selectedReminder = val);

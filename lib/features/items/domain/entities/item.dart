@@ -5,12 +5,10 @@ import 'package:equatable/equatable.dart';
 /// - [none]: No reminders
 /// - [target]: Remind when count reaches reminderValue
 /// - [interval]: Remind every reminderValue increments
-/// - [everyTime]: Remind on every increment
 enum ReminderType {
   none,
   target,
   interval,
-  everyTime,
 }
 
 /// Item entity representing a tracked physical item.
@@ -45,7 +43,6 @@ class Item extends Equatable {
   ///
   /// - For [ReminderType.target]: Remind when count reaches this value
   /// - For [ReminderType.interval]: Remind every N increments
-  /// - For [ReminderType.everyTime]: Value ignored
   /// - For [ReminderType.none]: Value ignored
   final int reminderValue;
 

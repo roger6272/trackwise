@@ -264,25 +264,32 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                 // X-axis labels
                 SizedBox(
                   height: 20,
-                  child: Padding(
-                    padding: EdgeInsets.only(left: yAxisLabelWidth),
-                    child: Row(
-                      children: List.generate(totalBars, (i) {
-                        // Show fewer labels for 30D to avoid crowding
-                        final showLabel = widget.range == '30D'
-                            ? (totalBars - 1 - i) % 5 == 0
-                            : true;
-                        return Expanded(
-                          child: Container(
-                            alignment: Alignment.topCenter,
-                            child: Text(
-                              showLabel ? labels[i] : '',
-                              style: TextStyle(fontSize: 7 * fontScale),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
+                  child: Row(
+                    children: [
+                      // Spacer matching y-axis label width
+                      SizedBox(width: yAxisLabelWidth),
+                      // Labels matching bar area width
+                      SizedBox(
+                        width: chartContentWidth,
+                        child: Row(
+                          children: List.generate(totalBars, (i) {
+                            // Show fewer labels for 30D to avoid crowding
+                            final showLabel = widget.range == '30D'
+                                ? (totalBars - 1 - i) % 5 == 0
+                                : true;
+                            return Expanded(
+                              child: Container(
+                                alignment: Alignment.topCenter,
+                                child: Text(
+                                  showLabel ? labels[i] : '',
+                                  style: TextStyle(fontSize: 7 * fontScale),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

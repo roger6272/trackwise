@@ -6,6 +6,9 @@ import 'chart_data_point.dart';
 ///
 /// Determines how events are grouped for display.
 enum AggregationLevel {
+  /// Group by hour (start of each hour)
+  hourly,
+
   /// Group by day (start of each day)
   daily,
 
@@ -20,6 +23,8 @@ enum AggregationLevel {
 extension AggregationLevelExtension on AggregationLevel {
   String get name {
     switch (this) {
+      case AggregationLevel.hourly:
+        return 'hourly';
       case AggregationLevel.daily:
         return 'daily';
       case AggregationLevel.weekly:
@@ -31,6 +36,8 @@ extension AggregationLevelExtension on AggregationLevel {
 
   static AggregationLevel fromString(String value) {
     switch (value.toLowerCase()) {
+      case 'hourly':
+        return AggregationLevel.hourly;
       case 'daily':
         return AggregationLevel.daily;
       case 'weekly':

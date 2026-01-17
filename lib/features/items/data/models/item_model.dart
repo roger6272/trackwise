@@ -100,7 +100,7 @@ class ItemModel extends Item {
 
   /// Converts a Firestore reminder string to ReminderType enum.
   ///
-  /// Firestore stores enums as uppercase strings: "NONE", "TARGET", "INTERVAL", "EVERY_TIME"
+  /// Firestore stores enums as uppercase strings: "NONE", "TARGET", "INTERVAL"
   /// Defaults to ReminderType.none for null or unrecognized values.
   static ReminderType _reminderFromString(String? value) {
     switch (value?.toUpperCase()) {
@@ -108,8 +108,6 @@ class ItemModel extends Item {
         return ReminderType.target;
       case 'INTERVAL':
         return ReminderType.interval;
-      case 'EVERY_TIME':
-        return ReminderType.everyTime;
       default:
         return ReminderType.none;
     }
@@ -124,8 +122,6 @@ class ItemModel extends Item {
         return 'TARGET';
       case ReminderType.interval:
         return 'INTERVAL';
-      case ReminderType.everyTime:
-        return 'EVERY_TIME';
       case ReminderType.none:
         return 'NONE';
     }
