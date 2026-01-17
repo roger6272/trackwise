@@ -64,6 +64,20 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   String? _lastConnectedDeviceId;
   Timer? _reconnectTimer;
   bool _wasBluetoothOff = false;
+  int _reconnectAttempts = 0;
+
+  /// Maximum reconnect delay in seconds (caps exponential growth)
+  static const int _maxReconnectDelaySeconds = 60;
+
+  /// Calculate reconnect delay with exponential backoff.
+  /// Starts at 2 seconds, doubles each attempt, caps at 60 seconds.
+  Duration _getReconnectDelay() {
+    // 2^attempts * 2 seconds: 2s, 4s, 8s, 16s, 32s, 60s (capped)
+    final delaySeconds = (1 << _reconnectAttempts) * 2;
+    final cappedDelay =
+        delaySeconds > _maxReconnectDelaySeconds ? _maxReconnectDelaySeconds : delaySeconds;
+    return Duration(seconds: cappedDelay);
+  }
 
   BluetoothBloc(
     this._scanDevices,
@@ -139,10 +153,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           !_isManualDisconnect &&
           _lastConnectedDeviceId != null) {
         _reconnectTimer?.cancel();
-        _reconnectTimer = Timer(const Duration(seconds: 2), () {
+        final delay = _getReconnectDelay();
+        print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+        _reconnectTimer = Timer(delay, () {
           if (!_isManualDisconnect &&
               state.status == BluetoothStatus.ready &&
               !isClosed) {
+            _reconnectAttempts++;
             add(ConnectToDevice(_lastConnectedDeviceId!));
           }
         });
@@ -392,9 +409,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) async {
     _isManualDisconnect = true;
 
-    // Cancel any pending reconnect
+    // Cancel any pending reconnect and reset attempts
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _reconnectAttempts = 0;
 
     final deviceId = state.connectedDevice?.id ?? state.connectingDeviceId;
     if (deviceId == null) return;
@@ -430,6 +448,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) {
     if (event.isConnected) {
+      // Reset reconnect attempts on successful connection
+      _reconnectAttempts = 0;
+
       // Find device in discovered list or create from ID
       final device = state.discoveredDevices.firstWhere(
         (d) => d.id == event.deviceId,
@@ -459,13 +480,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         clearConnectingDeviceId: true,
       ));
 
-      // Auto-reconnect if not manual disconnect
+      // Auto-reconnect if not manual disconnect (with exponential backoff)
       if (!_isManualDisconnect && _lastConnectedDeviceId != null) {
         _reconnectTimer?.cancel();
-        _reconnectTimer = Timer(const Duration(seconds: 2), () {
+        final delay = _getReconnectDelay();
+        print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+        _reconnectTimer = Timer(delay, () {
           if (!_isManualDisconnect &&
               state.status == BluetoothStatus.ready &&
               !isClosed) {
+            _reconnectAttempts++;
             add(ConnectToDevice(_lastConnectedDeviceId!));
           }
         });
