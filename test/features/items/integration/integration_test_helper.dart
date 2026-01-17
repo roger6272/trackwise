@@ -92,6 +92,8 @@ class IntegrationTestHelper {
     int itemCount = 3,
   }) async {
     final now = DateTime.now();
+    // Create user reference as the implementation does
+    final userRef = fakeFirestore.collection('users').doc(userId);
 
     for (int i = 1; i <= itemCount; i++) {
       await fakeFirestore.collection('Item').add({
@@ -103,7 +105,7 @@ class IntegrationTestHelper {
         'reminder_value': 0,
         'lastResetTime': now.millisecondsSinceEpoch,
         'lastUpdated': now.millisecondsSinceEpoch,
-        'user_id': userId,
+        'uid': userRef, // Use uid as DocumentReference, not user_id as string
       });
     }
   }
@@ -117,9 +119,10 @@ class IntegrationTestHelper {
   /// Get all items for a user from Firestore directly
   Future<List<Map<String, dynamic>>> getItemsFromFirestore(
       String userId) async {
+    final userRef = fakeFirestore.collection('users').doc(userId);
     final snapshot = await fakeFirestore
         .collection('Item')
-        .where('user_id', isEqualTo: userId)
+        .where('uid', isEqualTo: userRef)
         .get();
 
     return snapshot.docs.map((doc) {

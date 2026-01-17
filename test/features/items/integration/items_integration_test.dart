@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,8 +42,7 @@ void main() {
     const testUserId = 'test_user_123';
 
     group('CreateItem → GetItems Flow', () {
-      // TODO: Fix mock setup for users collection userRef
-      test('should create item and retrieve it via GetItems', skip: true, () async {
+      test('should create item and retrieve it via GetItems', () async {
         // Arrange - Start with empty Firestore
         await helper.clearFirestore();
 
@@ -87,7 +87,8 @@ void main() {
             await helper.getItemFromFirestore(createdItem.id);
         expect(firestoreData, isNotNull);
         expect(firestoreData!['item_name'], 'Coffee');
-        expect(firestoreData['user_id'], testUserId);
+        // uid is stored as DocumentReference, verify the path contains the userId
+        expect((firestoreData['uid'] as DocumentReference).id, testUserId);
       });
 
       test('should create multiple items and retrieve all', () async {
@@ -460,8 +461,7 @@ void main() {
     });
 
     group('WatchItems Real-Time Sync', () {
-      // TODO: Fix mock stream setup for real-time updates
-      test('should emit initial items and updates on stream', skip: true, () async {
+      test('should emit initial items and updates on stream', () async {
         // Arrange
         await helper.clearFirestore();
 
@@ -524,8 +524,7 @@ void main() {
     });
 
     group('BLoC Integration Tests', () {
-      // TODO: Fix mock setup for BLoC integration
-      test('should load items via BLoC', skip: true, () async {
+      test('should load items via BLoC', () async {
         // Arrange
         await helper.clearFirestore();
         await helper.seedFirestore(userId: testUserId, itemCount: 3);

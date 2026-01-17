@@ -2,6 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,6 +49,34 @@ void main() {
   Widget createTestWidget() {
     return const MaterialApp(
       home: ForgotPasswordPage(),
+    );
+  }
+
+  Widget createTestWidgetWithRouter() {
+    final router = GoRouter(
+      initialLocation: '/login',
+      routes: [
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => Builder(
+            builder: (context) {
+              // Automatically push to forgot-password on first build
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                context.push('/forgot-password');
+              });
+              return const Scaffold(body: Text('Login'));
+            },
+          ),
+        ),
+        GoRoute(
+          path: '/forgot-password',
+          builder: (context, state) => const ForgotPasswordPage(),
+        ),
+      ],
+    );
+
+    return MaterialApp.router(
+      routerConfig: router,
     );
   }
 
@@ -144,13 +173,19 @@ void main() {
         initialState: const AuthInitial(),
       );
 
-      await tester.pumpWidget(createTestWidget());
+      // Use router widget so context.pop() works after the 2-second timer
+      await tester.pumpWidget(createTestWidgetWithRouter());
+      // Pump a few times to let the navigation happen and state listener fire
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.textContaining('Password reset email sent'), findsOneWidget);
-    // skip: Page has 2-second timer that requires GoRouter for navigation
-    }, skip: true);
+
+      // Advance past the 2-second timer and let pop complete
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+    });
 
     testWidgets('shows error snackbar on AuthError', (tester) async {
       whenListen(

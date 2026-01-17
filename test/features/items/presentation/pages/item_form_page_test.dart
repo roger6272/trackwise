@@ -207,8 +207,11 @@ void main() {
   });
 
   group('ItemFormPage - Validation', () {
-    // TODO: Fix viewport issue - validation message is off-screen after scrolling
-    testWidgets('validates increment by range', skip: true, (tester) async {
+    testWidgets('validates increment by range', (tester) async {
+      // Use a larger surface size to fit all form fields
+      await tester.binding.setSurfaceSize(const Size(400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -218,13 +221,10 @@ void main() {
         'Test Item',
       );
 
-      // Find and clear the increment field, enter invalid value
-      final incrementField = find.byType(TextFormField).at(1);
+      // Form field order: 0=name, 1=initialValue, 2=incrementBy, 3=reminderValue
+      // Find and clear the increment field (index 2), enter invalid value
+      final incrementField = find.byType(TextFormField).at(2);
       await tester.enterText(incrementField, '0');
-
-      // Scroll down to make the Create button visible
-      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
-      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
@@ -232,8 +232,11 @@ void main() {
       expect(find.text('Must be between 1 and 100'), findsOneWidget);
     });
 
-    // TODO: Fix viewport issue - validation message is off-screen after scrolling
-    testWidgets('validates reminder value range', skip: true, (tester) async {
+    testWidgets('validates reminder value range', (tester) async {
+      // Use a larger surface size to fit all form fields
+      await tester.binding.setSurfaceSize(const Size(400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -243,13 +246,10 @@ void main() {
         'Test Item',
       );
 
-      // Find and update the reminder value field with invalid value
-      final reminderField = find.byType(TextFormField).at(2);
+      // Form field order: 0=name, 1=initialValue, 2=incrementBy, 3=reminderValue
+      // Find and update the reminder value field (index 3) with invalid value
+      final reminderField = find.byType(TextFormField).at(3);
       await tester.enterText(reminderField, '9999');
-
-      // Scroll down to make the Create button visible
-      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
-      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
