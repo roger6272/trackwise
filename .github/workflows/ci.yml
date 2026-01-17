@@ -74,7 +74,9 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+          echo "$GOOGLE_SERVICES_JSON" | tr -d '\n\r ' | base64 -d > android/app/google-services.json
+          # Verify the file is valid JSON
+          python3 -c "import json; json.load(open('android/app/google-services.json'))"
 
       - name: Build APK (debug)
         run: flutter build apk --debug
