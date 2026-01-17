@@ -243,6 +243,20 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       prefs.putInt("item_total", index);
 
+      // Refresh runtime variables for currently selected item
+      // This ensures updated incrementBy, reminder, etc. take effect immediately
+      if (currentItemId != "none" && currentItemIndex < index) {
+        itemCount = prefs.getInt(("c_" + String(currentItemIndex)).c_str(), 0);
+        itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
+        itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
+        itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
+        reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
+        reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
+        lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
+        Serial.printf("🔄 Refreshed runtime vars: %s, increment=%d, reminder=%d\n",
+                      itemName.c_str(), itemIncrement, reminder);
+      }
+
       prefs.end();
 
       clearLogs();
