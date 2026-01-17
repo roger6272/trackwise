@@ -30,7 +30,37 @@ class DeletedItemsPage extends StatelessWidget {
 
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, authState) {
-        final userId = authState is Authenticated ? authState.user.id : '';
+        // Wait for authentication before loading
+        if (authState is! Authenticated) {
+          return Scaffold(
+            backgroundColor: primaryBackground,
+            appBar: AppBar(
+              backgroundColor: primaryBackground,
+              automaticallyImplyLeading: false,
+              leading: IconButton(
+                icon: Icon(
+                  Icons.arrow_back_rounded,
+                  color: primaryText,
+                  size: 30.0,
+                ),
+                onPressed: () => context.pop(),
+              ),
+              title: Text(
+                'Recently Deleted',
+                style: GoogleFonts.interTight(
+                  color: primaryText,
+                  fontSize: 20.0,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              centerTitle: true,
+              elevation: 2.0,
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final userId = authState.user.id;
 
         return BlocProvider(
           create: (_) => sl<DeletedItemsBloc>()
