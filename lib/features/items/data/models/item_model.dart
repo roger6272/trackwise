@@ -19,6 +19,7 @@ class ItemModel extends Item {
     required super.lastResetTime,
     required super.lastUpdated,
     required super.userId,
+    super.deletedAt,
   });
 
   /// Creates an ItemModel from a Firestore DocumentSnapshot.
@@ -64,6 +65,7 @@ class ItemModel extends Item {
       lastResetTime: _parseDateTime(data['lastResetTime']),
       lastUpdated: _parseDateTime(data['lastUpdated']),
       userId: userId,
+      deletedAt: _parseNullableDateTime(data['deletedAt']),
     );
   }
 
@@ -76,6 +78,15 @@ class ItemModel extends Item {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
+  /// Parse nullable DateTime - returns null if value is null
+  static DateTime? _parseNullableDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return null;
+  }
+
   /// Converts this ItemModel to a Firestore-compatible map.
   ///
   /// Maps Dart property names to Firestore field names (snake_case).
@@ -85,7 +96,7 @@ class ItemModel extends Item {
   /// Note: The document ID is not included in the map as it's set separately
   /// when writing to Firestore.
   Map<String, dynamic> toFirestore() {
-    return {
+    final map = {
       'item_name': this.name,
       'count': this.count,
       'todaycount': this.todayCount,
@@ -96,6 +107,10 @@ class ItemModel extends Item {
       'lastUpdated': this.lastUpdated.millisecondsSinceEpoch,
       'user_id': this.userId,
     };
+    if (this.deletedAt != null) {
+      map['deletedAt'] = this.deletedAt!.millisecondsSinceEpoch;
+    }
+    return map;
   }
 
   /// Converts a Firestore reminder string to ReminderType enum.

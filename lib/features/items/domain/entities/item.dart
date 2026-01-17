@@ -55,6 +55,11 @@ class Item extends Equatable {
   /// Firebase UID of the item owner
   final String userId;
 
+  /// Timestamp when item was soft-deleted, null if active.
+  /// Items with non-null deletedAt are hidden from normal queries
+  /// and permanently deleted after 90 days.
+  final DateTime? deletedAt;
+
   const Item({
     required this.id,
     required this.name,
@@ -66,6 +71,7 @@ class Item extends Equatable {
     required this.lastResetTime,
     required this.lastUpdated,
     required this.userId,
+    this.deletedAt,
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -82,6 +88,8 @@ class Item extends Equatable {
     DateTime? lastResetTime,
     DateTime? lastUpdated,
     String? userId,
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
   }) {
     return Item(
       id: id ?? this.id,
@@ -94,6 +102,7 @@ class Item extends Equatable {
       lastResetTime: lastResetTime ?? this.lastResetTime,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       userId: userId ?? this.userId,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
 
@@ -109,12 +118,14 @@ class Item extends Equatable {
         lastResetTime,
         lastUpdated,
         userId,
+        deletedAt,
       ];
 
   @override
   String toString() {
     return 'Item(id: $id, name: $name, count: $count, todayCount: $todayCount, '
         'incrementBy: $incrementBy, reminder: $reminder, reminderValue: $reminderValue, '
-        'lastResetTime: $lastResetTime, lastUpdated: $lastUpdated, userId: $userId)';
+        'lastResetTime: $lastResetTime, lastUpdated: $lastUpdated, userId: $userId, '
+        'deletedAt: $deletedAt)';
   }
 }

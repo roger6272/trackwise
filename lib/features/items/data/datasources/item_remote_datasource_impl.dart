@@ -31,6 +31,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
       return snapshot.docs
           .map((doc) => ItemModel.fromFirestore(doc))
+          .where((item) => item.deletedAt == null) // Filter out soft-deleted
           .toList();
     } on FirebaseException catch (e) {
       throw ServerException('Failed to fetch items: ${e.message}');
@@ -69,6 +70,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           .snapshots()
           .map((snapshot) => snapshot.docs
               .map((doc) => ItemModel.fromFirestore(doc))
+              .where((item) => item.deletedAt == null) // Filter out soft-deleted
               .toList())
           .handleError((error) {
         throw ServerException('Failed to watch items: $error');
@@ -152,21 +154,11 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Future<void> deleteItem(String itemId) async {
     try {
-      // Delete item document
-      await firestore.collection('Item').doc(itemId).delete();
-
-      // Delete associated EventLog entries
-      final itemRef = firestore.collection('Item').doc(itemId);
-      final eventLogs = await firestore
-          .collection('EventLog')
-          .where('item', isEqualTo: itemRef)
-          .get();
-
-      final batch = firestore.batch();
-      for (final doc in eventLogs.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
+      // Soft delete: set deletedAt timestamp instead of actually deleting
+      // Item and EventLogs will be permanently deleted after 90 days by Cloud Function
+      await firestore.collection('Item').doc(itemId).update({
+        'deletedAt': DateTime.now().millisecondsSinceEpoch,
+      });
     } on FirebaseException catch (e) {
       throw ServerException('Failed to delete item: ${e.message}');
     } catch (e) {
