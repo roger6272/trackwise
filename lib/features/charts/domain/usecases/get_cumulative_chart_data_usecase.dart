@@ -66,46 +66,60 @@ class GetCumulativeChartDataUseCase
             ? events.where((e) => e.createdTime.isAfter(params.sinceResetTime!)).toList()
             : events;
 
-        final cumulative = _calculateCumulative(filteredEvents);
+        final cumulative = _calculateCumulative(filteredEvents, params.aggregationLevel);
         return Right(ChartData(
           dataPoints: cumulative,
-          aggregationLevel: AggregationLevel.daily,
+          aggregationLevel: params.aggregationLevel,
         ));
       },
     );
   }
 
-  /// Calculate cumulative totals by day.
+  /// Calculate cumulative totals by the specified aggregation level.
   ///
-  /// First aggregates events by day, then calculates running total.
-  List<ChartDataPoint> _calculateCumulative(List<EventLog> events) {
+  /// First aggregates events by the time bucket, then calculates running total.
+  List<ChartDataPoint> _calculateCumulative(
+    List<EventLog> events,
+    AggregationLevel aggregationLevel,
+  ) {
     if (events.isEmpty) return [];
 
     // Sort events by date ascending
     final sorted = List<EventLog>.from(events)
       ..sort((a, b) => a.createdTime.compareTo(b.createdTime));
 
-    // First, aggregate by day
-    final Map<DateTime, int> dailyTotals = {};
+    // First, aggregate by time bucket
+    final Map<DateTime, int> bucketTotals = {};
     for (var event in sorted) {
-      final date = DateTime(
-        event.createdTime.year,
-        event.createdTime.month,
-        event.createdTime.day,
-      );
-      dailyTotals[date] = (dailyTotals[date] ?? 0) + event.increment;
+      final key = _getAggregationKey(event.createdTime, aggregationLevel);
+      bucketTotals[key] = (bucketTotals[key] ?? 0) + event.increment;
     }
 
     // Then calculate cumulative values
-    final sortedDays = dailyTotals.keys.toList()..sort();
+    final sortedBuckets = bucketTotals.keys.toList()..sort();
     final List<ChartDataPoint> cumulative = [];
     var runningTotal = 0;
 
-    for (var date in sortedDays) {
-      runningTotal += dailyTotals[date]!;
+    for (var date in sortedBuckets) {
+      runningTotal += bucketTotals[date]!;
       cumulative.add(ChartDataPoint(date: date, value: runningTotal));
     }
 
     return cumulative;
+  }
+
+  /// Get the aggregation key for a date based on the level.
+  DateTime _getAggregationKey(DateTime date, AggregationLevel level) {
+    switch (level) {
+      case AggregationLevel.hourly:
+        return DateTime(date.year, date.month, date.day, date.hour);
+      case AggregationLevel.daily:
+        return DateTime(date.year, date.month, date.day);
+      case AggregationLevel.weekly:
+        final weekday = date.weekday;
+        return DateTime(date.year, date.month, date.day - (weekday - 1));
+      case AggregationLevel.monthly:
+        return DateTime(date.year, date.month);
+    }
   }
 }

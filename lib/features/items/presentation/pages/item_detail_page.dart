@@ -266,6 +266,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       return LoadCumulativeChart(
         startDate: startDate,
         endDate: endDate,
+        aggregationLevel: aggregationLevel,
         itemId: widget.itemId,
         sinceResetTime: sinceResetTime,
       );

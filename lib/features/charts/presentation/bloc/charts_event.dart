@@ -59,11 +59,13 @@ class LoadBarChart extends ChartsEvent {
 /// bloc.add(LoadCumulativeChart(
 ///   startDate: DateTime(2024, 1, 1),
 ///   endDate: DateTime(2024, 1, 31),
+///   aggregationLevel: AggregationLevel.daily,
 /// ));
 /// ```
 class LoadCumulativeChart extends ChartsEvent {
   final DateTime startDate;
   final DateTime endDate;
+  final AggregationLevel aggregationLevel;
 
   /// Optional item ID to filter cumulative data to a specific item.
   final String? itemId;
@@ -74,12 +76,13 @@ class LoadCumulativeChart extends ChartsEvent {
   const LoadCumulativeChart({
     required this.startDate,
     required this.endDate,
+    this.aggregationLevel = AggregationLevel.daily,
     this.itemId,
     this.sinceResetTime,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, itemId, sinceResetTime];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime];
 }
 
 /// Event to change the date range.

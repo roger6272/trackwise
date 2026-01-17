@@ -84,6 +84,7 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
       GetChartDataParams(
         startDate: event.startDate,
         endDate: event.endDate,
+        aggregationLevel: event.aggregationLevel,
         itemId: event.itemId,
         sinceResetTime: event.sinceResetTime,
       ),
@@ -122,6 +123,7 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
         add(LoadCumulativeChart(
           startDate: event.startDate,
           endDate: event.endDate,
+          aggregationLevel: currentState.aggregationLevel,
           itemId: currentState.itemId,
         ));
       } else {
@@ -141,9 +143,9 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
     }
   }
 
-  /// Handle ChangeAggregationLevel - reload bar chart with new aggregation.
+  /// Handle ChangeAggregationLevel - reload chart with new aggregation.
   ///
-  /// Only applies to bar charts. Cumulative charts always use daily.
+  /// Applies to both bar and cumulative charts.
   ///
   /// Emits:
   /// 1. ChartsLoading - while fetching
@@ -155,13 +157,22 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
   ) async {
     final currentState = state;
 
-    if (currentState is ChartsLoaded && currentState.isBarChart) {
-      add(LoadBarChart(
-        startDate: currentState.startDate,
-        endDate: currentState.endDate,
-        aggregationLevel: event.aggregationLevel,
-        itemId: currentState.itemId,
-      ));
+    if (currentState is ChartsLoaded) {
+      if (currentState.chartType == ChartType.cumulative) {
+        add(LoadCumulativeChart(
+          startDate: currentState.startDate,
+          endDate: currentState.endDate,
+          aggregationLevel: event.aggregationLevel,
+          itemId: currentState.itemId,
+        ));
+      } else {
+        add(LoadBarChart(
+          startDate: currentState.startDate,
+          endDate: currentState.endDate,
+          aggregationLevel: event.aggregationLevel,
+          itemId: currentState.itemId,
+        ));
+      }
     }
   }
 
@@ -179,6 +190,7 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
         add(LoadCumulativeChart(
           startDate: currentState.startDate,
           endDate: currentState.endDate,
+          aggregationLevel: currentState.aggregationLevel,
           itemId: currentState.itemId,
         ));
       } else {
