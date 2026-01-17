@@ -106,10 +106,14 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                           backgroundColor: AppColors.success,
                         ),
                       );
+                      // Set restored item as active in app
+                      context.read<AppUiState>().activeItemId = state.itemId;
+
                       // Sync with device after restoration
                       if (isConnected) {
                         _syncWithDeviceAfterRestore(
                           bluetoothBloc: context.read<BluetoothBloc>(),
+                          restoredItemId: state.itemId,
                         );
                       }
                     }
@@ -407,8 +411,10 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
   }
 
   /// Syncs the updated item list with the device after restoration.
+  /// Sets the restored item as the selected item on the device.
   Future<void> _syncWithDeviceAfterRestore({
     required BluetoothBloc bluetoothBloc,
+    required String restoredItemId,
   }) async {
     try {
       // Wait for Firestore propagation
@@ -430,13 +436,9 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       debugPrint('📤 Sending ${items.length} items to device after restore');
       bluetoothBloc.add(SendItemsToDevice(items));
 
-      // Send selected item to device
-      final appUiState = context.read<AppUiState>();
-      final activeItemId = appUiState.activeItemId;
-      if (activeItemId.isNotEmpty) {
-        debugPrint('📤 Sending selected item to device: $activeItemId');
-        bluetoothBloc.add(SendSelectedItem(activeItemId));
-      }
+      // Send restored item as selected item to device
+      debugPrint('📤 Sending restored item as selected: $restoredItemId');
+      bluetoothBloc.add(SendSelectedItem(restoredItemId));
 
       // Request prefs from device to sync counts
       bluetoothBloc.add(RequestDeviceData(type: DeviceDataType.prefs));
