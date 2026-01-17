@@ -135,6 +135,39 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
   }
 
   Widget _buildDeviceList(BuildContext context, BluetoothState state) {
+    // Show loading indicator while scanning
+    if (state.isScanning) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 48,
+              height: 48,
+              child: CircularProgressIndicator(),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Searching for devices...',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${state.discoveredDevices.length} device${state.discoveredDevices.length == 1 ? '' : 's'} found',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show empty state when not scanning and no devices found
     if (state.discoveredDevices.isEmpty) {
       return Center(
         child: Column(
@@ -147,9 +180,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              state.isScanning
-                  ? 'Searching for devices...'
-                  : 'No devices found.\nTap "Scan" to search.',
+              'No devices found.\nTap "Scan" to search.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
