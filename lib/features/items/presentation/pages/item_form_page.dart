@@ -549,8 +549,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (createdItem) async {
           debugPrint('🟢 Item created with ID: ${createdItem.id}');
 
+          // Set the new item as active in app
+          if (mounted) {
+            context.read<AppUiState>().activeItemId = createdItem.id;
+          }
+
           // Sync with device after create (item is guaranteed to exist now)
-          await _syncWithDevice();
+          await _syncWithDevice(newItemId: createdItem.id);
           debugPrint('🟢 _syncWithDevice completed');
 
           if (mounted) context.pop();
@@ -560,7 +565,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
     }
   }
 
-  Future<void> _syncWithDevice() async {
+  Future<void> _syncWithDevice({String? newItemId}) async {
     try {
       debugPrint('🔄 _syncWithDevice started');
       // Small delay to allow Firestore to propagate the write
@@ -588,13 +593,12 @@ class _ItemFormPageState extends State<ItemFormPage> {
         debugPrint('📤 Sending ${items.length} items to device');
         context.read<BluetoothBloc>().add(SendItemsToDevice(items));
 
-        // Send selected item to device
-        final appUiState = context.read<AppUiState>();
-        final activeItemId = appUiState.activeItemId;
-        debugPrint('⭐ Active item ID: $activeItemId');
-        if (activeItemId != 'none') {
-          debugPrint('📤 Sending selected item: $activeItemId');
-          context.read<BluetoothBloc>().add(SendSelectedItem(activeItemId));
+        // Send selected item to device (use newItemId if provided, otherwise current active)
+        final selectedItemId = newItemId ?? context.read<AppUiState>().activeItemId;
+        debugPrint('⭐ Selected item ID: $selectedItemId');
+        if (selectedItemId.isNotEmpty && selectedItemId != 'none') {
+          debugPrint('📤 Sending selected item: $selectedItemId');
+          context.read<BluetoothBloc>().add(SendSelectedItem(selectedItemId));
         }
 
         // NOTE: Don't request prefs from device here!
