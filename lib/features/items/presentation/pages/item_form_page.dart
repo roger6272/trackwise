@@ -593,6 +593,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
         debugPrint('📤 Sending ${items.length} items to device');
         context.read<BluetoothBloc>().add(SendItemsToDevice(items));
 
+        // Wait for device to process items before sending selected item
+        await Future.delayed(const Duration(milliseconds: 500));
+
         // Send selected item to device (use newItemId if provided, otherwise current active)
         final selectedItemId = newItemId ?? context.read<AppUiState>().activeItemId;
         debugPrint('⭐ Selected item ID: $selectedItemId');

@@ -8,7 +8,6 @@ import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -436,12 +435,17 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       debugPrint('📤 Sending ${items.length} items to device after restore');
       bluetoothBloc.add(SendItemsToDevice(items));
 
+      // Wait for device to process items before sending selected item
+      await Future.delayed(const Duration(milliseconds: 500));
+
       // Send restored item as selected item to device
       debugPrint('📤 Sending restored item as selected: $restoredItemId');
       bluetoothBloc.add(SendSelectedItem(restoredItemId));
 
-      // Request prefs from device to sync counts
-      bluetoothBloc.add(RequestDeviceData(type: DeviceDataType.prefs));
+      // NOTE: Don't request prefs from device here!
+      // Requesting prefs causes a race condition - the device responds
+      // before it has finished processing the set_selected command.
+      // Device counts should only be fetched during initial connection sync.
     } catch (e) {
       debugPrint('❌ Error syncing with device after restore: $e');
     }
