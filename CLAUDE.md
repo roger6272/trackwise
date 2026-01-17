@@ -61,10 +61,20 @@ The PRD specifies:
 
 When resuming from a previous session:
 
-1. **Re-read the relevant PRD** before continuing work
-2. **Review current task definitions** and verify they align with PRD
-3. **If tasks contradict PRD**, flag this to the user before proceeding
-4. **Don't assume previous context was correct** - verify against source of truth
+1. **Sync with git first**:
+   - Run `git status` to check for uncommitted changes
+   - If clean, run `git pull` to get latest changes
+   - If there are local changes, ask user how to proceed (commit, stash, or discard)
+2. **Re-read the relevant PRD** before continuing work
+3. **Review current task definitions** and verify they align with PRD
+4. **If tasks contradict PRD**, flag this to the user before proceeding
+5. **Don't assume previous context was correct** - verify against source of truth
+
+## After Committing
+
+Always push changes so they're available on other devices:
+- Run `git push` after commits (or ask user if they want to push)
+- Verify push succeeded before ending session
 
 ## Testing
 
