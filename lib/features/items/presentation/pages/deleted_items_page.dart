@@ -6,7 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../domain/entities/item.dart';
+import '../../domain/repositories/item_repository.dart';
 import '../bloc/deleted_items_bloc.dart';
 import '../bloc/deleted_items_event.dart';
 import '../bloc/deleted_items_state.dart';
@@ -86,39 +91,52 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
           ),
           body: SafeArea(
             top: true,
-            child: BlocConsumer<DeletedItemsBloc, DeletedItemsState>(
-              listener: (context, state) {
-                if (state is ItemRestored) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Item restored successfully'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                }
-                if (state is DeletedItemsError) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(state.message),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              },
-              builder: (context, state) {
-                if (state is DeletedItemsLoading || state is DeletedItemsInitial) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
+            child: BlocBuilder<BluetoothBloc, BluetoothState>(
+              builder: (context, bluetoothState) {
+                final isConnected = bluetoothState.isConnected;
 
-                final items = _getItemsFromState(state);
+                return BlocConsumer<DeletedItemsBloc, DeletedItemsState>(
+                  listener: (context, state) {
+                    if (state is ItemRestored) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Item restored successfully'),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                      // Sync with device after restoration
+                      if (isConnected) {
+                        _syncWithDeviceAfterRestore(
+                          bluetoothBloc: context.read<BluetoothBloc>(),
+                        );
+                      }
+                    }
+                    if (state is DeletedItemsError) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(state.message),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  },
+                  builder: (context, state) {
+                    if (state is DeletedItemsLoading ||
+                        state is DeletedItemsInitial) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    }
 
-                if (items.isEmpty) {
-                  return _buildEmptyState(context);
-                }
+                    final items = _getItemsFromState(state);
 
-                return _buildItemsList(context, items, state);
+                    if (items.isEmpty) {
+                      return _buildEmptyState(context);
+                    }
+
+                    return _buildItemsList(context, items, state, isConnected);
+                  },
+                );
               },
             ),
           ),
@@ -177,34 +195,76 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
     BuildContext context,
     List<Item> items,
     DeletedItemsState state,
+    bool isConnected,
   ) {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
       itemCount: items.length + 1, // +1 for header
       itemBuilder: (context, index) {
         if (index == 0) {
-          return _buildHeader(context, items.length);
+          return _buildHeader(context, items.length, isConnected);
         }
         final item = items[index - 1];
         final isRestoring =
             state is ItemRestoring && state.itemId == item.id;
-        return _buildItemCard(context, item, isRestoring);
+        return _buildItemCard(context, item, isRestoring, isConnected);
       },
     );
   }
 
-  Widget _buildHeader(BuildContext context, int count) {
+  Widget _buildHeader(BuildContext context, int count, bool isConnected) {
     final brightness = Theme.of(context).brightness;
     final secondaryText = AppColors.secondaryText(brightness);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
-      child: Text(
-        '$count item${count == 1 ? '' : 's'} will be permanently deleted after 90 days',
-        style: GoogleFonts.inter(
-          color: secondaryText,
-          fontSize: 14.0,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$count item${count == 1 ? '' : 's'} will be permanently deleted after 90 days',
+            style: GoogleFonts.inter(
+              color: secondaryText,
+              fontSize: 14.0,
+            ),
+          ),
+          if (!isConnected) ...[
+            const SizedBox(height: 8.0),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12.0,
+                vertical: 8.0,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8.0),
+                border: Border.all(
+                  color: AppColors.warning.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bluetooth_disabled,
+                    size: 16.0,
+                    color: AppColors.warning,
+                  ),
+                  const SizedBox(width: 8.0),
+                  Expanded(
+                    child: Text(
+                      'Connect to device to restore items',
+                      style: GoogleFonts.inter(
+                        color: AppColors.warning,
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -213,6 +273,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
     BuildContext context,
     Item item,
     bool isRestoring,
+    bool isConnected,
   ) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
@@ -221,6 +282,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
 
     final daysRemaining = _getDaysRemaining(item.deletedAt);
     final deletedDateStr = _formatDeletedDate(item.deletedAt);
+    final canRestore = isConnected && !isRestoring;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12.0),
@@ -272,17 +334,20 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
             SizedBox(
               width: 80.0,
               child: ElevatedButton(
-                onPressed: isRestoring
-                    ? null
-                    : () => _deletedItemsBloc.add(
+                onPressed: canRestore
+                    ? () => _deletedItemsBloc.add(
                           RestoreDeletedItem(
                             itemId: item.id,
                             userId: currentUserUid,
                           ),
-                        ),
+                        )
+                    : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor:
+                      isConnected ? AppColors.primary : Colors.grey,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade400,
+                  disabledForegroundColor: Colors.white70,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12.0,
                     vertical: 8.0,
@@ -336,6 +401,37 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       return '${diff.inDays} days ago';
     } else {
       return '${deletedAt.month}/${deletedAt.day}/${deletedAt.year}';
+    }
+  }
+
+  /// Syncs the updated item list with the device after restoration.
+  Future<void> _syncWithDeviceAfterRestore({
+    required BluetoothBloc bluetoothBloc,
+  }) async {
+    try {
+      // Wait for Firestore propagation
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Fetch ALL active items from Firestore (not deleted ones)
+      final itemRepository = sl<ItemRepository>();
+      final itemsResult = await itemRepository.getItems(currentUserUid);
+
+      final items = itemsResult.fold(
+        (failure) {
+          debugPrint('❌ Failed to fetch items after restore: ${failure.message}');
+          return <Item>[];
+        },
+        (items) => items,
+      );
+
+      // Send updated items list to device
+      debugPrint('📤 Sending ${items.length} items to device after restore');
+      bluetoothBloc.add(SendItemsToDevice(items));
+
+      // Request prefs from device to sync counts
+      bluetoothBloc.add(RequestDeviceData(type: DeviceDataType.prefs));
+    } catch (e) {
+      debugPrint('❌ Error syncing with device after restore: $e');
     }
   }
 }
