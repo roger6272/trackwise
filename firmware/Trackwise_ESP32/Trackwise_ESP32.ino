@@ -204,7 +204,19 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       prefs.begin("counter", false);
 
-      for (int i = 0; i < maxPrefsSlots; i++) {  //loop through indexes and delete them
+      // Save existing counts by item ID before deletion (device is source of truth)
+      int existingTotal = prefs.getInt("item_total", 0);
+      String existingIds[maxPrefsSlots];
+      int existingCounts[maxPrefsSlots];
+      int existingTodayCounts[maxPrefsSlots];
+      for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
+        existingIds[i] = prefs.getString(("id_" + String(i)).c_str(), "");
+        existingCounts[i] = prefs.getInt(("c_" + String(i)).c_str(), 0);
+        existingTodayCounts[i] = prefs.getInt(("tc_" + String(i)).c_str(), 0);
+      }
+
+      // Clear all slots
+      for (int i = 0; i < maxPrefsSlots; i++) {
         prefs.remove(("n_" + String(i)).c_str());
         prefs.remove(("c_" + String(i)).c_str());
         prefs.remove(("tc_" + String(i)).c_str());
@@ -216,17 +228,34 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       }
 
       int index = 0;
-      for (JsonObject item : doc.as<JsonArray>()) {  //assign an index to each item
+      for (JsonObject item : doc.as<JsonArray>()) {
         if (index >= maxPrefsSlots) break;
         String id = item["id"].as<String>();
         String name = item["name"].as<String>();
-        int count = item["count"];
-        int todaycount = item["todaycount"];
         int increment = item["increment"];
         int reminder = item["reminder"];
         int reminderValue = item["reminder_value"];
         unsigned long lastResetTime = item.containsKey("lastResetTime") ? item["lastResetTime"] : 0;
 
+        // Find existing counts for this item ID (device is source of truth)
+        int count = 0;
+        int todaycount = 0;
+        for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
+          if (existingIds[i] == id) {
+            count = existingCounts[i];
+            todaycount = existingTodayCounts[i];
+            Serial.printf("🔄 Preserving counts for %s: count=%d, todaycount=%d\n", id.c_str(), count, todaycount);
+            break;
+          }
+        }
+
+        // Override with JSON values if provided (for new items with initial values)
+        if (item.containsKey("count")) {
+          count = item["count"].as<int>();
+        }
+        if (item.containsKey("todaycount")) {
+          todaycount = item["todaycount"].as<int>();
+        }
 
         prefs.putString(("id_" + String(index)).c_str(), id);
         prefs.putString(("n_" + String(index)).c_str(), name);
@@ -399,6 +428,42 @@ class WriteCallback : public BLECharacteristicCallbacks {
       } else if (type == "logs") {
         currentReadMode = READ_LOGS;
       }
+    }
+
+    else if (cmd == "force_reset_today") {
+      // Debug command to force reset all todaycounts regardless of date
+      Serial.println("🔧 DEBUG: Force resetting all todayCounts...");
+
+      updateLocalTime();
+
+      prefs.begin("counter", false);
+      int total = prefs.getInt("item_total", 0);
+
+      for (int i = 0; i < total; i++) {
+        // Reset todaycount to 0
+        String tcKey = "tc_" + String(i);
+        prefs.putInt(tcKey.c_str(), 0);
+
+        // Update lastResetTime to current timestamp
+        String lrKey = "lr_" + String(i);
+        prefs.putULong(lrKey.c_str(), localTimestamp);
+
+        Serial.printf("Force reset: %s = 0, lastResetTime = %lu\n", tcKey.c_str(), localTimestamp);
+      }
+
+      // Update last_reset_date to today
+      char todayStr[11];
+      snprintf(todayStr, sizeof(todayStr), "%04d-%02d-%02d", localTime.year(), localTime.month(), localTime.day());
+      prefs.putString("last_reset_date", todayStr);
+
+      // Reset runtime variable if item is selected
+      if (currentItemId != "none") {
+        itemTodayCount = 0;
+        lastResetTime = localTimestamp;
+      }
+
+      prefs.end();
+      Serial.println("✅ Force reset complete.");
     }
 
     else {
@@ -636,11 +701,12 @@ void handleCommand(char cmd) {
     prefs.putULong(("lr_" + String(currentItemIndex)).c_str(), lastResetTime);
 
     logEvent("reset");
+    prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
     if (isConnected) notifyPrefsToApp();  //this has more data and will update the UI. Need to be prioritized
     delay(50);  // Reduced from 200ms - just need brief gap between notifications
     if (isConnected) notifyEvent("reset");  //this could be sent later
-
+    return;  // Already closed prefs, skip the final prefs.end()
 
   } else if (cmd == 's') {
     if (total == 0) {
@@ -661,16 +727,16 @@ void handleCommand(char cmd) {
     itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
     reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
     reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
-    lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);  // ← Add this line
+    lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
 
+    currentItemId = prefs.getString("selected_id", "none");
+    prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
     //logEvent("switch");
     if (isConnected) notifyEvent("switch");
 
-    currentItemId = prefs.getString("selected_id", "none");
-
     Serial.print("Switch to :");
-
+    return;  // Already closed prefs, skip the final prefs.end()
   }
 
   prefs.end();
@@ -721,20 +787,26 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
   String last_reset_date = prefs.getString("last_reset_date", "");
 
   if (last_reset_date != String(todayStr)) {
-  //if (forceReset || lastResetDate != String(todayStr)) { //for testing
     Serial.println("🔄 New day detected. Resetting todayCount for all items.");
     Serial.println(String(todayStr));
 
     int total = prefs.getInt("item_total", 0);
-    for (int i = 0; i < total; i++) {//for debug
-      String key = "tc_" + String(i);//for debug
-      prefs.putInt(key.c_str(), 0);//for debug
-      Serial.println("Reset: " + key);//for debug
-    }
-    if (currentItemId != "none") {
-        itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
+    for (int i = 0; i < total; i++) {
+      // Reset todaycount to 0
+      String tcKey = "tc_" + String(i);
+      prefs.putInt(tcKey.c_str(), 0);
+
+      // Update lastResetTime to current timestamp
+      String lrKey = "lr_" + String(i);
+      prefs.putULong(lrKey.c_str(), localTimestamp);
+
+      Serial.printf("Reset: %s, lastResetTime: %lu\n", tcKey.c_str(), localTimestamp);
     }
 
+    if (currentItemId != "none") {
+      itemTodayCount = 0;  // Also reset runtime variable
+      lastResetTime = localTimestamp;
+    }
 
     prefs.putString("last_reset_date", todayStr);
   }// else {

@@ -33,7 +33,8 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace "com.rogershih.ble2024"
     compileSdkVersion 35
-    
+    ndkVersion = "28.2.13676358"
+
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -57,7 +58,7 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId "com.rogershih.ble2024"
-        minSdkVersion 23
+        minSdkVersion flutter.minSdkVersion
         targetSdkVersion 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

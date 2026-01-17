@@ -92,6 +92,21 @@ class DeviceManagementPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
+                _ActionSection(
+                  title: 'Debug',
+                  children: [
+                    _ActionButton(
+                      icon: Icons.bug_report,
+                      label: 'Test Page',
+                      description: 'Open BLE debug/test page',
+                      color: Colors.orange,
+                      onPressed: () {
+                        context.pushNamed('BluetoothTestPage');
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
                 _LastMessageCard(state: state),
               ],
             ),
