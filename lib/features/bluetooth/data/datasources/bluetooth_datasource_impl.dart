@@ -6,6 +6,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../../core/utils/ble_legacy_state.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_message.dart';
@@ -39,6 +40,10 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   StreamSubscription<List<int>>? _notifySubscription;
   final _messageController = StreamController<BleMessage>.broadcast();
   final _messageBuffer = StringBuffer();
+  Timer? _messageTimeoutTimer;
+
+  /// Timeout for incomplete message assembly (5 seconds)
+  static const Duration _messageAssemblyTimeout = Duration(seconds: 5);
 
   // Connection state tracking
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
@@ -214,6 +219,11 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     _notifySubscription?.cancel();
     _notifySubscription = null;
     _messageBuffer.clear();
+    _messageTimeoutTimer?.cancel();
+    _messageTimeoutTimer = null;
+
+    // Reset pagination state to ensure fresh sync on reconnect
+    BleLegacyState().currentLogPage = 0;
   }
 
   BleConnectionState _mapConnectionState(BluetoothConnectionState state) {
@@ -290,8 +300,21 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     final chunk = utf8.decode(data, allowMalformed: true);
     _messageBuffer.write(chunk);
 
+    // Reset message assembly timeout timer
+    _messageTimeoutTimer?.cancel();
+    _messageTimeoutTimer = Timer(_messageAssemblyTimeout, _onMessageAssemblyTimeout);
+
     // Check for complete messages (newline delimiter)
     _processMessageBuffer();
+  }
+
+  /// Called when message assembly times out (no newline received within timeout).
+  /// Clears stale partial messages to prevent blocking subsequent messages.
+  void _onMessageAssemblyTimeout() {
+    if (_messageBuffer.isNotEmpty) {
+      debugPrint('⚠️ Message assembly timeout - clearing stale buffer: ${_messageBuffer.toString().substring(0, _messageBuffer.length > 100 ? 100 : _messageBuffer.length)}...');
+      _messageBuffer.clear();
+    }
   }
 
   void _processMessageBuffer() {
@@ -320,6 +343,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Store remaining content back in buffer
     _messageBuffer.clear();
     _messageBuffer.write(content);
+
+    // Cancel timeout if buffer is empty (all messages processed)
+    if (content.isEmpty) {
+      _messageTimeoutTimer?.cancel();
+      _messageTimeoutTimer = null;
+    }
   }
 
   // ========== Write Operations ==========
@@ -584,6 +613,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<void> dispose() async {
+    _messageTimeoutTimer?.cancel();
     await _notifySubscription?.cancel();
     await _connectionSubscription?.cancel();
     await _messageController.close();
