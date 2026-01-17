@@ -148,4 +148,24 @@ class ItemRepositoryImpl implements ItemRepository {
       return Left(ServerFailure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, List<Item>>> getDeletedItems(String userId) async {
+    try {
+      final items = await remoteDataSource.getDeletedItems(userId);
+      return Right(items);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> restoreItem(String itemId) async {
+    try {
+      await remoteDataSource.restoreItem(itemId);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
 }

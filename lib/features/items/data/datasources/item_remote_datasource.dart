@@ -117,4 +117,21 @@ abstract class ItemRemoteDataSource {
     String userId,
     List<Map<String, dynamic>> itemData,
   );
+
+  /// Fetches all soft-deleted items for a user from Firestore.
+  ///
+  /// Queries the Item collection filtered by user_id where deletedAt is not null.
+  /// These items are within the 90-day retention period.
+  ///
+  /// Returns a list of ItemModel objects.
+  ///
+  /// Throws [ServerException] if the Firestore operation fails.
+  Future<List<ItemModel>> getDeletedItems(String userId);
+
+  /// Restores a soft-deleted item by clearing the deletedAt field.
+  ///
+  /// Sets deletedAt to null so the item appears in normal queries again.
+  ///
+  /// Throws [ServerException] if the Firestore operation fails.
+  Future<void> restoreItem(String itemId);
 }

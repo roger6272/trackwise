@@ -270,4 +270,37 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       throw ServerException('Unexpected error batch updating counts: $e');
     }
   }
+
+  @override
+  Future<List<ItemModel>> getDeletedItems(String userId) async {
+    try {
+      final userRef = firestore.collection('users').doc(userId);
+      final snapshot = await firestore
+          .collection('Item')
+          .where('uid', isEqualTo: userRef)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ItemModel.fromFirestore(doc))
+          .where((item) => item.deletedAt != null) // Only soft-deleted items
+          .toList();
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to fetch deleted items: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error fetching deleted items: $e');
+    }
+  }
+
+  @override
+  Future<void> restoreItem(String itemId) async {
+    try {
+      await firestore.collection('Item').doc(itemId).update({
+        'deletedAt': FieldValue.delete(),
+      });
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to restore item: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error restoring item: $e');
+    }
+  }
 }

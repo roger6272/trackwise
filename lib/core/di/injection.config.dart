@@ -135,6 +135,8 @@ import 'package:trackwise/features/items/domain/usecases/update_item_usecase.dar
     as _i159;
 import 'package:trackwise/features/items/domain/usecases/watch_items_usecase.dart'
     as _i307;
+import 'package:trackwise/features/items/presentation/bloc/deleted_items_bloc.dart'
+    as _i999;
 import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart'
     as _i913;
 import 'package:trackwise/features/profile/data/datasources/profile_remote_datasource.dart'
@@ -242,6 +244,8 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i319.ItemRepository>(),
               gh<_i978.EventLogRepository>(),
             ));
+    gh.factory<_i999.DeletedItemsBloc>(
+        () => _i999.DeletedItemsBloc(gh<_i319.ItemRepository>()));
     gh.lazySingleton<_i311.CreateItemUseCase>(
         () => _i311.CreateItemUseCase(gh<_i319.ItemRepository>()));
     gh.lazySingleton<_i64.DeleteItemUseCase>(

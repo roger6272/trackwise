@@ -159,6 +159,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildDivider(context),
                         _buildSettingItem(
                           context,
+                          icon: Icons.delete_outline,
+                          title: 'Recently Deleted',
+                          onTap: () => context.push('/profile/deleted-items'),
+                        ),
+                        _buildDivider(context),
+                        _buildSettingItem(
+                          context,
                           icon: Icons.backup_outlined,
                           title: 'Backup Settings',
                           onTap: () {},

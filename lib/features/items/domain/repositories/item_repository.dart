@@ -110,4 +110,22 @@ abstract class ItemRepository {
     String userId,
     List<Map<String, dynamic>> itemData,
   );
+
+  /// Fetches all soft-deleted items for a user.
+  ///
+  /// Returns items where deletedAt is not null (within 90-day retention).
+  ///
+  /// Returns:
+  /// - Right(List<Item>): List of soft-deleted items
+  /// - Left(ServerFailure): Firestore query failed
+  Future<Either<Failure, List<Item>>> getDeletedItems(String userId);
+
+  /// Restores a soft-deleted item.
+  ///
+  /// Clears the deletedAt field so the item appears in normal queries.
+  ///
+  /// Returns:
+  /// - Right(void): Item successfully restored
+  /// - Left(ServerFailure): Firestore update failed
+  Future<Either<Failure, void>> restoreItem(String itemId);
 }

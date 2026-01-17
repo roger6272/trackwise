@@ -11,6 +11,7 @@ import '../../features/items/presentation/pages/item_detail_page.dart';
 import '../../features/items/presentation/pages/item_form_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/export/presentation/pages/export_page.dart';
+import '../../features/items/presentation/pages/deleted_items_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_search_page.dart';
 import '../../features/bluetooth/presentation/pages/device_management_page.dart';
@@ -161,6 +162,11 @@ class AppRouter {
                   name: ExportPage.routeName,
                   path: 'export',
                   builder: (context, state) => const ExportPage(),
+                ),
+                GoRoute(
+                  name: DeletedItemsPage.routeName,
+                  path: 'deleted-items',
+                  builder: (context, state) => const DeletedItemsPage(),
                 ),
               ],
             ),
