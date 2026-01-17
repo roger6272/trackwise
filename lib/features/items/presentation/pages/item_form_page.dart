@@ -598,11 +598,10 @@ class _ItemFormPageState extends State<ItemFormPage> {
           context.read<BluetoothBloc>().add(SendSelectedItem(activeItemId));
         }
 
-        // Request prefs from device to get updated counts
-        debugPrint('📥 Requesting prefs from device');
-        context.read<BluetoothBloc>().add(
-          const RequestDeviceData(type: DeviceDataType.prefs),
-        );
+        // NOTE: Don't request prefs from device here!
+        // Requesting prefs causes device to send back its stored counts,
+        // which may be stale and overwrite Firestore with old values.
+        // Device counts should only be fetched during initial connection sync.
       }
       debugPrint('✅ _syncWithDevice completed');
     } catch (e) {
