@@ -110,6 +110,7 @@ Future<void> readBLEDataAndHandle(String deviceId) async {
 
 /// Decodes log data from device and inserts into Firestore EventLog collection.
 /// Handles pagination - requests next page if hasMore is true.
+/// Uses batch writes for better performance.
 ///
 /// [message] - JSON string from device containing log data
 /// [deviceId] - The BLE device remote ID (for pagination requests)
@@ -130,6 +131,10 @@ Future<void> decodeInsertLogs(String message, String deviceId) async {
 
   debugPrint("LogsReceivedandParsed");
 
+  // Use batch writes for better performance
+  final batch = FirebaseFirestore.instance.batch();
+  int logCount = 0;
+
   for (final log in data) {
     final event = log['event'] as String;
     final count = log['count'] as int;
@@ -138,7 +143,12 @@ Future<void> decodeInsertLogs(String message, String deviceId) async {
     final itemRef = FirebaseFirestore.instance.doc("/Item/${log['itemId']}");
     final logId = '${itemRef.id}-$event-$timestamp-$count';
 
-    await FirebaseFirestore.instance.collection('EventLog').doc(logId).set({
+    // Debug: show what timestamp the device sent
+    final dateFromDevice = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000, isUtc: true);
+    debugPrint("📅 Device sent timestamp: $timestamp (UTC: $dateFromDevice, Local: ${dateFromDevice.toLocal()})");
+
+    final docRef = FirebaseFirestore.instance.collection('EventLog').doc(logId);
+    batch.set(docRef, {
       'item': itemRef,
       'event_name': event,
       'currentcount': count,
@@ -146,6 +156,12 @@ Future<void> decodeInsertLogs(String message, String deviceId) async {
       'created_time': Timestamp.fromMillisecondsSinceEpoch(timestamp * 1000),
       'uid': userRef,
     }, SetOptions(merge: true));
+    logCount++;
+  }
+
+  if (logCount > 0) {
+    await batch.commit();
+    debugPrint("✅ Batch inserted $logCount event logs");
   }
 
   final hasMore = parsed['hasMore'] == true;
