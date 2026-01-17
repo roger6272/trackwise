@@ -85,9 +85,9 @@ void main() {
       );
     });
 
-    test('should use getEventsByItem when itemId is provided', () async {
+    test('should use getEventsByItemAndDateRange when itemId is provided', () async {
       // Arrange
-      when(() => mockRepository.getEventsByItem(any()))
+      when(() => mockRepository.getEventsByItemAndDateRange(any(), any(), any()))
           .thenAnswer((_) async => Right(testEventsForAggregation));
 
       // Act
@@ -98,7 +98,11 @@ void main() {
       ));
 
       // Assert
-      verify(() => mockRepository.getEventsByItem(testItemId)).called(1);
+      verify(() => mockRepository.getEventsByItemAndDateRange(
+        testItemId,
+        testStartDate,
+        testEndDate,
+      )).called(1);
       verifyNever(() => mockRepository.getEventsByDateRange(any(), any()));
     });
 

@@ -34,7 +34,7 @@ void main() {
           (failure) => fail('Should not fail'),
           (csv) {
             final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Date,Event Count');
+            expect(lines[0], 'Item Name,Timestamp,Event Count'); // Raw uses Timestamp
             expect(lines.length, 5); // Header + 4 events
             expect(lines[1], contains('Coffee'));
             expect(lines[1], contains('2024-01-15'));

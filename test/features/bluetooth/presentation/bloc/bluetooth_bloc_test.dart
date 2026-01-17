@@ -3,6 +3,10 @@
 //   "Unsupported operation: flutter_blue_plus is unsupported on this platform"
 // This is because flutter_blue_plus accesses Bluetooth hardware APIs that don't exist on desktop.
 // Run with: flutter test --device-id=<emulator_id>
+//
+// These tests are skipped on non-mobile platforms in CI.
+@TestOn('android || ios')
+library;
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
