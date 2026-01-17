@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../core/utils/ble_legacy.dart' as ble_legacy;
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
@@ -70,20 +69,21 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
   void _setupStateListener() {
     final bloc = context.read<BluetoothBloc>();
     _stateSubscription = bloc.stream.listen((state) {
-      _log('State: ${state.status.name}');
+      _log('State changed: ${state.status.name}, connected: ${state.isConnected}');
 
       if (state.lastMessage != null) {
         _messagesReceived++;
-        _log('Message received: ${state.lastMessage!.type.name}');
+        _log('📨 NOTIFICATION: ${state.lastMessage!.type.name}');
         if (_messagesReceived > 0) {
           _updateTest('receive_messages', true);
         }
       }
 
       if (state.errorMessage != null) {
-        _log('Error: ${state.errorMessage}');
+        _log('❌ Error: ${state.errorMessage}');
       }
     });
+    _log('✅ State listener set up');
   }
 
   @override
@@ -253,21 +253,16 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
     }
   }
 
-  /// Test using BLE legacy wrapper directly to compare behavior
-  Future<void> _testLegacyCodePrefs() async {
-    final deviceId = _bloc.state.connectedDevice?.id;
-    if (deviceId == null) {
+  /// Test using bloc's RequestDeviceData to request prefs
+  Future<void> _testBlocRequestPrefs() async {
+    if (!_bloc.state.isConnected) {
       _log('ERROR: Not connected to any device');
       return;
     }
 
-    _log('Calling ble_legacy.prepareBLERead("prefs", 0)...');
-    try {
-      await ble_legacy.prepareBLERead(deviceId, "prefs", 0);
-      _log('Legacy code completed successfully!');
-    } catch (e) {
-      _log('Legacy code error: $e');
-    }
+    _log('Using bloc RequestDeviceData for prefs...');
+    _bloc.add(const RequestDeviceData(type: DeviceDataType.prefs));
+    _log('RequestDeviceData event dispatched');
   }
 
   Future<void> _testRequestLogs() async {
@@ -405,11 +400,6 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
           Expanded(child: _buildLogsSection()),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _runAllTests,
-        icon: const Icon(Icons.play_arrow),
-        label: const Text('Run All Tests'),
-      ),
     );
   }
 
@@ -510,12 +500,14 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
   }
 
   Widget _buildActionButtons() {
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
+    return SizedBox(
+      height: 100,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(8),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
           ElevatedButton.icon(
             onPressed: _testPermissions,
             icon: const Icon(Icons.security, size: 18),
@@ -563,9 +555,9 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
             label: const Text('Get Prefs'),
           ),
           ElevatedButton.icon(
-            onPressed: _testLegacyCodePrefs,
+            onPressed: _testBlocRequestPrefs,
             icon: const Icon(Icons.history_edu, size: 18),
-            label: const Text('Legacy Prefs'),
+            label: const Text('Bloc Prefs'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
           ),
           ElevatedButton.icon(
@@ -579,7 +571,8 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
             label: const Text('Disconnect'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

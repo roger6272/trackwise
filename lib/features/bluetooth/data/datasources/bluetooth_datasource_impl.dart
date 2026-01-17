@@ -6,7 +6,6 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../../../core/utils/ble_legacy_state.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_message.dart';
@@ -221,9 +220,6 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     _messageBuffer.clear();
     _messageTimeoutTimer?.cancel();
     _messageTimeoutTimer = null;
-
-    // Reset pagination state to ensure fresh sync on reconnect
-    BleLegacyState().currentLogPage = 0;
   }
 
   BleConnectionState _mapConnectionState(BluetoothConnectionState state) {
@@ -573,6 +569,11 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     final bytes = await _readWithRetry(readChar);
     final result = utf8.decode(bytes, allowMalformed: true);
     return result;
+  }
+
+  @override
+  void emitMessage(BleMessage message) {
+    _messageController.add(message);
   }
 
   @override

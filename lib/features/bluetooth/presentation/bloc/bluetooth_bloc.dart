@@ -6,8 +6,6 @@ import 'package:injectable/injectable.dart';
 
 import '../../../../auth/firebase_auth/auth_util.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../../../../core/utils/ble_legacy_state.dart';
-import '../../../items/domain/repositories/item_repository.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/usecases/check_bluetooth_enabled_usecase.dart';
@@ -51,7 +49,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final CheckBluetoothEnabledUseCase _checkBluetoothEnabled;
   final RequestBluetoothPermissionsUseCase _requestPermissions;
   final SyncDeviceDataUseCase _syncDeviceData;
-  final ItemRepository _itemRepository;
 
   // Stream subscriptions
   StreamSubscription<dynamic>? _scanSubscription;
@@ -94,7 +91,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._checkBluetoothEnabled,
     this._requestPermissions,
     this._syncDeviceData,
-    this._itemRepository,
   ) : super(const BluetoothState()) {
     // Register event handlers
     on<CheckBluetoothPermissions>(_onCheckPermissions);
@@ -517,7 +513,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     add(const SendTimeSync());
 
     // Request prefs from device (item counts, selected item)
-    // This is awaited so we can sync the selected item ID after
+    // The selected item ID will come through the message stream automatically
+    // and be updated via MessageReceived event handler
     final prefsResult = await _requestData.call(
       RequestDeviceDataParams(
         deviceId: deviceId,
@@ -526,38 +523,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       ),
     );
 
-    // Sync selected item ID from legacy state to bloc state
     prefsResult.fold(
       (failure) => print('Failed to request prefs: ${failure.message}'),
-      (_) {
-        final selectedId = BleLegacyState().isactivated;
-        if (selectedId != null && selectedId.isNotEmpty) {
-          add(UpdateSelectedItemFromDevice(selectedId));
-          print('Initial sync: device selected item is $selectedId');
-        }
-      },
+      (_) => print('Initial sync: prefs requested successfully'),
     );
 
     // Request logs from device (event history)
     add(const RequestDeviceData(type: DeviceDataType.logs, page: 0));
 
-    // Fetch and send items to device
-    final userId = currentUserUid;
-    if (userId.isNotEmpty) {
-      final result = await _itemRepository.getItems(userId);
-      result.fold(
-        (failure) {
-          // Log error but don't fail - device can still work without items
-          print('Failed to fetch items for initial sync: ${failure.message}');
-        },
-        (items) {
-          if (items.isNotEmpty) {
-            add(SendItemsToDevice(items));
-            print('Initial sync: sent ${items.length} items to device');
-          }
-        },
-      );
-    }
+    // Note: We no longer send items/counts from app to device on connect.
+    // Device is the source of truth for counts - app receives data from device.
   }
 
   // ========== Data Handlers ==========

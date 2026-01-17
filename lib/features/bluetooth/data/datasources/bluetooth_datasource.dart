@@ -93,6 +93,12 @@ abstract class BluetoothDataSource {
   /// 2. discoverServices → get readChar → read response
   Future<String> prepareReadCycle(String command);
 
+  /// Emits a message to the notification stream.
+  ///
+  /// Used by repository to inject messages from READ characteristic
+  /// into the same stream as NOTIFY messages, allowing uniform handling.
+  void emitMessage(BleMessage message);
+
   /// Subscribes to notifications from the NOTIFY characteristic.
   ///
   /// Returns a stream of parsed BleMessage objects.

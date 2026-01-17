@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/error/failures.dart';
-import '../../../../core/utils/ble_legacy.dart' as ble_legacy;
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
@@ -107,14 +107,13 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
 
   /// Formats items list for ESP32 consumption.
   ///
-  /// Converts domain Item entities to JSON format expected by ESP32:
+  /// Converts domain Item entities to JSON format expected by ESP32.
+  /// Note: count and todaycount are NOT sent - device is source of truth for counts.
   /// ```json
   /// [
   ///   {
   ///     "id": "item_id",
   ///     "name": "Item Name",
-  ///     "count": 100,
-  ///     "todaycount": 10,
   ///     "increment": 1,
   ///     "reminder": 0,
   ///     "reminder_value": 0,
@@ -126,8 +125,6 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     final itemList = items.map((item) => {
       'id': item.id,
       'name': item.name,
-      'count': item.count,
-      'todaycount': item.todayCount,
       'increment': item.incrementBy,
       'reminder': _reminderTypeToInt(item.reminder),
       'reminder_value': item.reminderValue,
@@ -193,11 +190,45 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     int page,
   ) async {
     try {
-      // Use the OLD working code directly since it works and our new code doesn't
-      // The old code handles everything: discover services, write command, read response
-      await ble_legacy.prepareBLERead(deviceId, type, page);
+      // Build the prepare_read command
+      final command = jsonEncode({
+        'cmd': 'prepare_read',
+        'type': type,
+        'page': page,
+      });
+
+      debugPrint('📤 Sending prepare_read: type=$type, page=$page');
+
+      // Use datasource to write command and read response
+      final jsonString = await dataSource.prepareReadCycle(command);
+
+      debugPrint('📦 BLE raw payload size: ${jsonString.length} bytes');
+      debugPrint('📦 BLE raw string: $jsonString');
+
+      // Parse the response
+      final message = BleMessageModel.fromJson(jsonString);
+      debugPrint('✅ Parsed message type: ${message.type}');
+
+      // Emit message to stream for uniform handling by bloc
+      dataSource.emitMessage(message);
+
+      // Handle pagination for logs
+      if (type == 'logs' && message.hasMore) {
+        debugPrint('📖 More logs available, requesting page ${page + 1}');
+        // Recursively request next page
+        return requestData(deviceId, type, page + 1);
+      }
+
+      // Send clear_logs command when all logs have been received
+      if (type == 'logs' && !message.hasMore) {
+        debugPrint('🧹 Sending clear_logs command to device');
+        const clearLogsJson = '{"cmd":"clear_logs"}';
+        await dataSource.writeCommand(deviceId, clearLogsJson);
+      }
+
       return const Right(null);
     } catch (e) {
+      debugPrint('❌ requestData failed: $e');
       return Left(BluetoothFailure('Failed to request data: ${e.toString()}'));
     }
   }

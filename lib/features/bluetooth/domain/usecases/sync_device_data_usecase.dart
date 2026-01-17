@@ -50,8 +50,7 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       case BleMessageType.event:
         return _syncEventMessage(message, userId);
       case BleMessageType.logs:
-        // Logs are historical data, handle separately if needed
-        return const Right(null);
+        return _syncLogsMessage(message, userId);
       case BleMessageType.unknown:
         return const Right(null);
     }
@@ -131,6 +130,65 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
 
     if (events.isEmpty) return const Right(null);
 
+    return await eventLogRepository.insertEvents(events);
+  }
+
+  /// Syncs logs message - inserts historical EventLog records from device.
+  ///
+  /// Similar to _syncEventMessage but handles the 'logs' format which is
+  /// used for bulk historical data from the device's log storage.
+  Future<Either<Failure, void>> _syncLogsMessage(
+    BleMessage message,
+    String userId,
+  ) async {
+    final data = message.data;
+    if (data == null) return const Right(null);
+
+    // Data should be a list of log entries
+    final List<dynamic> logsList;
+    if (data is List) {
+      logsList = data;
+    } else {
+      return const Right(null);
+    }
+
+    final events = <EventLog>[];
+    for (final logData in logsList) {
+      if (logData is! Map<String, dynamic>) continue;
+
+      final eventName = logData['event']?.toString() ?? 'unknown';
+      final itemId = logData['itemId']?.toString();
+      if (itemId == null) continue;
+
+      // Skip switch events - they don't create EventLog entries
+      if (eventName == 'switch') continue;
+
+      // ESP32 sends timestamp in seconds
+      final timestampSeconds = logData['timestamp'] as int? ?? 0;
+      final count = logData['count'] as int? ?? 0;
+      final increment = logData['increment'] as int? ?? 0;
+
+      // Debug: show what timestamp the device sent
+      final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
+      debugPrint('📅 Log timestamp: $timestampSeconds sec -> $createdTime (local: ${createdTime.toLocal()})');
+
+      // Generate unique ID matching FlutterFlow format
+      final id = '$itemId-$eventName-$timestampSeconds-$count';
+
+      events.add(EventLog(
+        id: id,
+        createdTime: createdTime,
+        itemId: itemId,
+        eventName: eventName,
+        increment: increment,
+        currentCount: count,
+        userId: userId,
+      ));
+    }
+
+    if (events.isEmpty) return const Right(null);
+
+    debugPrint('✅ Syncing ${events.length} historical log entries');
     return await eventLogRepository.insertEvents(events);
   }
 }
