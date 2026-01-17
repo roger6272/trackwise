@@ -156,9 +156,10 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       await firestore.collection('Item').doc(itemId).delete();
 
       // Delete associated EventLog entries
+      final itemRef = firestore.collection('Item').doc(itemId);
       final eventLogs = await firestore
           .collection('EventLog')
-          .where('item_id', isEqualTo: itemId)
+          .where('item', isEqualTo: itemRef)
           .get();
 
       final batch = firestore.batch();
