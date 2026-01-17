@@ -18,23 +18,23 @@ import 'ble_legacy_state.dart';
 import 'bluetooth_constants.dart';
 
 /// Sends a prepare_read command to the BLE device and handles the response.
+/// Uses cached characteristics to avoid redundant service discovery.
 ///
 /// [deviceId] - The BLE device remote ID
 /// [type] - Either "prefs" or "logs"
 /// [page] - Page number for paginated log reading
 Future<void> prepareBLERead(String deviceId, String type, int page) async {
-  final device = BluetoothDevice(remoteId: DeviceIdentifier(deviceId));
+  final device = BluetoothDevice.fromId(deviceId);
 
   final currentState = await device.connectionState.first;
   if (currentState != BluetoothConnectionState.connected) {
     await device.connect(license: License.free, timeout: const Duration(seconds: 5));
+    // Clear cache when reconnecting to ensure fresh characteristics
+    BleLegacyState().clearCache();
   }
 
-  final services = await device.discoverServices();
-
-  final writeChar = services.expand((s) => s.characteristics).firstWhere((c) =>
-      c.uuid.toString().toLowerCase() ==
-      BluetoothConstants.writeCharacteristicUUID.toLowerCase());
+  // Use cached characteristics (discovers only on first call)
+  final writeChar = await BleLegacyState().getWriteCharacteristic(deviceId);
 
   final command = json.encode({
     "cmd": "prepare_read",
@@ -49,15 +49,12 @@ Future<void> prepareBLERead(String deviceId, String type, int page) async {
 }
 
 /// Reads BLE data from device and routes to appropriate handler.
+/// Uses cached characteristics to avoid redundant service discovery.
 ///
 /// [deviceId] - The BLE device remote ID
 Future<void> readBLEDataAndHandle(String deviceId) async {
-  final device = BluetoothDevice(remoteId: DeviceIdentifier(deviceId));
-  final services = await device.discoverServices();
-
-  final readChar = services.expand((s) => s.characteristics).firstWhere((c) =>
-      c.uuid.toString().toLowerCase() ==
-      BluetoothConstants.readCharacteristicUUID.toLowerCase());
+  // Use cached characteristics (already discovered in prepareBLERead)
+  final readChar = await BleLegacyState().getReadCharacteristic(deviceId);
 
   final value = await readChar.read();
   final jsonString = utf8.decode(value);
@@ -172,15 +169,8 @@ Future<void> decodeInsertLogs(String message, String deviceId) async {
   } else {
     BleLegacyState().currentLogPage = 0;
 
-    // Get BLE device and services
-    final device = BluetoothDevice(remoteId: DeviceIdentifier(deviceId));
-    final services = await device.discoverServices();
-
-    // Send clear_logs command to device
-    final writeChar = services.expand((s) => s.characteristics).firstWhere(
-        (c) =>
-            c.uuid.toString().toLowerCase() ==
-            BluetoothConstants.writeCharacteristicUUID.toLowerCase());
+    // Use cached write characteristic for clear_logs command
+    final writeChar = await BleLegacyState().getWriteCharacteristic(deviceId);
 
     const clearLogsJson = '{"cmd":"clear_logs"}';
     await writeChar.write(utf8.encode(clearLogsJson), withoutResponse: false);
