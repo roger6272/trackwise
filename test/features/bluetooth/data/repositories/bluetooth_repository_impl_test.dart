@@ -232,7 +232,7 @@ void main() {
       expect(result, const Right(null));
       verify(() => mockDataSource.writeCommand(
         tDeviceId,
-        any(that: contains('"selected_id":"$tItemId"')),
+        any(that: allOf(contains('"cmd":"set_selected"'), contains('"id":"$tItemId"'))),
       )).called(1);
     });
   });
@@ -252,7 +252,7 @@ void main() {
       expect(result, const Right(null));
       verify(() => mockDataSource.writeCommand(
         tDeviceId,
-        any(that: contains('"type":"time"')),
+        any(that: allOf(contains('"cmd":"set_time"'), contains('"utc_time"'))),
       )).called(1);
     });
   });

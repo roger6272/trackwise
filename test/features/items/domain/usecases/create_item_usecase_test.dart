@@ -217,6 +217,7 @@ void main() {
         props,
         [
           'Coffee',
+          0, // initialValue defaults to 0
           1,
           ReminderType.target,
           20,

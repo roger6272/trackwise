@@ -43,7 +43,7 @@ void main() {
         'reminder_value': 20,
         'lastResetTime': testDateTime.millisecondsSinceEpoch,
         'lastUpdated': testDateTime.millisecondsSinceEpoch,
-        'user_id': 'user_123',
+        'uid': 'user_123',
       };
 
       final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();
@@ -77,7 +77,7 @@ void main() {
         final map = {
           'item_name': 'Test',
           'reminder': test.$1,
-          'user_id': 'user_123',
+          'uid': 'user_123',
         };
 
         final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();

@@ -17,10 +17,14 @@ void main() {
   late MockDocumentReference<Map<String, dynamic>> mockDocRef;
   late MockDocumentSnapshot<Map<String, dynamic>> mockDocSnapshot;
   late MockWriteBatch mockBatch;
+  late MockCollectionReference<Map<String, dynamic>> mockUsersCollection;
+  late MockDocumentReference<Map<String, dynamic>> mockUserRef;
 
   setUp(() {
     mockFirestore = MockFirebaseFirestore();
     mockCollection = MockCollectionReference<Map<String, dynamic>>();
+    mockUsersCollection = MockCollectionReference<Map<String, dynamic>>();
+    mockUserRef = MockDocumentReference<Map<String, dynamic>>();
     mockQuery = MockQuery<Map<String, dynamic>>();
     mockQuerySnapshot = MockQuerySnapshot<Map<String, dynamic>>();
     mockDocRef = MockDocumentReference<Map<String, dynamic>>();
@@ -34,9 +38,13 @@ void main() {
     const userId = 'user_123';
 
     test('should return list of ItemModels on success', () async {
-      // Arrange
+      // Arrange - mock users collection for userRef creation
+      when(() => mockFirestore.collection('users')).thenReturn(mockUsersCollection);
+      when(() => mockUsersCollection.doc(userId)).thenReturn(mockUserRef);
+
+      // Arrange - mock Item collection query
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
-      when(() => mockCollection.where('user_id', isEqualTo: userId))
+      when(() => mockCollection.where('uid', isEqualTo: mockUserRef))
           .thenReturn(mockQuery);
       when(() => mockQuery.get()).thenAnswer((_) async => mockQuerySnapshot);
 
@@ -51,7 +59,7 @@ void main() {
         'reminder_value': 20,
         'lastResetTime': testDateTime.millisecondsSinceEpoch,
         'lastUpdated': testDateTime.millisecondsSinceEpoch,
-        'user_id': 'user_123',
+        'uid': 'user_123',
       });
 
       when(() => mockQuerySnapshot.docs).thenReturn([mockDocSnap]);
@@ -129,9 +137,13 @@ void main() {
     const userId = 'user_123';
 
     test('should return stream of ItemModels', () {
-      // Arrange
+      // Arrange - mock users collection for userRef creation
+      when(() => mockFirestore.collection('users')).thenReturn(mockUsersCollection);
+      when(() => mockUsersCollection.doc(userId)).thenReturn(mockUserRef);
+
+      // Arrange - mock Item collection
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
-      when(() => mockCollection.where('user_id', isEqualTo: userId))
+      when(() => mockCollection.where('uid', isEqualTo: mockUserRef))
           .thenReturn(mockQuery);
 
       final mockDocSnap = MockQueryDocumentSnapshot<Map<String, dynamic>>();
@@ -145,7 +157,7 @@ void main() {
         'reminder_value': 20,
         'lastResetTime': testDateTime.millisecondsSinceEpoch,
         'lastUpdated': testDateTime.millisecondsSinceEpoch,
-        'user_id': 'user_123',
+        'uid': 'user_123',
       });
 
       when(() => mockQuerySnapshot.docs).thenReturn([mockDocSnap]);
@@ -166,7 +178,11 @@ void main() {
 
   group('createItem', () {
     test('should call Firestore set with correct data', () async {
-      // Arrange
+      // Arrange - mock users collection for userRef creation
+      when(() => mockFirestore.collection('users')).thenReturn(mockUsersCollection);
+      when(() => mockUsersCollection.doc(testItemModel.userId)).thenReturn(mockUserRef);
+
+      // Arrange - mock Item collection
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
       when(() => mockCollection.doc()).thenReturn(mockDocRef);
       when(() => mockCollection.doc(any())).thenReturn(mockDocRef);
@@ -210,7 +226,11 @@ void main() {
 
   group('updateItem', () {
     test('should call Firestore update with correct data', () async {
-      // Arrange
+      // Arrange - mock users collection for userRef creation
+      when(() => mockFirestore.collection('users')).thenReturn(mockUsersCollection);
+      when(() => mockUsersCollection.doc(testItemModel.userId)).thenReturn(mockUserRef);
+
+      // Arrange - mock Item collection
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
       when(() => mockCollection.doc(testItemModel.id)).thenReturn(mockDocRef);
       when(() => mockDocRef.update(any())).thenAnswer((_) async => {});
@@ -285,7 +305,11 @@ void main() {
     const amount = 5;
 
     test('should increment item count and todayCount', () async {
-      // Arrange
+      // Arrange - mock users collection for userRef creation
+      when(() => mockFirestore.collection('users')).thenReturn(mockUsersCollection);
+      when(() => mockUsersCollection.doc('user_123')).thenReturn(mockUserRef);
+
+      // Arrange - mock Item collection
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
       when(() => mockCollection.doc(itemId)).thenReturn(mockDocRef);
       when(() => mockDocRef.get()).thenAnswer((_) async => mockDocSnapshot);
@@ -300,7 +324,7 @@ void main() {
         'reminder_value': 20,
         'lastResetTime': testDateTime.millisecondsSinceEpoch,
         'lastUpdated': testDateTime.millisecondsSinceEpoch,
-        'user_id': 'user_123',
+        'uid': 'user_123',
       });
       when(() => mockDocRef.update(any())).thenAnswer((_) async => {});
 
