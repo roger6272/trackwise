@@ -29,9 +29,15 @@ class BluetoothConstants {
 
   // ========== Message Chunking ==========
 
-  /// Maximum Transmission Unit (MTU) limit for BLE messages
-  /// ESP32 requires messages to be chunked to 180 bytes
-  static const int mtuLimit = 180;
+  /// Default MTU limit for BLE messages (fallback if negotiation fails)
+  static const int defaultMtuLimit = 180;
+
+  /// Requested MTU size during negotiation
+  /// Android supports up to 517, iOS up to 185
+  static const int requestedMtu = 512;
+
+  /// ATT protocol overhead (subtract from negotiated MTU for payload size)
+  static const int attOverhead = 3;
 
   /// Delay between message chunks in milliseconds
   /// ESP32 requires 30ms delay to process each chunk

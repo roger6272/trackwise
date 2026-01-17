@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -30,6 +31,9 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   BluetoothCharacteristic? _notifyChar;
   BluetoothCharacteristic? _setItemsChar;
   BluetoothCharacteristic? _writeChar;
+
+  // Negotiated MTU (payload size, excluding ATT overhead)
+  int _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
 
   // Notification stream management
   StreamSubscription<List<int>>? _notifySubscription;
@@ -140,6 +144,40 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     _connectedDevice = device;
     _connectedDeviceModel = BleDeviceModel.fromBluetoothDevice(device);
 
+    // Request high connection priority for faster data transfer
+    // High priority: ~7.5ms connection interval (vs ~30ms default)
+    // This is optional - fails silently if unsupported (e.g., iOS ignores this)
+    try {
+      await device.requestConnectionPriority(
+        connectionPriorityRequest: ConnectionPriority.high,
+      );
+      debugPrint('🚀 Requested HIGH connection priority (target: ~7.5ms interval)');
+      debugPrint('   - Default interval: ~30-50ms');
+      debugPrint('   - High priority interval: ~7.5-15ms');
+      debugPrint('   - Note: iOS ignores this request (Apple controls parameters)');
+    } catch (e) {
+      debugPrint('⚠️ Could not set connection priority: $e');
+      debugPrint('   Connection will continue with default parameters');
+    }
+
+    // Request larger MTU for faster data transfer
+    // Default BLE MTU is 23 bytes, we request 512 for larger payloads
+    try {
+      final mtu = await device.requestMtu(BluetoothConstants.requestedMtu);
+      // flutter_blue_plus enforces max write size as (MTU - 3), but also caps at 512
+      // Use the more conservative value to avoid write failures
+      final calculatedPayload = mtu - BluetoothConstants.attOverhead;
+      _negotiatedMtu = calculatedPayload > 509 ? 509 : calculatedPayload; // Cap at 509 (512-3)
+      debugPrint('📦 MTU negotiated: $mtu bytes (payload: $_negotiatedMtu bytes)');
+      debugPrint('   - Default MTU: 23 bytes');
+      debugPrint('   - Requested: ${BluetoothConstants.requestedMtu} bytes');
+      debugPrint('   - Negotiated: $mtu bytes, using payload: $_negotiatedMtu bytes');
+    } catch (e) {
+      _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
+      debugPrint('⚠️ MTU negotiation failed, using default: $_negotiatedMtu bytes');
+      debugPrint('   Error: $e');
+    }
+
     // Set up connection state monitoring
     _connectionSubscription?.cancel();
     _connectionSubscription = device.connectionState.listen((state) {
@@ -172,6 +210,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     _notifyChar = null;
     _setItemsChar = null;
     _writeChar = null;
+    _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
     _notifySubscription?.cancel();
     _notifySubscription = null;
     _messageBuffer.clear();
@@ -268,10 +307,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       if (messageJson.trim().isEmpty) continue;
 
       try {
+        debugPrint('📨 Parsing BLE message: $messageJson');
         final message = BleMessageModel.fromJson(messageJson);
+        debugPrint('✅ Parsed message type: ${message.type}, data: ${message.data}');
         _messageController.add(message);
       } catch (e) {
-        // Parsing error - message may be malformed, skip it
+        debugPrint('❌ BLE message parse error: $e');
+        debugPrint('❌ Raw message was: $messageJson');
       }
     }
 
@@ -305,14 +347,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     }
     // Write directly without adding newline (matches old prepareBLERead behavior)
     final bytes = utf8.encode(jsonData);
-    await _writeChar!.write(bytes, withoutResponse: false);
+    await _writeWithRetry(_writeChar!, bytes);
   }
 
   /// Writes data in chunks to respect MTU limits.
   ///
-  /// ESP32 requires:
-  /// - Max 180 bytes per chunk
-  /// - 30ms delay between chunks
+  /// Uses negotiated MTU (or default 180 bytes if negotiation failed).
+  /// ESP32 requires 30ms delay between chunks to process.
   Future<void> _writeChunked(
     BluetoothCharacteristic char,
     String data,
@@ -320,18 +361,49 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Send raw data without delimiter (matches old FlutterFlow behavior)
     final bytes = utf8.encode(data);
 
-    const mtu = BluetoothConstants.mtuLimit;
+    // Use negotiated MTU for optimal chunk size
+    final mtu = _negotiatedMtu;
     const chunkDelay = Duration(milliseconds: BluetoothConstants.chunkDelayMs);
 
     for (var i = 0; i < bytes.length; i += mtu) {
       final end = (i + mtu < bytes.length) ? i + mtu : bytes.length;
       final chunk = bytes.sublist(i, end);
 
-      await char.write(chunk, withoutResponse: false);
+      await _writeWithRetry(char, chunk);
 
       // Delay between chunks (except after last chunk)
       if (end < bytes.length) {
         await Future.delayed(chunkDelay);
+      }
+    }
+  }
+
+  /// Writes data to a characteristic with automatic retry on failure.
+  ///
+  /// Retries up to [maxRetries] times with exponential backoff:
+  /// - 1st retry: 100ms delay
+  /// - 2nd retry: 200ms delay
+  /// - 3rd retry: 400ms delay
+  Future<void> _writeWithRetry(
+    BluetoothCharacteristic char,
+    List<int> data, {
+    int maxRetries = 3,
+  }) async {
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await char.write(data, withoutResponse: false);
+        return; // Success
+      } catch (e) {
+        final isLastAttempt = attempt == maxRetries;
+        if (isLastAttempt) {
+          debugPrint('❌ BLE write failed after ${maxRetries + 1} attempts: $e');
+          rethrow;
+        }
+
+        // Exponential backoff: 100ms, 200ms, 400ms
+        final delay = Duration(milliseconds: 100 * (1 << attempt));
+        debugPrint('⚠️ BLE write failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        await Future.delayed(delay);
       }
     }
   }

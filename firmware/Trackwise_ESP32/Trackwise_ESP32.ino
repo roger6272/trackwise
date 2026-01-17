@@ -7,6 +7,7 @@
 #include <BLE2902.h>      // For BLE notification descriptors
 #include <ArduinoJson.h>  // For encoding/decoding JSON
 #include <RTClib.h>
+#include <esp_gap_ble_api.h>  // For connection parameter logging
 
 // BLE UUID definitions
 #define SERVICE_UUID "12345678-1234-1234-1234-123456789000"
@@ -62,7 +63,7 @@ enum ReadMode { READ_NONE,
                 READ_PREFS,
                 READ_LOGS };
 int currentPage = 0;
-const int pageSize = 2;  // how many logs per page
+const int pageSize = 15;  // how many logs per page (increased from 2 for faster sync)
 RTC_DS3231 rtc;
 time_t localTimestamp;
 DateTime localTime;
@@ -327,13 +328,25 @@ class WriteCallback : public BLECharacteristicCallbacks {
       utc_time.trim();
       int offsetMin = doc["offset"];       // timezone offset in minutes
 
+      Serial.print("📥 Received utc_time: '");
+      Serial.print(utc_time);
+      Serial.print("', offset: ");
+      Serial.println(offsetMin);
+
       struct tm tm;
+      memset(&tm, 0, sizeof(tm));  // Clear struct to avoid garbage values
       if (strptime(utc_time.c_str(), "%Y-%m-%d %H:%M:%S", &tm)) {
+        Serial.printf("📅 Parsed: year=%d mon=%d day=%d hour=%d min=%d sec=%d\n",
+                      tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
         // Construct DateTime directly from parsed components
         // This avoids mktime() which has timezone interpretation issues on ESP32
         DateTime utcDt(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
                        tm.tm_hour, tm.tm_min, tm.tm_sec);
         time_t parsedTime = utcDt.unixtime();
+
+        Serial.print("⏱️ UTC unix timestamp: ");
+        Serial.println(parsedTime);
 
         if (parsedTime > 1000000000) {              // Rough sanity check (post-2001)
           rtc.adjust(utcDt);                        // ✅ Set the RTC to UTC time
@@ -350,8 +363,12 @@ class WriteCallback : public BLECharacteristicCallbacks {
           Serial.println(utcDt.timestamp());
           Serial.print("🕒 Local time = ");
           Serial.println(localTime.timestamp());
+          Serial.print("✅ RTC now reads: ");
+          Serial.println(rtc.now().timestamp());
         } else {
-          Serial.println("⚠️ Parsed time was too early — ignoring.");
+          Serial.print("⚠️ Parsed time was too early (");
+          Serial.print(parsedTime);
+          Serial.println(") — ignoring.");
         }
       } else {
         Serial.println("❌ Failed to parse set_time value.");
@@ -390,9 +407,43 @@ class ServerCallbacks : public BLEServerCallbacks {
   }
 };
 
+// GAP event callback to log connection parameter changes
+static void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+  if (event == ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT) {
+    // conn_int is the actual negotiated connection interval (in 1.25ms units)
+    float interval = param->update_conn_params.conn_int * 1.25;
+
+    Serial.println("📊 Connection parameters updated:");
+    Serial.printf("   - Actual interval: %.2fms\n", interval);
+    Serial.printf("   - Latency: %d\n", param->update_conn_params.latency);
+    Serial.printf("   - Timeout: %dms\n", param->update_conn_params.timeout * 10);
+    Serial.printf("   - Status: %s\n",
+                  param->update_conn_params.status == ESP_BT_STATUS_SUCCESS ? "SUCCESS" : "FAILED");
+
+    // Log interpretation
+    if (interval <= 15) {
+      Serial.println("   ✅ HIGH priority (~7.5ms interval)");
+    } else if (interval <= 50) {
+      Serial.println("   ⚡ BALANCED priority (~30ms interval)");
+    } else {
+      Serial.println("   🔋 LOW priority (>50ms interval)");
+    }
+  }
+}
+
 // BLE peripheral and characteristic setup
 void setupBLE() {
   BLEDevice::init("TallyCounter");
+
+  // Set maximum MTU to allow larger packets (default is 23, max is 517)
+  // This allows the app to negotiate larger MTU for faster transfers
+  BLEDevice::setMTU(517);
+  Serial.println("📦 BLE MTU set to 517 bytes (max)");
+
+  // Register GAP callback to log connection parameter changes
+  esp_ble_gap_register_callback(onGapEvent);
+  Serial.println("📡 BLE GAP callback registered for connection parameter logging");
+
   BLEServer* server = BLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
   BLEService* svc = server->createService(SERVICE_UUID);
