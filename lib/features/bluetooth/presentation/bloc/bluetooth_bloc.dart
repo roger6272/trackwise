@@ -338,7 +338,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _scanSubscription?.cancel();
       _scanSubscription = null;
       // Give BLE stack time to settle after stopping scan (prevents error 133)
-      await Future.delayed(const Duration(milliseconds: 1000));
+      await Future.delayed(const Duration(milliseconds: 2000));
     }
 
     // Guard: Check if Bluetooth is ready
