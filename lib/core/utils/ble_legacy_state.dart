@@ -89,4 +89,29 @@ class BleLegacyState {
     _writeChar = null;
     debugPrint('🧹 BLE characteristic cache cleared');
   }
+
+  /// Reads from the read characteristic with automatic retry on failure.
+  ///
+  /// Retries up to [maxRetries] times with exponential backoff.
+  Future<List<int>> readWithRetry(String deviceId, {int maxRetries = 3}) async {
+    final readChar = await getReadCharacteristic(deviceId);
+
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await readChar.read();
+      } catch (e) {
+        final isLastAttempt = attempt == maxRetries;
+        if (isLastAttempt) {
+          debugPrint('❌ BLE read failed after ${maxRetries + 1} attempts: $e');
+          rethrow;
+        }
+
+        // Exponential backoff: 100ms, 200ms, 400ms
+        final delay = Duration(milliseconds: 100 * (1 << attempt));
+        debugPrint('⚠️ BLE read failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        await Future.delayed(delay);
+      }
+    }
+    throw StateError('Unreachable');
+  }
 }

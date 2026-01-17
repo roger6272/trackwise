@@ -408,6 +408,35 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     }
   }
 
+  /// Reads data from a characteristic with automatic retry on failure.
+  ///
+  /// Retries up to [maxRetries] times with exponential backoff:
+  /// - 1st retry: 100ms delay
+  /// - 2nd retry: 200ms delay
+  /// - 3rd retry: 400ms delay
+  Future<List<int>> _readWithRetry(
+    BluetoothCharacteristic char, {
+    int maxRetries = 3,
+  }) async {
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await char.read();
+      } catch (e) {
+        final isLastAttempt = attempt == maxRetries;
+        if (isLastAttempt) {
+          debugPrint('❌ BLE read failed after ${maxRetries + 1} attempts: $e');
+          rethrow;
+        }
+
+        // Exponential backoff: 100ms, 200ms, 400ms
+        final delay = Duration(milliseconds: 100 * (1 << attempt));
+        debugPrint('⚠️ BLE read failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        await Future.delayed(delay);
+      }
+    }
+    throw StateError('Unreachable');
+  }
+
   // ========== Read Operations ==========
 
   @override
@@ -416,7 +445,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('READ characteristic not found. Call discoverServices first.');
     }
 
-    final bytes = await _readChar!.read();
+    final bytes = await _readWithRetry(_readChar!);
     return utf8.decode(bytes, allowMalformed: true);
   }
 
@@ -447,8 +476,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('READ characteristic not found after rediscovery.');
     }
 
-    // Read from the freshly discovered characteristic
-    final bytes = await readChar.read();
+    // Read from the freshly discovered characteristic with retry
+    final bytes = await _readWithRetry(readChar);
     final result = utf8.decode(bytes, allowMalformed: true);
     return result;
   }
@@ -512,7 +541,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('READ characteristic not found.');
     }
 
-    final bytes = await readChar.read();
+    final bytes = await _readWithRetry(readChar);
     final result = utf8.decode(bytes, allowMalformed: true);
     return result;
   }

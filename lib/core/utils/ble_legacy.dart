@@ -49,14 +49,12 @@ Future<void> prepareBLERead(String deviceId, String type, int page) async {
 }
 
 /// Reads BLE data from device and routes to appropriate handler.
-/// Uses cached characteristics to avoid redundant service discovery.
+/// Uses cached characteristics and retry logic for reliability.
 ///
 /// [deviceId] - The BLE device remote ID
 Future<void> readBLEDataAndHandle(String deviceId) async {
-  // Use cached characteristics (already discovered in prepareBLERead)
-  final readChar = await BleLegacyState().getReadCharacteristic(deviceId);
-
-  final value = await readChar.read();
+  // Use cached characteristics with retry logic
+  final value = await BleLegacyState().readWithRetry(deviceId);
   final jsonString = utf8.decode(value);
 
   debugPrint("📦 BLE raw payload size: ${value.length} bytes");
