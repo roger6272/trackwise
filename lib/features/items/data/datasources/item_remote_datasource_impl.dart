@@ -27,6 +27,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       final snapshot = await firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
+          .orderBy('order')
           .get();
 
       return snapshot.docs
@@ -67,6 +68,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       return firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
+          .orderBy('order')
           .snapshots()
           .map((snapshot) => snapshot.docs
               .map((doc) => ItemModel.fromFirestore(doc))
@@ -88,6 +90,16 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           ? firestore.collection('Item').doc().id
           : item.id;
 
+      // Query to get the count of existing items for this user to set order
+      final userRef = firestore.collection('users').doc(item.userId);
+      final existingItems = await firestore
+          .collection('Item')
+          .where('uid', isEqualTo: userRef)
+          .get();
+      final newOrder = existingItems.docs
+          .where((doc) => doc.data()['deletedAt'] == null)
+          .length;
+
       final now = DateTime.now();
       final newItem = ItemModel(
         id: id,
@@ -100,10 +112,10 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         lastResetTime: item.lastResetTime,
         lastUpdated: now,
         userId: item.userId,
+        order: newOrder,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
-      final userRef = firestore.collection('users').doc(item.userId);
       final data = newItem.toFirestore();
       data.remove('user_id'); // Remove string version
       data['uid'] = userRef; // Add DocumentReference version
@@ -308,6 +320,25 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       throw ServerException('Failed to restore item: ${e.message}');
     } catch (e) {
       throw ServerException('Unexpected error restoring item: $e');
+    }
+  }
+
+  @override
+  Future<void> reorderItems(List<ItemModel> items) async {
+    try {
+      final batch = firestore.batch();
+
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        final itemRef = firestore.collection('Item').doc(item.id);
+        batch.update(itemRef, {'order': i});
+      }
+
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to reorder items: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error reordering items: $e');
     }
   }
 }

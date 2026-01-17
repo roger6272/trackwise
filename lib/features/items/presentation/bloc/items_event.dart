@@ -169,3 +169,29 @@ class IncrementItemEvent extends ItemsEvent {
   @override
   List<Object?> get props => [itemId, amount];
 }
+
+/// Event to reorder items in the list.
+///
+/// Used for drag-to-reorder functionality. Handles moving an item from
+/// one position to another.
+///
+/// Uses optimistic update: UI reorders immediately, then persists to Firestore.
+/// Reverts on failure.
+///
+/// Example:
+/// ```dart
+/// // Move item from index 2 to index 0
+/// bloc.add(ReorderItemsEvent(oldIndex: 2, newIndex: 0));
+/// ```
+class ReorderItemsEvent extends ItemsEvent {
+  final int oldIndex;
+  final int newIndex;
+
+  const ReorderItemsEvent({
+    required this.oldIndex,
+    required this.newIndex,
+  });
+
+  @override
+  List<Object?> get props => [oldIndex, newIndex];
+}

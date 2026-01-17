@@ -128,4 +128,17 @@ abstract class ItemRepository {
   /// - Right(void): Item successfully restored
   /// - Left(ServerFailure): Firestore update failed
   Future<Either<Failure, void>> restoreItem(String itemId);
+
+  /// Reorders items by updating their order field in batch.
+  ///
+  /// Used for drag-to-reorder functionality. Each item's order field is set
+  /// to its index in the provided list.
+  ///
+  /// Parameters:
+  /// - [items]: List of items in their new order
+  ///
+  /// Returns:
+  /// - Right(void): Items successfully reordered
+  /// - Left(ServerFailure): Firestore batch update failed
+  Future<Either<Failure, void>> reorderItems(List<Item> items);
 }

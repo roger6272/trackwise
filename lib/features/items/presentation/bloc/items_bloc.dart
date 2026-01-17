@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/item.dart';
+import '../../domain/repositories/item_repository.dart';
 import '../../domain/usecases/create_item_usecase.dart';
 import '../../domain/usecases/delete_item_usecase.dart';
 import '../../domain/usecases/get_items_usecase.dart';
@@ -36,6 +38,7 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
   final UpdateItemUseCase updateItemUseCase;
   final DeleteItemUseCase deleteItemUseCase;
   final IncrementItemUseCase incrementItemUseCase;
+  final ItemRepository itemRepository;
 
   StreamSubscription? _itemsSubscription;
 
@@ -46,6 +49,7 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     required this.updateItemUseCase,
     required this.deleteItemUseCase,
     required this.incrementItemUseCase,
+    required this.itemRepository,
   }) : super(ItemsInitial()) {
     on<LoadItemsEvent>(_onLoadItems);
     on<WatchItemsEvent>(_onWatchItems);
@@ -54,6 +58,7 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     on<UpdateItemEvent>(_onUpdateItem);
     on<DeleteItemEvent>(_onDeleteItem);
     on<IncrementItemEvent>(_onIncrementItem);
+    on<ReorderItemsEvent>(_onReorderItems);
   }
 
   /// Handle LoadItemsEvent - fetch items once.
@@ -320,6 +325,64 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
               return item.id == updatedItem.id ? updatedItem : item;
             }).toList();
             emit(ItemsLoaded(serverUpdatedItems, isWatching: false));
+          }
+        },
+      );
+    }
+  }
+
+  /// Handle ReorderItemsEvent - reorder items in the list.
+  ///
+  /// Uses optimistic reorder: Updates the list immediately in the UI
+  /// and reverts if the Firestore operation fails.
+  ///
+  /// Emits:
+  /// 1. ItemsLoaded with reordered list - optimistic reorder
+  /// 2. Previous state + ItemsError - if reorder fails
+  Future<void> _onReorderItems(
+    ReorderItemsEvent event,
+    Emitter<ItemsState> emit,
+  ) async {
+    final currentState = state;
+
+    if (currentState is ItemsLoaded) {
+      // Calculate the actual new index (Flutter's ReorderableListView behavior)
+      int newIndex = event.newIndex;
+      if (event.oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+
+      // Skip if no actual change
+      if (event.oldIndex == newIndex) return;
+
+      // Optimistic reorder: reorder list immediately
+      final reorderedItems = List<Item>.from(currentState.items);
+      final movedItem = reorderedItems.removeAt(event.oldIndex);
+      reorderedItems.insert(newIndex, movedItem);
+
+      // Update order field for each item
+      final updatedItems = reorderedItems.asMap().entries.map((entry) {
+        return entry.value.copyWith(order: entry.key);
+      }).toList();
+
+      emit(ItemsLoaded(updatedItems, isWatching: currentState.isWatching));
+
+      // Persist to Firestore
+      final result = await itemRepository.reorderItems(updatedItems);
+
+      result.fold(
+        (failure) {
+          // Revert on error
+          debugPrint('❌ Failed to reorder items: ${failure.message}');
+          emit(currentState);
+          emit(ItemsError(failure.message));
+        },
+        (_) {
+          debugPrint('✅ Items reordered successfully');
+          // If watching, stream will confirm the update
+          // If not, keep optimistic reorder
+          if (!currentState.isWatching) {
+            emit(ItemsLoaded(updatedItems, isWatching: false));
           }
         },
       );

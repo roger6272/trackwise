@@ -172,25 +172,66 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                 return _buildEmptyState(context, primaryText, secondaryText);
                               }
 
-                              return ListView.builder(
-                                padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                itemCount: state.items.length,
-                                itemBuilder: (context, index) {
-                                  final item = state.items[index];
-                                  return _buildItemTile(
-                                    context,
-                                    item,
-                                    appUiState,
-                                    isConnected,
-                                    bluetoothState.selectedItemId,
-                                    primaryText,
-                                    secondaryText,
-                                    alternate,
-                                    activatedColor,
-                                  );
-                                },
-                              );
+                              // Use ReorderableListView when connected, regular ListView when not
+                              if (isConnected) {
+                                return ReorderableListView.builder(
+                                  padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  buildDefaultDragHandles: false,
+                                  itemCount: state.items.length,
+                                  onReorder: (oldIndex, newIndex) {
+                                    context.read<ItemsBloc>().add(
+                                      ReorderItemsEvent(oldIndex: oldIndex, newIndex: newIndex),
+                                    );
+                                    // Sync to device after reorder
+                                    final bluetoothBloc = context.read<BluetoothBloc>();
+                                    final itemsBloc = context.read<ItemsBloc>();
+                                    // Small delay to let BLoC process the reorder
+                                    Future.delayed(const Duration(milliseconds: 100), () {
+                                      final itemsState = itemsBloc.state;
+                                      if (itemsState is ItemsLoaded) {
+                                        bluetoothBloc.add(SendItemsToDevice(itemsState.items));
+                                      }
+                                    });
+                                  },
+                                  itemBuilder: (context, index) {
+                                    final item = state.items[index];
+                                    return _buildItemTile(
+                                      context,
+                                      item,
+                                      index,
+                                      appUiState,
+                                      isConnected,
+                                      bluetoothState.selectedItemId,
+                                      primaryText,
+                                      secondaryText,
+                                      alternate,
+                                      activatedColor,
+                                    );
+                                  },
+                                );
+                              } else {
+                                return ListView.builder(
+                                  padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  itemCount: state.items.length,
+                                  itemBuilder: (context, index) {
+                                    final item = state.items[index];
+                                    return _buildItemTile(
+                                      context,
+                                      item,
+                                      index,
+                                      appUiState,
+                                      isConnected,
+                                      bluetoothState.selectedItemId,
+                                      primaryText,
+                                      secondaryText,
+                                      alternate,
+                                      activatedColor,
+                                    );
+                                  },
+                                );
+                              }
                             }
 
                             return const SizedBox();
@@ -353,6 +394,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
   Widget _buildItemTile(
     BuildContext context,
     Item item,
+    int index,
     AppUiState appUiState,
     bool isConnected,
     String? selectedItemId,
@@ -366,10 +408,29 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
+    // Build the drag handle widget
+    Widget dragHandle;
+    if (isConnected) {
+      dragHandle = ReorderableDragStartListener(
+        index: index,
+        child: Icon(
+          Icons.drag_handle,
+          color: secondaryText,
+          size: 22.0,
+        ),
+      );
+    } else {
+      dragHandle = Icon(
+        Icons.drag_handle,
+        color: secondaryText.withOpacity(0.3),
+        size: 22.0,
+      );
+    }
+
     return Padding(
+      key: ValueKey(item.id),
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Slidable(
-        key: ValueKey(item.id),
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
           extentRatio: 0.85,
@@ -476,11 +537,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                 fontSize: 20.0,
               ),
             ),
-            trailing: Icon(
-              Icons.drag_handle,
-              color: secondaryText,
-              size: 22.0,
-            ),
+            trailing: dragHandle,
             tileColor: Colors.transparent,
             dense: false,
             contentPadding: const EdgeInsets.symmetric(

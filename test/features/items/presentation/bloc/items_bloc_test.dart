@@ -24,6 +24,7 @@ void main() {
   late MockUpdateItemUseCase mockUpdateItem;
   late MockDeleteItemUseCase mockDeleteItem;
   late MockIncrementItemUseCase mockIncrementItem;
+  late MockItemRepository mockItemRepository;
 
   setUpAll(() {
     // Register fallback values for mocktail (only once)
@@ -47,6 +48,7 @@ void main() {
     mockUpdateItem = MockUpdateItemUseCase();
     mockDeleteItem = MockDeleteItemUseCase();
     mockIncrementItem = MockIncrementItemUseCase();
+    mockItemRepository = MockItemRepository();
   });
 
   test('initial state should be ItemsInitial', () {
@@ -58,6 +60,7 @@ void main() {
       updateItemUseCase: mockUpdateItem,
       deleteItemUseCase: mockDeleteItem,
       incrementItemUseCase: mockIncrementItem,
+      itemRepository: mockItemRepository,
     );
 
     // Assert
@@ -82,6 +85,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) => bloc.add(LoadItemsEvent(userId)),
@@ -106,6 +110,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) => bloc.add(LoadItemsEvent(userId)),
@@ -127,6 +132,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) => bloc.add(LoadItemsEvent(userId)),
@@ -153,6 +159,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) => bloc.add(WatchItemsEvent(userId)),
@@ -175,6 +182,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) => bloc.add(WatchItemsEvent(userId)),
@@ -200,6 +208,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) => bloc.add(WatchItemsEvent(userId)),
@@ -223,6 +232,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) {
@@ -248,6 +258,7 @@ void main() {
         updateItemUseCase: mockUpdateItem,
         deleteItemUseCase: mockDeleteItem,
         incrementItemUseCase: mockIncrementItem,
+        itemRepository: mockItemRepository,
       ),
       seed: () => ItemsLoaded(testItems, isWatching: true),
       act: (bloc) => bloc.add(StopWatchingItemsEvent()),
@@ -265,6 +276,7 @@ void main() {
         updateItemUseCase: mockUpdateItem,
         deleteItemUseCase: mockDeleteItem,
         incrementItemUseCase: mockIncrementItem,
+        itemRepository: mockItemRepository,
       ),
       act: (bloc) => bloc.add(StopWatchingItemsEvent()),
       expect: () => [],
@@ -288,6 +300,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => const ItemsLoaded([]),
@@ -316,6 +329,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       act: (bloc) => bloc.add(CreateItemEvent(
@@ -343,6 +357,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems, isWatching: true),
@@ -372,6 +387,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded([testItem.copyWith(name: 'Old Name')]),
@@ -396,6 +412,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded([testItem.copyWith(name: 'Old Name')], isWatching: false),
@@ -417,6 +434,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded([testItem.copyWith(name: 'Old Name')]),
@@ -437,6 +455,7 @@ void main() {
         updateItemUseCase: mockUpdateItem,
         deleteItemUseCase: mockDeleteItem,
         incrementItemUseCase: mockIncrementItem,
+        itemRepository: mockItemRepository,
       ),
       act: (bloc) => bloc.add(UpdateItemEvent(testItem)),
       expect: () => [],
@@ -458,6 +477,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems),
@@ -482,6 +502,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems, isWatching: false),
@@ -503,6 +524,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems),
@@ -523,6 +545,7 @@ void main() {
         updateItemUseCase: mockUpdateItem,
         deleteItemUseCase: mockDeleteItem,
         incrementItemUseCase: mockIncrementItem,
+        itemRepository: mockItemRepository,
       ),
       act: (bloc) => bloc.add(DeleteItemEvent(itemId)),
       expect: () => [],
@@ -545,6 +568,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems),
@@ -575,6 +599,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems, isWatching: false),
@@ -597,6 +622,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems),
@@ -620,6 +646,7 @@ void main() {
           updateItemUseCase: mockUpdateItem,
           deleteItemUseCase: mockDeleteItem,
           incrementItemUseCase: mockIncrementItem,
+          itemRepository: mockItemRepository,
         );
       },
       seed: () => ItemsLoaded(testItems),
@@ -641,6 +668,7 @@ void main() {
         updateItemUseCase: mockUpdateItem,
         deleteItemUseCase: mockDeleteItem,
         incrementItemUseCase: mockIncrementItem,
+        itemRepository: mockItemRepository,
       ),
       act: (bloc) => bloc.add(IncrementItemEvent(itemId: itemId)),
       expect: () => [],

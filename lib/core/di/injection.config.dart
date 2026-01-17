@@ -272,6 +272,15 @@ extension GetItInjectableX on _i174.GetIt {
           exportUserData: gh<_i764.ExportUserDataUseCase>(),
           deleteAccount: gh<_i535.DeleteAccountUseCase>(),
         ));
+    gh.factory<_i913.ItemsBloc>(() => _i913.ItemsBloc(
+          getItemsUseCase: gh<_i1010.GetItemsUseCase>(),
+          watchItemsUseCase: gh<_i307.WatchItemsUseCase>(),
+          createItemUseCase: gh<_i311.CreateItemUseCase>(),
+          updateItemUseCase: gh<_i159.UpdateItemUseCase>(),
+          deleteItemUseCase: gh<_i64.DeleteItemUseCase>(),
+          incrementItemUseCase: gh<_i154.IncrementItemUseCase>(),
+          itemRepository: gh<_i319.ItemRepository>(),
+        ));
     gh.lazySingleton<_i72.BluetoothBloc>(() => _i72.BluetoothBloc(
           gh<_i697.ScanDevicesUseCase>(),
           gh<_i907.StopScanUseCase>(),
@@ -323,14 +332,6 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.factory<_i1061.ExportBloc>(() => _i1061.ExportBloc(
         sendEmailWithCSVUseCase: gh<_i963.SendEmailWithCSVUseCase>()));
-    gh.factory<_i913.ItemsBloc>(() => _i913.ItemsBloc(
-          getItemsUseCase: gh<_i1010.GetItemsUseCase>(),
-          watchItemsUseCase: gh<_i307.WatchItemsUseCase>(),
-          createItemUseCase: gh<_i311.CreateItemUseCase>(),
-          updateItemUseCase: gh<_i159.UpdateItemUseCase>(),
-          deleteItemUseCase: gh<_i64.DeleteItemUseCase>(),
-          incrementItemUseCase: gh<_i154.IncrementItemUseCase>(),
-        ));
     gh.factory<_i626.AuthBloc>(() => _i626.AuthBloc(
           signInWithEmail: gh<_i588.SignInWithEmailUseCase>(),
           signInWithGoogle: gh<_i718.SignInWithGoogleUseCase>(),

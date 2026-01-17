@@ -60,6 +60,10 @@ class Item extends Equatable {
   /// and permanently deleted after 90 days.
   final DateTime? deletedAt;
 
+  /// Display order for sorting items in the list (0-indexed).
+  /// Used for drag-to-reorder functionality.
+  final int order;
+
   const Item({
     required this.id,
     required this.name,
@@ -72,6 +76,7 @@ class Item extends Equatable {
     required this.lastUpdated,
     required this.userId,
     this.deletedAt,
+    this.order = 0,
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -90,6 +95,7 @@ class Item extends Equatable {
     String? userId,
     DateTime? deletedAt,
     bool clearDeletedAt = false,
+    int? order,
   }) {
     return Item(
       id: id ?? this.id,
@@ -103,6 +109,7 @@ class Item extends Equatable {
       lastUpdated: lastUpdated ?? this.lastUpdated,
       userId: userId ?? this.userId,
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+      order: order ?? this.order,
     );
   }
 
@@ -119,6 +126,7 @@ class Item extends Equatable {
         lastUpdated,
         userId,
         deletedAt,
+        order,
       ];
 
   @override
@@ -126,6 +134,6 @@ class Item extends Equatable {
     return 'Item(id: $id, name: $name, count: $count, todayCount: $todayCount, '
         'incrementBy: $incrementBy, reminder: $reminder, reminderValue: $reminderValue, '
         'lastResetTime: $lastResetTime, lastUpdated: $lastUpdated, userId: $userId, '
-        'deletedAt: $deletedAt)';
+        'deletedAt: $deletedAt, order: $order)';
   }
 }

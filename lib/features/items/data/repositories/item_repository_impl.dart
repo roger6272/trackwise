@@ -76,6 +76,7 @@ class ItemRepositoryImpl implements ItemRepository {
         lastResetTime: item.lastResetTime,
         lastUpdated: item.lastUpdated,
         userId: item.userId,
+        order: item.order,
       );
       final created = await remoteDataSource.createItem(itemModel);
       return Right(created);
@@ -98,6 +99,7 @@ class ItemRepositoryImpl implements ItemRepository {
         lastResetTime: item.lastResetTime,
         lastUpdated: item.lastUpdated,
         userId: item.userId,
+        order: item.order,
       );
       final updated = await remoteDataSource.updateItem(itemModel);
       return Right(updated);
@@ -163,6 +165,30 @@ class ItemRepositoryImpl implements ItemRepository {
   Future<Either<Failure, void>> restoreItem(String itemId) async {
     try {
       await remoteDataSource.restoreItem(itemId);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> reorderItems(List<Item> items) async {
+    try {
+      final itemModels = items.map((item) => ItemModel(
+        id: item.id,
+        name: item.name,
+        count: item.count,
+        todayCount: item.todayCount,
+        incrementBy: item.incrementBy,
+        reminder: item.reminder,
+        reminderValue: item.reminderValue,
+        lastResetTime: item.lastResetTime,
+        lastUpdated: item.lastUpdated,
+        userId: item.userId,
+        deletedAt: item.deletedAt,
+        order: item.order,
+      )).toList();
+      await remoteDataSource.reorderItems(itemModels);
       return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));

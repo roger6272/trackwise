@@ -134,4 +134,15 @@ abstract class ItemRemoteDataSource {
   ///
   /// Throws [ServerException] if the Firestore operation fails.
   Future<void> restoreItem(String itemId);
+
+  /// Updates the order field for multiple items in a batch.
+  ///
+  /// Used for drag-to-reorder functionality. Each item's order field is set
+  /// to its index in the provided list.
+  ///
+  /// Parameters:
+  /// - [items]: List of items with their new order values already set
+  ///
+  /// Throws [ServerException] if the Firestore batch operation fails.
+  Future<void> reorderItems(List<ItemModel> items);
 }
