@@ -313,8 +313,28 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Future<void> restoreItem(String itemId) async {
     try {
+      // Get the item to find its userId
+      final itemDoc = await firestore.collection('Item').doc(itemId).get();
+      if (!itemDoc.exists) {
+        throw ServerException('Item not found: $itemId');
+      }
+
+      final itemData = itemDoc.data()!;
+      final userRef = itemData['uid'] as DocumentReference;
+
+      // Count existing non-deleted items to determine new order
+      final existingItems = await firestore
+          .collection('Item')
+          .where('uid', isEqualTo: userRef)
+          .get();
+      final newOrder = existingItems.docs
+          .where((doc) => doc.data()['deletedAt'] == null)
+          .length;
+
+      // Restore item with new order at end of list
       await firestore.collection('Item').doc(itemId).update({
         'deletedAt': FieldValue.delete(),
+        'order': newOrder,
       });
     } on FirebaseException catch (e) {
       throw ServerException('Failed to restore item: ${e.message}');
