@@ -5,10 +5,9 @@ import '../../../../../core/theme/app_colors.dart';
 
 /// Widget displaying summary statistics cards with slide/fade animations.
 ///
-/// Shows 5 cards:
+/// Shows a balanced 2x2 grid of stat cards:
 /// - Row 1: Current Count, Initial Count
-/// - Row 2: Average Count, Highest Count
-/// - Row 3: Lowest Count (centered)
+/// - Row 2: Average, Range (High-Low)
 class SummaryCards extends StatefulWidget {
   const SummaryCards({
     super.key,
@@ -41,7 +40,7 @@ class _SummaryCardsState extends State<SummaryCards>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
 
@@ -50,15 +49,15 @@ class _SummaryCardsState extends State<SummaryCards>
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOutCubic,
     ));
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0.0, 0.3),
+      begin: const Offset(0.0, 0.15),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOutCubic,
     ));
 
     _controller.forward();
@@ -72,7 +71,6 @@ class _SummaryCardsState extends State<SummaryCards>
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = MediaQuery.sizeOf(context).width * 0.42;
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
@@ -98,80 +96,93 @@ class _SummaryCardsState extends State<SummaryCards>
               ),
             ),
             // Progress bar (only shown when goal is set)
-            if (widget.goal != null) _buildProgressBar(
-              context: context,
-              currentCount: widget.currentCount,
-              initialCount: widget.initialCount,
-              goal: widget.goal!,
-              primaryText: primaryText,
-              secondaryText: secondaryText,
-              secondaryBackground: secondaryBackground,
-            ),
-            // Row 1: Current Count, Initial Count
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  child: _SummaryCard(
-                    value: widget.currentCount.toString(),
-                    label: 'Current Count',
-                    width: cardWidth,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  child: _SummaryCard(
-                    value: widget.initialCount.toString(),
-                    label: 'Initial Count',
-                    width: cardWidth,
-                  ),
-                ),
-              ],
-            ),
-            // Row 2: Average Count, Highest Count
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  child: _SummaryCard(
-                    value: widget.average.toStringAsFixed(1),
-                    label: 'Average',
-                    width: cardWidth,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  child: _SummaryCard(
-                    value: widget.highestCount.toString(),
-                    label: 'Highest',
-                    width: cardWidth,
-                  ),
-                ),
-              ],
-            ),
-            // Row 3: Lowest Count (centered)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  child: _SummaryCard(
-                    value: widget.lowestCount.toString(),
-                    label: 'Lowest',
-                    width: cardWidth,
-                  ),
-                ),
-                // Empty space to maintain alignment
-                SizedBox(width: cardWidth),
-              ],
-            ),
+            if (widget.goal != null)
+              _buildProgressBar(
+                context: context,
+                currentCount: widget.currentCount,
+                initialCount: widget.initialCount,
+                goal: widget.goal!,
+                primaryText: primaryText,
+                secondaryText: secondaryText,
+                secondaryBackground: secondaryBackground,
+              ),
+            // 2x2 Grid of stat cards
+            _buildStatsGrid(context),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatsGrid(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final alternate = AppColors.alternate(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: alternate,
+        borderRadius: BorderRadius.circular(14.0),
+        border: Border.all(
+          color: primaryText.withValues(alpha: 0.06),
+          width: 1.0,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Row 1
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _GridStatCell(
+                    value: widget.currentCount.toString(),
+                    label: 'Current',
+                    icon: Icons.tag_rounded,
+                    showRightBorder: true,
+                  ),
+                ),
+                Expanded(
+                  child: _GridStatCell(
+                    value: widget.initialCount.toString(),
+                    label: 'Initial',
+                    icon: Icons.start_rounded,
+                    showRightBorder: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Divider
+          Container(
+            height: 1.0,
+            color: primaryText.withValues(alpha: 0.06),
+          ),
+          // Row 2
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _GridStatCell(
+                    value: widget.average.toStringAsFixed(1),
+                    label: 'Average',
+                    icon: Icons.analytics_outlined,
+                    showRightBorder: true,
+                  ),
+                ),
+                Expanded(
+                  child: _GridStatCell(
+                    value: '${widget.lowestCount} - ${widget.highestCount}',
+                    label: 'Range',
+                    icon: Icons.swap_vert_rounded,
+                    showRightBorder: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -266,54 +277,79 @@ class _SummaryCardsState extends State<SummaryCards>
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
+/// A single cell in the 2x2 stats grid.
+class _GridStatCell extends StatelessWidget {
+  const _GridStatCell({
     required this.value,
     required this.label,
-    required this.width,
+    required this.icon,
+    required this.showRightBorder,
   });
 
   final String value;
   final String label;
-  final double width;
+  final IconData icon;
+  final bool showRightBorder;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final alternate = AppColors.alternate(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
     return Container(
-      width: width,
-      height: 72.0,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
       decoration: BoxDecoration(
-        color: alternate,
-        borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(
-          color: primaryText.withValues(alpha: 0.06),
-          width: 1.0,
-        ),
+        border: showRightBorder
+            ? Border(
+                right: BorderSide(
+                  color: primaryText.withValues(alpha: 0.06),
+                  width: 1.0,
+                ),
+              )
+            : null,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            value,
-            style: GoogleFonts.interTight(
-              fontSize: 22.0,
-              fontWeight: FontWeight.w600,
-              color: primaryText,
+          // Icon container
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            child: Icon(
+              icon,
+              size: 16.0,
+              color: AppColors.primary,
             ),
           ),
-          const SizedBox(height: 2.0),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12.0,
-              color: secondaryText,
+          const SizedBox(width: 12.0),
+          // Value and label
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.interTight(
+                    fontSize: 18.0,
+                    fontWeight: FontWeight.w600,
+                    color: primaryText,
+                  ),
+                ),
+                const SizedBox(height: 1.0),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w500,
+                    color: secondaryText,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

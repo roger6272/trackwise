@@ -15,7 +15,7 @@ import 'hero_stats.dart';
 ///
 /// Shows:
 /// - Hero stats with animated count and trend badge
-/// - Chart toggle switch (Increments / Cumulative)
+/// - Chart toggle (Increments / Cumulative)
 /// - Chart display area (bar or cumulative based on toggle)
 class StatsSection extends StatelessWidget {
   /// Pre-calculated statistics for the selected period.
@@ -47,9 +47,7 @@ class StatsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     const primary = AppColors.primary;
-    final primaryText = AppColors.primaryText(brightness);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -60,41 +58,103 @@ class StatsSection extends StatelessWidget {
           percentChange: stats.percentChange,
           periodLabel: stats.periodLabel,
         ),
-        _buildChartToggle(primary, primaryText),
+        _buildChartToggle(context, primary),
         const SizedBox(height: 10.0),
         _buildChartArea(context, primary),
       ],
     );
   }
 
-  /// Builds the chart type toggle switch.
-  Widget _buildChartToggle(Color primary, Color primaryText) {
+  /// Builds the chart type toggle as matching pill buttons.
+  Widget _buildChartToggle(BuildContext context, Color primary) {
+    final brightness = Theme.of(context).brightness;
+    final alternate = AppColors.alternate(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 0.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Text(
-            'Increments',
-            style: GoogleFonts.inter(
-              fontSize: 12.0,
-              color: primaryText,
+          Container(
+            decoration: BoxDecoration(
+              color: alternate,
+              borderRadius: BorderRadius.circular(10.0),
             ),
-          ),
-          Switch.adaptive(
-            value: showCumulative,
-            onChanged: onChartTypeChanged,
-            activeColor: primary,
-            inactiveTrackColor: const Color(0xFFA158FF),
-          ),
-          Text(
-            'Cumulative',
-            style: GoogleFonts.inter(
-              fontSize: 12.0,
-              color: primaryText,
+            padding: const EdgeInsets.all(3.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildToggleOption(
+                  label: 'Increments',
+                  icon: Icons.bar_chart_rounded,
+                  isSelected: !showCumulative,
+                  onTap: () => onChartTypeChanged(false),
+                  primary: primary,
+                  secondaryText: secondaryText,
+                ),
+                _buildToggleOption(
+                  label: 'Cumulative',
+                  icon: Icons.show_chart_rounded,
+                  isSelected: showCumulative,
+                  onTap: () => onChartTypeChanged(true),
+                  primary: primary,
+                  secondaryText: secondaryText,
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color primary,
+    required Color secondaryText,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+        decoration: BoxDecoration(
+          color: isSelected ? primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8.0),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primary.withValues(alpha: 0.25),
+                    blurRadius: 6.0,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14.0,
+              color: isSelected ? Colors.white : secondaryText,
+            ),
+            const SizedBox(width: 4.0),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11.0,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? Colors.white : secondaryText,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

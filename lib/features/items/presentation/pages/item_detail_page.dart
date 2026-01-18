@@ -112,9 +112,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                   fontSize: 22.0,
                 ),
               ),
-              actions: const [],
               centerTitle: true,
-              elevation: 2.0,
+              elevation: 0.0,
             ),
             body: SafeArea(
               top: true,
@@ -126,7 +125,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     delegate: _StickyFilterHeaderDelegate(
                       child: Container(
                         color: primaryBackground,
-                        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 4.0),
+                        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 8.0),
                         child: FilterSection(
                           aggregation: _aggregation,
                           showSinceReset: _showSinceReset,
@@ -151,8 +150,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           },
                         ),
                       ),
-                      maxHeight: 164.0,
-                      minHeight: 164.0,
+                      maxHeight: 130.0,
+                      minHeight: 130.0,
                     ),
                   ),
                   // Stats and Summary Content
