@@ -44,6 +44,9 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Timeout for incomplete message assembly (5 seconds)
   static const Duration _messageAssemblyTimeout = Duration(seconds: 5);
 
+  /// Maximum buffer size to prevent memory exhaustion (64KB)
+  static const int _maxBufferSize = 64 * 1024;
+
   // Connection state tracking
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   final _connectionStateController = StreamController<BleConnectionState>.broadcast();
@@ -281,10 +284,24 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       }
     }
 
-    // Subscribe to notifications if characteristic found
-    if (_notifyChar != null) {
-      await _subscribeToNotifications();
+    // Validate all required characteristics were found
+    final missingChars = <String>[];
+    if (_readChar == null) missingChars.add('READ');
+    if (_notifyChar == null) missingChars.add('NOTIFY');
+    if (_setItemsChar == null) missingChars.add('SET_ITEMS');
+    if (_writeChar == null) missingChars.add('WRITE');
+
+    if (missingChars.isNotEmpty) {
+      final error = 'Missing required BLE characteristics: ${missingChars.join(', ')}. '
+          'Device may not be a valid Trackwise device or firmware needs update.';
+      debugPrint('❌ $error');
+      throw StateError(error);
     }
+
+    debugPrint('✅ All BLE characteristics discovered successfully');
+
+    // Subscribe to notifications
+    await _subscribeToNotifications();
   }
 
   Future<void> _subscribeToNotifications() async {
@@ -307,6 +324,15 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Decode bytes to string and add to buffer
     final chunk = utf8.decode(data, allowMalformed: true);
     _messageBuffer.write(chunk);
+
+    // Check buffer size to prevent memory exhaustion
+    if (_messageBuffer.length > _maxBufferSize) {
+      debugPrint('⚠️ Message buffer overflow (${_messageBuffer.length} bytes) - clearing to prevent memory exhaustion');
+      _messageBuffer.clear();
+      _messageTimeoutTimer?.cancel();
+      _messageTimeoutTimer = null;
+      return;
+    }
 
     // Reset message assembly timeout timer
     _messageTimeoutTimer?.cancel();

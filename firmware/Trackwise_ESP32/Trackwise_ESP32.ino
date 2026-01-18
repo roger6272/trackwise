@@ -59,6 +59,8 @@ time_t lastResetTime = 0;
 Preferences prefs;  // Non-volatile storage instance
 unsigned long lastResetCheck = 0;
 String incomingJsonBuffer = "";
+unsigned long lastChunkReceived = 0;  // Timestamp of last chunk for timeout detection
+const unsigned long CHUNK_TIMEOUT_MS = 5000;  // 5 second timeout for incomplete transfers
 enum ReadMode { READ_NONE,
                 READ_PREFS,
                 READ_LOGS };
@@ -203,6 +205,9 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
     String chunk = String(c->getValue().c_str());
     Serial.println("Received raw chunk:");
     Serial.println(chunk);
+
+    // Update timestamp for chunk timeout detection
+    lastChunkReceived = millis();
 
     incomingJsonBuffer.trim();
     incomingJsonBuffer += chunk;
@@ -940,6 +945,15 @@ void loop() {
       resetTodayCountsIfNeeded();
       lastResetCheck = millis();
     }
+
+  // Check for stale incoming JSON buffer (incomplete transfer from app)
+  if (incomingJsonBuffer.length() > 0 && lastChunkReceived > 0) {
+    if (millis() - lastChunkReceived > CHUNK_TIMEOUT_MS) {
+      Serial.printf("⚠️ Chunk timeout - clearing stale buffer (%d bytes)\n", incomingJsonBuffer.length());
+      incomingJsonBuffer = "";
+      lastChunkReceived = 0;
+    }
+  }
 
   // Handle prepare_read requests by sending data via notification
   // (deferred from BLE callback to avoid NVS access issues)
