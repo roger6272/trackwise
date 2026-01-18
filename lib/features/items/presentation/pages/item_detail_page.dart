@@ -177,62 +177,101 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       minHeight: 118.0,
                     ),
                   ),
-                  // Chart and Dynamic Stats Content
+                  // Filtered Content Zone
                   // ALL content below is affected by filters
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
-                    sliver: SliverToBoxAdapter(
-                      child: BlocBuilder<EventsBloc, EventsState>(
-                        builder: (context, eventsState) {
-                          // Show shimmer skeleton while loading
-                          if (eventsState is EventsLoading) {
-                            return const Column(
+                  SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 8.0),
+                      decoration: BoxDecoration(
+                        color: brightness == Brightness.light
+                            ? const Color(0xFFF8F9FB)
+                            : primaryText.withValues(alpha: 0.03),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(24.0),
+                          topRight: Radius.circular(24.0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Section label
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 12.0),
+                            child: Row(
                               children: [
-                                ChartSectionSkeleton(),
-                                SizedBox(height: 16.0),
-                                DynamicStatsSkeleton(),
-                                SizedBox(height: 24.0),
-                              ],
-                            );
-                          }
-
-                          final stats = _calculateStats(eventsState);
-                          return Column(
-                            children: [
-                              // Chart Section
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: alternate,
-                                  borderRadius: BorderRadius.circular(12.0),
-                                  border: Border.all(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
-                                    width: 1.0,
+                                Icon(
+                                  Icons.filter_alt_outlined,
+                                  size: 14.0,
+                                  color: AppColors.secondaryText(brightness),
+                                ),
+                                const SizedBox(width: 6.0),
+                                Text(
+                                  'Filtered Results',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12.0,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.secondaryText(brightness),
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
-                                child: ChartSection(
-                                  showCumulative: _showCumulative,
-                                  onChartTypeChanged: (value) {
-                                    setState(() {
-                                      _showCumulative = value;
-                                    });
-                                    _reloadChart(context);
-                                  },
-                                  range: _aggregation,
-                                  selectedDate: _selectedDate,
-                                ),
-                              ),
-                              const SizedBox(height: 16.0),
-                              // Dynamic Stats Section
-                              DynamicStats(
-                                stats: stats,
-                                range: _aggregation,
-                                initialCount: widget.initialCount ?? 0,
-                                showSinceReset: _showSinceReset,
-                              ),
-                              const SizedBox(height: 24.0),
-                            ],
-                          );
-                        },
+                              ],
+                            ),
+                          ),
+                          // Chart and Stats Content
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 24.0),
+                            child: BlocBuilder<EventsBloc, EventsState>(
+                              builder: (context, eventsState) {
+                                // Show shimmer skeleton while loading
+                                if (eventsState is EventsLoading) {
+                                  return const Column(
+                                    children: [
+                                      ChartSectionSkeleton(),
+                                      SizedBox(height: 16.0),
+                                      DynamicStatsSkeleton(),
+                                    ],
+                                  );
+                                }
+
+                                final stats = _calculateStats(eventsState);
+                                return Column(
+                                  children: [
+                                    // Chart Section
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: alternate,
+                                        borderRadius: BorderRadius.circular(12.0),
+                                        border: Border.all(
+                                          color: AppColors.primary.withValues(alpha: 0.1),
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: ChartSection(
+                                        showCumulative: _showCumulative,
+                                        onChartTypeChanged: (value) {
+                                          setState(() {
+                                            _showCumulative = value;
+                                          });
+                                          _reloadChart(context);
+                                        },
+                                        range: _aggregation,
+                                        selectedDate: _selectedDate,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16.0),
+                                    // Dynamic Stats Section
+                                    DynamicStats(
+                                      stats: stats,
+                                      range: _aggregation,
+                                      initialCount: widget.initialCount ?? 0,
+                                      showSinceReset: _showSinceReset,
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
