@@ -257,6 +257,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       range: _aggregation,
                                       initialCount: widget.initialCount ?? 0,
                                       lastResetTime: widget.lastResetTime,
+                                      showSinceReset: _showSinceReset,
                                     ),
                                   ],
                                 );

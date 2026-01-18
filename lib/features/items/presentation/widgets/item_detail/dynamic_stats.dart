@@ -26,18 +26,38 @@ class DynamicStats extends StatelessWidget {
   /// Last reset time - null means item was never reset.
   final DateTime? lastResetTime;
 
+  /// Whether "Since Last Reset" filter is active.
+  final bool showSinceReset;
+
   const DynamicStats({
     super.key,
     required this.stats,
     required this.range,
     required this.initialCount,
     required this.lastResetTime,
+    required this.showSinceReset,
   });
 
   // Semantic colors for trend indicators
   static const Color _positiveColor = Color(0xFF017400);
   static const Color _negativeColor = Color(0xFF9F0202);
   static const Color _neutralColor = Color(0xFF6B7280);
+
+  /// Returns the initial count display value based on filters.
+  /// - All time (toggle OFF): show actual initialCount
+  /// - Since Reset (toggle ON) + was reset: show 0
+  /// - Since Reset (toggle ON) + never reset: show initialCount
+  String _getInitialCountDisplay() {
+    if (!showSinceReset) {
+      // All time mode - show actual initial count
+      return initialCount.toString();
+    }
+    // Since Reset mode - show 0 only if actually reset
+    if (lastResetTime != null) {
+      return '0';
+    }
+    return initialCount.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +123,7 @@ class DynamicStats extends StatelessWidget {
                     // Initial count (0 when since reset)
                     Expanded(
                       child: _buildStatCell(
-                        value: lastResetTime != null ? '0' : initialCount.toString(),
+                        value: _getInitialCountDisplay(),
                         label: 'Initial Count',
                         icon: Icons.start_rounded,
                         iconColor: secondaryText,
