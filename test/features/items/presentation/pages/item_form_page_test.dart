@@ -106,7 +106,8 @@ void main() {
       expect(find.text('Item Name'), findsOneWidget);
       expect(find.text('Increment By'), findsOneWidget);
       expect(find.text('Reminder Type'), findsOneWidget);
-      expect(find.text('Reminder Value'), findsOneWidget);
+      // Reminder Value is hidden when No Reminder is selected (default)
+      expect(find.text('Reminder Value'), findsNothing);
     });
 
     testWidgets('displays Create button', (tester) async {
@@ -221,9 +222,9 @@ void main() {
         'Test Item',
       );
 
-      // Form field order: 0=name, 1=initialValue, 2=incrementBy, 3=reminderValue
-      // Find and clear the increment field (index 2), enter invalid value
-      final incrementField = find.byType(TextFormField).at(2);
+      // Form field order when No Reminder: 0=name, 1=initialValue, 2=goal, 3=incrementBy
+      // Find and clear the increment field (index 3), enter invalid value
+      final incrementField = find.byType(TextFormField).at(3);
       await tester.enterText(incrementField, '0');
 
       await tester.tap(find.text('Create'));
@@ -246,9 +247,15 @@ void main() {
         'Test Item',
       );
 
-      // Form field order: 0=name, 1=initialValue, 2=incrementBy, 3=reminderValue
-      // Find and update the reminder value field (index 3) with invalid value
-      final reminderField = find.byType(TextFormField).at(3);
+      // First select a reminder type to show the reminder value field
+      await tester.tap(find.text('No Reminder'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Target Count').last);
+      await tester.pumpAndSettle();
+
+      // Form field order when reminder selected: 0=name, 1=initialValue, 2=goal, 3=incrementBy, 4=reminderValue
+      // Find and update the reminder value field (index 4) with invalid value
+      final reminderField = find.byType(TextFormField).at(4);
       await tester.enterText(reminderField, '9999');
 
       await tester.tap(find.text('Create'));

@@ -119,6 +119,17 @@ class TestAppUiState extends ChangeNotifier implements AppUiState {
   void setActiveItem(String itemId) {
     activeItemId = itemId;
   }
+
+  bool _hasShownSwipeHint = false;
+
+  @override
+  bool get hasShownSwipeHint => _hasShownSwipeHint;
+
+  @override
+  void markSwipeHintShown() {
+    _hasShownSwipeHint = true;
+    notifyListeners();
+  }
 }
 
 void main() {
