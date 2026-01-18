@@ -416,22 +416,28 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
-    // Build the drag handle widget
+    // Build the drag handle widget with larger touch area
     Widget dragHandle;
     if (isConnected) {
       dragHandle = ReorderableDragStartListener(
         index: index,
-        child: Icon(
-          Icons.drag_handle,
-          color: secondaryText,
-          size: 22.0,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
+          child: Icon(
+            Icons.drag_handle,
+            color: secondaryText,
+            size: 24.0,
+          ),
         ),
       );
     } else {
-      dragHandle = Icon(
-        Icons.drag_handle,
-        color: secondaryText.withOpacity(0.3),
-        size: 22.0,
+      dragHandle = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
+        child: Icon(
+          Icons.drag_handle,
+          color: secondaryText.withOpacity(0.3),
+          size: 24.0,
+        ),
       );
     }
 
