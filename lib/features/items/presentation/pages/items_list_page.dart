@@ -562,6 +562,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   'initialCount': item.initialCount.toString(),
                   'incrementBy': item.incrementBy.toString(),
                   'reminderType': item.reminder.name,
+                  'reminderValue': item.reminderValue.toString(),
                   if (item.goal != null) 'goal': item.goal.toString(),
                 },
               );

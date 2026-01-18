@@ -55,6 +55,9 @@ class ItemDetailPage extends StatefulWidget {
   /// Type of reminder configured for this item.
   final ReminderType? reminderType;
 
+  /// Value for the reminder (target count or interval).
+  final int? reminderValue;
+
   const ItemDetailPage({
     super.key,
     required this.itemId,
@@ -65,6 +68,7 @@ class ItemDetailPage extends StatefulWidget {
     this.goal,
     this.incrementBy,
     this.reminderType,
+    this.reminderValue,
   });
 
   @override
@@ -141,6 +145,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       incrementBy: widget.incrementBy ?? 1,
                       lastResetTime: widget.lastResetTime,
                       reminderType: widget.reminderType ?? ReminderType.none,
+                      reminderValue: widget.reminderValue ?? 0,
                     ),
                   ),
                   // Sticky Filter Section (part of filtered zone)

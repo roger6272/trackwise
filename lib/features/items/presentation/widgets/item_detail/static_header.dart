@@ -30,6 +30,9 @@ class StaticHeader extends StatelessWidget {
   /// Type of reminder configured.
   final ReminderType reminderType;
 
+  /// Value for the reminder (target count or interval).
+  final int reminderValue;
+
   const StaticHeader({
     super.key,
     required this.currentCount,
@@ -38,6 +41,7 @@ class StaticHeader extends StatelessWidget {
     required this.incrementBy,
     this.lastResetTime,
     required this.reminderType,
+    this.reminderValue = 0,
   });
 
   @override
@@ -199,11 +203,11 @@ class StaticHeader extends StatelessWidget {
     IconData reminderIcon;
     switch (reminderType) {
       case ReminderType.target:
-        reminderLabel = 'Target';
+        reminderLabel = '@ $reminderValue';
         reminderIcon = Icons.gps_fixed_rounded;
         break;
       case ReminderType.interval:
-        reminderLabel = 'Interval';
+        reminderLabel = 'Every $reminderValue';
         reminderIcon = Icons.repeat_rounded;
         break;
       case ReminderType.none:
