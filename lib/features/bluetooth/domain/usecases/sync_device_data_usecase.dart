@@ -51,6 +51,8 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
         return _syncEventMessage(message, userId);
       case BleMessageType.logs:
         return _syncLogsMessage(message, userId);
+      case BleMessageType.itemDelta:
+        return _syncItemDeltaMessage(message, userId);
       case BleMessageType.unknown:
         return const Right(null);
     }
@@ -190,5 +192,36 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
 
     debugPrint('✅ Syncing ${events.length} historical log entries');
     return await eventLogRepository.insertEvents(events);
+  }
+
+  /// Syncs item delta message - updates a single item's counts in Firestore.
+  ///
+  /// This is more efficient than prefs for real-time updates (increment/reset)
+  /// as it only updates one item instead of all items.
+  Future<Either<Failure, void>> _syncItemDeltaMessage(
+    BleMessage message,
+    String userId,
+  ) async {
+    final data = message.data;
+    if (data == null || data is! Map<String, dynamic>) return const Right(null);
+
+    final itemId = data['id']?.toString();
+    if (itemId == null) return const Right(null);
+
+    final count = data['count'] as int? ?? 0;
+    final todayCount = data['todaycount'] as int? ?? 0;
+    final lastResetTimeSeconds = data['lastResetTime'] as int? ?? 0;
+
+    debugPrint('📤 Delta update: $itemId count=$count today=$todayCount');
+
+    // Use batchUpdateCounts with a single item - it handles the logic
+    return await itemRepository.batchUpdateCounts(userId, [
+      {
+        'id': itemId,
+        'count': count,
+        'todaycount': todayCount,
+        'lastResetTime': lastResetTimeSeconds,
+      }
+    ]);
   }
 }

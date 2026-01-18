@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 /// - [prefs]: Item status updates with counts and selected item
 /// - [event]: Real-time events (increment, switch, etc.)
 /// - [logs]: Historical event logs with pagination
+/// - [itemDelta]: Single item count update (efficient alternative to full prefs)
 /// - [unknown]: Unrecognized message type
 enum BleMessageType {
   /// Item preferences/status update
@@ -19,6 +20,10 @@ enum BleMessageType {
   /// Historical log data (paginated)
   /// Contains: data (list of events), hasMore flag
   logs,
+
+  /// Single item delta update (count changed)
+  /// Contains: id, count, todaycount, lastResetTime
+  itemDelta,
 
   /// Unknown or malformed message
   unknown,

@@ -51,6 +51,10 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   final _connectionStateController = StreamController<BleConnectionState>.broadcast();
 
+  // BLE write queue for serialization (prevents interleaved chunks)
+  final _writeQueue = <_WriteOperation>[];
+  bool _isProcessingWrite = false;
+
   @override
   bool get isScanning => FlutterBluePlus.isScanningNow;
 
@@ -392,7 +396,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     if (_setItemsChar == null) {
       throw StateError('SET_ITEMS characteristic not found. Call discoverServices first.');
     }
-    await _writeChunked(_setItemsChar!, jsonData);
+    // Use queue to prevent interleaved chunks with other writes
+    await _enqueueWrite(() => _writeChunked(_setItemsChar!, jsonData));
   }
 
   @override
@@ -400,7 +405,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     if (_writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
-    await _writeChunked(_writeChar!, jsonData);
+    // Use queue to prevent interleaved chunks with other writes
+    await _enqueueWrite(() => _writeChunked(_writeChar!, jsonData));
   }
 
   /// Writes a command without newline delimiter (for prepare_read commands).
@@ -408,9 +414,11 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     if (_writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
-    // Write directly without adding newline (matches old prepareBLERead behavior)
-    final bytes = utf8.encode(jsonData);
-    await _writeWithRetry(_writeChar!, bytes);
+    // Use queue to prevent interleaved chunks with other writes
+    await _enqueueWrite(() async {
+      final bytes = utf8.encode(jsonData);
+      await _writeWithRetry(_writeChar!, bytes);
+    });
   }
 
   /// Writes data in chunks to respect MTU limits.
@@ -653,6 +661,41 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
            location.isGranted;
   }
 
+  // ========== Write Queue ==========
+
+  /// Enqueues a write operation and processes it when ready.
+  /// Ensures writes are serialized to prevent interleaved chunks.
+  Future<void> _enqueueWrite(Future<void> Function() writeOperation) async {
+    final completer = Completer<void>();
+    _writeQueue.add(_WriteOperation(writeOperation, completer));
+
+    // Start processing if not already running
+    if (!_isProcessingWrite) {
+      _processWriteQueue();
+    }
+
+    return completer.future;
+  }
+
+  /// Processes queued write operations sequentially.
+  Future<void> _processWriteQueue() async {
+    if (_isProcessingWrite || _writeQueue.isEmpty) return;
+
+    _isProcessingWrite = true;
+
+    while (_writeQueue.isNotEmpty) {
+      final operation = _writeQueue.removeAt(0);
+      try {
+        await operation.execute();
+        operation.completer.complete();
+      } catch (e) {
+        operation.completer.completeError(e);
+      }
+    }
+
+    _isProcessingWrite = false;
+  }
+
   // ========== Cleanup ==========
 
   @override
@@ -663,10 +706,24 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     await _messageController.close();
     await _connectionStateController.close();
 
+    // Clear pending write operations
+    for (final op in _writeQueue) {
+      op.completer.completeError(StateError('Datasource disposed'));
+    }
+    _writeQueue.clear();
+
     if (_connectedDevice != null) {
       await _connectedDevice!.disconnect();
     }
 
     _clearConnectionState();
   }
+}
+
+/// Represents a queued write operation.
+class _WriteOperation {
+  final Future<void> Function() execute;
+  final Completer<void> completer;
+
+  _WriteOperation(this.execute, this.completer);
 }

@@ -112,6 +112,28 @@ void notifyPrefsToApp() {
   Serial.println("✅ Finished sending prefs via notification.");
 }
 
+// Send delta update for a single item (much smaller than full prefs)
+// Used after increment/reset to update just the changed item
+void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime) {
+  if (!isConnected || NotifyChar == nullptr) return;
+
+  StaticJsonDocument<256> doc;
+  doc["type"] = "item_delta";
+  doc["id"] = itemId;
+  doc["count"] = count;
+  doc["todaycount"] = todayCount;
+  doc["lastResetTime"] = (long)resetTime;
+
+  String jsonOut;
+  serializeJson(doc, jsonOut);
+  jsonOut += "\n";
+
+  // Delta is small enough to send in one chunk typically
+  NotifyChar->setValue(jsonOut.c_str());
+  NotifyChar->notify();
+  Serial.printf("📤 Delta update: %s count=%d today=%d\n", itemId.c_str(), count, todayCount);
+}
+
 // Send logs to app via notification (chunked for large payloads)
 void notifyLogsToApp(int page) {
   if (!isConnected || NotifyChar == nullptr) return;
@@ -735,9 +757,10 @@ void handleCommand(char cmd) {
     prefs.putInt(("tc_" + String(currentItemIndex)).c_str(), itemTodayCount);
 
     logEvent("increment");
-    if (isConnected) notifyPrefsToApp();  //this has more data and will update the UI. Need to be prioritized
-    delay(50);  // Reduced from 200ms - just need brief gap between notifications
-    if (isConnected) notifyEvent("increment");  //this could be sent later
+    // Send delta update instead of full prefs (much smaller payload)
+    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime);
+    delay(50);  // Brief gap between notifications
+    if (isConnected) notifyEvent("increment");
 
   } else if (cmd == 'r') {
     // Reset current item count and update in prefs using indexed keys
@@ -756,9 +779,10 @@ void handleCommand(char cmd) {
     logEvent("reset");
     prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
-    if (isConnected) notifyPrefsToApp();  //this has more data and will update the UI. Need to be prioritized
-    delay(50);  // Reduced from 200ms - just need brief gap between notifications
-    if (isConnected) notifyEvent("reset");  //this could be sent later
+    // Send delta update instead of full prefs (much smaller payload)
+    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime);
+    delay(50);  // Brief gap between notifications
+    if (isConnected) notifyEvent("reset");
     return;  // Already closed prefs, skip the final prefs.end()
 
   } else if (cmd == 's') {

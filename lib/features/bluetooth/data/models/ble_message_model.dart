@@ -76,6 +76,22 @@ class BleMessageModel extends BleMessage {
     final parsed = decoded as Map<String, dynamic>;
     final typeStr = parsed['type'] as String?;
     final type = _parseType(typeStr);
+
+    // For item_delta, all fields are at top level (not in 'data')
+    // Format: {"type": "item_delta", "id": "...", "count": N, "todaycount": N, "lastResetTime": N}
+    if (type == BleMessageType.itemDelta) {
+      return BleMessageModel(
+        type: type,
+        data: {
+          'id': parsed['id'],
+          'count': parsed['count'],
+          'todaycount': parsed['todaycount'],
+          'lastResetTime': parsed['lastResetTime'],
+        },
+        receivedAt: DateTime.now(),
+      );
+    }
+
     final data = parsed['data'];
 
     // Extract selectedId based on message type:
@@ -121,6 +137,8 @@ class BleMessageModel extends BleMessage {
         return BleMessageType.event;
       case 'logs':
         return BleMessageType.logs;
+      case 'item_delta':
+        return BleMessageType.itemDelta;
       default:
         return BleMessageType.unknown;
     }
@@ -149,6 +167,8 @@ class BleMessageModel extends BleMessage {
         return 'event';
       case BleMessageType.logs:
         return 'logs';
+      case BleMessageType.itemDelta:
+        return 'item_delta';
       case BleMessageType.unknown:
         return 'unknown';
     }

@@ -104,7 +104,8 @@
       "Bash(certutil -encode:*)",
       "Bash(del temp_b64.txt)",
       "Bash(openssl base64:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(firebase:*)"
     ]
   }
 }
