@@ -20,6 +20,11 @@ void main() {
   late MockCollectionReference<Map<String, dynamic>> mockUsersCollection;
   late MockDocumentReference<Map<String, dynamic>> mockUserRef;
 
+  setUpAll(() {
+    // Register fallback values for mocktail
+    registerFallbackValue(MockDocumentReference<Map<String, dynamic>>());
+  });
+
   setUp(() {
     mockFirestore = MockFirebaseFirestore();
     mockCollection = MockCollectionReference<Map<String, dynamic>>();
@@ -189,9 +194,13 @@ void main() {
       when(() => mockCollection.doc()).thenReturn(mockDocRef);
       when(() => mockCollection.doc(any())).thenReturn(mockDocRef);
       when(() => mockDocRef.id).thenReturn('generated_id');
-      when(() => mockDocRef.set(any())).thenAnswer((_) async => {});
 
-      // Mock the query to count existing items for order
+      // Mock batch operations (createItem now uses batch for atomic operations)
+      when(() => mockFirestore.batch()).thenReturn(mockBatch);
+      when(() => mockBatch.set<Map<String, dynamic>>(any(), any())).thenReturn(null);
+      when(() => mockBatch.commit()).thenAnswer((_) async => []);
+
+      // Mock the query to get existing items
       when(() => mockCollection.where('uid', isEqualTo: mockUserRef))
           .thenReturn(mockQuery);
       when(() => mockQuery.get()).thenAnswer((_) async => mockQuerySnapshot);
@@ -216,7 +225,9 @@ void main() {
       // Assert
       expect(result, isA<ItemModel>());
       expect(result.id, isNotEmpty);
-      verify(() => mockDocRef.set(any())).called(1);
+      expect(result.order, 0); // New items are created at top
+      verify(() => mockBatch.set<Map<String, dynamic>>(any(), any())).called(1);
+      verify(() => mockBatch.commit()).called(1);
     });
 
     test('should throw ServerException when Firestore fails', () async {
