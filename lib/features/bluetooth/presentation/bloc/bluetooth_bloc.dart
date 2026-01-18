@@ -8,6 +8,7 @@ import '../../../../auth/firebase_auth/auth_util.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
+import '../../domain/entities/ble_message.dart';
 import '../../domain/usecases/check_bluetooth_enabled_usecase.dart';
 import '../../domain/usecases/clear_device_logs_usecase.dart';
 import '../../domain/usecases/connect_device_usecase.dart';
@@ -509,12 +510,21 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceId = state.connectedDevice?.id;
     if (deviceId == null) return;
 
-    // Send time sync
-    add(const SendTimeSync());
+    // Small delay to let BLE connection stabilize
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // Send time sync first and await it
+    final timeSyncResult = await _sendTimeSync.call(SendTimeSyncParams(deviceId));
+    timeSyncResult.fold(
+      (failure) => print('Time sync failed: ${failure.message}'),
+      (_) => print('Initial sync: time sync sent'),
+    );
+
+    // Small delay between commands to avoid overwhelming BLE
+    await Future.delayed(const Duration(milliseconds: 100));
 
     // Request prefs from device (item counts, selected item)
-    // The selected item ID will come through the message stream automatically
-    // and be updated via MessageReceived event handler
+    // Response will arrive via notification -> MessageReceived event
     final prefsResult = await _requestData.call(
       RequestDeviceDataParams(
         deviceId: deviceId,
@@ -525,11 +535,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     prefsResult.fold(
       (failure) => print('Failed to request prefs: ${failure.message}'),
-      (_) => print('Initial sync: prefs requested successfully'),
+      (_) => print('Initial sync: prefs requested'),
     );
 
+    // Small delay before requesting logs
+    await Future.delayed(const Duration(milliseconds: 100));
+
     // Request logs from device (event history)
-    add(const RequestDeviceData(type: DeviceDataType.logs, page: 0));
+    // Response will arrive via notification -> MessageReceived event
+    final logsResult = await _requestData.call(
+      RequestDeviceDataParams(
+        deviceId: deviceId,
+        type: DeviceDataType.logs,
+        page: 0,
+      ),
+    );
+
+    logsResult.fold(
+      (failure) => print('Failed to request logs: ${failure.message}'),
+      (_) => print('Initial sync: logs requested'),
+    );
 
     // Note: We no longer send items/counts from app to device on connect.
     // Device is the source of truth for counts - app receives data from device.
@@ -647,19 +672,39 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     MessageReceived event,
     Emitter<BluetoothState> emit,
   ) async {
+    final message = event.message;
+    print('📨 Message received: type=${message.type}, selectedId=${message.selectedId}');
+
     emit(state.copyWith(
-      lastMessage: event.message,
-      selectedItemId: event.message.selectedId ?? state.selectedItemId,
-      hasMoreLogs: event.message.hasMore,
+      lastMessage: message,
+      selectedItemId: message.selectedId ?? state.selectedItemId,
+      hasMoreLogs: message.hasMore,
     ));
 
     // Sync device data to Firestore
     final userId = currentUserUid;
     if (userId.isNotEmpty) {
       await _syncDeviceData.call(SyncDeviceDataParams(
-        message: event.message,
+        message: message,
         userId: userId,
       ));
+    }
+
+    // Handle log pagination - if more pages available, request them
+    if (message.type == BleMessageType.logs && message.hasMore) {
+      final deviceId = state.connectedDevice?.id;
+      if (deviceId != null) {
+        final currentPage = message.page ?? 0;
+        print('📖 More logs available, requesting page ${currentPage + 1}');
+        await Future.delayed(const Duration(milliseconds: 100));
+        add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1));
+      }
+    }
+
+    // Clear logs on device when all pages received
+    if (message.type == BleMessageType.logs && !message.hasMore) {
+      print('🧹 All logs received, clearing logs on device');
+      add(const ClearDeviceLogs());
     }
   }
 

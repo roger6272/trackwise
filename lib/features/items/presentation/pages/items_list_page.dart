@@ -186,11 +186,19 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                     // Sync to device after reorder
                                     final bluetoothBloc = context.read<BluetoothBloc>();
                                     final itemsBloc = context.read<ItemsBloc>();
+                                    final selectedId = bluetoothState.selectedItemId;
                                     // Small delay to let BLoC process the reorder
                                     Future.delayed(const Duration(milliseconds: 100), () {
                                       final itemsState = itemsBloc.state;
                                       if (itemsState is ItemsLoaded) {
                                         bluetoothBloc.add(SendItemsToDevice(itemsState.items));
+                                        // Re-send selected item to update device's index
+                                        // (firmware stores selected by index, not just ID)
+                                        if (selectedId != null && selectedId.isNotEmpty) {
+                                          Future.delayed(const Duration(milliseconds: 200), () {
+                                            bluetoothBloc.add(SendSelectedItem(selectedId));
+                                          });
+                                        }
                                       }
                                     });
                                   },

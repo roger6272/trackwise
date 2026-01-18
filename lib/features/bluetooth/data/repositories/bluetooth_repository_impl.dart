@@ -204,32 +204,9 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
 
       debugPrint('📤 Sending prepare_read: type=$type, page=$page');
 
-      // Use datasource to write command and read response
-      final jsonString = await dataSource.prepareReadCycle(command);
-
-      debugPrint('📦 BLE raw payload size: ${jsonString.length} bytes');
-      debugPrint('📦 BLE raw string: $jsonString');
-
-      // Parse the response
-      final message = BleMessageModel.fromJson(jsonString);
-      debugPrint('✅ Parsed message type: ${message.type}');
-
-      // Emit message to stream for uniform handling by bloc
-      dataSource.emitMessage(message);
-
-      // Handle pagination for logs
-      if (type == 'logs' && message.hasMore) {
-        debugPrint('📖 More logs available, requesting page ${page + 1}');
-        // Recursively request next page
-        return requestData(deviceId, type, page + 1);
-      }
-
-      // Send clear_logs command when all logs have been received
-      if (type == 'logs' && !message.hasMore) {
-        debugPrint('🧹 Sending clear_logs command to device');
-        const clearLogsJson = '{"cmd":"clear_logs"}';
-        await dataSource.writeCommand(deviceId, clearLogsJson);
-      }
+      // Just send the command - response will arrive via notification
+      // through the existing message stream (handled by BLoC's MessageReceived)
+      await dataSource.writeCommand(deviceId, command);
 
       return const Right(null);
     } catch (e) {

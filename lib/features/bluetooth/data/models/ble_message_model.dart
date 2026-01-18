@@ -12,6 +12,7 @@ class BleMessageModel extends BleMessage {
     required super.data,
     super.selectedId,
     super.hasMore,
+    super.page,
     required super.receivedAt,
   });
 
@@ -92,6 +93,7 @@ class BleMessageModel extends BleMessage {
       data: data,
       selectedId: selectedId,
       hasMore: parsed['hasMore'] == true,
+      page: parsed['page'] as int?,
       receivedAt: DateTime.now(),
     );
   }
@@ -105,6 +107,7 @@ class BleMessageModel extends BleMessage {
       data: map['data'],
       selectedId: map['selected_id'] as String?,
       hasMore: map['hasMore'] == true,
+      page: map['page'] as int?,
       receivedAt: DateTime.now(),
     );
   }

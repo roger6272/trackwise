@@ -44,6 +44,9 @@ class BleMessage extends Equatable {
   /// Whether more data is available (for paginated logs)
   final bool hasMore;
 
+  /// Current page number (for paginated logs)
+  final int? page;
+
   /// When the message was received
   final DateTime receivedAt;
 
@@ -52,6 +55,7 @@ class BleMessage extends Equatable {
     required this.data,
     this.selectedId,
     this.hasMore = false,
+    this.page,
     required this.receivedAt,
   });
 
@@ -61,6 +65,7 @@ class BleMessage extends Equatable {
     dynamic data,
     String? selectedId,
     bool? hasMore,
+    int? page,
     DateTime? receivedAt,
   }) {
     return BleMessage(
@@ -68,15 +73,16 @@ class BleMessage extends Equatable {
       data: data ?? this.data,
       selectedId: selectedId ?? this.selectedId,
       hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
       receivedAt: receivedAt ?? this.receivedAt,
     );
   }
 
   @override
-  List<Object?> get props => [type, data, selectedId, hasMore, receivedAt];
+  List<Object?> get props => [type, data, selectedId, hasMore, page, receivedAt];
 
   @override
   String toString() {
-    return 'BleMessage(type: $type, selectedId: $selectedId, hasMore: $hasMore, receivedAt: $receivedAt)';
+    return 'BleMessage(type: $type, selectedId: $selectedId, hasMore: $hasMore, page: $page, receivedAt: $receivedAt)';
   }
 }

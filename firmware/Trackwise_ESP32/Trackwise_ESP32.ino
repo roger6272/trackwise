@@ -107,7 +107,23 @@ void notifyPrefsToApp() {
     NotifyChar->notify();
     delay(10);  // Reduced from 30ms - high priority connection can handle this
   }
-  Serial.println("✅ Finished sending prefs item list.");
+  Serial.println("✅ Finished sending prefs via notification.");
+}
+
+// Send logs to app via notification (chunked for large payloads)
+void notifyLogsToApp(int page) {
+  if (!isConnected || NotifyChar == nullptr) return;
+  String jsonOut = getLogsAsString(page);
+  jsonOut += "\n";  // For Flutter end-of-message detection
+
+  const int mtu = 180;
+  for (int i = 0; i < jsonOut.length(); i += mtu) {
+    String chunk = jsonOut.substring(i, min(i + mtu, (int)jsonOut.length()));
+    NotifyChar->setValue(chunk.c_str());
+    NotifyChar->notify();
+    delay(10);
+  }
+  Serial.printf("✅ Finished sending logs page %d via notification.\n", page);
 }
 
 // Convert ALL prefs into a JSON string to send to the app
@@ -893,8 +909,14 @@ void loop() {
       lastResetCheck = millis();
     }
 
-  if (currentReadMode == READ_PREFS || currentReadMode == READ_LOGS) {
-    updateReadChar();  // ✅ Actually update the value
+  // Handle prepare_read requests by sending data via notification
+  // (deferred from BLE callback to avoid NVS access issues)
+  if (currentReadMode == READ_PREFS) {
+    notifyPrefsToApp();  // Send prefs via notification (chunked)
+    updateReadChar();    // Also update READ char for compatibility
+  } else if (currentReadMode == READ_LOGS) {
+    notifyLogsToApp(currentPage);  // Send logs via notification (chunked)
+    updateReadChar();              // Also update READ char for compatibility
   }
 
   if (Serial.available()) {
