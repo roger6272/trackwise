@@ -9,34 +9,29 @@ import '../../../../../core/theme/app_colors.dart';
 /// Provides controls for:
 /// - Aggregation period (1D, 7D, 30D)
 /// - Reset toggle (Total vs Since Last Reset)
-/// - Date selection with collapsible calendar
+/// - Date selection with bottom sheet calendar
 class FilterSection extends StatelessWidget {
   const FilterSection({
     super.key,
     required this.aggregation,
     required this.showSinceReset,
     required this.selectedDate,
-    required this.isCalendarCollapsed,
     required this.onAggregationChanged,
     required this.onShowSinceResetChanged,
     required this.onDateChanged,
-    required this.onToggleCalendar,
   });
 
   final String aggregation;
   final bool showSinceReset;
   final DateTime selectedDate;
-  final bool isCalendarCollapsed;
   final ValueChanged<String> onAggregationChanged;
   final ValueChanged<bool> onShowSinceResetChanged;
   final ValueChanged<DateTime> onDateChanged;
-  final VoidCallback onToggleCalendar;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     const primary = AppColors.primary;
-    final alternate = AppColors.alternate(brightness);
     final primaryBackground = AppColors.primaryBackground(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final primaryText = AppColors.primaryText(brightness);
@@ -46,214 +41,325 @@ class FilterSection extends StatelessWidget {
       children: [
         // Aggregation chips - centered
         _buildAggregationChips(primary, primaryBackground, secondaryText),
-        const SizedBox(height: 20.0),
+        const SizedBox(height: 16.0),
         // Reset toggle chips - centered
         _buildResetToggle(primary, primaryBackground, secondaryText),
-        const SizedBox(height: 30.0),
-        // "Ends on" label row (only shown when not 1D)
-        if (aggregation != '1D')
-          Padding(
-            padding: const EdgeInsets.only(left: 22.0, right: 22.0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Ends on',
-                style: GoogleFonts.inter(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.normal,
-                  color: primaryText,
-                ),
-              ),
-            ),
-          ),
+        const SizedBox(height: 16.0),
         // Date picker row
-        Padding(
-          padding: const EdgeInsets.fromLTRB(32.0, 0.0, 25.0, 15.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _buildDatePicker(primaryText),
-          ),
-        ),
-        // Calendar (when expanded)
-        if (!isCalendarCollapsed) _buildCalendar(context, primary, secondaryText, alternate),
+        _buildDatePickerRow(context, primaryText, secondaryText),
       ],
     );
   }
 
   Widget _buildAggregationChips(Color primary, Color primaryBackground, Color secondaryText) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 5.0,
-      children: ['1D', '7D', '30D'].map((period) {
-        final isSelected = aggregation == period;
-        return GestureDetector(
-          onTap: () => onAggregationChanged(period),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            decoration: BoxDecoration(
-              color: isSelected ? primary : primaryBackground,
-              borderRadius: BorderRadius.circular(5.0),
-            ),
-            child: Text(
-              period,
-              style: GoogleFonts.inter(
-                fontSize: 14.0,
-                color: isSelected ? Colors.white : secondaryText,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildResetToggle(Color primary, Color primaryBackground, Color secondaryText) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 5.0,
-      children: [
-        _buildToggleChip(
-          label: 'Total',
-          isSelected: !showSinceReset,
-          onTap: () => onShowSinceResetChanged(false),
-          primary: primary,
-          primaryBackground: primaryBackground,
-          secondaryText: secondaryText,
+    return SegmentedButton<String>(
+      segments: const [
+        ButtonSegment<String>(
+          value: '1D',
+          label: Text('1D'),
         ),
-        _buildToggleChip(
-          label: 'Since Last Reset',
-          isSelected: showSinceReset,
-          onTap: () => onShowSinceResetChanged(true),
-          primary: primary,
-          primaryBackground: primaryBackground,
-          secondaryText: secondaryText,
+        ButtonSegment<String>(
+          value: '7D',
+          label: Text('7D'),
+        ),
+        ButtonSegment<String>(
+          value: '30D',
+          label: Text('30D'),
         ),
       ],
-    );
-  }
-
-  Widget _buildToggleChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color primary,
-    required Color primaryBackground,
-    required Color secondaryText,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: isSelected ? primary : primaryBackground,
-          borderRadius: BorderRadius.circular(5.0),
+      selected: {aggregation},
+      onSelectionChanged: (Set<String> selection) {
+        onAggregationChanged(selection.first);
+      },
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return primary;
+          }
+          return primaryBackground;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return Colors.white;
+          }
+          return secondaryText;
+        }),
+        side: WidgetStateProperty.all(
+          BorderSide(color: primary.withValues(alpha: 0.3)),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 14.0,
-            color: isSelected ? Colors.white : secondaryText,
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDatePicker(Color primaryText) {
-    final dateFormat = DateFormat.yMMMd();
-
-    return GestureDetector(
-      onTap: onToggleCalendar,
-      child: Text(
-        dateFormat.format(selectedDate),
-        style: GoogleFonts.interTight(
-          color: primaryText,
-          fontWeight: FontWeight.w500,
-          fontSize: 16.0,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalendar(BuildContext context, Color primary, Color secondaryText, Color alternate) {
-    final brightness = Theme.of(context).brightness;
-    final secondaryBackground = AppColors.secondaryBackground(brightness);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 10.0),
-          child: CalendarDatePicker(
-            initialDate: selectedDate,
-            firstDate: DateTime(2020),
-            lastDate: DateTime.now(),
-            onDateChanged: onDateChanged,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(15.0, 10.0, 15.0, 10.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _buildCalendarButton(
-                label: 'OK',
-                isPrimary: true,
-                onPressed: onToggleCalendar,
-                primary: primary,
-                secondaryText: secondaryText,
-                secondaryBackground: secondaryBackground,
-                alternate: alternate,
-              ),
-              const SizedBox(width: 10.0),
-              _buildCalendarButton(
-                label: 'Cancel',
-                isPrimary: false,
-                onPressed: onToggleCalendar,
-                primary: primary,
-                secondaryText: secondaryText,
-                secondaryBackground: secondaryBackground,
-                alternate: alternate,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCalendarButton({
-    required String label,
-    required bool isPrimary,
-    required VoidCallback onPressed,
-    required Color primary,
-    required Color secondaryText,
-    required Color secondaryBackground,
-    required Color alternate,
-  }) {
-    return SizedBox(
-      width: 70.0,
-      height: 40.0,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isPrimary ? primary : secondaryBackground,
-          foregroundColor: isPrimary ? Colors.white : secondaryText,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18.0),
-            side: BorderSide(color: alternate),
-          ),
-          padding: EdgeInsets.zero,
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.interTight(
+        textStyle: WidgetStateProperty.all(
+          GoogleFonts.inter(
             fontSize: 14.0,
             fontWeight: FontWeight.w500,
           ),
         ),
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+        ),
       ),
+    );
+  }
+
+  Widget _buildResetToggle(Color primary, Color primaryBackground, Color secondaryText) {
+    return SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment<bool>(
+          value: false,
+          label: Text('Total'),
+        ),
+        ButtonSegment<bool>(
+          value: true,
+          label: Text('Since Reset'),
+        ),
+      ],
+      selected: {showSinceReset},
+      onSelectionChanged: (Set<bool> selection) {
+        onShowSinceResetChanged(selection.first);
+      },
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return primary;
+          }
+          return primaryBackground;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return Colors.white;
+          }
+          return secondaryText;
+        }),
+        side: WidgetStateProperty.all(
+          BorderSide(color: primary.withValues(alpha: 0.3)),
+        ),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+        ),
+        textStyle: WidgetStateProperty.all(
+          GoogleFonts.inter(
+            fontSize: 14.0,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePickerRow(BuildContext context, Color primaryText, Color secondaryText) {
+    final dateFormat = DateFormat.yMMMd();
+    final brightness = Theme.of(context).brightness;
+    final alternate = AppColors.alternate(brightness);
+
+    // Label changes based on aggregation period
+    final label = aggregation == '1D' ? 'Date' : 'Ends on';
+
+    return GestureDetector(
+      onTap: () => _showDatePickerBottomSheet(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        decoration: BoxDecoration(
+          color: alternate,
+          borderRadius: BorderRadius.circular(10.0),
+          border: Border.all(
+            color: primaryText.withValues(alpha: 0.08),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_today_rounded,
+              size: 18.0,
+              color: secondaryText,
+            ),
+            const SizedBox(width: 10.0),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11.0,
+                    color: secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  dateFormat.format(selectedDate),
+                  style: GoogleFonts.interTight(
+                    color: primaryText,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15.0,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8.0),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 20.0,
+              color: secondaryText,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDatePickerBottomSheet(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    const primary = AppColors.primary;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    // Title changes based on aggregation period
+    final title = aggregation == '1D' ? 'Select Date' : 'Select End Date';
+
+    DateTime tempSelectedDate = selectedDate;
+
+    showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: primaryBackground,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20.0),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle bar
+                    Container(
+                      margin: const EdgeInsets.only(top: 12.0),
+                      width: 40.0,
+                      height: 4.0,
+                      decoration: BoxDecoration(
+                        color: secondaryText.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2.0),
+                      ),
+                    ),
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.interTight(
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.w600,
+                              color: primaryText,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: secondaryText,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Calendar
+                    CalendarDatePicker(
+                      initialDate: tempSelectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      onDateChanged: (date) {
+                        setModalState(() {
+                          tempSelectedDate = date;
+                        });
+                      },
+                    ),
+                    // Action buttons
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: secondaryText,
+                                side: BorderSide(
+                                  color: secondaryText.withValues(alpha: 0.3),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15.0,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12.0),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                onDateChanged(tempSelectedDate);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                              ),
+                              child: Text(
+                                'Confirm',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15.0,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

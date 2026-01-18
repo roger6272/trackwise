@@ -12,6 +12,7 @@ import '../../../events/presentation/bloc/events_event.dart';
 import '../../../events/presentation/bloc/events_state.dart';
 import '../../domain/utils/stats_calculator.dart';
 import '../widgets/item_detail/filter_section.dart';
+import '../widgets/item_detail/shimmer_skeletons.dart';
 import '../widgets/item_detail/stats_section.dart';
 import '../widgets/item_detail/summary_cards.dart';
 
@@ -64,7 +65,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   String _aggregation = '1D';
   bool _showSinceReset = false;
   DateTime _selectedDate = DateTime.now();
-  bool _isCalendarCollapsed = true;
 
   // UI state
   bool _showCumulative = false;
@@ -126,62 +126,57 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Combined Filter + Stats container
-                      Container(
-                        decoration: BoxDecoration(
-                          color: alternate,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 20.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.max,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Filter Section (no container - just the content)
-                              FilterSection(
-                                aggregation: _aggregation,
-                                showSinceReset: _showSinceReset,
-                                selectedDate: _selectedDate,
-                                isCalendarCollapsed: _isCalendarCollapsed,
-                                onAggregationChanged: (value) {
-                                  setState(() {
-                                    _aggregation = value;
-                                  });
-                                  _reloadChart(context);
-                                },
-                                onShowSinceResetChanged: (value) {
-                                  setState(() {
-                                    _showSinceReset = value;
-                                  });
-                                  _reloadChart(context);
-                                },
-                                onDateChanged: (date) {
-                                  setState(() {
-                                    _selectedDate = date;
-                                  });
-                                  _reloadChart(context);
-                                },
-                                onToggleCalendar: () {
-                                  setState(() {
-                                    _isCalendarCollapsed = !_isCalendarCollapsed;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
+                      // Filter Section - no background, just controls
+                      FilterSection(
+                        aggregation: _aggregation,
+                        showSinceReset: _showSinceReset,
+                        selectedDate: _selectedDate,
+                        onAggregationChanged: (value) {
+                          setState(() {
+                            _aggregation = value;
+                          });
+                          _reloadChart(context);
+                        },
+                        onShowSinceResetChanged: (value) {
+                          setState(() {
+                            _showSinceReset = value;
+                          });
+                          _reloadChart(context);
+                        },
+                        onDateChanged: (date) {
+                          setState(() {
+                            _selectedDate = date;
+                          });
+                          _reloadChart(context);
+                        },
                       ),
-                      // Stats Section container
+                      const SizedBox(height: 20.0),
+                      // Stats Section - main hero card
                       BlocBuilder<EventsBloc, EventsState>(
                         builder: (context, eventsState) {
+                          // Show shimmer skeleton while loading
+                          if (eventsState is EventsLoading) {
+                            return const Column(
+                              children: [
+                                StatsSectionSkeleton(),
+                                SizedBox(height: 16.0),
+                                SummaryCardsSkeleton(),
+                                SizedBox(height: 24.0),
+                              ],
+                            );
+                          }
+
                           final stats = _calculateStats(eventsState);
                           return Column(
                             children: [
                               Container(
                                 decoration: BoxDecoration(
                                   color: alternate,
-                                  borderRadius: BorderRadius.circular(8.0),
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  border: Border.all(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    width: 1.0,
+                                  ),
                                 ),
                                 child: StatsSection(
                                   stats: stats,
@@ -196,21 +191,17 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   selectedDate: _selectedDate,
                                 ),
                               ),
-                              // Summary Cards container
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: alternate,
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                                child: SummaryCards(
-                                  currentCount: widget.currentCount ?? 0,
-                                  average: stats.average,
-                                  highestCount: stats.maxCount,
-                                  lowestCount: stats.minCount,
-                                  initialCount: widget.initialCount ?? 0,
-                                  goal: widget.goal,
-                                ),
+                              const SizedBox(height: 16.0),
+                              // Summary Cards - separate section
+                              SummaryCards(
+                                currentCount: widget.currentCount ?? 0,
+                                average: stats.average,
+                                highestCount: stats.maxCount,
+                                lowestCount: stats.minCount,
+                                initialCount: widget.initialCount ?? 0,
+                                goal: widget.goal,
                               ),
+                              const SizedBox(height: 24.0),
                             ],
                           );
                         },

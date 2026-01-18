@@ -3,16 +3,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/widgets/shimmer.dart';
 import '../../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../../charts/presentation/bloc/charts_state.dart';
 import '../../../domain/utils/stats_calculator.dart';
 import '../bar_chart_widget.dart';
 import '../cumulative_chart_widget.dart';
+import 'hero_stats.dart';
 
 /// Section displaying stats summary and chart with toggle.
 ///
 /// Shows:
-/// - Stats header with total count and period comparison
+/// - Hero stats with animated count and trend badge
 /// - Chart toggle switch (Increments / Cumulative)
 /// - Chart display area (bar or cumulative based on toggle)
 class StatsSection extends StatelessWidget {
@@ -40,8 +42,7 @@ class StatsSection extends StatelessWidget {
     required this.selectedDate,
   });
 
-  // Semantic colors (same in both modes)
-  static const Color _positiveColor = Color(0xFF017400);
+  // Error color for chart error state
   static const Color _negativeColor = Color(0xFF9F0202);
 
   @override
@@ -51,109 +52,18 @@ class StatsSection extends StatelessWidget {
     final primaryText = AppColors.primaryText(brightness);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _buildStatsHeader(primary, primaryText),
-        _buildComparisonLine(primaryText),
-        const SizedBox(height: 0.0),
+        HeroStats(
+          totalCount: stats.totalCount,
+          priorPeriodCount: stats.priorPeriodCount,
+          percentChange: stats.percentChange,
+          periodLabel: stats.periodLabel,
+        ),
         _buildChartToggle(primary, primaryText),
         const SizedBox(height: 10.0),
         _buildChartArea(context, primary),
       ],
-    );
-  }
-
-  /// Builds the stats header with total count.
-  Widget _buildStatsHeader(Color primary, Color primaryText) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 5.0),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 5.0),
-              child: Text(
-                '${stats.totalCount}',
-                style: GoogleFonts.interTight(
-                  fontSize: 30.0,
-                  fontWeight: FontWeight.w600,
-                  color: primary,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 5.0, top: 5.0),
-              child: Text(
-                'Total',
-                style: GoogleFonts.interTight(
-                  fontSize: 26.0,
-                  color: primaryText,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Builds the comparison line with prior count and percent change.
-  Widget _buildComparisonLine(Color primaryText) {
-    final percentChange = stats.percentChange;
-    final showPercent = percentChange != null && percentChange != 0;
-    final percentText = percentChange != null
-        ? '${(percentChange * 100).toStringAsFixed(1)}%'
-        : '';
-
-    final percentColor = stats.isPositive
-        ? _positiveColor
-        : stats.isNegative
-            ? _negativeColor
-            : primaryText;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(15.0, 0.0, 15.0, 0.0),
-      child: Row(
-        children: [
-          Text(
-            'vs ',
-            style: GoogleFonts.interTight(
-              fontSize: 15.0,
-              color: primaryText,
-            ),
-          ),
-          Text(
-            '${stats.priorPeriodCount}',
-            style: GoogleFonts.interTight(
-              fontSize: 15.0,
-              color: primaryText,
-            ),
-          ),
-          if (showPercent) ...[
-            Padding(
-              padding: const EdgeInsets.only(left: 10.0),
-              child: Text(
-                percentText,
-                style: GoogleFonts.interTight(
-                  fontSize: 15.0,
-                  color: percentColor,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 5.0),
-              child: Text(
-                stats.periodLabel,
-                style: GoogleFonts.inter(
-                  fontSize: 15.0,
-                  color: primaryText,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -191,17 +101,17 @@ class StatsSection extends StatelessWidget {
 
   /// Builds the chart area with BlocBuilder for loading/error/chart states.
   Widget _buildChartArea(BuildContext context, Color primary) {
+    final width = MediaQuery.of(context).size.width - 40;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: SizedBox(
-        width: MediaQuery.of(context).size.width - 40,
+        width: width,
         height: 220.0,
         child: BlocBuilder<ChartsBloc, ChartsState>(
           builder: (context, state) {
             if (state is ChartsLoading) {
-              return Center(
-                child: CircularProgressIndicator(color: primary),
-              );
+              return _buildChartSkeleton(width);
             }
 
             if (state is ChartsError) {
@@ -230,6 +140,61 @@ class StatsSection extends StatelessWidget {
             }
           },
         ),
+      ),
+    );
+  }
+
+  /// Builds a shimmer skeleton for the chart loading state.
+  Widget _buildChartSkeleton(double width) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Column(
+        children: [
+          // Chart area placeholder
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Y-axis labels
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(
+                    5,
+                    (index) => const ShimmerText(width: 24, height: 10),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Bars
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: List.generate(
+                      7,
+                      (index) => ShimmerBox(
+                        width: 28,
+                        height: 60.0 + ((index * 25) % 120),
+                        borderRadius: 4,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // X-axis labels
+          Padding(
+            padding: const EdgeInsets.only(left: 36.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                7,
+                (index) => const ShimmerText(width: 28, height: 10),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

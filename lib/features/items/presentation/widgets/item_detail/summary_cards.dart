@@ -5,10 +5,10 @@ import '../../../../../core/theme/app_colors.dart';
 
 /// Widget displaying summary statistics cards with slide/fade animations.
 ///
-/// Shows 6 cards in 3 rows:
+/// Shows 5 cards:
 /// - Row 1: Current Count, Initial Count
 /// - Row 2: Average Count, Highest Count
-/// - Row 3: Lowest Count, Placeholder
+/// - Row 3: Lowest Count (centered)
 class SummaryCards extends StatefulWidget {
   const SummaryCards({
     super.key,
@@ -83,7 +83,20 @@ class _SummaryCardsState extends State<SummaryCards>
       child: SlideTransition(
         position: _slideAnimation,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Section header
+            Padding(
+              padding: const EdgeInsets.only(left: 4.0, bottom: 12.0),
+              child: Text(
+                'Statistics',
+                style: GoogleFonts.interTight(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w600,
+                  color: primaryText,
+                ),
+              ),
+            ),
             // Progress bar (only shown when goal is set)
             if (widget.goal != null) _buildProgressBar(
               context: context,
@@ -100,7 +113,7 @@ class _SummaryCardsState extends State<SummaryCards>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: _SummaryCard(
                     value: widget.currentCount.toString(),
                     label: 'Current Count',
@@ -108,7 +121,7 @@ class _SummaryCardsState extends State<SummaryCards>
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: _SummaryCard(
                     value: widget.initialCount.toString(),
                     label: 'Initial Count',
@@ -123,44 +136,38 @@ class _SummaryCardsState extends State<SummaryCards>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: _SummaryCard(
                     value: widget.average.toStringAsFixed(1),
-                    label: 'Average Count',
+                    label: 'Average',
                     width: cardWidth,
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: _SummaryCard(
                     value: widget.highestCount.toString(),
-                    label: 'Highest Count',
+                    label: 'Highest',
                     width: cardWidth,
                   ),
                 ),
               ],
             ),
-            // Row 3: Lowest Count, Placeholder
+            // Row 3: Lowest Count (centered)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: _SummaryCard(
                     value: widget.lowestCount.toString(),
-                    label: 'Lowest Count',
+                    label: 'Lowest',
                     width: cardWidth,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: _SummaryCard(
-                    value: '-',
-                    label: 'Coming Soon',
-                    width: cardWidth,
-                  ),
-                ),
+                // Empty space to maintain alignment
+                SizedBox(width: cardWidth),
               ],
             ),
           ],
@@ -178,6 +185,9 @@ class _SummaryCardsState extends State<SummaryCards>
     required Color secondaryText,
     required Color secondaryBackground,
   }) {
+    final brightness = Theme.of(context).brightness;
+    final alternate = AppColors.alternate(brightness);
+
     // Calculate progress: how far from initial to goal
     final totalRange = goal - initialCount;
     final currentProgress = currentCount - initialCount;
@@ -192,12 +202,16 @@ class _SummaryCardsState extends State<SummaryCards>
     final isComplete = currentCount >= goal;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
+      padding: const EdgeInsets.only(bottom: 12.0),
       child: Container(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(14.0),
         decoration: BoxDecoration(
-          color: secondaryBackground,
-          borderRadius: BorderRadius.circular(8.0),
+          color: alternate,
+          borderRadius: BorderRadius.circular(10.0),
+          border: Border.all(
+            color: (isComplete ? Colors.green : AppColors.primary).withValues(alpha: 0.2),
+            width: 1.0,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,16 +220,16 @@ class _SummaryCardsState extends State<SummaryCards>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Progress to Goal',
+                  'Goal Progress',
                   style: GoogleFonts.inter(
-                    fontSize: 14.0,
-                    fontWeight: FontWeight.w600,
-                    color: primaryText,
+                    fontSize: 13.0,
+                    fontWeight: FontWeight.w500,
+                    color: secondaryText,
                   ),
                 ),
                 Text(
                   '$currentCount / $goal',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.interTight(
                     fontSize: 14.0,
                     fontWeight: FontWeight.w600,
                     color: primaryText,
@@ -223,25 +237,25 @@ class _SummaryCardsState extends State<SummaryCards>
                 ),
               ],
             ),
-            const SizedBox(height: 12.0),
+            const SizedBox(height: 10.0),
             ClipRRect(
               borderRadius: BorderRadius.circular(4.0),
               child: LinearProgressIndicator(
                 value: progressFraction,
-                minHeight: 8.0,
-                backgroundColor: secondaryText.withValues(alpha: 0.2),
+                minHeight: 6.0,
+                backgroundColor: secondaryText.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   isComplete ? Colors.green : AppColors.primary,
                 ),
               ),
             ),
-            const SizedBox(height: 8.0),
+            const SizedBox(height: 6.0),
             Text(
               isComplete
                   ? 'Goal reached!'
-                  : '$progressPercent% complete ($remaining remaining)',
+                  : '$progressPercent% complete \u2022 $remaining remaining',
               style: GoogleFonts.inter(
-                fontSize: 12.0,
+                fontSize: 11.0,
                 color: isComplete ? Colors.green : secondaryText,
               ),
             ),
@@ -267,40 +281,36 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final alternate = AppColors.alternate(brightness);
-    final secondaryBackground = AppColors.secondaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
     return Container(
       width: width,
-      height: 80.0,
+      height: 72.0,
       decoration: BoxDecoration(
-        color: secondaryBackground,
-        borderRadius: BorderRadius.circular(8.0),
+        color: alternate,
+        borderRadius: BorderRadius.circular(10.0),
         border: Border.all(
-          color: alternate,
-          width: 0.0,
+          color: primaryText.withValues(alpha: 0.06),
+          width: 1.0,
         ),
       ),
-      padding: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0.0, 4.0, 0.0, 2.0),
-            child: Text(
-              value,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.interTight(
-                fontSize: 20.0,
-                fontWeight: FontWeight.w600,
-                color: primaryText,
-              ),
+          Text(
+            value,
+            style: GoogleFonts.interTight(
+              fontSize: 22.0,
+              fontWeight: FontWeight.w600,
+              color: primaryText,
             ),
           ),
+          const SizedBox(height: 2.0),
           Text(
             label,
-            textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 12.0,
               color: secondaryText,
