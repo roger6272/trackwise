@@ -101,23 +101,18 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
           .where((val) => val == BluetoothAdapterState.on)
           .first;
 
-      // Set up scan completion listener BEFORE starting scan to avoid race condition
-      // (scan could complete before listener is attached if we use .then() after startScan)
-      FlutterBluePlus.isScanning
-          .where((s) => !s)
-          .skip(1) // Skip initial false state before scan starts
-          .first
-          .then((_) {
-        if (!controller.isClosed) {
-          controller.close();
-        }
-      });
-
       // Now start the scan
       await FlutterBluePlus.startScan(
         timeout: timeout,
         androidUsesFineLocation: true,
       );
+
+      // When scan completes
+      FlutterBluePlus.isScanning.where((s) => !s).first.then((_) {
+        if (!controller.isClosed) {
+          controller.close();
+        }
+      });
     };
 
     controller.onCancel = () {
@@ -207,11 +202,6 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<void> disconnect(String deviceId) async {
-    // Cancel connection listener first to prevent double cleanup
-    // (listener also calls _clearConnectionState on disconnect)
-    _connectionSubscription?.cancel();
-    _connectionSubscription = null;
-
     final device = BluetoothDevice.fromId(deviceId);
     await device.disconnect();
     _clearConnectionState();
@@ -551,12 +541,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     await writeChar.write(utf8.encode(command), withoutResponse: false);
 
     // Add delay to give ESP32 time to process command and update READ characteristic
-    await Future.delayed(const Duration(milliseconds: BluetoothConstants.prepareReadDelayMs));
-
-    // Verify device is still connected after delay
-    if (_connectedDevice == null) {
-      throw StateError('Device disconnected during prepare_read cycle.');
-    }
+    await Future.delayed(const Duration(milliseconds: 500));
 
     // MATCH OLD CODE EXACTLY: Create ANOTHER new BluetoothDevice object for read
     // Old readBLEDataAndHandle: final device = BluetoothDevice(remoteId: DeviceIdentifier(deviceId));
