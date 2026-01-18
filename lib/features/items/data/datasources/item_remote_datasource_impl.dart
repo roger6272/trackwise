@@ -340,20 +340,30 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       final itemData = itemDoc.data()!;
       final userRef = itemData['uid'] as DocumentReference;
 
-      // Count existing non-deleted items to determine new order
+      // Get existing non-deleted items to shift their order
       final existingItems = await firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
-      final newOrder = existingItems.docs
-          .where((doc) => doc.data()['deletedAt'] == null)
-          .length;
 
-      // Restore item with new order at end of list
-      await firestore.collection('Item').doc(itemId).update({
+      // Use batch to atomically restore item and shift existing items
+      final batch = firestore.batch();
+
+      // Shift all existing non-deleted items down by 1 (like item creation)
+      for (final doc in existingItems.docs) {
+        if (doc.data()['deletedAt'] == null) {
+          final currentOrder = doc.data()['order'] as int? ?? 0;
+          batch.update(doc.reference, {'order': currentOrder + 1});
+        }
+      }
+
+      // Restore item with order 0 (top of list)
+      batch.update(firestore.collection('Item').doc(itemId), {
         'deletedAt': FieldValue.delete(),
-        'order': newOrder,
+        'order': 0,
       });
+
+      await batch.commit();
     } on FirebaseException catch (e) {
       throw ServerException('Failed to restore item: ${e.message}');
     } catch (e) {
