@@ -65,8 +65,17 @@ class _ItemsListContent extends StatefulWidget {
   State<_ItemsListContent> createState() => _ItemsListContentState();
 }
 
-class _ItemsListContentState extends State<_ItemsListContent> {
+class _ItemsListContentState extends State<_ItemsListContent>
+    with SingleTickerProviderStateMixin {
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  late final SlidableController _firstItemController;
+  bool _hintAnimationTriggered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _firstItemController = SlidableController(this);
+  }
 
   // Static colors (theme-independent)
   static const Color _primary = Color(0xFF4B39EF);
@@ -119,6 +128,29 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                 ),
                 centerTitle: true,
                 elevation: 2.0,
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: IconButton(
+                      onPressed: () async {
+                        if (isConnected) {
+                          context.pushNamed(ItemFormPage.routeName);
+                        } else {
+                          await _showConnectDeviceDialog(context);
+                        }
+                      },
+                      style: IconButton.styleFrom(
+                        backgroundColor: _primary,
+                        shape: const CircleBorder(),
+                      ),
+                      icon: const Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 24.0,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               body: SafeArea(
                 top: true,
@@ -126,17 +158,9 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Add button at top-right
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 0.0),
-                        child: _buildAddButton(context, isConnected, primaryBackground),
-                      ),
-                    ),
                     // Total/Today Toggle
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(10.0, 16.0, 10.0, 0.0),
+                      padding: const EdgeInsets.fromLTRB(10.0, 20.0, 10.0, 0.0),
                       child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
                     ),
                     // Items List
@@ -169,7 +193,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
 
                             if (state is ItemsLoaded) {
                               if (state.items.isEmpty) {
-                                return _buildEmptyState(context, primaryText, secondaryText);
+                                return _buildEmptyState(context, primaryText, secondaryText, isConnected);
                               }
 
                               // Use ReorderableListView when connected, regular ListView when not
@@ -180,15 +204,18 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                   buildDefaultDragHandles: false,
                                   itemCount: state.items.length,
                                   onReorder: (oldIndex, newIndex) {
-                                    context.read<ItemsBloc>().add(
+                                    // Capture references BEFORE any async operations
+                                    final itemsBloc = context.read<ItemsBloc>();
+                                    final bluetoothBloc = context.read<BluetoothBloc>();
+                                    final selectedId = bluetoothState.selectedItemId;
+
+                                    itemsBloc.add(
                                       ReorderItemsEvent(oldIndex: oldIndex, newIndex: newIndex),
                                     );
                                     // Sync to device after reorder
-                                    final bluetoothBloc = context.read<BluetoothBloc>();
-                                    final itemsBloc = context.read<ItemsBloc>();
-                                    final selectedId = bluetoothState.selectedItemId;
                                     // Small delay to let BLoC process the reorder
                                     Future.delayed(const Duration(milliseconds: 100), () {
+                                      if (!mounted) return;
                                       final itemsState = itemsBloc.state;
                                       if (itemsState is ItemsLoaded) {
                                         bluetoothBloc.add(SendItemsToDevice(itemsState.items));
@@ -196,6 +223,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                         // (firmware stores selected by index, not just ID)
                                         if (selectedId != null && selectedId.isNotEmpty) {
                                           Future.delayed(const Duration(milliseconds: 200), () {
+                                            if (!mounted) return;
                                             bluetoothBloc.add(SendSelectedItem(selectedId));
                                           });
                                         }
@@ -204,6 +232,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                   },
                                   itemBuilder: (context, index) {
                                     final item = state.items[index];
+                                    // Don't pass controller in ReorderableListView - causes issues during drag
                                     return _buildItemTile(
                                       context,
                                       item,
@@ -219,12 +248,20 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                   },
                                 );
                               } else {
+                                // Trigger swipe hint only in regular ListView (not during reorder)
+                                if (!appUiState.hasShownSwipeHint) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    _showSwipeHint(appUiState);
+                                  });
+                                }
                                 return ListView.builder(
                                   padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
                                   physics: const AlwaysScrollableScrollPhysics(),
                                   itemCount: state.items.length,
                                   itemBuilder: (context, index) {
                                     final item = state.items[index];
+                                    // Only pass controller for hint animation when not yet shown
+                                    final needsController = index == 0 && !appUiState.hasShownSwipeHint;
                                     return _buildItemTile(
                                       context,
                                       item,
@@ -236,6 +273,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
                                       secondaryText,
                                       alternate,
                                       activatedColor,
+                                      controller: needsController ? _firstItemController : null,
                                     );
                                   },
                                 );
@@ -257,143 +295,41 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     );
   }
 
-  Widget _buildAddButton(BuildContext context, bool isConnected, Color primaryBackground) {
-    return Container(
-      width: 40.0,
-      height: 40.0,
-      decoration: BoxDecoration(
-        color: primaryBackground,
-      ),
-      child: IconButton(
-        onPressed: () async {
-          if (isConnected) {
-            context.pushNamed(ItemFormPage.routeName);
-          } else {
-            await _showConnectDeviceDialog(context);
-          }
-        },
-        style: IconButton.styleFrom(
-          backgroundColor: _primary,
-          shape: const CircleBorder(),
-          padding: EdgeInsets.zero,
-        ),
-        icon: const Icon(
-          Icons.add_rounded,
-          color: Colors.white,
-          size: 25.0,
-        ),
-      ),
-    );
-  }
-
   Widget _buildToggle(BuildContext context, AppUiState appUiState, Color primaryBackground, Color primaryText, Color secondaryText, Color alternate) {
-    return Container(
-      decoration: BoxDecoration(
-        color: primaryBackground,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 20.0),
-        child: Container(
-          height: 50.0,
-          decoration: BoxDecoration(
-            color: alternate,
-            borderRadius: BorderRadius.circular(12.0),
-            border: Border.all(
-              color: alternate,
-              width: 1.0,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                // Total button
-                Expanded(
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    focusColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () {
-                      appUiState.isTodayToggle = false;
-                    },
-                    child: Container(
-                      height: 100.0,
-                      decoration: BoxDecoration(
-                        color: !appUiState.isTodayToggle ? _primary : alternate,
-                        borderRadius: BorderRadius.circular(10.0),
-                        border: Border.all(
-                          color: !appUiState.isTodayToggle ? _primary : alternate,
-                          width: 1.0,
+    final isToday = appUiState.isTodayToggle;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Container(
+        height: 50.0,
+        padding: const EdgeInsets.all(4.0),
+        decoration: BoxDecoration(
+          color: alternate,
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        child: Row(
+          children: [
+            for (final (label, value) in [('Total', false), ('Today', true)])
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => appUiState.isTodayToggle = value,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: isToday == value ? _primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: Center(
+                      child: Text(
+                        label,
+                        style: GoogleFonts.inter(
+                          color: isToday == value ? Colors.white : secondaryText,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4.0),
-                            child: Text(
-                              'Total ',
-                              style: GoogleFonts.inter(
-                                color: !appUiState.isTodayToggle
-                                    ? Colors.white
-                                    : secondaryText,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
                 ),
-                // Today button
-                Expanded(
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    focusColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () {
-                      appUiState.isTodayToggle = true;
-                    },
-                    child: Container(
-                      height: 100.0,
-                      decoration: BoxDecoration(
-                        color: appUiState.isTodayToggle ? _primary : alternate,
-                        borderRadius: BorderRadius.circular(10.0),
-                        border: Border.all(
-                          color: appUiState.isTodayToggle ? _primary : alternate,
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4.0),
-                            child: Text(
-                              'Today',
-                              style: GoogleFonts.inter(
-                                color: appUiState.isTodayToggle
-                                    ? Colors.white
-                                    : secondaryText,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -409,8 +345,9 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     Color primaryText,
     Color secondaryText,
     Color alternate,
-    Color activatedColor,
-  ) {
+    Color activatedColor, {
+    SlidableController? controller,
+  }) {
     // Use Bluetooth selectedItemId from device, fallback to appUiState
     final activeId = selectedItemId ?? appUiState.activeItemId;
     final isActivated = activeId == item.id && isConnected;
@@ -445,6 +382,7 @@ class _ItemsListContentState extends State<_ItemsListContent> {
       key: ValueKey(item.id),
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Slidable(
+        controller: controller,
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
           extentRatio: 0.85,
@@ -519,12 +457,16 @@ class _ItemsListContentState extends State<_ItemsListContent> {
             ),
           ],
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isActivated ? activatedColor : alternate,
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: ListTile(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isActivated ? activatedColor : alternate,
+              border: isActivated
+                  ? Border(left: BorderSide(color: _activateActionColor, width: 4.0))
+                  : null,
+            ),
+            child: ListTile(
             onTap: () {
               context.pushNamed(
                 'ItemDetailPage',
@@ -562,12 +504,13 @@ class _ItemsListContentState extends State<_ItemsListContent> {
               borderRadius: BorderRadius.circular(8.0),
             ),
           ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText) {
+  Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText, bool isConnected) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -588,11 +531,27 @@ class _ItemsListContentState extends State<_ItemsListContent> {
           ),
           const SizedBox(height: 8.0),
           Text(
-            'Tap + to create your first item',
+            'Create your first item to start tracking',
             style: GoogleFonts.inter(
               color: secondaryText,
               fontSize: 14.0,
             ),
+          ),
+          const SizedBox(height: 24.0),
+          FilledButton.icon(
+            onPressed: () async {
+              if (isConnected) {
+                context.pushNamed(ItemFormPage.routeName);
+              } else {
+                await _showConnectDeviceDialog(context);
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: _primary,
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+            ),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Create Item'),
           ),
         ],
       ),
@@ -676,8 +635,28 @@ class _ItemsListContentState extends State<_ItemsListContent> {
     ) ?? false;
   }
 
+  /// Shows a swipe hint animation on the first item
+  void _showSwipeHint(AppUiState appUiState) {
+    if (_hintAnimationTriggered || appUiState.hasShownSwipeHint) return;
+    _hintAnimationTriggered = true;
+
+    // Delay to let the list render first
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      _firstItemController.openEndActionPane();
+
+      // Close after showing the actions briefly
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (!mounted) return;
+        _firstItemController.close();
+        appUiState.markSwipeHintShown();
+      });
+    });
+  }
+
   @override
   void dispose() {
+    _firstItemController.dispose();
     super.dispose();
   }
 }

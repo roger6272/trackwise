@@ -168,6 +168,8 @@ class ItemRepositoryImpl implements ItemRepository {
       return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error restoring item: $e'));
     }
   }
 

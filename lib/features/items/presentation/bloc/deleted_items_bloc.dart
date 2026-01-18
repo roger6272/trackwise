@@ -44,19 +44,34 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
     RestoreDeletedItem event,
     Emitter<DeletedItemsState> emit,
   ) async {
+    debugPrint('🗑️ DeletedItemsBloc: Restoring item ${event.itemId}');
     emit(ItemRestoring(itemId: event.itemId, items: _currentItems));
 
-    final result = await _repository.restoreItem(event.itemId);
+    try {
+      final result = await _repository.restoreItem(event.itemId);
 
-    result.fold(
-      (failure) => emit(DeletedItemsError(message: failure.message)),
-      (_) {
-        // Remove the restored item from the list
-        _currentItems = _currentItems
-            .where((item) => item.id != event.itemId)
-            .toList();
-        emit(ItemRestored(itemId: event.itemId, remainingItems: _currentItems));
-      },
-    );
+      result.fold(
+        (failure) {
+          debugPrint('🗑️ DeletedItemsBloc: Restore failed - ${failure.message}');
+          emit(DeletedItemsError(message: failure.message));
+          // Re-emit loaded state so UI doesn't stay in error state
+          emit(DeletedItemsLoaded(items: _currentItems));
+        },
+        (_) {
+          debugPrint('🗑️ DeletedItemsBloc: Item restored successfully');
+          // Remove the restored item from the list
+          _currentItems = _currentItems
+              .where((item) => item.id != event.itemId)
+              .toList();
+          emit(ItemRestored(itemId: event.itemId, remainingItems: _currentItems));
+        },
+      );
+    } catch (e, stackTrace) {
+      debugPrint('🗑️ DeletedItemsBloc: Unexpected error - $e');
+      debugPrint('🗑️ StackTrace: $stackTrace');
+      emit(DeletedItemsError(message: 'Failed to restore item: $e'));
+      // Re-emit loaded state so UI doesn't stay in error/loading state
+      emit(DeletedItemsLoaded(items: _currentItems));
+    }
   }
 }
