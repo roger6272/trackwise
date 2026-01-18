@@ -58,6 +58,20 @@ class BluetoothConstants {
   /// Characteristic read/write timeout in seconds
   static const int operationTimeoutSeconds = 3;
 
+  // ========== Connection Delays ==========
+
+  /// Delay after stopping scan before connecting (prevents Android error 133)
+  static const int scanStopDelayMs = 2000;
+
+  /// Delay after connection before initial sync (let BLE stabilize)
+  static const int connectionStabilizeDelayMs = 300;
+
+  /// Delay between BLE commands during initial sync
+  static const int commandIntervalDelayMs = 100;
+
+  /// Delay after prepare_read write before reading (ESP32 processing time)
+  static const int prepareReadDelayMs = 500;
+
   // ========== Retry Configuration ==========
 
   /// Maximum number of connection retry attempts
