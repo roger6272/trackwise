@@ -10,7 +10,7 @@ import '../../../domain/utils/stats_calculator.dart';
 /// (date, aggregation period, reset toggle).
 ///
 /// Shows:
-/// - Initial count (0 when "Since Reset" is toggled)
+/// - Initial count (actual value if never reset, 0 if reset occurred)
 /// - Period increments with trend comparison
 /// - Average and range for the period
 class DynamicStats extends StatelessWidget {
@@ -23,15 +23,15 @@ class DynamicStats extends StatelessWidget {
   /// The initial count when item was created.
   final int initialCount;
 
-  /// Whether "Since Last Reset" filter is active.
-  final bool showSinceReset;
+  /// Last reset time - null means item was never reset.
+  final DateTime? lastResetTime;
 
   const DynamicStats({
     super.key,
     required this.stats,
     required this.range,
     required this.initialCount,
-    required this.showSinceReset,
+    required this.lastResetTime,
   });
 
   // Semantic colors for trend indicators
@@ -103,7 +103,7 @@ class DynamicStats extends StatelessWidget {
                     // Initial count (0 when since reset)
                     Expanded(
                       child: _buildStatCell(
-                        value: showSinceReset ? '0' : initialCount.toString(),
+                        value: lastResetTime != null ? '0' : initialCount.toString(),
                         label: 'Initial Count',
                         icon: Icons.start_rounded,
                         iconColor: secondaryText,
