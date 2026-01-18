@@ -85,6 +85,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final brightness = Theme.of(context).brightness;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
 
     return MultiBlocProvider(
@@ -214,15 +215,50 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Activity section title
+                                    // Shared header with period badge
                                     Padding(
-                                      padding: const EdgeInsets.only(left: 4.0, bottom: 10.0),
+                                      padding: const EdgeInsets.only(left: 4.0, bottom: 14.0),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            'Results',
+                                            style: GoogleFonts.interTight(
+                                              fontSize: 16.0,
+                                              fontWeight: FontWeight.w600,
+                                              color: primaryText,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8.0),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8.0,
+                                              vertical: 3.0,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(6.0),
+                                            ),
+                                            child: Text(
+                                              _getPeriodLabel(),
+                                              style: GoogleFonts.inter(
+                                                fontSize: 11.0,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Activity sub-header
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
                                       child: Text(
                                         'Activity',
-                                        style: GoogleFonts.interTight(
-                                          fontSize: 15.0,
-                                          fontWeight: FontWeight.w600,
-                                          color: primaryText,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13.0,
+                                          fontWeight: FontWeight.w500,
+                                          color: secondaryText,
                                         ),
                                       ),
                                     ),
@@ -343,6 +379,20 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Reload the chart based on current settings.
   void _reloadChart(BuildContext context) {
     context.read<ChartsBloc>().add(_createChartEvent());
+  }
+
+  /// Returns human-readable period label for the current aggregation.
+  String _getPeriodLabel() {
+    switch (_aggregation) {
+      case '1D':
+        return 'Today';
+      case '7D':
+        return 'Last 7 days';
+      case '30D':
+        return 'Last 30 days';
+      default:
+        return _aggregation;
+    }
   }
 }
 

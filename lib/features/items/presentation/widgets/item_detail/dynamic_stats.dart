@@ -69,39 +69,16 @@ class DynamicStats extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section header
+        // Section sub-header (period badge is now in shared Results header)
         Padding(
-          padding: const EdgeInsets.only(left: 4.0, bottom: 10.0),
-          child: Row(
-            children: [
-              Text(
-                'Period Statistics',
-                style: GoogleFonts.interTight(
-                  fontSize: 15.0,
-                  fontWeight: FontWeight.w600,
-                  color: primaryText,
-                ),
-              ),
-              const SizedBox(width: 8.0),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6.0,
-                  vertical: 2.0,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4.0),
-                ),
-                child: Text(
-                  _getPeriodLabel(),
-                  style: GoogleFonts.inter(
-                    fontSize: 10.0,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
+          padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+          child: Text(
+            'Statistics',
+            style: GoogleFonts.inter(
+              fontSize: 13.0,
+              fontWeight: FontWeight.w500,
+              color: secondaryText,
+            ),
           ),
         ),
         // Stats grid (2x2)
@@ -183,19 +160,6 @@ class DynamicStats extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _getPeriodLabel() {
-    switch (range) {
-      case '1D':
-        return 'Today';
-      case '7D':
-        return 'Last 7 days';
-      case '30D':
-        return 'Last 30 days';
-      default:
-        return range;
-    }
   }
 
   String _getIntervalLabel() {
