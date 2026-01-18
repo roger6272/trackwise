@@ -212,7 +212,20 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
                                 final stats = _calculateStats(eventsState);
                                 return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    // Activity section title
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4.0, bottom: 10.0),
+                                      child: Text(
+                                        'Activity',
+                                        style: GoogleFonts.interTight(
+                                          fontSize: 15.0,
+                                          fontWeight: FontWeight.w600,
+                                          color: primaryText,
+                                        ),
+                                      ),
+                                    ),
                                     // Chart Section
                                     Container(
                                       decoration: BoxDecoration(

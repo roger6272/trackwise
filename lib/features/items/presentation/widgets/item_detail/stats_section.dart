@@ -58,52 +58,34 @@ class ChartSection extends StatelessWidget {
     );
   }
 
-  /// Builds the chart header with title, key stat, and toggle.
+  /// Builds the chart header with hero stat and toggle.
   Widget _buildChartHeader(BuildContext context, Color primary) {
     final brightness = Theme.of(context).brightness;
-    final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          // Title
+          // Hero stat: +X increments
           Text(
-            'Activity',
+            '+$periodTotal',
             style: GoogleFonts.interTight(
-              fontSize: 15.0,
-              fontWeight: FontWeight.w600,
-              color: primaryText,
+              fontSize: 28.0,
+              fontWeight: FontWeight.w700,
+              color: primary,
             ),
           ),
-          const SizedBox(width: 10.0),
-          // Key stat badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            decoration: BoxDecoration(
-              color: primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6.0),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.add_rounded,
-                  size: 12.0,
-                  color: primary,
-                ),
-                const SizedBox(width: 2.0),
-                Text(
-                  '$periodTotal',
-                  style: GoogleFonts.interTight(
-                    fontSize: 12.0,
-                    fontWeight: FontWeight.w600,
-                    color: primary,
-                  ),
-                ),
-              ],
+          const SizedBox(width: 6.0),
+          Text(
+            'increments',
+            style: GoogleFonts.inter(
+              fontSize: 14.0,
+              fontWeight: FontWeight.w500,
+              color: secondaryText,
             ),
           ),
           const Spacer(),
