@@ -53,25 +53,25 @@ class StaticHeader extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 12.0),
-      child: Container(
-        padding: const EdgeInsets.all(20.0),
-        decoration: BoxDecoration(
-          color: alternate,
-          borderRadius: BorderRadius.circular(16.0),
-          border: Border.all(
-            color: primaryText.withValues(alpha: 0.06),
-            width: 1.0,
+      child: Column(
+        children: [
+          // Goal ring with current count (no container)
+          _buildGoalRing(context, primaryText, secondaryText),
+          const SizedBox(height: 16.0),
+          // Item stats row (in card, matching Activity/Statistics styling)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+            decoration: BoxDecoration(
+              color: alternate,
+              borderRadius: BorderRadius.circular(12.0),
+              border: Border.all(
+                color: primaryText.withValues(alpha: 0.06),
+                width: 1.0,
+              ),
+            ),
+            child: _buildStatsRow(context, primaryText, secondaryText),
           ),
-        ),
-        child: Column(
-          children: [
-            // Goal ring with current count
-            _buildGoalRing(context, primaryText, secondaryText),
-            const SizedBox(height: 20.0),
-            // Item stats row
-            _buildStatsRow(context, primaryText, secondaryText),
-          ],
-        ),
+        ],
       ),
     );
   }
