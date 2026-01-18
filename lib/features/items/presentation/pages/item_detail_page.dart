@@ -10,6 +10,7 @@ import '../../../charts/presentation/bloc/charts_event.dart';
 import '../../../events/presentation/bloc/events_bloc.dart';
 import '../../../events/presentation/bloc/events_event.dart';
 import '../../../events/presentation/bloc/events_state.dart';
+import '../../domain/entities/item.dart';
 import '../../domain/utils/stats_calculator.dart';
 import '../widgets/item_detail/dynamic_stats.dart';
 import '../widgets/item_detail/filter_section.dart';
@@ -48,6 +49,12 @@ class ItemDetailPage extends StatefulWidget {
   /// Target goal for this item.
   final int? goal;
 
+  /// Amount incremented per event.
+  final int? incrementBy;
+
+  /// Type of reminder configured for this item.
+  final ReminderType? reminderType;
+
   const ItemDetailPage({
     super.key,
     required this.itemId,
@@ -56,6 +63,8 @@ class ItemDetailPage extends StatefulWidget {
     this.lastResetTime,
     this.initialCount,
     this.goal,
+    this.incrementBy,
+    this.reminderType,
   });
 
   @override
@@ -65,7 +74,7 @@ class ItemDetailPage extends StatefulWidget {
 class _ItemDetailPageState extends State<ItemDetailPage> {
   // Filter state
   String _aggregation = '1D';
-  bool _showSinceReset = false;
+  bool _showSinceReset = true; // Default to "Since Last Reset" for clearer context
   DateTime _selectedDate = DateTime.now();
 
   // UI state
@@ -128,6 +137,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       currentCount: widget.currentCount ?? 0,
                       initialCount: widget.initialCount ?? 0,
                       goal: widget.goal,
+                      incrementBy: widget.incrementBy ?? 1,
+                      lastResetTime: widget.lastResetTime,
+                      reminderType: widget.reminderType ?? ReminderType.none,
                     ),
                   ),
                   // Sticky Filter Section
@@ -214,6 +226,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               DynamicStats(
                                 stats: stats,
                                 range: _aggregation,
+                                initialCount: widget.initialCount ?? 0,
+                                showSinceReset: _showSinceReset,
                               ),
                               const SizedBox(height: 24.0),
                             ],

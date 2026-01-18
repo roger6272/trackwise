@@ -10,6 +10,7 @@ import '../../../domain/utils/stats_calculator.dart';
 /// (date, aggregation period, reset toggle).
 ///
 /// Shows:
+/// - Initial count (0 when "Since Reset" is toggled)
 /// - Period increments with trend comparison
 /// - Average and range for the period
 class DynamicStats extends StatelessWidget {
@@ -19,10 +20,18 @@ class DynamicStats extends StatelessWidget {
   /// The aggregation range label: '1D', '7D', or '30D'.
   final String range;
 
+  /// The initial count when item was created.
+  final int initialCount;
+
+  /// Whether "Since Last Reset" filter is active.
+  final bool showSinceReset;
+
   const DynamicStats({
     super.key,
     required this.stats,
     required this.range,
+    required this.initialCount,
+    required this.showSinceReset,
   });
 
   // Semantic colors for trend indicators
@@ -87,27 +96,32 @@ class DynamicStats extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Row 1: Period Increments + Trend
+              // Row 1: Initial Count + Period Increments
               IntrinsicHeight(
                 child: Row(
                   children: [
-                    // Period increments
+                    // Initial count (0 when since reset)
                     Expanded(
                       child: _buildStatCell(
-                        value: '+${stats.totalCount}',
-                        label: 'Increments',
-                        icon: Icons.add_circle_outline_rounded,
-                        iconColor: AppColors.primary,
+                        value: showSinceReset ? '0' : initialCount.toString(),
+                        label: 'Initial Count',
+                        icon: Icons.start_rounded,
+                        iconColor: secondaryText,
                         primaryText: primaryText,
                         secondaryText: secondaryText,
                         showRightBorder: true,
                       ),
                     ),
-                    // Trend comparison
+                    // Period increments
                     Expanded(
-                      child: _buildTrendCell(
+                      child: _buildStatCell(
+                        value: '+${stats.totalCount}',
+                        label: 'Period Increments',
+                        icon: Icons.add_circle_outline_rounded,
+                        iconColor: AppColors.primary,
                         primaryText: primaryText,
                         secondaryText: secondaryText,
+                        showRightBorder: false,
                       ),
                     ),
                   ],
@@ -118,10 +132,17 @@ class DynamicStats extends StatelessWidget {
                 height: 1.0,
                 color: primaryText.withValues(alpha: 0.06),
               ),
-              // Row 2: Average + Range
+              // Row 2: Trend + Average
               IntrinsicHeight(
                 child: Row(
                   children: [
+                    // Trend comparison
+                    Expanded(
+                      child: _buildTrendCell(
+                        primaryText: primaryText,
+                        secondaryText: secondaryText,
+                      ),
+                    ),
                     // Average
                     Expanded(
                       child: _buildStatCell(
@@ -131,23 +152,26 @@ class DynamicStats extends StatelessWidget {
                         iconColor: secondaryText,
                         primaryText: primaryText,
                         secondaryText: secondaryText,
-                        showRightBorder: true,
-                      ),
-                    ),
-                    // Range
-                    Expanded(
-                      child: _buildStatCell(
-                        value: '${stats.minCount} - ${stats.maxCount}',
-                        label: 'Range',
-                        icon: Icons.swap_vert_rounded,
-                        iconColor: secondaryText,
-                        primaryText: primaryText,
-                        secondaryText: secondaryText,
                         showRightBorder: false,
                       ),
                     ),
                   ],
                 ),
+              ),
+              // Divider
+              Container(
+                height: 1.0,
+                color: primaryText.withValues(alpha: 0.06),
+              ),
+              // Row 3: Range (full width)
+              _buildStatCell(
+                value: '${stats.minCount} - ${stats.maxCount}',
+                label: 'Range (Low - High)',
+                icon: Icons.swap_vert_rounded,
+                iconColor: secondaryText,
+                primaryText: primaryText,
+                secondaryText: secondaryText,
+                showRightBorder: false,
               ),
             ],
           ),
