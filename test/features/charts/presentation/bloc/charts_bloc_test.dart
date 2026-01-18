@@ -166,8 +166,12 @@ void main() {
       );
 
       blocTest<ChartsBloc, ChartsState>(
-        'does nothing when chart type is cumulative',
-        build: () => bloc,
+        'reloads cumulative chart with new aggregation level',
+        build: () {
+          when(() => mockGetCumulativeChartData(any()))
+              .thenAnswer((_) async => Right(testCumulativeChartDataWeekly));
+          return bloc;
+        },
         seed: () => ChartsLoaded(
           chartData: testCumulativeChartData,
           chartType: ChartType.cumulative,
@@ -175,7 +179,12 @@ void main() {
           endDate: testEndDate,
         ),
         act: (bloc) => bloc.add(const ChangeAggregationLevel(AggregationLevel.weekly)),
-        expect: () => [],
+        expect: () => [
+          const ChartsLoading(),
+          isA<ChartsLoaded>()
+              .having((s) => s.chartType, 'chartType', ChartType.cumulative)
+              .having((s) => s.chartData.aggregationLevel, 'aggregationLevel', AggregationLevel.weekly),
+        ],
       );
     });
 

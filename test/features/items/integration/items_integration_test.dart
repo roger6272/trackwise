@@ -260,7 +260,7 @@ void main() {
     });
 
     group('DeleteItem Flow', () {
-      test('should delete item from Firestore', () async {
+      test('should soft delete item from Firestore', () async {
         // Arrange - Create an item
         await helper.clearFirestore();
 
@@ -277,20 +277,22 @@ void main() {
           (item) => item,
         );
 
-        // Verify item exists
+        // Verify item exists and is not soft-deleted
         expect(await helper.itemExistsInFirestore(item.id), true);
+        expect(await helper.itemIsSoftDeleted(item.id), false);
 
-        // Act - Delete the item
+        // Act - Delete the item (soft delete)
         final deleteResult =
             await helper.deleteItemUseCase(DeleteItemParams(item.id));
 
         // Assert - Delete succeeded
         expect(deleteResult.isRight(), true);
 
-        // Verify item no longer exists
-        expect(await helper.itemExistsInFirestore(item.id), false);
+        // Verify item still exists but is soft-deleted
+        expect(await helper.itemExistsInFirestore(item.id), true);
+        expect(await helper.itemIsSoftDeleted(item.id), true);
 
-        // Verify via GetItems
+        // Verify via GetItems - soft-deleted items should be filtered out
         final getResult =
             await helper.getItemsUseCase(GetItemsParams(testUserId));
         final items = getResult.fold(
@@ -643,8 +645,8 @@ void main() {
           ),
         );
 
-        // Verify it was deleted from Firestore
-        expect(await helper.itemExistsInFirestore(item.id), false);
+        // Verify it was soft-deleted in Firestore (item exists but has deletedAt)
+        expect(await helper.itemIsSoftDeleted(item.id), true);
       });
 
       test('should perform optimistic increment', () async {

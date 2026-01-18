@@ -55,6 +55,11 @@ final testCumulativeChartData = ChartData(
   aggregationLevel: AggregationLevel.daily,
 );
 
+final testCumulativeChartDataWeekly = ChartData(
+  dataPoints: testCumulativeDataPoints,
+  aggregationLevel: AggregationLevel.weekly,
+);
+
 // Event logs for aggregation tests
 final testEventsForAggregation = [
   EventLog(

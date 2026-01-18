@@ -46,6 +46,7 @@ void main() {
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
       when(() => mockCollection.where('uid', isEqualTo: mockUserRef))
           .thenReturn(mockQuery);
+      when(() => mockQuery.orderBy('order')).thenReturn(mockQuery);
       when(() => mockQuery.get()).thenAnswer((_) async => mockQuerySnapshot);
 
       final mockDocSnap = MockQueryDocumentSnapshot<Map<String, dynamic>>();
@@ -145,6 +146,7 @@ void main() {
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
       when(() => mockCollection.where('uid', isEqualTo: mockUserRef))
           .thenReturn(mockQuery);
+      when(() => mockQuery.orderBy('order')).thenReturn(mockQuery);
 
       final mockDocSnap = MockQueryDocumentSnapshot<Map<String, dynamic>>();
       when(() => mockDocSnap.id).thenReturn('test_item_1');
@@ -188,6 +190,12 @@ void main() {
       when(() => mockCollection.doc(any())).thenReturn(mockDocRef);
       when(() => mockDocRef.id).thenReturn('generated_id');
       when(() => mockDocRef.set(any())).thenAnswer((_) async => {});
+
+      // Mock the query to count existing items for order
+      when(() => mockCollection.where('uid', isEqualTo: mockUserRef))
+          .thenReturn(mockQuery);
+      when(() => mockQuery.get()).thenAnswer((_) async => mockQuerySnapshot);
+      when(() => mockQuerySnapshot.docs).thenReturn([]);
 
       final itemToCreate = ItemModel(
         id: '',
@@ -259,32 +267,17 @@ void main() {
   group('deleteItem', () {
     const itemId = 'test_item_1';
 
-    test('should delete item and associated EventLog entries', () async {
+    test('should soft delete item by setting deletedAt timestamp', () async {
       // Arrange
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
       when(() => mockCollection.doc(itemId)).thenReturn(mockDocRef);
-      when(() => mockDocRef.delete()).thenAnswer((_) async => {});
-
-      final mockEventLogCollection = MockCollectionReference<Map<String, dynamic>>();
-      final mockEventLogQuery = MockQuery<Map<String, dynamic>>();
-      final mockEventLogSnapshot = MockQuerySnapshot<Map<String, dynamic>>();
-
-      when(() => mockFirestore.collection('EventLog'))
-          .thenReturn(mockEventLogCollection);
-      when(() => mockEventLogCollection.where('item_id', isEqualTo: itemId))
-          .thenReturn(mockEventLogQuery);
-      when(() => mockEventLogQuery.get())
-          .thenAnswer((_) async => mockEventLogSnapshot);
-      when(() => mockEventLogSnapshot.docs).thenReturn([]);
-      when(() => mockFirestore.batch()).thenReturn(mockBatch);
-      when(() => mockBatch.commit()).thenAnswer((_) async => {});
+      when(() => mockDocRef.update(any())).thenAnswer((_) async => {});
 
       // Act
       await dataSource.deleteItem(itemId);
 
-      // Assert
-      verify(() => mockDocRef.delete()).called(1);
-      verify(() => mockBatch.commit()).called(1);
+      // Assert - should call update with deletedAt, not hard delete
+      verify(() => mockDocRef.update(any())).called(1);
     });
 
     test('should throw ServerException when Firestore fails', () async {

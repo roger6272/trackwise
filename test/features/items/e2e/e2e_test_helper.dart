@@ -120,6 +120,7 @@ class E2ETestHelper {
         updateItemUseCase: updateItemUseCase,
         deleteItemUseCase: deleteItemUseCase,
         incrementItemUseCase: incrementItemUseCase,
+        itemRepository: repository,
       );
 
       _isInitialized = true;
@@ -294,6 +295,7 @@ class E2ETestHelper {
       updateItemUseCase: updateItemUseCase,
       deleteItemUseCase: deleteItemUseCase,
       incrementItemUseCase: incrementItemUseCase,
+      itemRepository: repository,
     );
   }
 }

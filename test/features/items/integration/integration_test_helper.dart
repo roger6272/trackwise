@@ -62,6 +62,7 @@ class IntegrationTestHelper {
       updateItemUseCase: updateItemUseCase,
       deleteItemUseCase: deleteItemUseCase,
       incrementItemUseCase: incrementItemUseCase,
+      itemRepository: repository,
     );
   }
 
@@ -136,6 +137,14 @@ class IntegrationTestHelper {
   Future<bool> itemExistsInFirestore(String itemId) async {
     final doc = await fakeFirestore.collection('Item').doc(itemId).get();
     return doc.exists;
+  }
+
+  /// Check if item is soft-deleted (has deletedAt timestamp)
+  Future<bool> itemIsSoftDeleted(String itemId) async {
+    final doc = await fakeFirestore.collection('Item').doc(itemId).get();
+    if (!doc.exists) return false;
+    final data = doc.data();
+    return data != null && data['deletedAt'] != null;
   }
 
   /// Get item data from Firestore
