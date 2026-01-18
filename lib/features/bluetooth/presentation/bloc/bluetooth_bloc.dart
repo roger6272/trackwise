@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 
 import '../../../../auth/firebase_auth/auth_util.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/utils/bluetooth_constants.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
@@ -335,7 +336,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _scanSubscription?.cancel();
       _scanSubscription = null;
       // Give BLE stack time to settle after stopping scan (prevents error 133)
-      await Future.delayed(const Duration(milliseconds: 2000));
+      await Future.delayed(const Duration(milliseconds: BluetoothConstants.scanStopDelayMs));
     }
 
     // Guard: Check if Bluetooth is ready
@@ -511,7 +512,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     if (deviceId == null) return;
 
     // Small delay to let BLE connection stabilize
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: BluetoothConstants.connectionStabilizeDelayMs));
 
     // Send time sync first and await it
     final timeSyncResult = await _sendTimeSync.call(SendTimeSyncParams(deviceId));
@@ -521,7 +522,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     // Small delay between commands to avoid overwhelming BLE
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
 
     // Request prefs from device (item counts, selected item)
     // Response will arrive via notification -> MessageReceived event
@@ -539,7 +540,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     // Small delay before requesting logs
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
 
     // Request logs from device (event history)
     // Response will arrive via notification -> MessageReceived event
@@ -696,7 +697,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       if (deviceId != null) {
         final currentPage = message.page ?? 0;
         print('📖 More logs available, requesting page ${currentPage + 1}');
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
         add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1));
       }
     }

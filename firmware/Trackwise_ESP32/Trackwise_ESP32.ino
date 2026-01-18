@@ -289,6 +289,38 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       prefs.putInt("item_total", index);
 
+      // Re-lookup selected item index after reordering
+      // (items may have moved to different positions)
+      if (currentItemId != "none") {
+        bool found = false;
+        for (int i = 0; i < index; i++) {
+          String testId = prefs.getString(("id_" + String(i)).c_str(), "");
+          if (testId == currentItemId) {
+            currentItemIndex = i;
+            prefs.putInt("selected_index", i);
+            found = true;
+            Serial.printf("🔄 Updated selected index to %d for ID %s\n", i, currentItemId.c_str());
+            break;
+          }
+        }
+        if (!found) {
+          // Selected item was deleted, reset to first item or none
+          if (index > 0) {
+            currentItemIndex = 0;
+            currentItemId = prefs.getString("id_0", "none");
+            prefs.putInt("selected_index", 0);
+            prefs.putString("selected_id", currentItemId);
+            Serial.printf("⚠️ Selected item deleted, reset to: %s\n", currentItemId.c_str());
+          } else {
+            currentItemIndex = 0;
+            currentItemId = "none";
+            prefs.putInt("selected_index", 0);
+            prefs.putString("selected_id", "none");
+            Serial.println("⚠️ No items left, selected = none");
+          }
+        }
+      }
+
       // Refresh runtime variables for currently selected item
       // This ensures updated incrementBy, reminder, etc. take effect immediately
       if (currentItemId != "none" && currentItemIndex < index) {
@@ -914,9 +946,11 @@ void loop() {
   if (currentReadMode == READ_PREFS) {
     notifyPrefsToApp();  // Send prefs via notification (chunked)
     updateReadChar();    // Also update READ char for compatibility
+    currentReadMode = READ_NONE;  // Reset after handling
   } else if (currentReadMode == READ_LOGS) {
     notifyLogsToApp(currentPage);  // Send logs via notification (chunked)
     updateReadChar();              // Also update READ char for compatibility
+    currentReadMode = READ_NONE;  // Reset after handling
   }
 
   if (Serial.available()) {

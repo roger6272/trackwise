@@ -219,7 +219,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   Future<Either<Failure, void>> clearLogs(String deviceId) async {
     try {
       final jsonData = jsonEncode({
-        'type': 'clear_logs',
+        'cmd': 'clear_logs',
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);
