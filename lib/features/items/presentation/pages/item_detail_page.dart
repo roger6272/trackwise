@@ -208,9 +208,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Shared header with period badge + Since Reset toggle
+                                    // Results header with data scope toggle
                                     Padding(
-                                      padding: const EdgeInsets.only(left: 4.0, right: 4.0, bottom: 14.0),
+                                      padding: const EdgeInsets.only(left: 4.0, bottom: 14.0),
                                       child: Row(
                                         children: [
                                           Text(
@@ -222,26 +222,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                             ),
                                           ),
                                           const SizedBox(width: 8.0),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8.0,
-                                              vertical: 3.0,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primary.withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(6.0),
-                                            ),
-                                            child: Text(
-                                              _getPeriodLabel(),
-                                              style: GoogleFonts.inter(
-                                                fontSize: 11.0,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          // Since Reset toggle
+                                          // Data scope toggle (All Time / Since Reset)
                                           GestureDetector(
                                             onTap: () {
                                               setState(() {
@@ -252,7 +233,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(
                                                 horizontal: 10.0,
-                                                vertical: 5.0,
+                                                vertical: 4.0,
                                               ),
                                               decoration: BoxDecoration(
                                                 color: _showSinceReset
@@ -425,20 +406,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Reload the chart based on current settings.
   void _reloadChart(BuildContext context) {
     context.read<ChartsBloc>().add(_createChartEvent());
-  }
-
-  /// Returns human-readable period label for the current aggregation.
-  String _getPeriodLabel() {
-    switch (_aggregation) {
-      case '1D':
-        return 'Today';
-      case '7D':
-        return 'Last 7 days';
-      case '30D':
-        return 'Last 30 days';
-      default:
-        return _aggregation;
-    }
   }
 }
 
