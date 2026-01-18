@@ -184,8 +184,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           },
                         ),
                       ),
-                      maxHeight: 130.0,
-                      minHeight: 130.0,
+                      maxHeight: 158.0,
+                      minHeight: 158.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
@@ -223,6 +223,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                           width: 1.0,
                                         ),
                                       ),
+                                      padding: const EdgeInsets.only(top: 12.0),
                                       child: ChartSection(
                                         showCumulative: _showCumulative,
                                         onChartTypeChanged: (value) {
@@ -233,6 +234,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         },
                                         range: _aggregation,
                                         selectedDate: _selectedDate,
+                                        periodTotal: stats.totalCount,
                                       ),
                                     ),
                                     const SizedBox(height: 16.0),

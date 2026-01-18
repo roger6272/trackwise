@@ -84,7 +84,7 @@ class DynamicStats extends StatelessWidget {
             ],
           ),
         ),
-        // Stats grid
+        // Stats grid (2x2)
         Container(
           decoration: BoxDecoration(
             color: alternate,
@@ -96,7 +96,7 @@ class DynamicStats extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Row 1: Initial Count + Period Increments
+              // Row 1: Initial Count + Trend
               IntrinsicHeight(
                 child: Row(
                   children: [
@@ -112,16 +112,11 @@ class DynamicStats extends StatelessWidget {
                         showRightBorder: true,
                       ),
                     ),
-                    // Period increments
+                    // Trend comparison
                     Expanded(
-                      child: _buildStatCell(
-                        value: '+${stats.totalCount}',
-                        label: 'Period Increments',
-                        icon: Icons.add_circle_outline_rounded,
-                        iconColor: AppColors.primary,
+                      child: _buildTrendCell(
                         primaryText: primaryText,
                         secondaryText: secondaryText,
-                        showRightBorder: false,
                       ),
                     ),
                   ],
@@ -132,17 +127,10 @@ class DynamicStats extends StatelessWidget {
                 height: 1.0,
                 color: primaryText.withValues(alpha: 0.06),
               ),
-              // Row 2: Trend + Average
+              // Row 2: Average + Range
               IntrinsicHeight(
                 child: Row(
                   children: [
-                    // Trend comparison
-                    Expanded(
-                      child: _buildTrendCell(
-                        primaryText: primaryText,
-                        secondaryText: secondaryText,
-                      ),
-                    ),
                     // Average
                     Expanded(
                       child: _buildStatCell(
@@ -152,26 +140,23 @@ class DynamicStats extends StatelessWidget {
                         iconColor: secondaryText,
                         primaryText: primaryText,
                         secondaryText: secondaryText,
+                        showRightBorder: true,
+                      ),
+                    ),
+                    // Range
+                    Expanded(
+                      child: _buildStatCell(
+                        value: '${stats.minCount} – ${stats.maxCount}',
+                        label: 'Range',
+                        icon: Icons.swap_vert_rounded,
+                        iconColor: secondaryText,
+                        primaryText: primaryText,
+                        secondaryText: secondaryText,
                         showRightBorder: false,
                       ),
                     ),
                   ],
                 ),
-              ),
-              // Divider
-              Container(
-                height: 1.0,
-                color: primaryText.withValues(alpha: 0.06),
-              ),
-              // Row 3: Range (full width)
-              _buildStatCell(
-                value: '${stats.minCount} - ${stats.maxCount}',
-                label: 'Range (Low - High)',
-                icon: Icons.swap_vert_rounded,
-                iconColor: secondaryText,
-                primaryText: primaryText,
-                secondaryText: secondaryText,
-                showRightBorder: false,
               ),
             ],
           ),

@@ -16,7 +16,7 @@ class ItemModel extends Item {
     required super.incrementBy,
     required super.reminder,
     required super.reminderValue,
-    required super.lastResetTime,
+    super.lastResetTime,
     required super.lastUpdated,
     required super.userId,
     super.deletedAt,
@@ -65,7 +65,7 @@ class ItemModel extends Item {
       incrementBy: data['increment_by'] as int? ?? 1,
       reminder: _reminderFromString(data['reminder'] as String?),
       reminderValue: data['reminder_value'] as int? ?? 0,
-      lastResetTime: _parseDateTime(data['lastResetTime']),
+      lastResetTime: _parseNullableDateTime(data['lastResetTime']),
       lastUpdated: _parseDateTime(data['lastUpdated']),
       userId: userId,
       deletedAt: _parseNullableDateTime(data['deletedAt']),
@@ -102,19 +102,21 @@ class ItemModel extends Item {
   /// Note: The document ID is not included in the map as it's set separately
   /// when writing to Firestore.
   Map<String, dynamic> toFirestore() {
-    final map = {
+    final map = <String, dynamic>{
       'item_name': this.name,
       'count': this.count,
       'todaycount': this.todayCount,
       'increment_by': this.incrementBy,
       'reminder': _reminderToString(this.reminder),
       'reminder_value': this.reminderValue,
-      'lastResetTime': this.lastResetTime.millisecondsSinceEpoch,
       'lastUpdated': this.lastUpdated.millisecondsSinceEpoch,
       'user_id': this.userId,
       'order': this.order,
       'initial_count': this.initialCount,
     };
+    if (this.lastResetTime != null) {
+      map['lastResetTime'] = this.lastResetTime!.millisecondsSinceEpoch;
+    }
     if (this.deletedAt != null) {
       map['deletedAt'] = this.deletedAt!.millisecondsSinceEpoch;
     }

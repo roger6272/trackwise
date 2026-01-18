@@ -131,7 +131,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       'increment': item.incrementBy,
       'reminder': _reminderTypeToInt(item.reminder),
       'reminder_value': item.reminderValue,
-      'lastResetTime': item.lastResetTime.toUtc().millisecondsSinceEpoch ~/ 1000,
+      'lastResetTime': (item.lastResetTime?.toUtc().millisecondsSinceEpoch ?? 0) ~/ 1000,
       'count': item.count,
       'todaycount': item.todayCount,
     }).toList();

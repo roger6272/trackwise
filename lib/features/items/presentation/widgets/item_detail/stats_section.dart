@@ -12,7 +12,7 @@ import '../cumulative_chart_widget.dart';
 /// Section displaying chart with toggle.
 ///
 /// Shows:
-/// - Chart toggle (Increments / Cumulative)
+/// - Chart header with title, key stat, and toggle
 /// - Chart display area (bar or cumulative based on toggle)
 ///
 /// Note: Stats are now shown in DynamicStats widget below.
@@ -29,12 +29,16 @@ class ChartSection extends StatelessWidget {
   /// The selected end date for the chart.
   final DateTime selectedDate;
 
+  /// Total count for the period (key stat to display).
+  final int periodTotal;
+
   const ChartSection({
     super.key,
     required this.showCumulative,
     required this.onChartTypeChanged,
     required this.range,
     required this.selectedDate,
+    this.periodTotal = 0,
   });
 
   // Error color for chart error state
@@ -45,104 +49,145 @@ class ChartSection extends StatelessWidget {
     const primary = AppColors.primary;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildChartToggle(context, primary),
-        const SizedBox(height: 10.0),
+        _buildChartHeader(context, primary),
+        const SizedBox(height: 8.0),
         _buildChartArea(context, primary),
       ],
     );
   }
 
-  /// Builds the chart type toggle as matching pill buttons.
-  Widget _buildChartToggle(BuildContext context, Color primary) {
+  /// Builds the chart header with title, key stat, and toggle.
+  Widget _buildChartHeader(BuildContext context, Color primary) {
     final brightness = Theme.of(context).brightness;
-    final alternate = AppColors.alternate(brightness);
+    final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
+    final alternate = AppColors.alternate(brightness);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 0.0),
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: alternate,
-              borderRadius: BorderRadius.circular(10.0),
+          // Title
+          Text(
+            'Activity',
+            style: GoogleFonts.interTight(
+              fontSize: 15.0,
+              fontWeight: FontWeight.w600,
+              color: primaryText,
             ),
-            padding: const EdgeInsets.all(3.0),
+          ),
+          const SizedBox(width: 10.0),
+          // Key stat badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6.0),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildToggleOption(
-                  label: 'Increments',
-                  icon: Icons.bar_chart_rounded,
-                  isSelected: !showCumulative,
-                  onTap: () => onChartTypeChanged(false),
-                  primary: primary,
-                  secondaryText: secondaryText,
+                Icon(
+                  Icons.add_rounded,
+                  size: 12.0,
+                  color: primary,
                 ),
-                _buildToggleOption(
-                  label: 'Cumulative',
-                  icon: Icons.show_chart_rounded,
-                  isSelected: showCumulative,
-                  onTap: () => onChartTypeChanged(true),
-                  primary: primary,
-                  secondaryText: secondaryText,
+                const SizedBox(width: 2.0),
+                Text(
+                  '$periodTotal',
+                  style: GoogleFonts.interTight(
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w600,
+                    color: primary,
+                  ),
                 ),
               ],
             ),
+          ),
+          const Spacer(),
+          // Toggle
+          _buildChartToggle(context, primary, alternate, secondaryText),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a compact icon-based chart type toggle.
+  Widget _buildChartToggle(
+    BuildContext context,
+    Color primary,
+    Color alternate,
+    Color secondaryText,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: alternate,
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      padding: const EdgeInsets.all(2.0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildToggleIcon(
+            icon: Icons.bar_chart_rounded,
+            tooltip: 'Increments',
+            isSelected: !showCumulative,
+            onTap: () => onChartTypeChanged(false),
+            primary: primary,
+            secondaryText: secondaryText,
+          ),
+          _buildToggleIcon(
+            icon: Icons.show_chart_rounded,
+            tooltip: 'Cumulative',
+            isSelected: showCumulative,
+            onTap: () => onChartTypeChanged(true),
+            primary: primary,
+            secondaryText: secondaryText,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildToggleOption({
-    required String label,
+  Widget _buildToggleIcon({
     required IconData icon,
+    required String tooltip,
     required bool isSelected,
     required VoidCallback onTap,
     required Color primary,
     required Color secondaryText,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
-        decoration: BoxDecoration(
-          color: isSelected ? primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(8.0),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: primary.withValues(alpha: 0.25),
-                    blurRadius: 6.0,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          width: 32.0,
+          height: 28.0,
+          decoration: BoxDecoration(
+            color: isSelected ? primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(6.0),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: primary.withValues(alpha: 0.25),
+                      blurRadius: 4.0,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Icon(
               icon,
-              size: 14.0,
+              size: 16.0,
               color: isSelected ? Colors.white : secondaryText,
             ),
-            const SizedBox(width: 4.0),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 11.0,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : secondaryText,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -153,10 +198,10 @@ class ChartSection extends StatelessWidget {
     final width = MediaQuery.of(context).size.width - 40;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 4.0),
       child: SizedBox(
         width: width,
-        height: 220.0,
+        height: 200.0,
         child: BlocBuilder<ChartsBloc, ChartsState>(
           builder: (context, state) {
             if (state is ChartsLoading) {

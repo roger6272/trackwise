@@ -121,6 +121,18 @@ class AppRouter {
                     final resetStr = state.uri.queryParameters['resetTime'];
                     final initialCountStr = state.uri.queryParameters['initialCount'];
                     final goalStr = state.uri.queryParameters['goal'];
+                    final incrementByStr = state.uri.queryParameters['incrementBy'];
+                    final reminderTypeStr = state.uri.queryParameters['reminderType'];
+
+                    // Parse reminder type from string
+                    ReminderType? reminderType;
+                    if (reminderTypeStr != null) {
+                      reminderType = ReminderType.values.firstWhere(
+                        (e) => e.name == reminderTypeStr,
+                        orElse: () => ReminderType.none,
+                      );
+                    }
+
                     return ItemDetailPage(
                       itemId: itemId,
                       itemName: itemName,
@@ -128,6 +140,8 @@ class AppRouter {
                       lastResetTime: resetStr != null ? DateTime.tryParse(resetStr) : null,
                       initialCount: initialCountStr != null ? int.tryParse(initialCountStr) : null,
                       goal: goalStr != null ? int.tryParse(goalStr) : null,
+                      incrementBy: incrementByStr != null ? int.tryParse(incrementByStr) : null,
+                      reminderType: reminderType,
                     );
                   },
                 ),

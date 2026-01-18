@@ -578,7 +578,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         incrementBy: incrementBy,
         reminder: reminder,
         reminderValue: reminderValue,
-        lastResetTime: now,
+        lastResetTime: null, // null = never reset
         lastUpdated: now,
         userId: currentUserUid,
         goal: goal,

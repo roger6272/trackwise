@@ -39,6 +39,34 @@ class FilterSection extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Header row with filter icon
+        Row(
+          children: [
+            Icon(
+              Icons.tune_rounded,
+              size: 14.0,
+              color: secondaryText,
+            ),
+            const SizedBox(width: 6.0),
+            Text(
+              'Filters',
+              style: GoogleFonts.inter(
+                fontSize: 11.0,
+                fontWeight: FontWeight.w600,
+                color: secondaryText,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 12.0),
+            Expanded(
+              child: Container(
+                height: 1.0,
+                color: secondaryText.withValues(alpha: 0.15),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10.0),
         // Row 1: Aggregation pills + Reset toggle
         Row(
           children: [
@@ -49,7 +77,7 @@ class FilterSection extends StatelessWidget {
             _buildResetChip(context, primary, alternate, secondaryText),
           ],
         ),
-        const SizedBox(height: 12.0),
+        const SizedBox(height: 10.0),
         // Row 2: Date picker (full width, more prominent)
         _buildDatePickerRow(context, primary, primaryText, secondaryText, alternate),
       ],

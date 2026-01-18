@@ -44,7 +44,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
   static const double yAxisLabelWidth = 30.0;
   static const double chartContentHorizontalPadding = 40.0;
   static const double minBarHeight = 4.0;
-  static const double barAreaVerticalPadding = 30.0;
+  static const double barAreaVerticalPadding = 8.0;
   static const int divisions = 5;
 
   // Range configuration matching FlutterFlow

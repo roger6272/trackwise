@@ -557,8 +557,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 queryParameters: {
                   'name': item.name,
                   'count': item.count.toString(),
-                  'resetTime': item.lastResetTime.toIso8601String(),
+                  if (item.lastResetTime != null)
+                    'resetTime': item.lastResetTime!.toIso8601String(),
                   'initialCount': item.initialCount.toString(),
+                  'incrementBy': item.incrementBy.toString(),
+                  'reminderType': item.reminder.name,
                   if (item.goal != null) 'goal': item.goal.toString(),
                 },
               );

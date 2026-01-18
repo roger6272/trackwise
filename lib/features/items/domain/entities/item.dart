@@ -46,8 +46,9 @@ class Item extends Equatable {
   /// - For [ReminderType.none]: Value ignored
   final int reminderValue;
 
-  /// Timestamp of last daily reset (performed by ESP32 at midnight)
-  final DateTime lastResetTime;
+  /// Timestamp of last daily reset (performed by ESP32 at midnight).
+  /// Null if the item has never been reset.
+  final DateTime? lastResetTime;
 
   /// Timestamp of last modification (any update to item)
   final DateTime lastUpdated;
@@ -81,7 +82,7 @@ class Item extends Equatable {
     required this.incrementBy,
     required this.reminder,
     required this.reminderValue,
-    required this.lastResetTime,
+    this.lastResetTime,
     required this.lastUpdated,
     required this.userId,
     this.deletedAt,

@@ -103,6 +103,7 @@ class CreateItemUseCase extends UseCase<Item, CreateItemParams> {
 
     // All validation passed, create the item
     // The repository will generate id and timestamps
+    // lastResetTime is null for new items (never been reset)
     final now = DateTime.now();
     final item = Item(
       id: '', // Repository will generate
@@ -112,7 +113,7 @@ class CreateItemUseCase extends UseCase<Item, CreateItemParams> {
       incrementBy: params.incrementBy,
       reminder: params.reminder,
       reminderValue: params.reminderValue,
-      lastResetTime: now,
+      lastResetTime: null, // null = never reset
       lastUpdated: now,
       userId: params.userId,
     );
