@@ -91,7 +91,16 @@ void main() {
       await tester.pumpWidget(createTestWidget(itemName: null));
       await tester.pump();
 
-      expect(find.text('None'), findsOneWidget);
+      // Find "None" in the AppBar title specifically
+      // Note: "None" also appears in the reminder type label in StaticHeader
+      expect(find.text('None'), findsWidgets);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('None'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('has back button in app bar', (tester) async {
