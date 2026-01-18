@@ -113,6 +113,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         lastUpdated: now,
         userId: item.userId,
         order: newOrder,
+        initialCount: item.initialCount,
+        goal: item.goal,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -144,6 +146,9 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         lastResetTime: item.lastResetTime,
         lastUpdated: DateTime.now(), // Update timestamp
         userId: item.userId,
+        order: item.order,
+        initialCount: item.initialCount,
+        goal: item.goal,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -198,6 +203,9 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         lastResetTime: item.lastResetTime,
         lastUpdated: DateTime.now(),
         userId: item.userId,
+        order: item.order,
+        initialCount: item.initialCount,
+        goal: item.goal,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String

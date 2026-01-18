@@ -22,6 +22,7 @@ class ItemModel extends Item {
     super.deletedAt,
     super.order,
     super.initialCount,
+    super.goal,
   });
 
   /// Creates an ItemModel from a Firestore DocumentSnapshot.
@@ -70,6 +71,7 @@ class ItemModel extends Item {
       deletedAt: _parseNullableDateTime(data['deletedAt']),
       order: data['order'] as int? ?? 0,
       initialCount: data['initial_count'] as int? ?? 0,
+      goal: data['goal'] as int?,
     );
   }
 
@@ -115,6 +117,9 @@ class ItemModel extends Item {
     };
     if (this.deletedAt != null) {
       map['deletedAt'] = this.deletedAt!.millisecondsSinceEpoch;
+    }
+    if (this.goal != null) {
+      map['goal'] = this.goal!;
     }
     return map;
   }

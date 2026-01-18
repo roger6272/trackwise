@@ -42,6 +42,9 @@ class ItemDetailPage extends StatefulWidget {
   /// Initial count when the item was created.
   final int? initialCount;
 
+  /// Target goal for this item.
+  final int? goal;
+
   const ItemDetailPage({
     super.key,
     required this.itemId,
@@ -49,6 +52,7 @@ class ItemDetailPage extends StatefulWidget {
     this.currentCount,
     this.lastResetTime,
     this.initialCount,
+    this.goal,
   });
 
   @override
@@ -204,6 +208,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   highestCount: stats.maxCount,
                                   lowestCount: stats.minCount,
                                   initialCount: widget.initialCount ?? 0,
+                                  goal: widget.goal,
                                 ),
                               ),
                             ],

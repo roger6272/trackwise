@@ -38,6 +38,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
   late TextEditingController initialValueController;
   late FocusNode initialValueFocusNode;
 
+  late TextEditingController goalController;
+  late FocusNode goalFocusNode;
+
   late TextEditingController incrementByController;
   late FocusNode incrementByFocusNode;
 
@@ -61,6 +64,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
     );
     initialValueFocusNode = FocusNode();
 
+    goalController = TextEditingController(
+      text: widget.item?.goal?.toString() ?? '',
+    );
+    goalFocusNode = FocusNode();
+
     incrementByController = TextEditingController(
       text: widget.item?.incrementBy.toString() ?? '1',
     );
@@ -80,6 +88,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
     nameFocusNode.dispose();
     initialValueController.dispose();
     initialValueFocusNode.dispose();
+    goalController.dispose();
+    goalFocusNode.dispose();
     incrementByController.dispose();
     incrementByFocusNode.dispose();
     reminderValueController.dispose();
@@ -223,6 +233,38 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               },
                             ),
                           ),
+                        _buildFieldSection(
+                          label: 'Goal (optional)',
+                          labelColor: primaryText,
+                          child: TextFormField(
+                            controller: goalController,
+                            focusNode: goalFocusNode,
+                            textInputAction: TextInputAction.next,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: _buildInputDecoration(
+                              hint: 'Enter target goal...',
+                              alternate: alternate,
+                              secondaryText: secondaryText,
+                            ),
+                            style: GoogleFonts.inter(
+                              color: primaryText,
+                              fontSize: 16.0,
+                              letterSpacing: 0.0,
+                            ),
+                            validator: (value) {
+                              if (value != null && value.isNotEmpty) {
+                                final intValue = int.tryParse(value);
+                                if (intValue == null || intValue < 0 || intValue > 999999) {
+                                  return 'Must be between 0 and 999999';
+                                }
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
                         _buildFieldSection(
                           label: 'Increment By',
                           labelColor: primaryText,
@@ -477,6 +519,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
     final name = nameController.text.trim();
     final initialValue = int.tryParse(initialValueController.text) ?? 0;
+    final goalText = goalController.text.trim();
+    final goal = goalText.isEmpty ? null : int.tryParse(goalText);
     final incrementBy = int.parse(incrementByController.text);
     final reminderValue = int.parse(reminderValueController.text);
     final reminder = selectedReminder ?? ReminderType.none;
@@ -488,6 +532,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
         incrementBy: incrementBy,
         reminder: reminder,
         reminderValue: reminderValue,
+        goal: goal,
+        clearGoal: goal == null,
       );
 
       debugPrint('🟡 Updating item: id=${updatedItem.id}, name=$name');
@@ -533,6 +579,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         lastResetTime: now,
         lastUpdated: now,
         userId: currentUserUid,
+        goal: goal,
       );
 
       final result = await itemRepository.createItem(newItem);

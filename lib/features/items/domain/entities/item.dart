@@ -68,6 +68,11 @@ class Item extends Equatable {
   /// Used to track starting point for progress calculations.
   final int initialCount;
 
+  /// Target goal count for this item.
+  /// When set, enables progress tracking from initialCount to goal.
+  /// Null means no goal is set.
+  final int? goal;
+
   const Item({
     required this.id,
     required this.name,
@@ -82,6 +87,7 @@ class Item extends Equatable {
     this.deletedAt,
     this.order = 0,
     this.initialCount = 0,
+    this.goal,
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -102,6 +108,8 @@ class Item extends Equatable {
     bool clearDeletedAt = false,
     int? order,
     int? initialCount,
+    int? goal,
+    bool clearGoal = false,
   }) {
     return Item(
       id: id ?? this.id,
@@ -117,6 +125,7 @@ class Item extends Equatable {
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
       order: order ?? this.order,
       initialCount: initialCount ?? this.initialCount,
+      goal: clearGoal ? null : (goal ?? this.goal),
     );
   }
 
@@ -135,6 +144,7 @@ class Item extends Equatable {
         deletedAt,
         order,
         initialCount,
+        goal,
       ];
 
   @override
@@ -142,6 +152,6 @@ class Item extends Equatable {
     return 'Item(id: $id, name: $name, count: $count, todayCount: $todayCount, '
         'incrementBy: $incrementBy, reminder: $reminder, reminderValue: $reminderValue, '
         'lastResetTime: $lastResetTime, lastUpdated: $lastUpdated, userId: $userId, '
-        'deletedAt: $deletedAt, order: $order, initialCount: $initialCount)';
+        'deletedAt: $deletedAt, order: $order, initialCount: $initialCount, goal: $goal)';
   }
 }

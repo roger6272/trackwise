@@ -17,6 +17,7 @@ class SummaryCards extends StatefulWidget {
     required this.highestCount,
     required this.lowestCount,
     required this.initialCount,
+    this.goal,
   });
 
   final int currentCount;
@@ -24,6 +25,7 @@ class SummaryCards extends StatefulWidget {
   final int highestCount;
   final int lowestCount;
   final int initialCount;
+  final int? goal;
 
   @override
   State<SummaryCards> createState() => _SummaryCardsState();
@@ -70,7 +72,12 @@ class _SummaryCardsState extends State<SummaryCards>
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('📊 SummaryCards - goal: ${widget.goal}, currentCount: ${widget.currentCount}, initialCount: ${widget.initialCount}');
     final cardWidth = MediaQuery.sizeOf(context).width * 0.42;
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final secondaryBackground = AppColors.secondaryBackground(brightness);
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -78,6 +85,16 @@ class _SummaryCardsState extends State<SummaryCards>
         position: _slideAnimation,
         child: Column(
           children: [
+            // Progress bar (only shown when goal is set)
+            if (widget.goal != null) _buildProgressBar(
+              context: context,
+              currentCount: widget.currentCount,
+              initialCount: widget.initialCount,
+              goal: widget.goal!,
+              primaryText: primaryText,
+              secondaryText: secondaryText,
+              secondaryBackground: secondaryBackground,
+            ),
             // Row 1: Current Count, Initial Count
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -146,6 +163,88 @@ class _SummaryCardsState extends State<SummaryCards>
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar({
+    required BuildContext context,
+    required int currentCount,
+    required int initialCount,
+    required int goal,
+    required Color primaryText,
+    required Color secondaryText,
+    required Color secondaryBackground,
+  }) {
+    // Calculate progress: how far from initial to goal
+    final totalRange = goal - initialCount;
+    final currentProgress = currentCount - initialCount;
+
+    // Clamp progress between 0 and 1
+    final progressFraction = totalRange > 0
+        ? (currentProgress / totalRange).clamp(0.0, 1.0)
+        : (currentCount >= goal ? 1.0 : 0.0);
+
+    final progressPercent = (progressFraction * 100).toInt();
+    final remaining = goal - currentCount;
+    final isComplete = currentCount >= goal;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
+      child: Container(
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: secondaryBackground,
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Progress to Goal',
+                  style: GoogleFonts.inter(
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w600,
+                    color: primaryText,
+                  ),
+                ),
+                Text(
+                  '$currentCount / $goal',
+                  style: GoogleFonts.inter(
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w600,
+                    color: primaryText,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12.0),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4.0),
+              child: LinearProgressIndicator(
+                value: progressFraction,
+                minHeight: 8.0,
+                backgroundColor: secondaryText.withValues(alpha: 0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isComplete ? Colors.green : AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8.0),
+            Text(
+              isComplete
+                  ? 'Goal reached!'
+                  : '$progressPercent% complete ($remaining remaining)',
+              style: GoogleFonts.inter(
+                fontSize: 12.0,
+                color: isComplete ? Colors.green : secondaryText,
+              ),
             ),
           ],
         ),
