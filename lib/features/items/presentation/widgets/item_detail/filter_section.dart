@@ -67,19 +67,19 @@ class FilterSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10.0),
-        // Row 1: Aggregation pills + Reset toggle
+        // Row 1: Aggregation pills + Date picker (both control time period)
         Row(
           children: [
             // Aggregation pills (compact)
             _buildAggregationPills(primary, alternate, secondaryText),
             const Spacer(),
-            // Reset toggle as subtle chip
-            _buildResetChip(context, primary, alternate, secondaryText),
+            // Compact date picker
+            _buildCompactDatePicker(context, primary, primaryText, secondaryText, alternate),
           ],
         ),
         const SizedBox(height: 10.0),
-        // Row 2: Date picker (full width, more prominent)
-        _buildDatePickerRow(context, primary, primaryText, secondaryText, alternate),
+        // Row 2: Reset toggle (data filter, separate concern)
+        _buildResetChip(context, primary, alternate, secondaryText),
       ],
     );
   }
@@ -168,122 +168,85 @@ class FilterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildDatePickerRow(
+  Widget _buildCompactDatePicker(
     BuildContext context,
     Color primary,
     Color primaryText,
     Color secondaryText,
     Color alternate,
   ) {
-    final dateFormat = DateFormat('EEE, MMM d');
+    final dateFormat = DateFormat('MMM d');
     final isToday = _isToday(selectedDate);
     final canGoForward = !isToday;
 
     return Container(
       decoration: BoxDecoration(
         color: alternate,
-        borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(
-          color: primary.withValues(alpha: 0.1),
-          width: 1.0,
-        ),
+        borderRadius: BorderRadius.circular(10.0),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Previous day button
-          _buildNavArrow(
-            icon: Icons.chevron_left_rounded,
+          GestureDetector(
             onTap: () => onDateChanged(
               selectedDate.subtract(const Duration(days: 1)),
             ),
-            primary: primary,
-            secondaryText: secondaryText,
-            enabled: true,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 18.0,
+                color: primary,
+              ),
+            ),
           ),
-          // Date picker (tappable center)
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showDatePickerBottomSheet(context),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.calendar_today_rounded,
-                      size: 14.0,
-                      color: primary,
+          // Date display (tappable)
+          GestureDetector(
+            onTap: () => _showDatePickerBottomSheet(context),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 12.0,
+                    color: primary,
+                  ),
+                  const SizedBox(width: 6.0),
+                  Text(
+                    isToday ? 'Today' : dateFormat.format(selectedDate),
+                    style: GoogleFonts.inter(
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w500,
+                      color: primaryText,
                     ),
-                    const SizedBox(width: 8.0),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          aggregation == '1D' ? 'Viewing Date' : 'Period Ending',
-                          style: GoogleFonts.inter(
-                            fontSize: 10.0,
-                            fontWeight: FontWeight.w500,
-                            color: secondaryText,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 1.0),
-                        Text(
-                          isToday ? 'Today' : dateFormat.format(selectedDate),
-                          style: GoogleFonts.interTight(
-                            fontSize: 14.0,
-                            fontWeight: FontWeight.w600,
-                            color: primaryText,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 4.0),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18.0,
-                      color: secondaryText,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
           // Next day button
-          _buildNavArrow(
-            icon: Icons.chevron_right_rounded,
+          GestureDetector(
             onTap: canGoForward
                 ? () => onDateChanged(
                       selectedDate.add(const Duration(days: 1)),
                     )
                 : null,
-            primary: primary,
-            secondaryText: secondaryText,
-            enabled: canGoForward,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 18.0,
+                color: canGoForward ? primary : secondaryText.withValues(alpha: 0.25),
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildNavArrow({
-    required IconData icon,
-    required VoidCallback? onTap,
-    required Color primary,
-    required Color secondaryText,
-    required bool enabled,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
-        child: Icon(
-          icon,
-          size: 22.0,
-          color: enabled ? primary : secondaryText.withValues(alpha: 0.25),
-        ),
       ),
     );
   }

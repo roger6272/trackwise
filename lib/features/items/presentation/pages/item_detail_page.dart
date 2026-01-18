@@ -184,8 +184,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           },
                         ),
                       ),
-                      maxHeight: 158.0,
-                      minHeight: 158.0,
+                      maxHeight: 134.0,
+                      minHeight: 134.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
