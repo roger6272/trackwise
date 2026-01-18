@@ -127,7 +127,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           context,
                           icon: Icons.person_outline,
                           title: 'Edit Profile',
-                          onTap: () {},
+                          onTap: () => _navigateToEditProfile(context, state),
                         ),
                         _buildDivider(context),
                         _buildSettingItem(
@@ -497,6 +497,14 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context) => const PrivacyPolicyPage(),
       ),
     );
+  }
+
+  void _navigateToEditProfile(BuildContext context, ProfileState state) {
+    if (state is ProfileLoaded) {
+      context.push('/profile/edit', extra: state.profile);
+    } else if (state is ProfileUpdated) {
+      context.push('/profile/edit', extra: state.profile);
+    }
   }
 
   void _handleAccountDeleted(BuildContext context) {
