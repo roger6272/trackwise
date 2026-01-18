@@ -8,24 +8,21 @@ import '../../../../../core/theme/app_colors.dart';
 ///
 /// Provides controls for:
 /// - Aggregation period (1D, 7D, 30D) as compact pills
-/// - Reset toggle (Total vs Since Last Reset) as a subtle chip
 /// - Date selection with bottom sheet calendar
+///
+/// Note: The "Since Reset" toggle is in the Results header, not here.
 class FilterSection extends StatelessWidget {
   const FilterSection({
     super.key,
     required this.aggregation,
-    required this.showSinceReset,
     required this.selectedDate,
     required this.onAggregationChanged,
-    required this.onShowSinceResetChanged,
     required this.onDateChanged,
   });
 
   final String aggregation;
-  final bool showSinceReset;
   final DateTime selectedDate;
   final ValueChanged<String> onAggregationChanged;
-  final ValueChanged<bool> onShowSinceResetChanged;
   final ValueChanged<DateTime> onDateChanged;
 
   @override
@@ -67,7 +64,7 @@ class FilterSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10.0),
-        // Row 1: Aggregation pills + Date picker (both control time period)
+        // Time period controls: Aggregation pills + Date picker
         Row(
           children: [
             // Aggregation pills (compact)
@@ -79,9 +76,6 @@ class FilterSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10.0),
-        // Row 2: Reset toggle (data filter, separate concern)
-        _buildResetChip(context, primary, alternate, secondaryText),
       ],
     );
   }
@@ -129,43 +123,6 @@ class FilterSection extends StatelessWidget {
             ),
           );
         }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildResetChip(BuildContext context, Color primary, Color alternate, Color secondaryText) {
-    return GestureDetector(
-      onTap: () => onShowSinceResetChanged(!showSinceReset),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: showSinceReset ? primary.withValues(alpha: 0.15) : alternate,
-          borderRadius: BorderRadius.circular(10.0),
-          border: Border.all(
-            color: showSinceReset ? primary.withValues(alpha: 0.4) : Colors.transparent,
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              showSinceReset ? Icons.history_rounded : Icons.all_inclusive_rounded,
-              size: 14.0,
-              color: showSinceReset ? primary : secondaryText,
-            ),
-            const SizedBox(width: 6.0),
-            Text(
-              showSinceReset ? 'Since Reset' : 'All Time',
-              style: GoogleFonts.inter(
-                fontSize: 12.0,
-                fontWeight: FontWeight.w500,
-                color: showSinceReset ? primary : secondaryText,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

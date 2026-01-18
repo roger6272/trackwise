@@ -163,17 +163,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                         padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
                         child: FilterSection(
                           aggregation: _aggregation,
-                          showSinceReset: _showSinceReset,
                           selectedDate: _selectedDate,
                           onAggregationChanged: (value) {
                             setState(() {
                               _aggregation = value;
-                            });
-                            _reloadChart(context);
-                          },
-                          onShowSinceResetChanged: (value) {
-                            setState(() {
-                              _showSinceReset = value;
                             });
                             _reloadChart(context);
                           },
@@ -185,8 +178,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           },
                         ),
                       ),
-                      maxHeight: 134.0,
-                      minHeight: 134.0,
+                      maxHeight: 100.0,
+                      minHeight: 100.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
@@ -215,9 +208,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Shared header with period badge
+                                    // Shared header with period badge + Since Reset toggle
                                     Padding(
-                                      padding: const EdgeInsets.only(left: 4.0, bottom: 14.0),
+                                      padding: const EdgeInsets.only(left: 4.0, right: 4.0, bottom: 14.0),
                                       child: Row(
                                         children: [
                                           Text(
@@ -244,6 +237,59 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                                 fontSize: 11.0,
                                                 fontWeight: FontWeight.w600,
                                                 color: AppColors.primary,
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          // Since Reset toggle
+                                          GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _showSinceReset = !_showSinceReset;
+                                              });
+                                              _reloadChart(context);
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10.0,
+                                                vertical: 5.0,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _showSinceReset
+                                                    ? AppColors.primary.withValues(alpha: 0.12)
+                                                    : secondaryText.withValues(alpha: 0.08),
+                                                borderRadius: BorderRadius.circular(6.0),
+                                                border: Border.all(
+                                                  color: _showSinceReset
+                                                      ? AppColors.primary.withValues(alpha: 0.3)
+                                                      : Colors.transparent,
+                                                  width: 1.0,
+                                                ),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    _showSinceReset
+                                                        ? Icons.history_rounded
+                                                        : Icons.all_inclusive_rounded,
+                                                    size: 12.0,
+                                                    color: _showSinceReset
+                                                        ? AppColors.primary
+                                                        : secondaryText,
+                                                  ),
+                                                  const SizedBox(width: 4.0),
+                                                  Text(
+                                                    _showSinceReset ? 'Since Reset' : 'All Time',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 11.0,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: _showSinceReset
+                                                          ? AppColors.primary
+                                                          : secondaryText,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
