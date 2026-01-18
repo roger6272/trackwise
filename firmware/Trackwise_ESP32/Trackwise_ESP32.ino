@@ -751,7 +751,7 @@ void handleCommand(char cmd) {
     //logEvent("switch");
     if (isConnected) notifyEvent("switch");
 
-    Serial.print("Switch to :");
+    Serial.printf("Switch to: %s (index %d)\n", itemName.c_str(), currentItemIndex);
     return;  // Already closed prefs, skip the final prefs.end()
   }
 
