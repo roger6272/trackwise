@@ -118,41 +118,48 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             ),
             body: SafeArea(
               top: true,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 0.0),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Filter Section - no background, just controls
-                      FilterSection(
-                        aggregation: _aggregation,
-                        showSinceReset: _showSinceReset,
-                        selectedDate: _selectedDate,
-                        onAggregationChanged: (value) {
-                          setState(() {
-                            _aggregation = value;
-                          });
-                          _reloadChart(context);
-                        },
-                        onShowSinceResetChanged: (value) {
-                          setState(() {
-                            _showSinceReset = value;
-                          });
-                          _reloadChart(context);
-                        },
-                        onDateChanged: (date) {
-                          setState(() {
-                            _selectedDate = date;
-                          });
-                          _reloadChart(context);
-                        },
+              child: CustomScrollView(
+                slivers: [
+                  // Sticky Filter Section
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _StickyFilterHeaderDelegate(
+                      child: Container(
+                        color: primaryBackground,
+                        padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 12.0),
+                        child: FilterSection(
+                          aggregation: _aggregation,
+                          showSinceReset: _showSinceReset,
+                          selectedDate: _selectedDate,
+                          onAggregationChanged: (value) {
+                            setState(() {
+                              _aggregation = value;
+                            });
+                            _reloadChart(context);
+                          },
+                          onShowSinceResetChanged: (value) {
+                            setState(() {
+                              _showSinceReset = value;
+                            });
+                            _reloadChart(context);
+                          },
+                          onDateChanged: (date) {
+                            setState(() {
+                              _selectedDate = date;
+                            });
+                            _reloadChart(context);
+                          },
+                        ),
                       ),
-                      const SizedBox(height: 20.0),
-                      // Stats Section - main hero card
-                      BlocBuilder<EventsBloc, EventsState>(
+                      maxHeight: _aggregation == '1D' ? 140.0 : 190.0,
+                      minHeight: _aggregation == '1D' ? 140.0 : 190.0,
+                    ),
+                  ),
+                  // Stats and Summary Content
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
+                    sliver: SliverToBoxAdapter(
+                      child: BlocBuilder<EventsBloc, EventsState>(
                         builder: (context, eventsState) {
                           // Show shimmer skeleton while loading
                           if (eventsState is EventsLoading) {
@@ -206,9 +213,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           );
                         },
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -285,5 +292,40 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Reload the chart based on current settings.
   void _reloadChart(BuildContext context) {
     context.read<ChartsBloc>().add(_createChartEvent());
+  }
+}
+
+/// Delegate for the sticky filter header.
+class _StickyFilterHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double maxHeight;
+  final double minHeight;
+
+  _StickyFilterHeaderDelegate({
+    required this.child,
+    required this.maxHeight,
+    required this.minHeight,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  bool shouldRebuild(covariant _StickyFilterHeaderDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }
