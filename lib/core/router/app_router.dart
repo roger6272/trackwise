@@ -11,6 +11,7 @@ import '../../features/items/presentation/pages/item_detail_page.dart';
 import '../../features/items/presentation/pages/item_form_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
+import '../../features/profile/presentation/pages/help_support_page.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
 import '../../features/export/presentation/pages/export_page.dart';
 import '../../features/items/presentation/pages/deleted_items_page.dart';
@@ -177,6 +178,11 @@ class AppRouter {
                     final profile = state.extra as UserProfile;
                     return EditProfilePage(profile: profile);
                   },
+                ),
+                GoRoute(
+                  name: HelpSupportPage.routeName,
+                  path: 'help',
+                  builder: (context, state) => const HelpSupportPage(),
                 ),
               ],
             ),

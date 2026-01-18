@@ -179,15 +179,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildSettingItem(
                           context,
                           icon: Icons.help_outline,
-                          title: 'Help Center',
-                          onTap: () {},
-                        ),
-                        _buildDivider(context),
-                        _buildSettingItem(
-                          context,
-                          icon: Icons.contact_support_outlined,
-                          title: 'Contact Us',
-                          onTap: () {},
+                          title: 'Help & Support',
+                          onTap: () => context.push('/profile/help'),
                         ),
                       ]),
                       const SizedBox(height: 24.0),
