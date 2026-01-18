@@ -64,14 +64,18 @@ class FilterSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10.0),
-        // Time period controls: Aggregation pills + Date picker
+        // Time period controls: Aggregation (1/3) + Date picker (2/3)
         Row(
           children: [
-            // Aggregation pills (compact)
-            _buildAggregationPills(primary, alternate, secondaryText),
-            const SizedBox(width: 12.0),
-            // Date picker (fills remaining width)
+            // Aggregation pills (1/3 width)
             Expanded(
+              flex: 1,
+              child: _buildAggregationPills(primary, alternate, secondaryText),
+            ),
+            const SizedBox(width: 10.0),
+            // Date picker (2/3 width)
+            Expanded(
+              flex: 2,
               child: _buildDatePicker(context, primary, primaryText, secondaryText, alternate),
             ),
           ],
@@ -90,34 +94,37 @@ class FilterSection extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(3.0),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: periods.map((period) {
           final isSelected = aggregation == period;
-          return GestureDetector(
-            onTap: () => onAggregationChanged(period),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
-              decoration: BoxDecoration(
-                color: isSelected ? primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(8.0),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: primary.withValues(alpha: 0.3),
-                          blurRadius: 8.0,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Text(
-                period,
-                style: GoogleFonts.inter(
-                  fontSize: 13.0,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? Colors.white : secondaryText,
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onAggregationChanged(period),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: isSelected ? primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8.0),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: primary.withValues(alpha: 0.3),
+                            blurRadius: 8.0,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    period,
+                    style: GoogleFonts.inter(
+                      fontSize: 13.0,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected ? Colors.white : secondaryText,
+                    ),
+                  ),
                 ),
               ),
             ),
