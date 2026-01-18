@@ -510,7 +510,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   final bluetoothBloc = context.read<BluetoothBloc>();
                   final appUiStateRef = appUiState;
                   // Use device's selected item, not just appUiState
-                  final deviceSelectedId = bluetoothState.selectedItemId;
+                  final deviceSelectedId = selectedItemId;
 
                   final confirmed = await _showDeleteConfirmation(context, item.name);
                   if (confirmed) {
