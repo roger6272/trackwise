@@ -115,17 +115,10 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
                   }
                 }
               : null,
-          icon: state.isScanning
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.bluetooth_searching),
-          label: Text(state.isScanning ? 'Scanning...' : 'Scan for Devices'),
+          icon: const Icon(Icons.bluetooth_searching),
+          label: state.isScanning
+              ? const _BlinkingText(text: 'Scanning...')
+              : const Text('Scan for Devices'),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
@@ -304,6 +297,50 @@ class _DeviceListTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(icon, color: color),
+    );
+  }
+}
+
+class _BlinkingText extends StatefulWidget {
+  final String text;
+
+  const _BlinkingText({required this.text});
+
+  @override
+  State<_BlinkingText> createState() => _BlinkingTextState();
+}
+
+class _BlinkingTextState extends State<_BlinkingText>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 1.0, end: 0.3).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _animation.value,
+          child: Text(widget.text),
+        );
+      },
     );
   }
 }

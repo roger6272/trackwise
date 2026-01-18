@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
@@ -163,6 +164,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       padding: const EdgeInsets.fromLTRB(10.0, 20.0, 10.0, 0.0),
                       child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
                     ),
+                    // Connection status banner
+                    if (!isConnected)
+                      _buildDisconnectedBanner(context),
                     // Items List
                     Expanded(
                       child: Padding(
@@ -203,6 +207,26 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   physics: const AlwaysScrollableScrollPhysics(),
                                   buildDefaultDragHandles: false,
                                   itemCount: state.items.length,
+                                  onReorderStart: (_) => HapticFeedback.mediumImpact(),
+                                  proxyDecorator: (child, index, animation) {
+                                    return AnimatedBuilder(
+                                      animation: animation,
+                                      builder: (context, child) {
+                                        final scale = Tween<double>(begin: 1.0, end: 1.03).animate(
+                                          CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+                                        );
+                                        return Transform.scale(
+                                          scale: scale.value,
+                                          child: Material(
+                                            elevation: 4.0 * animation.value,
+                                            borderRadius: BorderRadius.circular(8.0),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: child,
+                                    );
+                                  },
                                   onReorder: (oldIndex, newIndex) {
                                     // Capture references BEFORE any async operations
                                     final itemsBloc = context.read<ItemsBloc>();
@@ -254,20 +278,27 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                     _showSwipeHint(appUiState);
                                   });
                                 }
-                                return ListView.builder(
-                                  padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  itemCount: state.items.length,
-                                  itemBuilder: (context, index) {
-                                    final item = state.items[index];
-                                    // Only pass controller for hint animation when not yet shown
-                                    final needsController = index == 0 && !appUiState.hasShownSwipeHint;
-                                    return _buildItemTile(
-                                      context,
-                                      item,
-                                      index,
-                                      appUiState,
-                                      isConnected,
+                                return RefreshIndicator(
+                                  color: _primary,
+                                  onRefresh: () async {
+                                    context.read<ItemsBloc>().add(WatchItemsEvent(currentUserUid));
+                                    // Wait a bit for the stream to emit
+                                    await Future.delayed(const Duration(milliseconds: 500));
+                                  },
+                                  child: ListView.builder(
+                                    padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    itemCount: state.items.length,
+                                    itemBuilder: (context, index) {
+                                      final item = state.items[index];
+                                      // Only pass controller for hint animation when not yet shown
+                                      final needsController = index == 0 && !appUiState.hasShownSwipeHint;
+                                      return _buildItemTile(
+                                        context,
+                                        item,
+                                        index,
+                                        appUiState,
+                                        isConnected,
                                       bluetoothState.selectedItemId,
                                       primaryText,
                                       secondaryText,
@@ -275,7 +306,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       activatedColor,
                                       controller: needsController ? _firstItemController : null,
                                     );
-                                  },
+                                    },
+                                  ),
                                 );
                               }
                             }
@@ -335,6 +367,46 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
+  Widget _buildDisconnectedBanner(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12.0),
+        child: GestureDetector(
+          onTap: () => context.go('/bluetooth'),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            decoration: BoxDecoration(
+              color: secondaryText.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20.0),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.bluetooth_disabled_rounded,
+                  size: 14.0,
+                  color: secondaryText,
+                ),
+                const SizedBox(width: 6.0),
+                Text(
+                  'Tap to connect device',
+                  style: GoogleFonts.inter(
+                    color: secondaryText,
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildItemTile(
     BuildContext context,
     Item item,
@@ -354,9 +426,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
     // Build the drag handle widget with larger touch area
+    // Uses ReorderableDelayedDragStartListener for long-press-to-drag pattern
     Widget dragHandle;
     if (isConnected) {
-      dragHandle = ReorderableDragStartListener(
+      dragHandle = ReorderableDelayedDragStartListener(
         index: index,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
@@ -385,14 +458,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
         controller: controller,
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
-          extentRatio: 0.85,
+          extentRatio: 0.5,
           children: [
             SlidableAction(
-              label: 'Activate',
               backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
-              icon: Icons.star_sharp,
+              icon: Icons.check_circle,
               autoClose: false,
               onPressed: (slidableContext) async {
+                HapticFeedback.lightImpact();
                 if (isConnected) {
                   appUiState.activeItemId = item.id;
                   // First sync all items to device (ensures new items are known)
@@ -409,11 +482,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
               },
             ),
             SlidableAction(
-              label: 'Update',
               backgroundColor: isConnected ? _primary : _disabledActionColor,
-              icon: Icons.settings_sharp,
+              icon: Icons.edit,
               autoClose: false,
               onPressed: (slidableContext) async {
+                HapticFeedback.lightImpact();
                 Slidable.of(slidableContext)?.close();
                 if (isConnected) {
                   context.pushNamed(
@@ -426,18 +499,18 @@ class _ItemsListContentState extends State<_ItemsListContent>
               },
             ),
             SlidableAction(
-              label: 'Delete',
               backgroundColor: isConnected ? _deleteActionColor : _disabledActionColor,
               icon: Icons.delete_outline_rounded,
               autoClose: false,
               onPressed: (slidableContext) async {
+                HapticFeedback.mediumImpact();
                 if (isConnected) {
                   // Capture ALL references BEFORE the async dialog
                   final itemsBloc = context.read<ItemsBloc>();
                   final bluetoothBloc = context.read<BluetoothBloc>();
                   final appUiStateRef = appUiState;
 
-                  final confirmed = await _showDeleteConfirmation(context);
+                  final confirmed = await _showDeleteConfirmation(context, item.name);
                   if (confirmed) {
                     if (appUiStateRef.activeItemId == item.id) {
                       appUiStateRef.activeItemId = 'none';
@@ -457,16 +530,18 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isActivated ? activatedColor : alternate,
-              border: isActivated
-                  ? Border(left: BorderSide(color: _activateActionColor, width: 4.0))
-                  : null,
-            ),
-            child: ListTile(
+        child: Opacity(
+          opacity: isConnected ? 1.0 : 0.5,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isActivated ? activatedColor : alternate,
+                border: isActivated
+                    ? Border(left: BorderSide(color: _activateActionColor, width: 4.0))
+                    : null,
+              ),
+              child: ListTile(
             onTap: () {
               context.pushNamed(
                 'ItemDetailPage',
@@ -504,6 +579,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               borderRadius: BorderRadius.circular(8.0),
             ),
           ),
+            ),
           ),
         ),
       ),
@@ -614,12 +690,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }
   }
 
-  Future<bool> _showDeleteConfirmation(BuildContext context) async {
+  Future<bool> _showDeleteConfirmation(BuildContext context, String itemName) async {
     return await showDialog<bool>(
       context: context,
       builder: (alertDialogContext) {
         return AlertDialog(
-          content: const Text('Are you sure you want to delete the item?'),
+          title: const Text('Delete Item'),
+          content: Text('Are you sure you want to delete "$itemName"?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(alertDialogContext, false),
@@ -627,7 +704,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
             TextButton(
               onPressed: () => Navigator.pop(alertDialogContext, true),
-              child: const Text('Confirm'),
+              style: TextButton.styleFrom(foregroundColor: _deleteActionColor),
+              child: const Text('Delete'),
             ),
           ],
         );
