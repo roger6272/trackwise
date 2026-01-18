@@ -5,11 +5,16 @@ import '../../../../../core/theme/app_colors.dart';
 
 /// Hero stats display with animated count and trend badge.
 ///
-/// Shows a large animated total count with a pill-shaped trend badge
-/// displaying the percent change from the prior period.
+/// Shows:
+/// - Large animated current count (matches listing page)
+/// - Period increments as secondary info
+/// - Trend badge with percent change from prior period
 class HeroStats extends StatefulWidget {
-  /// The total count to display.
-  final int totalCount;
+  /// The current count to display (initial + all increments).
+  final int currentCount;
+
+  /// Total increments for the selected period.
+  final int periodIncrements;
 
   /// The prior period count for comparison.
   final int priorPeriodCount;
@@ -22,7 +27,8 @@ class HeroStats extends StatefulWidget {
 
   const HeroStats({
     super.key,
-    required this.totalCount,
+    required this.currentCount,
+    required this.periodIncrements,
     required this.priorPeriodCount,
     required this.percentChange,
     required this.periodLabel,
@@ -52,7 +58,7 @@ class _HeroStatsState extends State<HeroStats>
     );
     _countAnimation = Tween<double>(
       begin: 0,
-      end: widget.totalCount.toDouble(),
+      end: widget.currentCount.toDouble(),
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutCubic,
@@ -63,11 +69,11 @@ class _HeroStatsState extends State<HeroStats>
   @override
   void didUpdateWidget(HeroStats oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.totalCount != widget.totalCount) {
-      _previousCount = oldWidget.totalCount;
+    if (oldWidget.currentCount != widget.currentCount) {
+      _previousCount = oldWidget.currentCount;
       _countAnimation = Tween<double>(
         begin: _previousCount.toDouble(),
-        end: widget.totalCount.toDouble(),
+        end: widget.currentCount.toDouble(),
       ).animate(CurvedAnimation(
         parent: _controller,
         curve: Curves.easeOutCubic,
@@ -87,20 +93,21 @@ class _HeroStatsState extends State<HeroStats>
     final brightness = Theme.of(context).brightness;
     const primary = AppColors.primary;
     final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(10.0, 16.0, 10.0, 12.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Animated count display
+          // Animated current count display
           AnimatedBuilder(
             animation: _countAnimation,
             builder: (context, child) {
               return Text(
                 _countAnimation.value.round().toString(),
                 style: GoogleFonts.interTight(
-                  fontSize: 56.0,
+                  fontSize: 52.0,
                   fontWeight: FontWeight.w700,
                   color: primary,
                   height: 1.1,
@@ -109,24 +116,41 @@ class _HeroStatsState extends State<HeroStats>
             },
           ),
           const SizedBox(height: 4.0),
-          // "Total" label
+          // "Current Count" label
           Text(
-            'Total',
+            'Current Count',
             style: GoogleFonts.inter(
-              fontSize: 16.0,
+              fontSize: 14.0,
               fontWeight: FontWeight.w500,
               color: primaryText.withValues(alpha: 0.7),
             ),
           ),
-          const SizedBox(height: 12.0),
+          const SizedBox(height: 8.0),
+          // Period increments (secondary info)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: Text(
+              '+${widget.periodIncrements} this period',
+              style: GoogleFonts.inter(
+                fontSize: 13.0,
+                fontWeight: FontWeight.w600,
+                color: primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10.0),
           // Trend badge
-          _buildTrendBadge(primaryText),
+          _buildTrendBadge(primaryText, secondaryText),
         ],
       ),
     );
   }
 
-  Widget _buildTrendBadge(Color primaryText) {
+  Widget _buildTrendBadge(Color primaryText, Color secondaryText) {
     final percentChange = widget.percentChange;
     final isPositive = percentChange != null && percentChange > 0;
     final isNegative = percentChange != null && percentChange < 0;

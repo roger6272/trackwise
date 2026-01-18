@@ -186,6 +186,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 ),
                                 child: StatsSection(
                                   stats: stats,
+                                  currentCount: widget.currentCount ?? 0,
                                   showCumulative: _showCumulative,
                                   onChartTypeChanged: (value) {
                                     setState(() {

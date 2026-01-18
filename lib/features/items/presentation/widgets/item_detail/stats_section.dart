@@ -21,6 +21,9 @@ class StatsSection extends StatelessWidget {
   /// Pre-calculated statistics for the selected period.
   final StatsResult stats;
 
+  /// Current count from item (initial + all increments).
+  final int currentCount;
+
   /// Whether to show cumulative chart (true) or bar chart (false).
   final bool showCumulative;
 
@@ -36,6 +39,7 @@ class StatsSection extends StatelessWidget {
   const StatsSection({
     super.key,
     required this.stats,
+    required this.currentCount,
     required this.showCumulative,
     required this.onChartTypeChanged,
     required this.range,
@@ -53,7 +57,8 @@ class StatsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         HeroStats(
-          totalCount: stats.totalCount,
+          currentCount: currentCount,
+          periodIncrements: stats.totalCount,
           priorPeriodCount: stats.priorPeriodCount,
           percentChange: stats.percentChange,
           periodLabel: stats.periodLabel,
