@@ -96,7 +96,7 @@ class ChartSection extends StatelessWidget {
     );
   }
 
-  /// Builds a compact icon-based chart type toggle.
+  /// Builds a compact chart type toggle with icons and labels.
   Widget _buildChartToggle(
     BuildContext context,
     Color primary,
@@ -112,17 +112,17 @@ class ChartSection extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildToggleIcon(
+          _buildToggleOption(
             icon: Icons.bar_chart_rounded,
-            tooltip: 'Increments',
+            label: 'Add',
             isSelected: !showCumulative,
             onTap: () => onChartTypeChanged(false),
             primary: primary,
             secondaryText: secondaryText,
           ),
-          _buildToggleIcon(
+          _buildToggleOption(
             icon: Icons.show_chart_rounded,
-            tooltip: 'Cumulative',
+            label: 'Sum',
             isSelected: showCumulative,
             onTap: () => onChartTypeChanged(true),
             primary: primary,
@@ -133,43 +133,51 @@ class ChartSection extends StatelessWidget {
     );
   }
 
-  Widget _buildToggleIcon({
+  Widget _buildToggleOption({
     required IconData icon,
-    required String tooltip,
+    required String label,
     required bool isSelected,
     required VoidCallback onTap,
     required Color primary,
     required Color secondaryText,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: 32.0,
-          height: 28.0,
-          decoration: BoxDecoration(
-            color: isSelected ? primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(6.0),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: primary.withValues(alpha: 0.25),
-                      blurRadius: 4.0,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Icon(
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+        decoration: BoxDecoration(
+          color: isSelected ? primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(6.0),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primary.withValues(alpha: 0.25),
+                    blurRadius: 4.0,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
               icon,
-              size: 16.0,
+              size: 14.0,
               color: isSelected ? Colors.white : secondaryText,
             ),
-          ),
+            const SizedBox(width: 4.0),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12.0,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : secondaryText,
+              ),
+            ),
+          ],
         ),
       ),
     );
