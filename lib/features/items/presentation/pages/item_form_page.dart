@@ -574,6 +574,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         name: name,
         count: initialValue,
         todayCount: initialValue,
+        initialCount: initialValue,
         incrementBy: incrementBy,
         reminder: reminder,
         reminderValue: reminderValue,
