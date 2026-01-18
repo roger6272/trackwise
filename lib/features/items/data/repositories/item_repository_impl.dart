@@ -77,6 +77,7 @@ class ItemRepositoryImpl implements ItemRepository {
         lastUpdated: item.lastUpdated,
         userId: item.userId,
         order: item.order,
+        initialCount: item.initialCount,
       );
       final created = await remoteDataSource.createItem(itemModel);
       return Right(created);
@@ -100,6 +101,7 @@ class ItemRepositoryImpl implements ItemRepository {
         lastUpdated: item.lastUpdated,
         userId: item.userId,
         order: item.order,
+        initialCount: item.initialCount,
       );
       final updated = await remoteDataSource.updateItem(itemModel);
       return Right(updated);
@@ -189,6 +191,7 @@ class ItemRepositoryImpl implements ItemRepository {
         userId: item.userId,
         deletedAt: item.deletedAt,
         order: item.order,
+        initialCount: item.initialCount,
       )).toList();
       await remoteDataSource.reorderItems(itemModels);
       return const Right(null);

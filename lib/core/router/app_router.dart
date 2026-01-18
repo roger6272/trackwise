@@ -119,11 +119,13 @@ class AppRouter {
                     final itemName = state.uri.queryParameters['name'];
                     final countStr = state.uri.queryParameters['count'];
                     final resetStr = state.uri.queryParameters['resetTime'];
+                    final initialCountStr = state.uri.queryParameters['initialCount'];
                     return ItemDetailPage(
                       itemId: itemId,
                       itemName: itemName,
                       currentCount: countStr != null ? int.tryParse(countStr) : null,
                       lastResetTime: resetStr != null ? DateTime.tryParse(resetStr) : null,
+                      initialCount: initialCountStr != null ? int.tryParse(initialCountStr) : null,
                     );
                   },
                 ),

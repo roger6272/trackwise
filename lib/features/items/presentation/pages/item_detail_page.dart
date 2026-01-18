@@ -39,12 +39,16 @@ class ItemDetailPage extends StatefulWidget {
   /// Last reset time of the item.
   final DateTime? lastResetTime;
 
+  /// Initial count when the item was created.
+  final int? initialCount;
+
   const ItemDetailPage({
     super.key,
     required this.itemId,
     this.itemName,
     this.currentCount,
     this.lastResetTime,
+    this.initialCount,
   });
 
   @override
@@ -199,6 +203,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   average: stats.average,
                                   highestCount: stats.maxCount,
                                   lowestCount: stats.minCount,
+                                  initialCount: widget.initialCount ?? 0,
                                 ),
                               ),
                             ],

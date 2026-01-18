@@ -5,9 +5,10 @@ import '../../../../../core/theme/app_colors.dart';
 
 /// Widget displaying summary statistics cards with slide/fade animations.
 ///
-/// Shows 4 cards in 2 rows:
-/// - Row 1: Current Count, Average Count
-/// - Row 2: Highest Count, Lowest Count
+/// Shows 6 cards in 3 rows:
+/// - Row 1: Current Count, Initial Count
+/// - Row 2: Average Count, Highest Count
+/// - Row 3: Lowest Count, Placeholder
 class SummaryCards extends StatefulWidget {
   const SummaryCards({
     super.key,
@@ -15,12 +16,14 @@ class SummaryCards extends StatefulWidget {
     required this.average,
     required this.highestCount,
     required this.lowestCount,
+    required this.initialCount,
   });
 
   final int currentCount;
   final double average;
   final int highestCount;
   final int lowestCount;
+  final int initialCount;
 
   @override
   State<SummaryCards> createState() => _SummaryCardsState();
@@ -75,7 +78,7 @@ class _SummaryCardsState extends State<SummaryCards>
         position: _slideAnimation,
         child: Column(
           children: [
-            // Row 1: Current Count, Average Count
+            // Row 1: Current Count, Initial Count
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -91,14 +94,37 @@ class _SummaryCardsState extends State<SummaryCards>
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: _SummaryCard(
-                    value: widget.average.toStringAsFixed(1),
-                    label: 'Average Count',
+                    value: widget.initialCount.toString(),
+                    label: 'Initial Count',
                     width: cardWidth,
                   ),
                 ),
               ],
             ),
-            // Row 2: Highest Count, Lowest Count
+            // Row 2: Average Count, Highest Count
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: _SummaryCard(
+                    value: widget.average.toStringAsFixed(1),
+                    label: 'Average Count',
+                    width: cardWidth,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: _SummaryCard(
+                    value: widget.highestCount.toString(),
+                    label: 'Highest Count',
+                    width: cardWidth,
+                  ),
+                ),
+              ],
+            ),
+            // Row 3: Lowest Count, Placeholder
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -106,16 +132,16 @@ class _SummaryCardsState extends State<SummaryCards>
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: _SummaryCard(
-                    value: widget.highestCount.toString(),
-                    label: 'Highest Count',
+                    value: widget.lowestCount.toString(),
+                    label: 'Lowest Count',
                     width: cardWidth,
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: _SummaryCard(
-                    value: widget.lowestCount.toString(),
-                    label: 'Lowest Count',
+                    value: '-',
+                    label: 'Coming Soon',
                     width: cardWidth,
                   ),
                 ),

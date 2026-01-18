@@ -64,6 +64,10 @@ class Item extends Equatable {
   /// Used for drag-to-reorder functionality.
   final int order;
 
+  /// Initial count when the item was first created.
+  /// Used to track starting point for progress calculations.
+  final int initialCount;
+
   const Item({
     required this.id,
     required this.name,
@@ -77,6 +81,7 @@ class Item extends Equatable {
     required this.userId,
     this.deletedAt,
     this.order = 0,
+    this.initialCount = 0,
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -96,6 +101,7 @@ class Item extends Equatable {
     DateTime? deletedAt,
     bool clearDeletedAt = false,
     int? order,
+    int? initialCount,
   }) {
     return Item(
       id: id ?? this.id,
@@ -110,6 +116,7 @@ class Item extends Equatable {
       userId: userId ?? this.userId,
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
       order: order ?? this.order,
+      initialCount: initialCount ?? this.initialCount,
     );
   }
 
@@ -127,6 +134,7 @@ class Item extends Equatable {
         userId,
         deletedAt,
         order,
+        initialCount,
       ];
 
   @override
@@ -134,6 +142,6 @@ class Item extends Equatable {
     return 'Item(id: $id, name: $name, count: $count, todayCount: $todayCount, '
         'incrementBy: $incrementBy, reminder: $reminder, reminderValue: $reminderValue, '
         'lastResetTime: $lastResetTime, lastUpdated: $lastUpdated, userId: $userId, '
-        'deletedAt: $deletedAt, order: $order)';
+        'deletedAt: $deletedAt, order: $order, initialCount: $initialCount)';
   }
 }

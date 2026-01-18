@@ -550,6 +550,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   'name': item.name,
                   'count': item.count.toString(),
                   'resetTime': item.lastResetTime.toIso8601String(),
+                  'initialCount': item.initialCount.toString(),
                 },
               );
             },
