@@ -509,17 +509,25 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   final itemsBloc = context.read<ItemsBloc>();
                   final bluetoothBloc = context.read<BluetoothBloc>();
                   final appUiStateRef = appUiState;
+                  // Use device's selected item, not just appUiState
+                  final deviceSelectedId = bluetoothState.selectedItemId;
 
                   final confirmed = await _showDeleteConfirmation(context, item.name);
                   if (confirmed) {
+                    // Check both appUiState and device selection
                     if (appUiStateRef.activeItemId == item.id) {
                       appUiStateRef.activeItemId = 'none';
                     }
+                    // Determine what selected item to send after delete
+                    final newSelectedId = (deviceSelectedId == item.id || deviceSelectedId == null)
+                        ? 'none'
+                        : deviceSelectedId;
+
                     itemsBloc.add(DeleteItemEvent(item.id));
                     // Sync with device after deletion using captured references
                     await _syncWithDeviceAfterDelete(
                       bluetoothBloc: bluetoothBloc,
-                      activeItemId: appUiStateRef.activeItemId,
+                      activeItemId: newSelectedId,
                     );
                   }
                 } else {
