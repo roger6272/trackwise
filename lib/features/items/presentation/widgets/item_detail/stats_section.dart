@@ -6,24 +6,17 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/shimmer.dart';
 import '../../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../../charts/presentation/bloc/charts_state.dart';
-import '../../../domain/utils/stats_calculator.dart';
 import '../bar_chart_widget.dart';
 import '../cumulative_chart_widget.dart';
-import 'hero_stats.dart';
 
-/// Section displaying stats summary and chart with toggle.
+/// Section displaying chart with toggle.
 ///
 /// Shows:
-/// - Hero stats with animated count and trend badge
 /// - Chart toggle (Increments / Cumulative)
 /// - Chart display area (bar or cumulative based on toggle)
-class StatsSection extends StatelessWidget {
-  /// Pre-calculated statistics for the selected period.
-  final StatsResult stats;
-
-  /// Current count from item (initial + all increments).
-  final int currentCount;
-
+///
+/// Note: Stats are now shown in DynamicStats widget below.
+class ChartSection extends StatelessWidget {
   /// Whether to show cumulative chart (true) or bar chart (false).
   final bool showCumulative;
 
@@ -36,10 +29,8 @@ class StatsSection extends StatelessWidget {
   /// The selected end date for the chart.
   final DateTime selectedDate;
 
-  const StatsSection({
+  const ChartSection({
     super.key,
-    required this.stats,
-    required this.currentCount,
     required this.showCumulative,
     required this.onChartTypeChanged,
     required this.range,
@@ -56,13 +47,6 @@ class StatsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        HeroStats(
-          currentCount: currentCount,
-          periodIncrements: stats.totalCount,
-          priorPeriodCount: stats.priorPeriodCount,
-          percentChange: stats.percentChange,
-          periodLabel: stats.periodLabel,
-        ),
         _buildChartToggle(context, primary),
         const SizedBox(height: 10.0),
         _buildChartArea(context, primary),

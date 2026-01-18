@@ -157,6 +157,7 @@ class SummaryCardsSkeleton extends StatelessWidget {
 }
 
 /// Shimmer skeleton for the entire stats section (hero + chart).
+/// @deprecated Use ChartSectionSkeleton instead.
 class StatsSectionSkeleton extends StatelessWidget {
   const StatsSectionSkeleton({super.key});
 
@@ -180,6 +181,114 @@ class StatsSectionSkeleton extends StatelessWidget {
           ChartSkeleton(),
         ],
       ),
+    );
+  }
+}
+
+/// Shimmer skeleton for the chart section (toggle + chart only).
+class ChartSectionSkeleton extends StatelessWidget {
+  const ChartSectionSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final alternate = AppColors.alternate(brightness);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: alternate,
+        borderRadius: BorderRadius.circular(12.0),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          width: 1.0,
+        ),
+      ),
+      child: const ChartSkeleton(),
+    );
+  }
+}
+
+/// Shimmer skeleton for the dynamic stats section.
+class DynamicStatsSkeleton extends StatelessWidget {
+  const DynamicStatsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final alternate = AppColors.alternate(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header placeholder
+        Padding(
+          padding: const EdgeInsets.only(left: 4.0, bottom: 10.0),
+          child: Row(
+            children: const [
+              ShimmerText(width: 100, height: 15),
+              SizedBox(width: 8.0),
+              ShimmerBox(width: 60, height: 18, borderRadius: 4),
+            ],
+          ),
+        ),
+        // Stats grid placeholder
+        Container(
+          decoration: BoxDecoration(
+            color: alternate,
+            borderRadius: BorderRadius.circular(12.0),
+            border: Border.all(
+              color: primaryText.withValues(alpha: 0.06),
+              width: 1.0,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Row 1
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildStatCellSkeleton()),
+                    Expanded(child: _buildStatCellSkeleton()),
+                  ],
+                ),
+              ),
+              Container(
+                height: 1.0,
+                color: primaryText.withValues(alpha: 0.06),
+              ),
+              // Row 2
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildStatCellSkeleton()),
+                    Expanded(child: _buildStatCellSkeleton()),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCellSkeleton() {
+    return Row(
+      children: const [
+        ShimmerBox(width: 26, height: 26, borderRadius: 6),
+        SizedBox(width: 10.0),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ShimmerText(width: 50, height: 16),
+            SizedBox(height: 4.0),
+            ShimmerText(width: 70, height: 10),
+          ],
+        ),
+      ],
     );
   }
 }
