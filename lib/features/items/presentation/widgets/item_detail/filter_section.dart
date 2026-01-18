@@ -72,9 +72,11 @@ class FilterSection extends StatelessWidget {
           children: [
             // Aggregation pills (compact)
             _buildAggregationPills(primary, alternate, secondaryText),
-            const Spacer(),
-            // Compact date picker
-            _buildCompactDatePicker(context, primary, primaryText, secondaryText, alternate),
+            const SizedBox(width: 12.0),
+            // Date picker (fills remaining width)
+            Expanded(
+              child: _buildDatePicker(context, primary, primaryText, secondaryText, alternate),
+            ),
           ],
         ),
         const SizedBox(height: 10.0),
@@ -168,14 +170,14 @@ class FilterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildCompactDatePicker(
+  Widget _buildDatePicker(
     BuildContext context,
     Color primary,
     Color primaryText,
     Color secondaryText,
     Color alternate,
   ) {
-    final dateFormat = DateFormat('MMM d');
+    final dateFormat = DateFormat('EEE, MMM d');
     final isToday = _isToday(selectedDate);
     final canGoForward = !isToday;
 
@@ -184,8 +186,8 @@ class FilterSection extends StatelessWidget {
         color: alternate,
         borderRadius: BorderRadius.circular(10.0),
       ),
+      padding: const EdgeInsets.all(3.0),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Previous day button
           GestureDetector(
@@ -193,8 +195,12 @@ class FilterSection extends StatelessWidget {
               selectedDate.subtract(const Duration(days: 1)),
             ),
             behavior: HitTestBehavior.opaque,
-            child: Padding(
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
               child: Icon(
                 Icons.chevron_left_rounded,
                 size: 18.0,
@@ -202,30 +208,47 @@ class FilterSection extends StatelessWidget {
               ),
             ),
           ),
-          // Date display (tappable)
-          GestureDetector(
-            onTap: () => _showDatePickerBottomSheet(context),
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.calendar_today_rounded,
-                    size: 12.0,
-                    color: primary,
-                  ),
-                  const SizedBox(width: 6.0),
-                  Text(
-                    isToday ? 'Today' : dateFormat.format(selectedDate),
-                    style: GoogleFonts.inter(
-                      fontSize: 13.0,
-                      fontWeight: FontWeight.w500,
-                      color: primaryText,
+          // Date display (tappable, centered, fills space)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showDatePickerBottomSheet(context),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      aggregation == '1D' ? 'Viewing' : 'Ending',
+                      style: GoogleFonts.inter(
+                        fontSize: 9.0,
+                        fontWeight: FontWeight.w500,
+                        color: secondaryText,
+                        letterSpacing: 0.3,
+                      ),
                     ),
-                  ),
-                ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isToday ? 'Today' : dateFormat.format(selectedDate),
+                          style: GoogleFonts.interTight(
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.w600,
+                            color: primaryText,
+                          ),
+                        ),
+                        const SizedBox(width: 2.0),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16.0,
+                          color: secondaryText,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -237,8 +260,14 @@ class FilterSection extends StatelessWidget {
                     )
                 : null,
             behavior: HitTestBehavior.opaque,
-            child: Padding(
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: canGoForward
+                    ? primary.withValues(alpha: 0.08)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
               child: Icon(
                 Icons.chevron_right_rounded,
                 size: 18.0,
