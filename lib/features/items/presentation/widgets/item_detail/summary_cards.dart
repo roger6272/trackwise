@@ -72,7 +72,6 @@ class _SummaryCardsState extends State<SummaryCards>
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('📊 SummaryCards - goal: ${widget.goal}, currentCount: ${widget.currentCount}, initialCount: ${widget.initialCount}');
     final cardWidth = MediaQuery.sizeOf(context).width * 0.42;
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);

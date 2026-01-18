@@ -543,7 +543,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
               ),
               child: ListTile(
             onTap: () {
-              debugPrint('📊 Navigating to detail - item.goal: ${item.goal}');
               context.pushNamed(
                 'ItemDetailPage',
                 pathParameters: {'id': item.id},
