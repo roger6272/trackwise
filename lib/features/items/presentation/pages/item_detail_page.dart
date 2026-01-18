@@ -142,13 +142,24 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       reminderType: widget.reminderType ?? ReminderType.none,
                     ),
                   ),
-                  // Sticky Filter Section
+                  // Sticky Filter Section (part of filtered zone)
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _StickyFilterHeaderDelegate(
+                      backgroundColor: brightness == Brightness.light
+                          ? const Color(0xFFF8F9FB)
+                          : primaryText.withValues(alpha: 0.03),
                       child: Container(
-                        color: primaryBackground,
-                        padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 8.0),
+                        decoration: BoxDecoration(
+                          color: brightness == Brightness.light
+                              ? const Color(0xFFF8F9FB)
+                              : primaryText.withValues(alpha: 0.03),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(24.0),
+                            topRight: Radius.circular(24.0),
+                          ),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
                         child: FilterSection(
                           aggregation: _aggregation,
                           showSinceReset: _showSinceReset,
@@ -173,54 +184,20 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           },
                         ),
                       ),
-                      maxHeight: 118.0,
-                      minHeight: 118.0,
+                      maxHeight: 130.0,
+                      minHeight: 130.0,
                     ),
                   ),
-                  // Filtered Content Zone
+                  // Filtered Content Zone (continues from filter section)
                   // ALL content below is affected by filters
                   SliverToBoxAdapter(
                     child: Container(
-                      margin: const EdgeInsets.only(top: 8.0),
-                      decoration: BoxDecoration(
-                        color: brightness == Brightness.light
-                            ? const Color(0xFFF8F9FB)
-                            : primaryText.withValues(alpha: 0.03),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(24.0),
-                          topRight: Radius.circular(24.0),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Section label
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 12.0),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.filter_alt_outlined,
-                                  size: 14.0,
-                                  color: AppColors.secondaryText(brightness),
-                                ),
-                                const SizedBox(width: 6.0),
-                                Text(
-                                  'Filtered Results',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12.0,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.secondaryText(brightness),
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Chart and Stats Content
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 24.0),
-                            child: BlocBuilder<EventsBloc, EventsState>(
+                      color: brightness == Brightness.light
+                          ? const Color(0xFFF8F9FB)
+                          : primaryText.withValues(alpha: 0.03),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 24.0),
+                        child: BlocBuilder<EventsBloc, EventsState>(
                               builder: (context, eventsState) {
                                 // Show shimmer skeleton while loading
                                 if (eventsState is EventsLoading) {
@@ -270,8 +247,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 );
                               },
                             ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
@@ -356,15 +331,20 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 }
 
 /// Delegate for the sticky filter header.
+///
+/// When pinned (scrolled), shows a flat background matching the filtered zone.
+/// When not pinned (at rest), shows the rounded top corners.
 class _StickyFilterHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   final double maxHeight;
   final double minHeight;
+  final Color backgroundColor;
 
   _StickyFilterHeaderDelegate({
     required this.child,
     required this.maxHeight,
     required this.minHeight,
+    required this.backgroundColor,
   });
 
   @override
@@ -373,6 +353,24 @@ class _StickyFilterHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    // When pinned (shrinkOffset > 0), use flat background
+    // When at rest, show the child with rounded corners
+    final isPinned = shrinkOffset > 0;
+
+    if (isPinned) {
+      // Pinned state: flat background, no rounded corners
+      return Container(
+        color: backgroundColor,
+        child: child is Container
+            ? Container(
+                color: backgroundColor,
+                padding: (child as Container).padding,
+                child: (child as Container).child,
+              )
+            : child,
+      );
+    }
+
     return SizedBox.expand(child: child);
   }
 
@@ -386,6 +384,7 @@ class _StickyFilterHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _StickyFilterHeaderDelegate oldDelegate) {
     return maxHeight != oldDelegate.maxHeight ||
         minHeight != oldDelegate.minHeight ||
-        child != oldDelegate.child;
+        child != oldDelegate.child ||
+        backgroundColor != oldDelegate.backgroundColor;
   }
 }
