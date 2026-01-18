@@ -126,7 +126,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     delegate: _StickyFilterHeaderDelegate(
                       child: Container(
                         color: primaryBackground,
-                        padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 12.0),
+                        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 4.0),
                         child: FilterSection(
                           aggregation: _aggregation,
                           showSinceReset: _showSinceReset,
@@ -151,8 +151,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           },
                         ),
                       ),
-                      maxHeight: _aggregation == '1D' ? 140.0 : 190.0,
-                      minHeight: _aggregation == '1D' ? 140.0 : 190.0,
+                      maxHeight: 164.0,
+                      minHeight: 164.0,
                     ),
                   ),
                   // Stats and Summary Content

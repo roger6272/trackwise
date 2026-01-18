@@ -41,10 +41,10 @@ class FilterSection extends StatelessWidget {
       children: [
         // Aggregation chips - centered
         _buildAggregationChips(primary, primaryBackground, secondaryText),
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 10.0),
         // Reset toggle chips - centered
         _buildResetToggle(primary, primaryBackground, secondaryText),
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 10.0),
         // Date picker row
         _buildDatePickerRow(context, primaryText, secondaryText),
       ],
@@ -100,7 +100,7 @@ class FilterSection extends StatelessWidget {
           ),
         ),
         padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+          const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
         ),
       ),
     );
@@ -151,67 +151,57 @@ class FilterSection extends StatelessWidget {
           ),
         ),
         padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+          const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         ),
       ),
     );
   }
 
   Widget _buildDatePickerRow(BuildContext context, Color primaryText, Color secondaryText) {
-    final dateFormat = DateFormat.yMMMd();
+    final dateFormat = DateFormat('MMM d, yyyy');
     final brightness = Theme.of(context).brightness;
     final alternate = AppColors.alternate(brightness);
 
     // Label changes based on aggregation period
-    final label = aggregation == '1D' ? 'Date' : 'Ends on';
+    final label = aggregation == '1D' ? 'Date:' : 'Ends:';
 
     return GestureDetector(
       onTap: () => _showDatePickerBottomSheet(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
         decoration: BoxDecoration(
           color: alternate,
-          borderRadius: BorderRadius.circular(10.0),
-          border: Border.all(
-            color: primaryText.withValues(alpha: 0.08),
-            width: 1.0,
-          ),
+          borderRadius: BorderRadius.circular(8.0),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.calendar_today_rounded,
-              size: 18.0,
+              size: 15.0,
               color: secondaryText,
             ),
-            const SizedBox(width: 10.0),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 11.0,
-                    color: secondaryText,
-                  ),
-                ),
-                const SizedBox(height: 2.0),
-                Text(
-                  dateFormat.format(selectedDate),
-                  style: GoogleFonts.interTight(
-                    color: primaryText,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15.0,
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(width: 8.0),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 13.0,
+                color: secondaryText,
+              ),
+            ),
+            const SizedBox(width: 4.0),
+            Text(
+              dateFormat.format(selectedDate),
+              style: GoogleFonts.inter(
+                color: primaryText,
+                fontWeight: FontWeight.w500,
+                fontSize: 13.0,
+              ),
+            ),
+            const SizedBox(width: 4.0),
             Icon(
               Icons.keyboard_arrow_down_rounded,
-              size: 20.0,
+              size: 18.0,
               color: secondaryText,
             ),
           ],
