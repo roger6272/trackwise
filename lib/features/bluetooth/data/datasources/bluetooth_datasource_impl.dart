@@ -103,10 +103,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
       // Set up scan completion listener BEFORE starting scan to avoid race condition
       // (scan could complete before listener is attached if we use .then() after startScan)
+      // Add timeout to prevent hanging if scan fails or completes instantly
       FlutterBluePlus.isScanning
           .where((s) => !s)
           .skip(1) // Skip initial false state before scan starts
           .first
+          .timeout(timeout + const Duration(seconds: 5), onTimeout: () => false)
           .then((_) {
         if (!controller.isClosed) {
           controller.close();
