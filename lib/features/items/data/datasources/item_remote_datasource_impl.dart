@@ -90,15 +90,24 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           ? firestore.collection('Item').doc().id
           : item.id;
 
-      // Query to get the count of existing items for this user to set order
       final userRef = firestore.collection('users').doc(item.userId);
+
+      // Get existing items to shift their order
       final existingItems = await firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
-      final newOrder = existingItems.docs
-          .where((doc) => doc.data()['deletedAt'] == null)
-          .length;
+
+      // Use batch to atomically create new item and shift existing items
+      final batch = firestore.batch();
+
+      // Shift all existing non-deleted items down by 1
+      for (final doc in existingItems.docs) {
+        if (doc.data()['deletedAt'] == null) {
+          final currentOrder = doc.data()['order'] as int? ?? 0;
+          batch.update(doc.reference, {'order': currentOrder + 1});
+        }
+      }
 
       final now = DateTime.now();
       final newItem = ItemModel(
@@ -112,7 +121,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         lastResetTime: item.lastResetTime,
         lastUpdated: now,
         userId: item.userId,
-        order: newOrder,
+        order: 0, // New items go to top
         initialCount: item.initialCount,
         goal: item.goal,
       );
@@ -122,7 +131,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       data.remove('user_id'); // Remove string version
       data['uid'] = userRef; // Add DocumentReference version
 
-      await firestore.collection('Item').doc(id).set(data);
+      batch.set(firestore.collection('Item').doc(id), data);
+      await batch.commit();
 
       return newItem;
     } on FirebaseException catch (e) {

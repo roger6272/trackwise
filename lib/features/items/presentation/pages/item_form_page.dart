@@ -336,39 +336,40 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             ),
                           ),
                         ),
-                        _buildFieldSection(
-                          label: 'Reminder Value',
-                          labelColor: primaryText,
-                          child: TextFormField(
-                            controller: reminderValueController,
-                            focusNode: reminderValueFocusNode,
-                            textInputAction: TextInputAction.done,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: _buildInputDecoration(
-                              hint: 'Enter reminder value...',
-                              alternate: alternate,
-                              secondaryText: secondaryText,
+                        if (selectedReminder != ReminderType.none)
+                          _buildFieldSection(
+                            label: 'Reminder Value',
+                            labelColor: primaryText,
+                            child: TextFormField(
+                              controller: reminderValueController,
+                              focusNode: reminderValueFocusNode,
+                              textInputAction: TextInputAction.done,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: _buildInputDecoration(
+                                hint: 'Enter reminder value...',
+                                alternate: alternate,
+                                secondaryText: secondaryText,
+                              ),
+                              style: GoogleFonts.inter(
+                                color: primaryText,
+                                fontSize: 16.0,
+                                letterSpacing: 0.0,
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Reminder value is required';
+                                }
+                                final intValue = int.tryParse(value);
+                                if (intValue == null || intValue < 0 || intValue > 1000) {
+                                  return 'Must be between 0 and 1000';
+                                }
+                                return null;
+                              },
                             ),
-                            style: GoogleFonts.inter(
-                              color: primaryText,
-                              fontSize: 16.0,
-                              letterSpacing: 0.0,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Reminder value is required';
-                              }
-                              final intValue = int.tryParse(value);
-                              if (intValue == null || intValue < 0 || intValue > 1000) {
-                                return 'Must be between 0 and 1000';
-                              }
-                              return null;
-                            },
                           ),
-                        ),
                         SizedBox(height: 32.0),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
