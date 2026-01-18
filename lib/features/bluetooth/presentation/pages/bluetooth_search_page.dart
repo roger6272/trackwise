@@ -115,9 +115,11 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
                   }
                 }
               : null,
-          icon: const Icon(Icons.bluetooth_searching),
+          icon: state.isScanning
+              ? const _BlinkingWidget(child: Icon(Icons.bluetooth_searching))
+              : const Icon(Icons.bluetooth_searching),
           label: state.isScanning
-              ? const _BlinkingText(text: 'Scanning...')
+              ? const _BlinkingWidget(child: Text('Scanning...'))
               : const Text('Scan for Devices'),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -301,16 +303,16 @@ class _DeviceListTile extends StatelessWidget {
   }
 }
 
-class _BlinkingText extends StatefulWidget {
-  final String text;
+class _BlinkingWidget extends StatefulWidget {
+  final Widget child;
 
-  const _BlinkingText({required this.text});
+  const _BlinkingWidget({required this.child});
 
   @override
-  State<_BlinkingText> createState() => _BlinkingTextState();
+  State<_BlinkingWidget> createState() => _BlinkingWidgetState();
 }
 
-class _BlinkingTextState extends State<_BlinkingText>
+class _BlinkingWidgetState extends State<_BlinkingWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
@@ -338,7 +340,7 @@ class _BlinkingTextState extends State<_BlinkingText>
       builder: (context, child) {
         return Opacity(
           opacity: _animation.value,
-          child: Text(widget.text),
+          child: widget.child,
         );
       },
     );
