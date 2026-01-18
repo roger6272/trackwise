@@ -309,14 +309,14 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
           }
         }
         if (!found) {
-          // Selected item was deleted, reset to first item or none
+          // Item not found - could be timing issue or item was deleted
           if (index > 0) {
-            currentItemIndex = 0;
-            currentItemId = prefs.getString("id_0", "none");
-            prefs.putInt("selected_index", 0);
-            prefs.putString("selected_id", currentItemId);
-            Serial.printf("⚠️ Selected item deleted, reset to: %s\n", currentItemId.c_str());
+            // Items exist but selected not found - DON'T reset to none/first item
+            // Keep current selection and let incoming set_selected command fix it
+            // This prevents brief "none" state during reorder operations
+            Serial.printf("⚠️ Selected item '%s' not found after reorder, keeping current selection (set_selected will fix)\n", currentItemId.c_str());
           } else {
+            // No items at all - must reset to none
             currentItemIndex = 0;
             currentItemId = "none";
             prefs.putInt("selected_index", 0);
