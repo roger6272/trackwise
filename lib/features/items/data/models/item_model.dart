@@ -84,12 +84,16 @@ class ItemModel extends Item {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  /// Parse nullable DateTime - returns null if value is null
+  /// Parse nullable DateTime - returns null if value is null or 0 (epoch)
   static DateTime? _parseNullableDateTime(dynamic value) {
     if (value == null) return null;
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
-    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is int) {
+      // Treat 0 as null (never set) - epoch 0 means "no reset"
+      if (value == 0) return null;
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
     return null;
   }
 
