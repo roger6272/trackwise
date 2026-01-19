@@ -5,14 +5,14 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../events/domain/entities/event_log.dart';
 import '../../../domain/utils/interval_calculator.dart';
 
-/// Section showing interval (reset period) statistics.
+/// Section showing interval (reset period) statistics (read-only).
 ///
 /// Displays a list of intervals with:
 /// - Total row (all intervals combined)
 /// - Individual intervals (most recent first, limited to [visibleIntervals])
 ///
 /// Each row shows: interval number, duration, count.
-/// Selected interval is highlighted.
+/// Selected interval is highlighted for reference (filtering done via dropdown).
 class IntervalsSection extends StatelessWidget {
   /// All events for the item (used to calculate intervals).
   final List<EventLog> events;
@@ -24,10 +24,8 @@ class IntervalsSection extends StatelessWidget {
   final int visibleIntervals;
 
   /// Currently selected interval number (-1 for All Time/Total).
+  /// Used only for highlighting, not for interaction.
   final int selectedInterval;
-
-  /// Callback when an interval row is tapped.
-  final ValueChanged<int>? onIntervalTap;
 
   const IntervalsSection({
     super.key,
@@ -35,7 +33,6 @@ class IntervalsSection extends StatelessWidget {
     this.maxIntervals = 100,
     this.visibleIntervals = 5,
     this.selectedInterval = -1,
-    this.onIntervalTap,
   });
 
   @override
@@ -122,9 +119,6 @@ class IntervalsSection extends StatelessWidget {
                       primaryText: primaryText,
                       secondaryText: secondaryText,
                       brightness: brightness,
-                      onTap: onIntervalTap != null
-                          ? () => onIntervalTap!(interval.intervalNumber)
-                          : null,
                     );
                   },
                 ),
@@ -188,7 +182,6 @@ class IntervalsSection extends StatelessWidget {
     required Color primaryText,
     required Color secondaryText,
     required Brightness brightness,
-    VoidCallback? onTap,
   }) {
     final isTotal = interval.intervalNumber == -1;
     final isCurrent = interval.isCurrent && !isTotal;
@@ -205,115 +198,111 @@ class IntervalsSection extends StatelessWidget {
     // Format duration
     final durationText = IntervalCalculator.formatDuration(interval.duration);
 
-    return Material(
+    return Container(
       color: isSelected ? primary.withValues(alpha: 0.08) : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-          child: Row(
-            children: [
-              // Interval number/label
-              SizedBox(
-                width: 70,
-                child: Row(
-                  children: [
-                    if (isTotal)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8.0,
-                          vertical: 3.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? primary
-                              : primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4.0),
-                        ),
-                        child: Text(
-                          intervalLabel,
-                          style: GoogleFonts.inter(
-                            fontSize: 12.0,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : primary,
-                          ),
-                        ),
-                      )
-                    else
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            intervalLabel,
-                            style: GoogleFonts.inter(
-                              fontSize: 13.0,
-                              fontWeight:
-                                  isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? primary : primaryText,
-                            ),
-                          ),
-                          if (isCurrent) ...[
-                            const SizedBox(width: 4),
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF10B981),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              // Duration
-              Expanded(
-                child: Text(
-                  isCurrent ? '$durationText (ongoing)' : durationText,
-                  style: GoogleFonts.inter(
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w400,
-                    color: isSelected
-                        ? primary
-                        : (isCurrent
-                            ? secondaryText
-                            : primaryText.withValues(alpha: 0.7)),
-                  ),
-                ),
-              ),
-              // Count
-              SizedBox(
-                width: 70,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      interval.count.toString(),
-                      style: GoogleFonts.interTight(
-                        fontSize: 14.0,
-                        fontWeight: isTotal || isSelected
-                            ? FontWeight.w700
-                            : FontWeight.w600,
-                        color: isTotal || isSelected ? primary : primaryText,
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+      child: Row(
+        children: [
+          // Interval number/label
+          SizedBox(
+            width: 70,
+            child: Row(
+              children: [
+                if (isTotal)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 3.0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? primary
+                          : primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4.0),
+                    ),
+                    child: Text(
+                      intervalLabel,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.white : primary,
                       ),
                     ),
-                    if (isSelected) ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.check_rounded,
-                        size: 14.0,
-                        color: primary,
+                  )
+                else
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        intervalLabel,
+                        style: GoogleFonts.inter(
+                          fontSize: 13.0,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? primary : primaryText,
+                        ),
                       ),
+                      if (isCurrent) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ),
-            ],
+                  ),
+              ],
+            ),
           ),
-        ),
+          // Duration
+          Expanded(
+            child: Text(
+              isCurrent ? '$durationText (ongoing)' : durationText,
+              style: GoogleFonts.inter(
+                fontSize: 13.0,
+                fontWeight: FontWeight.w400,
+                color: isSelected
+                    ? primary
+                    : (isCurrent
+                        ? secondaryText
+                        : primaryText.withValues(alpha: 0.7)),
+              ),
+            ),
+          ),
+          // Count
+          SizedBox(
+            width: 70,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  interval.count.toString(),
+                  style: GoogleFonts.interTight(
+                    fontSize: 14.0,
+                    fontWeight: isTotal || isSelected
+                        ? FontWeight.w700
+                        : FontWeight.w600,
+                    color: isTotal || isSelected ? primary : primaryText,
+                  ),
+                ),
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.check_rounded,
+                    size: 14.0,
+                    color: primary,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+

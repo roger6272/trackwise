@@ -463,8 +463,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         maxIntervals: 100,
                                         visibleIntervals: 5,
                                         selectedInterval: _selectedInterval ?? -1,
-                                        onIntervalTap: (interval) =>
-                                            _onIntervalSelected(interval, context),
                                       ),
                                     ],
                                   ],
