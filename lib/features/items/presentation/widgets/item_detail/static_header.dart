@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/entities/item.dart';
@@ -24,9 +23,6 @@ class StaticHeader extends StatelessWidget {
   /// Amount incremented per event.
   final int incrementBy;
 
-  /// Last reset timestamp.
-  final DateTime? lastResetTime;
-
   /// Type of reminder configured.
   final ReminderType reminderType;
 
@@ -39,7 +35,6 @@ class StaticHeader extends StatelessWidget {
     required this.initialCount,
     this.goal,
     required this.incrementBy,
-    this.lastResetTime,
     required this.reminderType,
     this.reminderValue = 0,
   });
@@ -198,11 +193,6 @@ class StaticHeader extends StatelessWidget {
     Color primaryText,
     Color secondaryText,
   ) {
-    final dateFormat = DateFormat('MMM d');
-    final lastResetLabel = lastResetTime != null
-        ? dateFormat.format(lastResetTime!)
-        : 'Never';
-
     String reminderLabel;
     IconData reminderIcon;
     switch (reminderType) {
@@ -232,9 +222,9 @@ class StaticHeader extends StatelessWidget {
         ),
         _buildDivider(secondaryText),
         _buildStatItem(
-          icon: Icons.refresh_rounded,
-          label: 'Last Reset',
-          value: lastResetLabel,
+          icon: Icons.start_rounded,
+          label: 'Initial',
+          value: initialCount.toString(),
           primaryText: primaryText,
           secondaryText: secondaryText,
         ),

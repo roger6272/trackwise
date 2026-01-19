@@ -40,6 +40,15 @@ class ChartSection extends StatelessWidget {
   /// Total count for the period (key stat to display).
   final int periodTotal;
 
+  /// Percent change vs prior period (null if no prior data).
+  final double? percentChange;
+
+  /// Prior period count for comparison label.
+  final int priorPeriodCount;
+
+  /// Period label for comparison (e.g., "DoD", "WoW").
+  final String periodLabel;
+
   const ChartSection({
     super.key,
     required this.showCumulative,
@@ -49,10 +58,15 @@ class ChartSection extends StatelessWidget {
     required this.selectedDate,
     required this.onDateChanged,
     this.periodTotal = 0,
+    this.percentChange,
+    this.priorPeriodCount = 0,
+    this.periodLabel = '',
   });
 
-  // Error color for chart error state
+  // Trend colors
+  static const Color _positiveColor = Color(0xFF017400);
   static const Color _negativeColor = Color(0xFF9F0202);
+  static const Color _neutralColor = Color(0xFF6B7280);
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +426,7 @@ class ChartSection extends StatelessWidget {
     );
   }
 
-  /// Builds the chart header with hero stat and toggle.
+  /// Builds the chart header with hero stat, trend, and toggle.
   Widget _buildChartHeader(BuildContext context, Color primary) {
     final brightness = Theme.of(context).brightness;
     final secondaryText = AppColors.secondaryText(brightness);
@@ -421,32 +435,92 @@ class ChartSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Hero stat: +X increments
-          Text(
-            '+$periodTotal',
-            style: GoogleFonts.interTight(
-              fontSize: 28.0,
-              fontWeight: FontWeight.w700,
-              color: primary,
-            ),
-          ),
-          const SizedBox(width: 6.0),
-          Text(
-            'increments',
-            style: GoogleFonts.inter(
-              fontSize: 14.0,
-              fontWeight: FontWeight.w500,
-              color: secondaryText,
-            ),
+          // Hero stat: +X increments with trend
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '+$periodTotal',
+                    style: GoogleFonts.interTight(
+                      fontSize: 28.0,
+                      fontWeight: FontWeight.w700,
+                      color: primary,
+                    ),
+                  ),
+                  const SizedBox(width: 6.0),
+                  Text(
+                    'increments',
+                    style: GoogleFonts.inter(
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w500,
+                      color: secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+              // Trend indicator
+              if (periodLabel.isNotEmpty) ...[
+                const SizedBox(height: 2.0),
+                _buildTrendBadge(secondaryText),
+              ],
+            ],
           ),
           const Spacer(),
           // Toggle
           _buildChartToggle(context, primary, alternate, secondaryText),
         ],
       ),
+    );
+  }
+
+  /// Builds the trend badge showing period-over-period change.
+  Widget _buildTrendBadge(Color secondaryText) {
+    final isPositive = percentChange != null && percentChange! > 0;
+    final isNegative = percentChange != null && percentChange! < 0;
+
+    final Color trendColor;
+    final IconData trendIcon;
+
+    if (isPositive) {
+      trendColor = _positiveColor;
+      trendIcon = Icons.trending_up_rounded;
+    } else if (isNegative) {
+      trendColor = _negativeColor;
+      trendIcon = Icons.trending_down_rounded;
+    } else {
+      trendColor = _neutralColor;
+      trendIcon = Icons.trending_flat_rounded;
+    }
+
+    final percentText = percentChange != null
+        ? '${isPositive ? '+' : ''}${(percentChange! * 100).toStringAsFixed(0)}%'
+        : '0%';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          trendIcon,
+          size: 14.0,
+          color: trendColor,
+        ),
+        const SizedBox(width: 4.0),
+        Text(
+          '$percentText vs $priorPeriodCount $periodLabel',
+          style: GoogleFonts.inter(
+            fontSize: 12.0,
+            fontWeight: FontWeight.w500,
+            color: secondaryText,
+          ),
+        ),
+      ],
     );
   }
 

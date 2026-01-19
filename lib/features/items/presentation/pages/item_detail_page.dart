@@ -15,7 +15,6 @@ import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
-import '../widgets/item_detail/dynamic_stats.dart';
 import '../widgets/item_detail/filter_section.dart';
 import '../widgets/item_detail/intervals_section.dart';
 import '../widgets/item_detail/shimmer_skeletons.dart';
@@ -100,7 +99,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   late int _initialCount;
   int? _goal;
   late int _incrementBy;
-  DateTime? _lastResetTime;
   late ReminderType _reminderType;
   late int _reminderValue;
 
@@ -112,7 +110,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _initialCount = widget.initialCount ?? 0;
     _goal = widget.goal;
     _incrementBy = widget.incrementBy ?? 1;
-    _lastResetTime = widget.lastResetTime;
     _reminderType = widget.reminderType ?? ReminderType.none;
     _reminderValue = widget.reminderValue ?? 0;
   }
@@ -139,7 +136,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _initialCount = item.initialCount;
           _goal = item.goal;
           _incrementBy = item.incrementBy;
-          _lastResetTime = item.lastResetTime;
           _reminderType = item.reminder;
           _reminderValue = item.reminderValue;
         });
@@ -320,7 +316,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       initialCount: _initialCount,
                       goal: _goal,
                       incrementBy: _incrementBy,
-                      lastResetTime: _lastResetTime,
                       reminderType: _reminderType,
                       reminderValue: _reminderValue,
                     ),
@@ -442,16 +437,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                           _reloadChart(context);
                                         },
                                         periodTotal: stats.totalCount,
+                                        percentChange: stats.percentChange,
+                                        priorPeriodCount: stats.priorPeriodCount,
+                                        periodLabel: stats.periodLabel,
                                       ),
-                                    ),
-                                    const SizedBox(height: 16.0),
-                                    // Dynamic Stats Section
-                                    DynamicStats(
-                                      stats: stats,
-                                      range: _aggregation,
-                                      initialCount: _initialCount,
-                                      lastResetTime: _lastResetTime,
-                                      showSinceReset: _selectedInterval != null && _selectedInterval! >= 0,
                                     ),
                                     // Intervals Section
                                     if (eventsState is EventsLoaded) ...[
