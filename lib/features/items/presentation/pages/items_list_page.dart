@@ -505,7 +505,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       final isDark = Theme.of(context).brightness == Brightness.dark;
                       // Colors for accent bar and text
                       final accentColor = isActivated
-                          ? (isDark ? const Color(0xFFB8B4FF) : _activateActionColor)
+                          ? (isDark ? const Color(0xFFB8B4FF) : const Color(0xFF8580E0))
                           : (isDark ? const Color(0xFF6B7280) : const Color(0xFFD1D5DB));
                       final textColor = isActivated
                           ? (isDark ? const Color(0xFFB8B4FF) : _activateActionColor)

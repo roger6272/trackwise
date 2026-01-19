@@ -99,6 +99,7 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
   /// Aggregate events by the specified level.
   ///
   /// Groups events by date key and sums their increments.
+  /// Excludes 'reset' events to only count actual increments.
   List<ChartDataPoint> _aggregateEvents(
     List<EventLog> events,
     AggregationLevel aggregationLevel,
@@ -106,6 +107,8 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
     final Map<DateTime, int> aggregated = {};
 
     for (var event in events) {
+      // Skip reset events - only count actual increments
+      if (event.eventName == 'reset') continue;
       final key = _getAggregationKey(event.createdTime, aggregationLevel);
       aggregated[key] = (aggregated[key] ?? 0) + event.increment;
     }
