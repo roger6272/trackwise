@@ -7,11 +7,13 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../charts/domain/entities/chart_data.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../charts/presentation/bloc/charts_event.dart';
+import '../../../events/domain/entities/event_log.dart';
 import '../../../events/presentation/bloc/events_bloc.dart';
 import '../../../events/presentation/bloc/events_event.dart';
 import '../../../events/presentation/bloc/events_state.dart';
 import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
+import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
 import '../widgets/item_detail/dynamic_stats.dart';
 import '../widgets/item_detail/filter_section.dart';
@@ -80,12 +82,18 @@ class ItemDetailPage extends StatefulWidget {
 class _ItemDetailPageState extends State<ItemDetailPage> {
   // Filter state
   String _aggregation = '1D';
-  bool _showSinceReset = true; // Default to "Since Last Reset" for clearer context
   DateTime _selectedDate = DateTime.now();
+
+  /// Selected interval number (-1 = All Time, 0+ = specific interval).
+  /// Defaults to current interval (will be set when events load).
+  int? _selectedInterval;
 
   // UI state
   bool _showCumulative = false;
   DateTime _lastUpdated = DateTime.now();
+
+  /// Cached interval data from events.
+  List<IntervalData> _intervals = [];
 
   // Mutable item data (initialized from widget, updated on refresh)
   late int _currentCount;
@@ -171,6 +179,64 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     }
   }
 
+  /// Update intervals when events are loaded.
+  void _updateIntervalsFromEvents(EventsState eventsState) {
+    if (eventsState is EventsLoaded) {
+      final intervals = IntervalCalculator.calculate(
+        events: eventsState.events,
+        maxIntervals: 100, // Get all for dropdown
+      );
+      setState(() {
+        _intervals = intervals;
+        // Default to current interval if not set
+        if (_selectedInterval == null && intervals.length > 1) {
+          // intervals[0] is Total, intervals[1] is current (most recent)
+          _selectedInterval = intervals[1].intervalNumber;
+        }
+      });
+    }
+  }
+
+  /// Handle interval selection - auto-snap date and reload chart.
+  void _onIntervalSelected(int intervalNumber, BuildContext context) {
+    setState(() {
+      _selectedInterval = intervalNumber;
+    });
+
+    // Auto-snap date to interval's end date
+    if (intervalNumber == -1) {
+      // All Time - snap to today
+      setState(() {
+        _selectedDate = DateTime.now();
+      });
+    } else {
+      // Find the interval data
+      final interval = _intervals.firstWhere(
+        (i) => i.intervalNumber == intervalNumber,
+        orElse: () => _intervals.first,
+      );
+      // Snap to end date (reset time) or today if current
+      final snapDate = interval.endTime ?? DateTime.now();
+      setState(() {
+        _selectedDate = snapDate;
+      });
+    }
+
+    _reloadChart(context);
+  }
+
+  /// Filter events by selected interval.
+  List<EventLog> _filterEventsByInterval(List<EventLog> events) {
+    if (_selectedInterval == null || _selectedInterval == -1) {
+      // All Time - no filtering
+      return events;
+    }
+    // Filter by resetNumber
+    return events
+        .where((e) => e.resetNumber == _selectedInterval)
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
@@ -189,8 +255,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           create: (_) => sl<ChartsBloc>()..add(_createChartEvent()),
         ),
       ],
-      child: Builder(
-        builder: (context) => GestureDetector(
+      child: BlocListener<EventsBloc, EventsState>(
+        listener: (context, state) {
+          _updateIntervalsFromEvents(state);
+        },
+        child: Builder(
+          builder: (context) => GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus();
             FocusManager.instance.primaryFocus?.unfocus();
@@ -288,10 +358,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                             });
                             _reloadChart(context);
                           },
+                          intervals: _intervals,
+                          selectedInterval: _selectedInterval ?? -1,
+                          onIntervalChanged: (interval) =>
+                              _onIntervalSelected(interval, context),
                         ),
                       ),
-                      maxHeight: 100.0,
-                      minHeight: 100.0,
+                      maxHeight: 156.0,
+                      minHeight: 156.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
@@ -316,77 +390,24 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   );
                                 }
 
-                                final stats = _calculateStats(eventsState);
+                                // Filter events by selected interval
+                                final filteredEvents = eventsState is EventsLoaded
+                                    ? _filterEventsByInterval(eventsState.events)
+                                    : <EventLog>[];
+                                final stats = _calculateStats(filteredEvents);
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Results header with data scope toggle
+                                    // Results header
                                     Padding(
                                       padding: const EdgeInsets.only(left: 4.0, bottom: 14.0),
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            'Results',
-                                            style: GoogleFonts.interTight(
-                                              fontSize: 16.0,
-                                              fontWeight: FontWeight.w600,
-                                              color: primaryText,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8.0),
-                                          // Data scope toggle (All Time / Since Reset)
-                                          GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                _showSinceReset = !_showSinceReset;
-                                              });
-                                              _reloadChart(context);
-                                            },
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 10.0,
-                                                vertical: 4.0,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: _showSinceReset
-                                                    ? primary.withValues(alpha: 0.12)
-                                                    : secondaryText.withValues(alpha: 0.08),
-                                                borderRadius: BorderRadius.circular(6.0),
-                                                border: Border.all(
-                                                  color: _showSinceReset
-                                                      ? primary.withValues(alpha: 0.3)
-                                                      : Colors.transparent,
-                                                  width: 1.0,
-                                                ),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    _showSinceReset
-                                                        ? Icons.history_rounded
-                                                        : Icons.all_inclusive_rounded,
-                                                    size: 12.0,
-                                                    color: _showSinceReset
-                                                        ? primary
-                                                        : secondaryText,
-                                                  ),
-                                                  const SizedBox(width: 4.0),
-                                                  Text(
-                                                    _showSinceReset ? 'Since Reset' : 'All Time',
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 11.0,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: _showSinceReset
-                                                          ? primary
-                                                          : secondaryText,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                      child: Text(
+                                        'Results',
+                                        style: GoogleFonts.interTight(
+                                          fontSize: 16.0,
+                                          fontWeight: FontWeight.w600,
+                                          color: primaryText,
+                                        ),
                                       ),
                                     ),
                                     // Activity sub-header
@@ -432,14 +453,18 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       range: _aggregation,
                                       initialCount: _initialCount,
                                       lastResetTime: _lastResetTime,
-                                      showSinceReset: _showSinceReset,
+                                      showSinceReset: _selectedInterval != null && _selectedInterval! >= 0,
                                     ),
                                     // Intervals Section
                                     if (eventsState is EventsLoaded) ...[
                                       const SizedBox(height: 16.0),
                                       IntervalsSection(
                                         events: eventsState.events,
-                                        maxIntervals: 10,
+                                        maxIntervals: 100,
+                                        visibleIntervals: 5,
+                                        selectedInterval: _selectedInterval ?? -1,
+                                        onIntervalTap: (interval) =>
+                                            _onIntervalSelected(interval, context),
                                       ),
                                     ],
                                   ],
@@ -456,29 +481,30 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ),
         ),
       ),
+      ),
     );
   }
 
-  /// Calculate statistics from the events state.
-  StatsResult _calculateStats(EventsState eventsState) {
-    if (eventsState is EventsLoaded) {
-      return StatsCalculator.calculate(
-        events: eventsState.events,
-        aggregation: _aggregation,
-        endDate: _selectedDate,
-        lastResetTime: _lastResetTime,
-        sinceResetOnly: _showSinceReset,
+  /// Calculate statistics from filtered events.
+  StatsResult _calculateStats(List<EventLog> events) {
+    if (events.isEmpty) {
+      // Return empty stats if no events
+      return const StatsResult(
+        totalCount: 0,
+        priorPeriodCount: 0,
+        percentChange: null,
+        periodLabel: 'DoD',
+        average: 0.0,
+        maxCount: 0,
+        minCount: 0,
       );
     }
-    // Return empty stats if not loaded
-    return const StatsResult(
-      totalCount: 0,
-      priorPeriodCount: 0,
-      percentChange: null,
-      periodLabel: 'DoD',
-      average: 0.0,
-      maxCount: 0,
-      minCount: 0,
+    return StatsCalculator.calculate(
+      events: events,
+      aggregation: _aggregation,
+      endDate: _selectedDate,
+      lastResetTime: null, // No longer using lastResetTime filter
+      sinceResetOnly: false, // Interval filtering handles this now
     );
   }
 
@@ -502,8 +528,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         ? AggregationLevel.hourly
         : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.daily);
 
-    // Use lastResetTime filter when "Since Last Reset" is selected
-    final sinceResetTime = _showSinceReset ? _lastResetTime : null;
+    // Get the interval's start time for filtering (if specific interval selected)
+    DateTime? sinceResetTime;
+    if (_selectedInterval != null && _selectedInterval! >= 0) {
+      final interval = _intervals.firstWhere(
+        (i) => i.intervalNumber == _selectedInterval,
+        orElse: () => _intervals.first,
+      );
+      sinceResetTime = interval.startTime;
+    }
 
     if (_showCumulative) {
       return LoadCumulativeChart(

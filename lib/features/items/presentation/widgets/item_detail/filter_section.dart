@@ -3,14 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../domain/utils/interval_calculator.dart';
+import 'interval_dropdown.dart';
 
 /// A compact filter section widget for the item detail page.
 ///
 /// Provides controls for:
 /// - Aggregation period (1D, 7D, 30D) as compact pills
 /// - Date selection with bottom sheet calendar
-///
-/// Note: The "Since Reset" toggle is in the Results header, not here.
+/// - Interval selection dropdown (full width)
 class FilterSection extends StatelessWidget {
   const FilterSection({
     super.key,
@@ -18,12 +19,24 @@ class FilterSection extends StatelessWidget {
     required this.selectedDate,
     required this.onAggregationChanged,
     required this.onDateChanged,
+    required this.intervals,
+    required this.selectedInterval,
+    required this.onIntervalChanged,
   });
 
   final String aggregation;
   final DateTime selectedDate;
   final ValueChanged<String> onAggregationChanged;
   final ValueChanged<DateTime> onDateChanged;
+
+  /// Interval data for the dropdown.
+  final List<IntervalData> intervals;
+
+  /// Currently selected interval number (-1 for All Time).
+  final int selectedInterval;
+
+  /// Callback when interval is selected.
+  final ValueChanged<int> onIntervalChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +92,13 @@ class FilterSection extends StatelessWidget {
               child: _buildDatePicker(context, primary, primaryText, secondaryText, alternate),
             ),
           ],
+        ),
+        // Interval dropdown (full width)
+        const SizedBox(height: 10.0),
+        IntervalDropdown(
+          options: IntervalDropdown.buildOptions(intervals),
+          selectedInterval: selectedInterval,
+          onChanged: onIntervalChanged,
         ),
       ],
     );
