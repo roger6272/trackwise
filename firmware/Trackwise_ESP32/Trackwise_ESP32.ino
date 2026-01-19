@@ -522,6 +522,9 @@ class WriteCallback : public BLECharacteristicCallbacks {
 
       updateLocalTime();
 
+      // Use UTC timestamp for lastResetTime (consistent with event timestamps)
+      time_t utcTimestamp = rtc.now().unixtime();
+
       prefs.begin("counter", false);
       int total = prefs.getInt("item_total", 0);
 
@@ -530,11 +533,11 @@ class WriteCallback : public BLECharacteristicCallbacks {
         String tcKey = "tc_" + String(i);
         prefs.putInt(tcKey.c_str(), 0);
 
-        // Update lastResetTime to current timestamp
+        // Update lastResetTime to UTC timestamp (not localTimestamp which has offset applied)
         String lrKey = "lr_" + String(i);
-        prefs.putULong(lrKey.c_str(), localTimestamp);
+        prefs.putULong(lrKey.c_str(), utcTimestamp);
 
-        Serial.printf("Force reset: %s = 0, lastResetTime = %lu\n", tcKey.c_str(), localTimestamp);
+        Serial.printf("Force reset: %s = 0, lastResetTime = %lu (UTC)\n", tcKey.c_str(), utcTimestamp);
       }
 
       // Update last_reset_date to today
@@ -545,7 +548,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
       // Reset runtime variable if item is selected
       if (currentItemId != "none") {
         itemTodayCount = 0;
-        lastResetTime = localTimestamp;
+        lastResetTime = utcTimestamp;
       }
 
       prefs.end();
@@ -895,22 +898,26 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
     Serial.println("🔄 New day detected. Resetting todayCount for all items.");
     Serial.println(String(todayStr));
 
+    // Use UTC timestamp for lastResetTime (consistent with event timestamps and manual reset)
+    // Events use rtc.now().unixtime() (UTC), so lastResetTime must also be UTC
+    time_t utcTimestamp = rtc.now().unixtime();
+
     int total = prefs.getInt("item_total", 0);
     for (int i = 0; i < total; i++) {
       // Reset todaycount to 0
       String tcKey = "tc_" + String(i);
       prefs.putInt(tcKey.c_str(), 0);
 
-      // Update lastResetTime to current timestamp
+      // Update lastResetTime to UTC timestamp (not localTimestamp which has offset applied)
       String lrKey = "lr_" + String(i);
-      prefs.putULong(lrKey.c_str(), localTimestamp);
+      prefs.putULong(lrKey.c_str(), utcTimestamp);
 
-      Serial.printf("Reset: %s, lastResetTime: %lu\n", tcKey.c_str(), localTimestamp);
+      Serial.printf("Reset: %s, lastResetTime: %lu (UTC)\n", tcKey.c_str(), utcTimestamp);
     }
 
     if (currentItemId != "none") {
       itemTodayCount = 0;  // Also reset runtime variable
-      lastResetTime = localTimestamp;
+      lastResetTime = utcTimestamp;
     }
 
     prefs.putString("last_reset_date", todayStr);
