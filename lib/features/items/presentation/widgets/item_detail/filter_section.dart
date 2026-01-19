@@ -28,7 +28,7 @@ class FilterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    const primary = AppColors.primary;
+    final primary = AppColors.primaryAdaptive(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final alternate = AppColors.alternate(brightness);
@@ -251,7 +251,7 @@ class FilterSection extends StatelessWidget {
 
   void _showDatePickerBottomSheet(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    const primary = AppColors.primary;
+    final primary = AppColors.primaryAdaptive(brightness);
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);

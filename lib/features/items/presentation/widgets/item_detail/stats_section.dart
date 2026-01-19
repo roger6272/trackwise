@@ -46,7 +46,8 @@ class ChartSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primary = AppColors.primary;
+    final brightness = Theme.of(context).brightness;
+    final primary = AppColors.primaryAdaptive(brightness);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

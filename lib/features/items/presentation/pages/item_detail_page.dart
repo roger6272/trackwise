@@ -91,6 +91,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
+    final primary = AppColors.primaryAdaptive(brightness);
 
     return MultiBlocProvider(
       providers: [
@@ -242,12 +243,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                               ),
                                               decoration: BoxDecoration(
                                                 color: _showSinceReset
-                                                    ? AppColors.primary.withValues(alpha: 0.12)
+                                                    ? primary.withValues(alpha: 0.12)
                                                     : secondaryText.withValues(alpha: 0.08),
                                                 borderRadius: BorderRadius.circular(6.0),
                                                 border: Border.all(
                                                   color: _showSinceReset
-                                                      ? AppColors.primary.withValues(alpha: 0.3)
+                                                      ? primary.withValues(alpha: 0.3)
                                                       : Colors.transparent,
                                                   width: 1.0,
                                                 ),
@@ -261,7 +262,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                                         : Icons.all_inclusive_rounded,
                                                     size: 12.0,
                                                     color: _showSinceReset
-                                                        ? AppColors.primary
+                                                        ? primary
                                                         : secondaryText,
                                                   ),
                                                   const SizedBox(width: 4.0),
@@ -271,7 +272,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                                       fontSize: 11.0,
                                                       fontWeight: FontWeight.w500,
                                                       color: _showSinceReset
-                                                          ? AppColors.primary
+                                                          ? primary
                                                           : secondaryText,
                                                     ),
                                                   ),
@@ -300,7 +301,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         color: alternate,
                                         borderRadius: BorderRadius.circular(12.0),
                                         border: Border.all(
-                                          color: AppColors.primary.withValues(alpha: 0.1),
+                                          color: primary.withValues(alpha: 0.1),
                                           width: 1.0,
                                         ),
                                       ),

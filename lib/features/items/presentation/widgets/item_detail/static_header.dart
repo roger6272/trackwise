@@ -47,6 +47,7 @@ class StaticHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final primary = AppColors.primaryAdaptive(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
@@ -56,7 +57,7 @@ class StaticHeader extends StatelessWidget {
       child: Column(
         children: [
           // Goal ring with current count (no container)
-          _buildGoalRing(context, primaryText, secondaryText),
+          _buildGoalRing(context, primary, primaryText, secondaryText),
           const SizedBox(height: 16.0),
           // Item stats row (in card, matching Activity/Statistics styling)
           Container(
@@ -78,6 +79,7 @@ class StaticHeader extends StatelessWidget {
 
   Widget _buildGoalRing(
     BuildContext context,
+    Color primary,
     Color primaryText,
     Color secondaryText,
   ) {
@@ -98,8 +100,10 @@ class StaticHeader extends StatelessWidget {
       isComplete = currentCount >= goal!;
     }
 
+    // Use teal-green success color which complements purple better
+    const successColor = AppColors.success;
     final ringColor = hasGoal
-        ? (isComplete ? Colors.green : AppColors.primary)
+        ? (isComplete ? successColor : primary)
         : secondaryText.withValues(alpha: 0.2);
 
     return Column(
@@ -134,7 +138,7 @@ class StaticHeader extends StatelessWidget {
                     style: GoogleFonts.interTight(
                       fontSize: 48.0,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: primary,
                       height: 1.0,
                     ),
                   ),
@@ -158,7 +162,7 @@ class StaticHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
             decoration: BoxDecoration(
-              color: (isComplete ? Colors.green : AppColors.primary)
+              color: (isComplete ? successColor : primary)
                   .withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20.0),
             ),
@@ -168,17 +172,17 @@ class StaticHeader extends StatelessWidget {
                 Icon(
                   isComplete ? Icons.check_circle_rounded : Icons.flag_rounded,
                   size: 16.0,
-                  color: isComplete ? Colors.green : AppColors.primary,
+                  color: isComplete ? successColor : primary,
                 ),
                 const SizedBox(width: 6.0),
                 Text(
                   isComplete
-                      ? 'Goal reached!'
+                      ? '$currentCount/${goal!} \u2022 Complete!'
                       : '${(progressFraction * 100).toInt()}% \u2022 $remaining to goal',
                   style: GoogleFonts.inter(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w600,
-                    color: isComplete ? Colors.green : AppColors.primary,
+                    color: isComplete ? successColor : primary,
                   ),
                 ),
               ],

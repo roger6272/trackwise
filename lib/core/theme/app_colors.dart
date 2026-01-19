@@ -8,8 +8,11 @@ class AppColors {
 
   // ==================== Primary Colors ====================
 
-  /// Primary brand color (purple)
+  /// Primary brand color (purple) - use primaryAdaptive() for dark mode support
   static const Color primary = Color(0xFF4B39EF);
+
+  /// Lighter primary for dark mode (better contrast)
+  static const Color primaryLight = Color(0xFF8B7FFF);
 
   /// Secondary brand color (teal)
   static const Color secondary = Color(0xFF39D2C0);
@@ -84,4 +87,8 @@ class AppColors {
   /// Get alternate color based on brightness
   static Color alternate(Brightness brightness) =>
       brightness == Brightness.dark ? darkAlternate : lightAlternate;
+
+  /// Get primary color based on brightness (lighter in dark mode for contrast)
+  static Color primaryAdaptive(Brightness brightness) =>
+      brightness == Brightness.dark ? primaryLight : primary;
 }

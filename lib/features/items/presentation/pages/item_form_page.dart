@@ -512,11 +512,20 @@ class _ItemFormPageState extends State<ItemFormPage> {
   Future<void> _handleSave(BuildContext blocContext) async {
     debugPrint('🔵 _handleSave called');
 
+    // Prevent double-tap by checking and setting loading state immediately
+    if (_isLoading) {
+      debugPrint('🔴 Already saving, ignoring duplicate tap');
+      return;
+    }
+
     if (!formKey.currentState!.validate()) {
       debugPrint('🔴 Form validation failed');
       return;
     }
     debugPrint('🟢 Form validation passed');
+
+    // Set loading state to prevent further taps
+    setState(() => _isLoading = true);
 
     final name = nameController.text.trim();
     final initialValue = int.tryParse(initialValueController.text) ?? 0;
@@ -549,6 +558,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (failure) {
           debugPrint('❌ Failed to update item: ${failure.message}');
           if (mounted) {
+            setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Failed to update item: ${failure.message}')),
             );
@@ -590,6 +600,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (failure) {
           debugPrint('❌ Failed to create item: ${failure.message}');
           if (mounted) {
+            setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Failed to create item: ${failure.message}')),
             );
