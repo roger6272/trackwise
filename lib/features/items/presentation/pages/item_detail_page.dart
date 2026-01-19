@@ -344,28 +344,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                         ),
                         padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
                         child: FilterSection(
-                          aggregation: _aggregation,
-                          selectedDate: _selectedDate,
-                          onAggregationChanged: (value) {
-                            setState(() {
-                              _aggregation = value;
-                            });
-                            _reloadChart(context);
-                          },
-                          onDateChanged: (date) {
-                            setState(() {
-                              _selectedDate = date;
-                            });
-                            _reloadChart(context);
-                          },
                           intervals: _intervals,
                           selectedInterval: _selectedInterval ?? -1,
                           onIntervalChanged: (interval) =>
                               _onIntervalSelected(interval, context),
                         ),
                       ),
-                      maxHeight: 156.0,
-                      minHeight: 156.0,
+                      maxHeight: 68.0,
+                      minHeight: 68.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
@@ -442,7 +428,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                           _reloadChart(context);
                                         },
                                         range: _aggregation,
+                                        onAggregationChanged: (value) {
+                                          setState(() {
+                                            _aggregation = value;
+                                          });
+                                          _reloadChart(context);
+                                        },
                                         selectedDate: _selectedDate,
+                                        onDateChanged: (date) {
+                                          setState(() {
+                                            _selectedDate = date;
+                                          });
+                                          _reloadChart(context);
+                                        },
                                         periodTotal: stats.totalCount,
                                       ),
                                     ),

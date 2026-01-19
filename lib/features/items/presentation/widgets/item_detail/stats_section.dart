@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/shimmer.dart';
@@ -9,10 +10,11 @@ import '../../../../charts/presentation/bloc/charts_state.dart';
 import '../bar_chart_widget.dart';
 import '../cumulative_chart_widget.dart';
 
-/// Section displaying chart with toggle.
+/// Section displaying chart with controls and toggle.
 ///
 /// Shows:
-/// - Chart header with title, key stat, and toggle
+/// - Chart controls (aggregation pills, date picker)
+/// - Chart header with key stat and toggle
 /// - Chart display area (bar or cumulative based on toggle)
 ///
 /// Note: Stats are now shown in DynamicStats widget below.
@@ -26,8 +28,14 @@ class ChartSection extends StatelessWidget {
   /// The aggregation range: '1D', '7D', or '30D'.
   final String range;
 
+  /// Callback when aggregation is changed.
+  final ValueChanged<String> onAggregationChanged;
+
   /// The selected end date for the chart.
   final DateTime selectedDate;
+
+  /// Callback when date is changed.
+  final ValueChanged<DateTime> onDateChanged;
 
   /// Total count for the period (key stat to display).
   final int periodTotal;
@@ -37,7 +45,9 @@ class ChartSection extends StatelessWidget {
     required this.showCumulative,
     required this.onChartTypeChanged,
     required this.range,
+    required this.onAggregationChanged,
     required this.selectedDate,
+    required this.onDateChanged,
     this.periodTotal = 0,
   });
 
@@ -48,14 +58,357 @@ class ChartSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final primary = AppColors.primaryAdaptive(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final alternate = AppColors.alternate(brightness);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Chart controls (aggregation + date picker)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: _buildChartControls(context, primary, secondaryText, alternate),
+        ),
+        const SizedBox(height: 12.0),
         _buildChartHeader(context, primary),
         const SizedBox(height: 8.0),
         _buildChartArea(context, primary),
       ],
+    );
+  }
+
+  /// Builds the chart controls row (aggregation pills + date picker).
+  Widget _buildChartControls(
+    BuildContext context,
+    Color primary,
+    Color secondaryText,
+    Color alternate,
+  ) {
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+
+    return Row(
+      children: [
+        // Aggregation pills (1/3 width)
+        Expanded(
+          flex: 1,
+          child: _buildAggregationPills(primary, alternate, secondaryText),
+        ),
+        const SizedBox(width: 10.0),
+        // Date picker (2/3 width)
+        Expanded(
+          flex: 2,
+          child: _buildDatePicker(context, primary, primaryText, secondaryText, alternate),
+        ),
+      ],
+    );
+  }
+
+  /// Builds the aggregation period pills (1D, 7D, 30D).
+  Widget _buildAggregationPills(Color primary, Color alternate, Color secondaryText) {
+    const periods = ['1D', '7D', '30D'];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: alternate,
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      padding: const EdgeInsets.all(3.0),
+      child: Row(
+        children: periods.map((period) {
+          final isSelected = range == period;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onAggregationChanged(period),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: isSelected ? primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8.0),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: primary.withValues(alpha: 0.3),
+                            blurRadius: 8.0,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    period,
+                    style: GoogleFonts.inter(
+                      fontSize: 13.0,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected ? Colors.white : secondaryText,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// Builds the date picker with prev/next buttons.
+  Widget _buildDatePicker(
+    BuildContext context,
+    Color primary,
+    Color primaryText,
+    Color secondaryText,
+    Color alternate,
+  ) {
+    final dateFormat = DateFormat('EEE, MMM d');
+    final isToday = _isToday(selectedDate);
+    final canGoForward = !isToday;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: alternate,
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      padding: const EdgeInsets.all(3.0),
+      child: Row(
+        children: [
+          // Previous day button
+          GestureDetector(
+            onTap: () => onDateChanged(
+              selectedDate.subtract(const Duration(days: 1)),
+            ),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 18.0,
+                color: primary,
+              ),
+            ),
+          ),
+          // Date display (tappable, centered, fills space)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showDatePickerBottomSheet(context),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      range == '1D' ? 'Viewing' : 'Ending',
+                      style: GoogleFonts.inter(
+                        fontSize: 9.0,
+                        fontWeight: FontWeight.w500,
+                        color: secondaryText,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isToday ? 'Today' : dateFormat.format(selectedDate),
+                          style: GoogleFonts.interTight(
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.w600,
+                            color: primaryText,
+                          ),
+                        ),
+                        const SizedBox(width: 2.0),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16.0,
+                          color: secondaryText,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Next day button
+          GestureDetector(
+            onTap: canGoForward
+                ? () => onDateChanged(
+                      selectedDate.add(const Duration(days: 1)),
+                    )
+                : null,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: canGoForward
+                    ? primary.withValues(alpha: 0.08)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 18.0,
+                color: canGoForward ? primary : secondaryText.withValues(alpha: 0.25),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
+  void _showDatePickerBottomSheet(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primary = AppColors.primaryAdaptive(brightness);
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    final title = range == '1D' ? 'Select Date' : 'Select End Date';
+    DateTime tempSelectedDate = selectedDate;
+
+    showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: primaryBackground,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20.0),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle bar
+                    Container(
+                      margin: const EdgeInsets.only(top: 12.0),
+                      width: 40.0,
+                      height: 4.0,
+                      decoration: BoxDecoration(
+                        color: secondaryText.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2.0),
+                      ),
+                    ),
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.interTight(
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.w600,
+                              color: primaryText,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: secondaryText,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Calendar
+                    CalendarDatePicker(
+                      initialDate: tempSelectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      onDateChanged: (date) {
+                        setModalState(() {
+                          tempSelectedDate = date;
+                        });
+                      },
+                    ),
+                    // Action buttons
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: secondaryText,
+                                side: BorderSide(
+                                  color: secondaryText.withValues(alpha: 0.3),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15.0,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12.0),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                onDateChanged(tempSelectedDate);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                              ),
+                              child: Text(
+                                'Confirm',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15.0,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
