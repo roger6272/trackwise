@@ -64,20 +64,44 @@ class IntervalCalculator {
     final sortedIntervalNumbers = eventsByInterval.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
-    // Calculate total across all intervals
-    int totalCount = 0;
+    // First pass: collect reset event times and other metadata per interval
+    // Reset event with resetNumber=N marks the END of interval N
+    // and the START of interval N+1
+    final Map<int, DateTime> resetTimeByInterval = {};
+    final Map<int, DateTime?> createdTimeByInterval = {};
+    final Map<int, int> countByInterval = {};
     DateTime? earliestStart;
-    for (final intervalEvents in eventsByInterval.values) {
+    int totalCount = 0;
+
+    for (final intervalNumber in eventsByInterval.keys) {
+      final intervalEvents = eventsByInterval[intervalNumber]!;
+      int intervalCount = 0;
+
       for (final event in intervalEvents) {
-        if (event.eventName != 'reset' && event.eventName != 'created') {
-          totalCount += event.increment;
+        // Track reset event time (marks end of this interval)
+        if (event.eventName == 'reset') {
+          resetTimeByInterval[intervalNumber] = event.createdTime;
         }
+
+        // Track created event time (only for interval 0)
+        if (event.eventName == 'created') {
+          createdTimeByInterval[intervalNumber] = event.createdTime;
+        }
+
         // Track earliest event for total start time
         if (earliestStart == null ||
             event.createdTime.isBefore(earliestStart)) {
           earliestStart = event.createdTime;
         }
+
+        // Sum increments (exclude reset/created)
+        if (event.eventName != 'reset' && event.eventName != 'created') {
+          intervalCount += event.increment;
+          totalCount += event.increment;
+        }
       }
+
+      countByInterval[intervalNumber] = intervalCount;
     }
 
     final results = <IntervalData>[];
@@ -95,49 +119,47 @@ class IntervalCalculator {
     // Process each interval (limited to maxIntervals)
     for (int i = 0; i < sortedIntervalNumbers.length && i < maxIntervals; i++) {
       final intervalNumber = sortedIntervalNumbers[i];
-      final intervalEvents = eventsByInterval[intervalNumber]!;
+      final isCurrent = i == 0;
 
-      // Calculate count for this interval (exclude reset/created events)
-      int intervalCount = 0;
+      // Determine start time:
+      // - For interval 0: use 'created' event time, or earliest event
+      // - For interval N (N>0): use reset time from interval N-1 (previous reset)
       DateTime? intervalStart;
-      DateTime? intervalEnd;
-      DateTime? createdEventTime;
-
-      for (final event in intervalEvents) {
-        // Track 'created' event time separately (highest priority for start)
-        if (event.eventName == 'created') {
-          createdEventTime = event.createdTime;
+      if (intervalNumber == 0) {
+        // First interval: use created event or find earliest event
+        intervalStart = createdTimeByInterval[0];
+        if (intervalStart == null) {
+          // Fallback: find earliest event in interval 0
+          for (final event in eventsByInterval[0]!) {
+            if (intervalStart == null ||
+                event.createdTime.isBefore(intervalStart)) {
+              intervalStart = event.createdTime;
+            }
+          }
         }
-
-        // Track earliest event time as fallback start
-        if (intervalStart == null ||
-            event.createdTime.isBefore(intervalStart)) {
-          intervalStart = event.createdTime;
-        }
-
-        // Find end time (reset event marks end of this interval)
-        if (event.eventName == 'reset') {
-          intervalEnd = event.createdTime;
-        }
-
-        // Sum increments (exclude reset/created)
-        if (event.eventName != 'reset' && event.eventName != 'created') {
-          intervalCount += event.increment;
+      } else {
+        // For interval N, start = when previous interval ended (reset N-1)
+        intervalStart = resetTimeByInterval[intervalNumber - 1];
+        if (intervalStart == null) {
+          // Fallback: find earliest event in this interval
+          for (final event in eventsByInterval[intervalNumber]!) {
+            if (intervalStart == null ||
+                event.createdTime.isBefore(intervalStart)) {
+              intervalStart = event.createdTime;
+            }
+          }
         }
       }
 
-      // Use 'created' event time if available, otherwise earliest event
-      final effectiveStart = createdEventTime ?? intervalStart;
+      // End time: reset event in this interval (null if current)
+      final intervalEnd = isCurrent ? null : resetTimeByInterval[intervalNumber];
 
-      // For the first interval (highest resetNumber), it's current - no end time
-      final isCurrent = i == 0;
-
-      if (effectiveStart != null) {
+      if (intervalStart != null) {
         results.add(IntervalData(
           intervalNumber: intervalNumber,
-          count: intervalCount,
-          startTime: effectiveStart,
-          endTime: isCurrent ? null : intervalEnd,
+          count: countByInterval[intervalNumber] ?? 0,
+          startTime: intervalStart,
+          endTime: intervalEnd,
         ));
       }
     }
