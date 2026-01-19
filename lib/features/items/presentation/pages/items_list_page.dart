@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
@@ -67,19 +68,34 @@ class _ItemsListContent extends StatefulWidget {
 }
 
 class _ItemsListContentState extends State<_ItemsListContent>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   late final SlidableController _firstItemController;
-  bool _hintAnimationTriggered = false;
+  late final AnimationController _reorderHintController;
+  late final Animation<double> _liftAnimation;
+  bool _swipeHintTriggered = false;
+  bool _reorderHintTriggered = false;
 
   @override
   void initState() {
     super.initState();
     _firstItemController = SlidableController(this);
+
+    // Animation for reorder hint: lift effect
+    _reorderHintController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _liftAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _reorderHintController, curve: Curves.easeOutCubic),
+    );
   }
 
   // Static colors (theme-independent)
   static const Color _primary = Color(0xFF4B39EF);
+
+  // Number formatter for count display
+  static final NumberFormat _countFormat = NumberFormat.decimalPattern();
   static const Color _activatedColorLight = Color(0xFFCAC6FF);
   static const Color _activatedColorDark = Color(0xFF3D3A6D);
   static const Color _activateActionColor = Color(0xFF3C38B5);
@@ -202,6 +218,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                               // Use ReorderableListView when connected, regular ListView when not
                               if (isConnected) {
+                                // Trigger reorder hint when connected and swipe hint already shown
+                                if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    _showReorderHint(appUiState, isConnected);
+                                  });
+                                }
                                 return ReorderableListView.builder(
                                   padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
                                   physics: const AlwaysScrollableScrollPhysics(),
@@ -256,7 +278,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   },
                                   itemBuilder: (context, index) {
                                     final item = state.items[index];
-                                    // Don't pass controller in ReorderableListView - causes issues during drag
+                                    // Pass animation for first item's reorder hint
+                                    final needsReorderHint = index == 0 && !appUiState.hasShownReorderHint;
                                     return _buildItemTile(
                                       context,
                                       item,
@@ -268,6 +291,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       secondaryText,
                                       alternate,
                                       activatedColor,
+                                      liftAnimation: needsReorderHint ? _liftAnimation : null,
                                     );
                                   },
                                 );
@@ -419,40 +443,130 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Color alternate,
     Color activatedColor, {
     SlidableController? controller,
+    Animation<double>? liftAnimation,
   }) {
     // Use Bluetooth selectedItemId from device, fallback to appUiState
     final activeId = selectedItemId ?? appUiState.activeItemId;
     final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
-    // Build the drag handle widget with larger touch area
-    // Uses ReorderableDelayedDragStartListener for long-press-to-drag pattern
-    Widget dragHandle;
-    if (isConnected) {
-      dragHandle = ReorderableDelayedDragStartListener(
-        index: index,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
-          child: Icon(
-            Icons.drag_handle,
-            color: secondaryText,
-            size: 24.0,
+    // The tile content - wrapped in ReorderableDelayedDragStartListener when connected
+    // to enable long-press-to-drag without a visible handle
+    Widget tileContent = Opacity(
+      opacity: isConnected ? 1.0 : 0.5,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isActivated ? activatedColor : alternate,
+            border: isActivated
+                ? Border(left: BorderSide(color: _activateActionColor, width: 4.0))
+                : null,
+          ),
+          child: InkWell(
+            onTap: () {
+              context.pushNamed(
+                'ItemDetailPage',
+                pathParameters: {'id': item.id},
+                queryParameters: {
+                  'name': item.name,
+                  'count': item.count.toString(),
+                  if (item.lastResetTime != null)
+                    'resetTime': item.lastResetTime!.toIso8601String(),
+                  'initialCount': item.initialCount.toString(),
+                  'incrementBy': item.incrementBy.toString(),
+                  'reminderType': item.reminder.name,
+                  'reminderValue': item.reminderValue.toString(),
+                  if (item.goal != null) 'goal': item.goal.toString(),
+                },
+              );
+            },
+            borderRadius: BorderRadius.circular(8.0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+              child: Row(
+                children: [
+                  // Item name (expanded to take remaining space)
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: GoogleFonts.interTight(
+                        color: !isConnected ? secondaryText : primaryText,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 17.0,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 16.0),
+                  // Accent bar + count column
+                  Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      // Colors for accent bar and text
+                      final accentColor = isActivated
+                          ? (isDark ? const Color(0xFFB8B4FF) : _activateActionColor)
+                          : (isDark ? const Color(0xFF6B7280) : const Color(0xFFD1D5DB));
+                      final textColor = isActivated
+                          ? (isDark ? const Color(0xFFB8B4FF) : _activateActionColor)
+                          : primaryText;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Accent bar
+                          Container(
+                            width: 3.0,
+                            height: 24.0,
+                            decoration: BoxDecoration(
+                              color: accentColor,
+                              borderRadius: BorderRadius.circular(1.5),
+                            ),
+                          ),
+                          // Count (centered between bar and chevron)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4.0),
+                            child: SizedBox(
+                              width: 72.0,  // Fixed width for alignment
+                              child: Text(
+                                _countFormat.format(displayCount),
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  color: textColor,
+                                  fontSize: 18.0,
+                                  fontWeight: FontWeight.w600,
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8.0),
+                  // Chevron indicator
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: secondaryText.withOpacity(0.4),
+                    size: 22.0,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-      );
-    } else {
-      dragHandle = Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
-        child: Icon(
-          Icons.drag_handle,
-          color: secondaryText.withOpacity(0.3),
-          size: 24.0,
-        ),
+      ),
+    );
+
+    // Wrap with ReorderableDelayedDragStartListener when connected for long-press drag
+    if (isConnected) {
+      tileContent = ReorderableDelayedDragStartListener(
+        index: index,
+        child: tileContent,
       );
     }
 
-    return Padding(
-      key: ValueKey(item.id),
+    Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Slidable(
         controller: controller,
@@ -538,65 +652,39 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           ],
         ),
-        child: Opacity(
-          opacity: isConnected ? 1.0 : 0.5,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isActivated ? activatedColor : alternate,
-                border: isActivated
-                    ? Border(left: BorderSide(color: _activateActionColor, width: 4.0))
-                    : null,
-              ),
-              child: ListTile(
-            onTap: () {
-              context.pushNamed(
-                'ItemDetailPage',
-                pathParameters: {'id': item.id},
-                queryParameters: {
-                  'name': item.name,
-                  'count': item.count.toString(),
-                  if (item.lastResetTime != null)
-                    'resetTime': item.lastResetTime!.toIso8601String(),
-                  'initialCount': item.initialCount.toString(),
-                  'incrementBy': item.incrementBy.toString(),
-                  'reminderType': item.reminder.name,
-                  'reminderValue': item.reminderValue.toString(),
-                  if (item.goal != null) 'goal': item.goal.toString(),
-                },
-              );
-            },
-            title: Text(
-              item.name,
-              style: GoogleFonts.interTight(
-                color: !isConnected ? secondaryText : primaryText,
-                fontWeight: FontWeight.w600,
-                fontSize: 18.0,
-              ),
-            ),
-            subtitle: Text(
-              displayCount.toString(),
-              style: GoogleFonts.inter(
-                color: secondaryText,
-                fontSize: 20.0,
-              ),
-            ),
-            trailing: dragHandle,
-            tileColor: Colors.transparent,
-            dense: false,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 15.0,
-              vertical: 7.0,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-          ),
-            ),
-          ),
-        ),
+        child: tileContent,
       ),
+    );
+
+    // Apply lift animation for reorder hint (simulates long-press drag start)
+    if (liftAnimation != null) {
+      result = AnimatedBuilder(
+        animation: liftAnimation,
+        builder: (context, child) {
+          final scale = 1.0 + (0.02 * liftAnimation.value);
+          final elevation = 6.0 * liftAnimation.value;
+          final yOffset = -4.0 * liftAnimation.value;
+          return Transform.translate(
+            offset: Offset(0, yOffset),
+            child: Transform.scale(
+              scale: scale,
+              child: Material(
+                elevation: elevation,
+                borderRadius: BorderRadius.circular(8.0),
+                color: Colors.transparent,
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: result,
+      );
+    }
+
+    // Key must be at the root for ReorderableListView
+    return KeyedSubtree(
+      key: ValueKey(item.id),
+      child: result,
     );
   }
 
@@ -729,8 +817,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   /// Shows a swipe hint animation on the first item
   void _showSwipeHint(AppUiState appUiState) {
-    if (_hintAnimationTriggered || appUiState.hasShownSwipeHint) return;
-    _hintAnimationTriggered = true;
+    if (_swipeHintTriggered || appUiState.hasShownSwipeHint) return;
+    _swipeHintTriggered = true;
 
     // Delay to let the list render first
     Future.delayed(const Duration(milliseconds: 500), () {
@@ -746,9 +834,42 @@ class _ItemsListContentState extends State<_ItemsListContent>
     });
   }
 
+  /// Shows a reorder hint animation on the first item (lift effect)
+  /// Only triggers when connected (reordering requires device connection)
+  void _showReorderHint(AppUiState appUiState, bool isConnected) {
+    // Only show after swipe hint, when connected, and if not already shown
+    if (!appUiState.hasShownSwipeHint ||
+        _reorderHintTriggered ||
+        appUiState.hasShownReorderHint ||
+        !isConnected) {
+      return;
+    }
+    _reorderHintTriggered = true;
+
+    // Delay after swipe hint completes
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+
+      // Lift up
+      _reorderHintController.forward().then((_) {
+        if (!mounted) return;
+
+        // Hold briefly, then lower
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (!mounted) return;
+          _reorderHintController.reverse().then((_) {
+            if (!mounted) return;
+            appUiState.markReorderHintShown();
+          });
+        });
+      });
+    });
+  }
+
   @override
   void dispose() {
     _firstItemController.dispose();
+    _reorderHintController.dispose();
     super.dispose();
   }
 }

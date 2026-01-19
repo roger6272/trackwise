@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppUiState extends ChangeNotifier {
   static const String _activeItemKey = 'app_active_item_id';
   static const String _swipeHintShownKey = 'app_swipe_hint_shown';
+  static const String _reorderHintShownKey = 'app_reorder_hint_shown';
 
   late SharedPreferences _prefs;
   bool _initialized = false;
@@ -89,6 +90,20 @@ class AppUiState extends ChangeNotifier {
     }
   }
 
+  // ============== Reorder Hint (Persisted) ==============
+
+  /// Whether the reorder hint animation has been shown
+  bool _hasShownReorderHint = false;
+  bool get hasShownReorderHint => _hasShownReorderHint;
+
+  /// Mark reorder hint as shown (persisted)
+  void markReorderHintShown() {
+    _hasShownReorderHint = true;
+    if (_initialized) {
+      _prefs.setBool(_reorderHintShownKey, true);
+    }
+  }
+
   // ============== Initialization ==============
 
   /// Initialize persisted state from SharedPreferences
@@ -98,6 +113,7 @@ class AppUiState extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     _activeItemId = _prefs.getString(_activeItemKey) ?? '';
     _hasShownSwipeHint = _prefs.getBool(_swipeHintShownKey) ?? false;
+    _hasShownReorderHint = _prefs.getBool(_reorderHintShownKey) ?? false;
     _initialized = true;
     notifyListeners();
   }
