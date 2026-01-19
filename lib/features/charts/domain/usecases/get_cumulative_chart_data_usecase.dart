@@ -78,7 +78,7 @@ class GetCumulativeChartDataUseCase
   /// Calculate cumulative totals by the specified aggregation level.
   ///
   /// First aggregates events by the time bucket, then calculates running total.
-  /// Excludes 'reset' events to only count actual increments.
+  /// Excludes 'reset' and 'created' events to only count actual increments.
   List<ChartDataPoint> _calculateCumulative(
     List<EventLog> events,
     AggregationLevel aggregationLevel,
@@ -89,11 +89,11 @@ class GetCumulativeChartDataUseCase
     final sorted = List<EventLog>.from(events)
       ..sort((a, b) => a.createdTime.compareTo(b.createdTime));
 
-    // First, aggregate by time bucket (excluding reset events)
+    // First, aggregate by time bucket (excluding reset/created events)
     final Map<DateTime, int> bucketTotals = {};
     for (var event in sorted) {
-      // Skip reset events - only count actual increments
-      if (event.eventName == 'reset') continue;
+      // Skip reset/created events - only count actual increments
+      if (event.eventName == 'reset' || event.eventName == 'created') continue;
       final key = _getAggregationKey(event.createdTime, aggregationLevel);
       bucketTotals[key] = (bucketTotals[key] ?? 0) + event.increment;
     }

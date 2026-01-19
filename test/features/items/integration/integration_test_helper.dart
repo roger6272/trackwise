@@ -1,7 +1,13 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_it/get_it.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mocktail/mocktail.dart';
 
+import 'package:trackwise/features/events/data/datasources/event_log_remote_datasource.dart';
+import 'package:trackwise/features/events/data/datasources/event_log_remote_datasource_impl.dart';
+import 'package:trackwise/features/events/data/repositories/event_log_repository_impl.dart';
+import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
 import 'package:trackwise/features/items/data/datasources/item_remote_datasource.dart';
 import 'package:trackwise/features/items/data/datasources/item_remote_datasource_impl.dart';
 import 'package:trackwise/features/items/data/repositories/item_repository_impl.dart';
@@ -14,6 +20,10 @@ import 'package:trackwise/features/items/domain/usecases/update_item_usecase.dar
 import 'package:trackwise/features/items/domain/usecases/watch_items_usecase.dart';
 import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
 
+class MockFirebaseAuth extends Mock implements FirebaseAuth {}
+
+class MockUser extends Mock implements User {}
+
 /// Integration test helper for setting up the complete Items feature stack
 /// with a fake Firestore instance.
 ///
@@ -23,8 +33,12 @@ import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
 /// without mocking any layers (true integration testing).
 class IntegrationTestHelper {
   late FakeFirebaseFirestore fakeFirestore;
+  late MockFirebaseAuth mockFirebaseAuth;
+  late MockUser mockUser;
   late ItemRemoteDataSource dataSource;
+  late EventLogRemoteDataSource eventLogDataSource;
   late ItemRepository repository;
+  late EventLogRepository eventLogRepository;
   late GetItemsUseCase getItemsUseCase;
   late WatchItemsUseCase watchItemsUseCase;
   late CreateItemUseCase createItemUseCase;
@@ -35,21 +49,32 @@ class IntegrationTestHelper {
 
   final GetIt getIt = GetIt.instance;
 
+  static const testUserId = 'test_user_123';
+
   /// Set up the complete Items feature stack with fake Firestore
   Future<void> setUp() async {
     // Create fake Firestore instance
     fakeFirestore = FakeFirebaseFirestore();
 
-    // Create data source with fake Firestore
+    // Create mock FirebaseAuth
+    mockFirebaseAuth = MockFirebaseAuth();
+    mockUser = MockUser();
+    when(() => mockUser.uid).thenReturn(testUserId);
+    when(() => mockFirebaseAuth.currentUser).thenReturn(mockUser);
+
+    // Create data sources with fake Firestore
     dataSource = ItemRemoteDataSourceImpl(fakeFirestore);
+    eventLogDataSource = EventLogRemoteDataSourceImpl(fakeFirestore);
 
-    // Create repository with real data source
+    // Create repositories with real data sources
     repository = ItemRepositoryImpl(dataSource);
+    eventLogRepository =
+        EventLogRepositoryImpl(eventLogDataSource, mockFirebaseAuth);
 
-    // Create use cases with real repository
+    // Create use cases with real repositories
     getItemsUseCase = GetItemsUseCase(repository);
     watchItemsUseCase = WatchItemsUseCase(repository);
-    createItemUseCase = CreateItemUseCase(repository);
+    createItemUseCase = CreateItemUseCase(repository, eventLogRepository);
     updateItemUseCase = UpdateItemUseCase(repository);
     deleteItemUseCase = DeleteItemUseCase(repository);
     incrementItemUseCase = IncrementItemUseCase(repository);

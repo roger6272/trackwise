@@ -5,6 +5,8 @@ import 'package:injectable/injectable.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../events/domain/entities/event_log.dart';
+import '../../../events/domain/repositories/event_log_repository.dart';
 import '../entities/item.dart';
 import '../repositories/item_repository.dart';
 
@@ -78,8 +80,9 @@ class CreateItemParams extends Equatable {
 @lazySingleton
 class CreateItemUseCase extends UseCase<Item, CreateItemParams> {
   final ItemRepository repository;
+  final EventLogRepository eventLogRepository;
 
-  CreateItemUseCase(this.repository);
+  CreateItemUseCase(this.repository, this.eventLogRepository);
 
   @override
   Future<Either<Failure, Item>> call(CreateItemParams params) async {
@@ -118,6 +121,30 @@ class CreateItemUseCase extends UseCase<Item, CreateItemParams> {
       userId: params.userId,
     );
 
-    return await repository.createItem(item);
+    final result = await repository.createItem(item);
+
+    // If item was created successfully, log a "created" event
+    // This marks the start of the first interval (resetNumber = 0)
+    return result.fold(
+      (failure) => Left(failure),
+      (createdItem) async {
+        final timestamp = now.millisecondsSinceEpoch ~/ 1000;
+        final createdEvent = EventLog(
+          id: '${createdItem.id}-created-$timestamp',
+          createdTime: now,
+          itemId: createdItem.id,
+          eventName: 'created',
+          increment: 0,
+          currentCount: params.initialValue,
+          resetNumber: 0,
+          userId: params.userId,
+        );
+
+        // Insert the created event (fire and forget - don't fail item creation if this fails)
+        await eventLogRepository.insertEvents([createdEvent]);
+
+        return Right(createdItem);
+      },
+    );
   }
 }

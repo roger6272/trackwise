@@ -246,8 +246,6 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.factory<_i999.DeletedItemsBloc>(
         () => _i999.DeletedItemsBloc(gh<_i319.ItemRepository>()));
-    gh.lazySingleton<_i311.CreateItemUseCase>(
-        () => _i311.CreateItemUseCase(gh<_i319.ItemRepository>()));
     gh.lazySingleton<_i64.DeleteItemUseCase>(
         () => _i64.DeleteItemUseCase(gh<_i319.ItemRepository>()));
     gh.lazySingleton<_i1010.GetItemsUseCase>(
@@ -272,14 +270,9 @@ extension GetItInjectableX on _i174.GetIt {
           exportUserData: gh<_i764.ExportUserDataUseCase>(),
           deleteAccount: gh<_i535.DeleteAccountUseCase>(),
         ));
-    gh.factory<_i913.ItemsBloc>(() => _i913.ItemsBloc(
-          getItemsUseCase: gh<_i1010.GetItemsUseCase>(),
-          watchItemsUseCase: gh<_i307.WatchItemsUseCase>(),
-          createItemUseCase: gh<_i311.CreateItemUseCase>(),
-          updateItemUseCase: gh<_i159.UpdateItemUseCase>(),
-          deleteItemUseCase: gh<_i64.DeleteItemUseCase>(),
-          incrementItemUseCase: gh<_i154.IncrementItemUseCase>(),
-          itemRepository: gh<_i319.ItemRepository>(),
+    gh.lazySingleton<_i311.CreateItemUseCase>(() => _i311.CreateItemUseCase(
+          gh<_i319.ItemRepository>(),
+          gh<_i978.EventLogRepository>(),
         ));
     gh.lazySingleton<_i72.BluetoothBloc>(() => _i72.BluetoothBloc(
           gh<_i697.ScanDevicesUseCase>(),
@@ -340,6 +333,15 @@ extension GetItInjectableX on _i174.GetIt {
           signOut: gh<_i549.SignOutUseCase>(),
           resetPassword: gh<_i517.ResetPasswordUseCase>(),
           watchAuthState: gh<_i28.WatchAuthStateUseCase>(),
+        ));
+    gh.factory<_i913.ItemsBloc>(() => _i913.ItemsBloc(
+          getItemsUseCase: gh<_i1010.GetItemsUseCase>(),
+          watchItemsUseCase: gh<_i307.WatchItemsUseCase>(),
+          createItemUseCase: gh<_i311.CreateItemUseCase>(),
+          updateItemUseCase: gh<_i159.UpdateItemUseCase>(),
+          deleteItemUseCase: gh<_i64.DeleteItemUseCase>(),
+          incrementItemUseCase: gh<_i154.IncrementItemUseCase>(),
+          itemRepository: gh<_i319.ItemRepository>(),
         ));
     gh.factory<_i802.ChartsBloc>(() => _i802.ChartsBloc(
           getChartDataUseCase: gh<_i23.GetChartDataUseCase>(),

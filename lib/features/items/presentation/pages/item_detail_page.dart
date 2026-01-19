@@ -15,6 +15,7 @@ import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/stats_calculator.dart';
 import '../widgets/item_detail/dynamic_stats.dart';
 import '../widgets/item_detail/filter_section.dart';
+import '../widgets/item_detail/intervals_section.dart';
 import '../widgets/item_detail/shimmer_skeletons.dart';
 import '../widgets/item_detail/static_header.dart';
 import '../widgets/item_detail/stats_section.dart';
@@ -433,6 +434,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       lastResetTime: _lastResetTime,
                                       showSinceReset: _showSinceReset,
                                     ),
+                                    // Intervals Section
+                                    if (eventsState is EventsLoaded) ...[
+                                      const SizedBox(height: 16.0),
+                                      IntervalsSection(
+                                        events: eventsState.events,
+                                        maxIntervals: 10,
+                                      ),
+                                    ],
                                   ],
                                 );
                               },

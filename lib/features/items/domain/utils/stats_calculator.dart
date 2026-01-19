@@ -90,8 +90,9 @@ class StatsCalculator {
         currentPeriodStart.subtract(Duration(days: periodDays));
     final priorPeriodEnd = currentPeriodStart;
 
-    // Filter events, excluding 'reset' events
-    final filteredEvents = events.where((e) => e.eventName != 'reset');
+    // Filter events, excluding 'reset' and 'created' events
+    final filteredEvents = events
+        .where((e) => e.eventName != 'reset' && e.eventName != 'created');
 
     // Sum increments for current period
     final currentPeriodEvents = filteredEvents.where((e) {

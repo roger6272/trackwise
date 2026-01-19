@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:trackwise/core/error/failures.dart';
+import 'package:trackwise/features/events/domain/entities/event_log.dart';
 import 'package:trackwise/features/items/domain/entities/item.dart';
 import 'package:trackwise/features/items/domain/usecases/create_item_usecase.dart';
 
@@ -12,13 +13,16 @@ import '../../helpers/test_fixtures.dart';
 void main() {
   late CreateItemUseCase useCase;
   late MockItemRepository mockRepository;
+  late MockEventLogRepository mockEventLogRepository;
 
   setUp(() {
     mockRepository = MockItemRepository();
-    useCase = CreateItemUseCase(mockRepository);
+    mockEventLogRepository = MockEventLogRepository();
+    useCase = CreateItemUseCase(mockRepository, mockEventLogRepository);
 
-    // Register fallback value for Item
+    // Register fallback value for Item and EventLog list
     registerFallbackValue(testItem);
+    registerFallbackValue(<EventLog>[]);
   });
 
   group('CreateItemUseCase', () {
@@ -36,6 +40,8 @@ void main() {
       // Arrange
       when(() => mockRepository.createItem(any()))
           .thenAnswer((_) async => Right(testItem));
+      when(() => mockEventLogRepository.insertEvents(any()))
+          .thenAnswer((_) async => const Right(null));
 
       // Act
       final result = await useCase(validParams);
@@ -43,6 +49,7 @@ void main() {
       // Assert
       expect(result, isA<Right<Failure, Item>>());
       verify(() => mockRepository.createItem(any())).called(1);
+      verify(() => mockEventLogRepository.insertEvents(any())).called(1);
     });
 
     test('should return ValidationFailure for empty name', () async {
@@ -195,6 +202,7 @@ void main() {
       // Assert
       expect(result, const Left(failure));
       verify(() => mockRepository.createItem(any())).called(1);
+      verifyNever(() => mockEventLogRepository.insertEvents(any()));
     });
   });
 

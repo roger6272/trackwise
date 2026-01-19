@@ -1,6 +1,7 @@
 import 'package:mocktail/mocktail.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
 import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
 import 'package:trackwise/features/items/domain/usecases/get_items_usecase.dart';
 import 'package:trackwise/features/items/domain/usecases/watch_items_usecase.dart';
@@ -12,6 +13,8 @@ import 'package:trackwise/features/items/data/datasources/item_remote_datasource
 
 // Domain mocks
 class MockItemRepository extends Mock implements ItemRepository {}
+
+class MockEventLogRepository extends Mock implements EventLogRepository {}
 
 class MockGetItemsUseCase extends Mock implements GetItemsUseCase {}
 
