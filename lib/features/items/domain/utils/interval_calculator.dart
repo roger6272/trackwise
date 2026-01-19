@@ -101,17 +101,18 @@ class IntervalCalculator {
       int intervalCount = 0;
       DateTime? intervalStart;
       DateTime? intervalEnd;
+      DateTime? createdEventTime;
 
       for (final event in intervalEvents) {
-        // Find start time (created event or first event)
-        if (event.eventName == 'created' ||
-            (intervalStart == null ||
-                event.createdTime.isBefore(intervalStart))) {
-          if (event.eventName == 'created') {
-            intervalStart = event.createdTime;
-          } else if (intervalStart == null) {
-            intervalStart = event.createdTime;
-          }
+        // Track 'created' event time separately (highest priority for start)
+        if (event.eventName == 'created') {
+          createdEventTime = event.createdTime;
+        }
+
+        // Track earliest event time as fallback start
+        if (intervalStart == null ||
+            event.createdTime.isBefore(intervalStart)) {
+          intervalStart = event.createdTime;
         }
 
         // Find end time (reset event marks end of this interval)
@@ -125,14 +126,17 @@ class IntervalCalculator {
         }
       }
 
+      // Use 'created' event time if available, otherwise earliest event
+      final effectiveStart = createdEventTime ?? intervalStart;
+
       // For the first interval (highest resetNumber), it's current - no end time
       final isCurrent = i == 0;
 
-      if (intervalStart != null) {
+      if (effectiveStart != null) {
         results.add(IntervalData(
           intervalNumber: intervalNumber,
           count: intervalCount,
-          startTime: intervalStart,
+          startTime: effectiveStart,
           endTime: isCurrent ? null : intervalEnd,
         ));
       }
