@@ -29,6 +29,10 @@ class EventLog extends Equatable {
   /// The item's count value after this event was applied
   final int currentCount;
 
+  /// The item's reset number at the time of this event.
+  /// Used to group events by reset periods for analysis.
+  final int resetNumber;
+
   /// Firebase UID of the user who owns this event
   final String userId;
 
@@ -39,6 +43,7 @@ class EventLog extends Equatable {
     required this.eventName,
     required this.increment,
     required this.currentCount,
+    this.resetNumber = 0,
     required this.userId,
   });
 
@@ -50,6 +55,7 @@ class EventLog extends Equatable {
     String? eventName,
     int? increment,
     int? currentCount,
+    int? resetNumber,
     String? userId,
   }) {
     return EventLog(
@@ -59,6 +65,7 @@ class EventLog extends Equatable {
       eventName: eventName ?? this.eventName,
       increment: increment ?? this.increment,
       currentCount: currentCount ?? this.currentCount,
+      resetNumber: resetNumber ?? this.resetNumber,
       userId: userId ?? this.userId,
     );
   }
@@ -71,6 +78,7 @@ class EventLog extends Equatable {
         eventName,
         increment,
         currentCount,
+        resetNumber,
         userId,
       ];
 
@@ -78,6 +86,6 @@ class EventLog extends Equatable {
   String toString() {
     return 'EventLog(id: $id, createdTime: $createdTime, itemId: $itemId, '
         'eventName: $eventName, increment: $increment, currentCount: $currentCount, '
-        'userId: $userId)';
+        'resetNumber: $resetNumber, userId: $userId)';
   }
 }

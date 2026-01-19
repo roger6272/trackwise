@@ -281,6 +281,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
             // ESP32 sends timestamp in seconds, convert to milliseconds
             // Only update lastResetTime if actually provided (non-zero)
             final lastResetTimeSeconds = item['lastResetTime'] as int? ?? 0;
+            final resetNumber = item['resetNumber'] as int?;
 
             final updateData = <String, dynamic>{
               'count': count,
@@ -290,6 +291,11 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
             // Only include lastResetTime if it's a real value (not 0/epoch)
             if (lastResetTimeSeconds > 0) {
               updateData['lastResetTime'] = lastResetTimeSeconds * 1000;
+            }
+
+            // Only include resetNumber if provided
+            if (resetNumber != null) {
+              updateData['reset_number'] = resetNumber;
             }
 
             batch.update(itemRef, updateData);

@@ -120,7 +120,8 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   ///     "reminder_value": 0,
   ///     "lastResetTime": 1234567890,
   ///     "count": 10,
-  ///     "todaycount": 5
+  ///     "todaycount": 5,
+  ///     "reset_number": 0
   ///   }
   /// ]
   /// ```
@@ -134,6 +135,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       'lastResetTime': (item.lastResetTime?.toUtc().millisecondsSinceEpoch ?? 0) ~/ 1000,
       'count': item.count,
       'todaycount': item.todayCount,
+      'reset_number': item.resetNumber,
     }).toList();
 
     return jsonEncode(itemList);

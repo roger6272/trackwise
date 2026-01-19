@@ -17,6 +17,7 @@ class ItemModel extends Item {
     required super.reminder,
     required super.reminderValue,
     super.lastResetTime,
+    super.resetNumber,
     required super.lastUpdated,
     required super.userId,
     super.deletedAt,
@@ -66,6 +67,7 @@ class ItemModel extends Item {
       reminder: _reminderFromString(data['reminder'] as String?),
       reminderValue: data['reminder_value'] as int? ?? 0,
       lastResetTime: _parseNullableDateTime(data['lastResetTime']),
+      resetNumber: data['reset_number'] as int? ?? 0,
       lastUpdated: _parseDateTime(data['lastUpdated']),
       userId: userId,
       deletedAt: _parseNullableDateTime(data['deletedAt']),
@@ -117,6 +119,7 @@ class ItemModel extends Item {
       'user_id': this.userId,
       'order': this.order,
       'initial_count': this.initialCount,
+      'reset_number': this.resetNumber,
     };
     if (this.lastResetTime != null) {
       map['lastResetTime'] = this.lastResetTime!.millisecondsSinceEpoch;

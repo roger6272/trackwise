@@ -24,6 +24,7 @@ class EventLogModel extends EventLog {
     required super.eventName,
     required super.increment,
     required super.currentCount,
+    super.resetNumber,
     required super.userId,
   });
 
@@ -75,6 +76,7 @@ class EventLogModel extends EventLog {
       eventName: data['event_name'] as String? ?? '',
       increment: data['increment'] as int? ?? 0,
       currentCount: data['currentcount'] as int? ?? 0,
+      resetNumber: data['reset_number'] as int? ?? 0,
       userId: userId,
     );
   }
@@ -90,6 +92,7 @@ class EventLogModel extends EventLog {
       eventName: entity.eventName,
       increment: entity.increment,
       currentCount: entity.currentCount,
+      resetNumber: entity.resetNumber,
       userId: entity.userId,
     );
   }
@@ -114,6 +117,7 @@ class EventLogModel extends EventLog {
       'event_name': eventName,
       'increment': increment,
       'currentcount': currentCount,
+      'reset_number': resetNumber,
       'uid': firestore.doc('/users/$userId'),
       'id': id,
     };

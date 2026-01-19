@@ -50,6 +50,11 @@ class Item extends Equatable {
   /// Null if the item has never been reset.
   final DateTime? lastResetTime;
 
+  /// Number of times this item has been reset.
+  /// Increments each time the reset button is pressed on the device.
+  /// Used to track counts between reset periods.
+  final int resetNumber;
+
   /// Timestamp of last modification (any update to item)
   final DateTime lastUpdated;
 
@@ -83,6 +88,7 @@ class Item extends Equatable {
     required this.reminder,
     required this.reminderValue,
     this.lastResetTime,
+    this.resetNumber = 0,
     required this.lastUpdated,
     required this.userId,
     this.deletedAt,
@@ -103,6 +109,7 @@ class Item extends Equatable {
     ReminderType? reminder,
     int? reminderValue,
     DateTime? lastResetTime,
+    int? resetNumber,
     DateTime? lastUpdated,
     String? userId,
     DateTime? deletedAt,
@@ -121,6 +128,7 @@ class Item extends Equatable {
       reminder: reminder ?? this.reminder,
       reminderValue: reminderValue ?? this.reminderValue,
       lastResetTime: lastResetTime ?? this.lastResetTime,
+      resetNumber: resetNumber ?? this.resetNumber,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       userId: userId ?? this.userId,
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
@@ -140,6 +148,7 @@ class Item extends Equatable {
         reminder,
         reminderValue,
         lastResetTime,
+        resetNumber,
         lastUpdated,
         userId,
         deletedAt,
@@ -152,7 +161,7 @@ class Item extends Equatable {
   String toString() {
     return 'Item(id: $id, name: $name, count: $count, todayCount: $todayCount, '
         'incrementBy: $incrementBy, reminder: $reminder, reminderValue: $reminderValue, '
-        'lastResetTime: $lastResetTime, lastUpdated: $lastUpdated, userId: $userId, '
-        'deletedAt: $deletedAt, order: $order, initialCount: $initialCount, goal: $goal)';
+        'lastResetTime: $lastResetTime, resetNumber: $resetNumber, lastUpdated: $lastUpdated, '
+        'userId: $userId, deletedAt: $deletedAt, order: $order, initialCount: $initialCount, goal: $goal)';
   }
 }

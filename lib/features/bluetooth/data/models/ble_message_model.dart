@@ -78,7 +78,7 @@ class BleMessageModel extends BleMessage {
     final type = _parseType(typeStr);
 
     // For item_delta, all fields are at top level (not in 'data')
-    // Format: {"type": "item_delta", "id": "...", "count": N, "todaycount": N, "lastResetTime": N}
+    // Format: {"type": "item_delta", "id": "...", "count": N, "todaycount": N, "lastResetTime": N, "resetNumber": N}
     if (type == BleMessageType.itemDelta) {
       return BleMessageModel(
         type: type,
@@ -87,6 +87,7 @@ class BleMessageModel extends BleMessage {
           'count': parsed['count'],
           'todaycount': parsed['todaycount'],
           'lastResetTime': parsed['lastResetTime'],
+          'resetNumber': parsed['resetNumber'],
         },
         receivedAt: DateTime.now(),
       );

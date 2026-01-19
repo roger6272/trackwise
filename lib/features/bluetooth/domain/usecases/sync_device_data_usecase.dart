@@ -111,13 +111,14 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       final timestampSeconds = eventData['timestamp'] as int? ?? 0;
       final count = eventData['count'] as int? ?? 0;
       final increment = eventData['increment'] as int? ?? 0;
+      final resetNumber = eventData['resetNumber'] as int? ?? 0;
 
       // Debug: show what timestamp the device sent
       final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
       debugPrint('📅 Event timestamp: $timestampSeconds sec -> $createdTime (local: ${createdTime.toLocal()})');
 
-      // Generate unique ID matching FlutterFlow format
-      final id = '$itemId-$eventName-$timestampSeconds-$count';
+      // Generate unique ID including resetNumber to avoid collisions
+      final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
 
       events.add(EventLog(
         id: id,
@@ -126,6 +127,7 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
         eventName: eventName,
         increment: increment,
         currentCount: count,
+        resetNumber: resetNumber,
         userId: userId,
       ));
     }
@@ -169,13 +171,14 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       final timestampSeconds = logData['timestamp'] as int? ?? 0;
       final count = logData['count'] as int? ?? 0;
       final increment = logData['increment'] as int? ?? 0;
+      final resetNumber = logData['resetNumber'] as int? ?? 0;
 
       // Debug: show what timestamp the device sent
       final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
       debugPrint('📅 Log timestamp: $timestampSeconds sec -> $createdTime (local: ${createdTime.toLocal()})');
 
-      // Generate unique ID matching FlutterFlow format
-      final id = '$itemId-$eventName-$timestampSeconds-$count';
+      // Generate unique ID including resetNumber to avoid collisions
+      final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
 
       events.add(EventLog(
         id: id,
@@ -184,6 +187,7 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
         eventName: eventName,
         increment: increment,
         currentCount: count,
+        resetNumber: resetNumber,
         userId: userId,
       ));
     }
@@ -211,8 +215,9 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
     final count = data['count'] as int? ?? 0;
     final todayCount = data['todaycount'] as int? ?? 0;
     final lastResetTimeSeconds = data['lastResetTime'] as int? ?? 0;
+    final resetNumber = data['resetNumber'] as int? ?? 0;
 
-    debugPrint('📤 Delta update: $itemId count=$count today=$todayCount');
+    debugPrint('📤 Delta update: $itemId count=$count today=$todayCount resetNumber=$resetNumber');
 
     // Use batchUpdateCounts with a single item - it handles the logic
     return await itemRepository.batchUpdateCounts(userId, [
@@ -221,6 +226,7 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
         'count': count,
         'todaycount': todayCount,
         'lastResetTime': lastResetTimeSeconds,
+        'resetNumber': resetNumber,
       }
     ]);
   }

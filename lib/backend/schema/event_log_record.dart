@@ -46,6 +46,11 @@ class EventLogRecord extends FirestoreRecord {
   DocumentReference? get uid => _uid;
   bool hasUid() => _uid != null;
 
+  // "reset_number" field.
+  int? _resetNumber;
+  int get resetNumber => _resetNumber ?? 0;
+  bool hasResetNumber() => _resetNumber != null;
+
   void _initializeFields() {
     _createdTime = snapshotData['created_time'] as DateTime?;
     _eventName = snapshotData['event_name'] as String?;
@@ -53,6 +58,7 @@ class EventLogRecord extends FirestoreRecord {
     _increment = castToType<int>(snapshotData['increment']);
     _currentcount = castToType<int>(snapshotData['currentcount']);
     _uid = snapshotData['uid'] as DocumentReference?;
+    _resetNumber = castToType<int>(snapshotData['reset_number']);
   }
 
   static CollectionReference get collection =>
@@ -96,6 +102,7 @@ Map<String, dynamic> createEventLogRecordData({
   int? increment,
   int? currentcount,
   DocumentReference? uid,
+  int? resetNumber,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -105,6 +112,7 @@ Map<String, dynamic> createEventLogRecordData({
       'increment': increment,
       'currentcount': currentcount,
       'uid': uid,
+      'reset_number': resetNumber,
     }.withoutNulls,
   );
 
@@ -121,7 +129,8 @@ class EventLogRecordDocumentEquality implements Equality<EventLogRecord> {
         e1?.item == e2?.item &&
         e1?.increment == e2?.increment &&
         e1?.currentcount == e2?.currentcount &&
-        e1?.uid == e2?.uid;
+        e1?.uid == e2?.uid &&
+        e1?.resetNumber == e2?.resetNumber;
   }
 
   @override
@@ -131,7 +140,8 @@ class EventLogRecordDocumentEquality implements Equality<EventLogRecord> {
         e?.item,
         e?.increment,
         e?.currentcount,
-        e?.uid
+        e?.uid,
+        e?.resetNumber,
       ]);
 
   @override

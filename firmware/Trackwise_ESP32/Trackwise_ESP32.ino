@@ -37,6 +37,7 @@ struct CountLog {
   int count;
   int reminder;
   int reminderValue;
+  int resetNumber;
 };
 
 CountLog logs[MAX_LOG_ENTRIES];  //Create an array named logs that can hold up to MAX_LOG_ENTRIES items, where each item is a CountLog struct. This is the RAM!!!!!!!!!!!!!!!!!!!!!!
@@ -56,6 +57,7 @@ bool isConnected = false;
 int reminder = REMINDER_NONE;
 int reminderValue = 0;
 time_t lastResetTime = 0;
+int itemResetNumber = 0;  // Track reset count for current item
 Preferences prefs;  // Non-volatile storage instance
 unsigned long lastResetCheck = 0;
 String incomingJsonBuffer = "";
@@ -88,12 +90,14 @@ void triggerVibration(int duration = 300) {
 }
 
 // Store a new log event in RAM
-void logEvent(String event) {
+// For reset events, pass the OLD resetNumber before incrementing
+void logEvent(String event, int resetNum = -1) {
+  int logResetNumber = (resetNum >= 0) ? resetNum : itemResetNumber;
   logs[logWriteIndex] = {
-    currentItemId, itemName, event, rtc.now().unixtime(), itemIncrement, itemCount  //log current info to the current logwriteindex
+    currentItemId, itemName, event, rtc.now().unixtime(), itemIncrement, itemCount, reminder, reminderValue, logResetNumber
   };
   logWriteIndex = (logWriteIndex + 1) % MAX_LOG_ENTRIES;
-  if (logCount < MAX_LOG_ENTRIES) logCount++;  //log up till 20
+  if (logCount < MAX_LOG_ENTRIES) logCount++;
 }
 
 void notifyPrefsToApp() {
@@ -114,7 +118,7 @@ void notifyPrefsToApp() {
 
 // Send delta update for a single item (much smaller than full prefs)
 // Used after increment/reset to update just the changed item
-void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime) {
+void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime, int resetNumber) {
   if (!isConnected || NotifyChar == nullptr) return;
 
   StaticJsonDocument<256> doc;
@@ -123,6 +127,7 @@ void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime)
   doc["count"] = count;
   doc["todaycount"] = todayCount;
   doc["lastResetTime"] = (long)resetTime;
+  doc["resetNumber"] = resetNumber;
 
   String jsonOut;
   serializeJson(doc, jsonOut);
@@ -131,7 +136,7 @@ void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime)
   // Delta is small enough to send in one chunk typically
   NotifyChar->setValue(jsonOut.c_str());
   NotifyChar->notify();
-  Serial.printf("📤 Delta update: %s count=%d today=%d\n", itemId.c_str(), count, todayCount);
+  Serial.printf("📤 Delta update: %s count=%d today=%d resetNumber=%d\n", itemId.c_str(), count, todayCount, resetNumber);
 }
 
 // Send logs to app via notification (chunked for large payloads)
@@ -170,6 +175,7 @@ String getPrefsJson() {
     item["count"] = prefs.getInt(("c_" + String(i)).c_str(), 0);
     item["todaycount"] = prefs.getInt(("tc_" + String(i)).c_str(), 0); //pref needs todaycount
     item["lastResetTime"] = prefs.getULong(("lr_" + String(i)).c_str(), 0);
+    item["resetNumber"] = prefs.getInt(("rn_" + String(i)).c_str(), 0);
   }
 
   //Add selected_id to update the appstate
@@ -205,7 +211,7 @@ String getLogsAsString(int page) {
     o["event"] = logs[i].event;
     o["increment"] = logs[i].increment;
     o["count"] = logs[i].count;
-    //o["todaycount"] = logs[i].todaycount; Log doesn't need today's count
+    o["resetNumber"] = logs[i].resetNumber;
   }
 
   root["hasMore"] = endIndex < logCount;
@@ -268,6 +274,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         prefs.remove(("r_" + String(i)).c_str());
         prefs.remove(("rv_" + String(i)).c_str());
         prefs.remove(("lr_" + String(i)).c_str());
+        prefs.remove(("rn_" + String(i)).c_str());
       }
 
       int index = 0;
@@ -279,6 +286,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         int reminder = item["reminder"];
         int reminderValue = item["reminder_value"];
         unsigned long lastResetTime = item.containsKey("lastResetTime") ? item["lastResetTime"] : 0;
+        int resetNumber = item.containsKey("reset_number") ? item["reset_number"].as<int>() : 0;
 
         // Find existing counts for this item ID (device is source of truth)
         int count = 0;
@@ -308,9 +316,10 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         prefs.putInt(("r_" + String(index)).c_str(), reminder);
         prefs.putInt(("rv_" + String(index)).c_str(), reminderValue);
         prefs.putULong(("lr_" + String(index)).c_str(), lastResetTime);
+        prefs.putInt(("rn_" + String(index)).c_str(), resetNumber);
 
-        Serial.printf("[%d] ID=%s Name=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu\n",
-              index, id.c_str(), name.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime);
+        Serial.printf("[%d] ID=%s Name=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
+              index, id.c_str(), name.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
         index++;
       }
 
@@ -358,8 +367,9 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
         reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
         lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
-        Serial.printf("🔄 Refreshed runtime vars: %s, increment=%d, reminder=%d\n",
-                      itemName.c_str(), itemIncrement, reminder);
+        itemResetNumber = prefs.getInt(("rn_" + String(currentItemIndex)).c_str(), 0);
+        Serial.printf("🔄 Refreshed runtime vars: %s, increment=%d, reminder=%d, resetNumber=%d\n",
+                      itemName.c_str(), itemIncrement, reminder, itemResetNumber);
       }
 
       prefs.end();
@@ -427,8 +437,9 @@ class WriteCallback : public BLECharacteristicCallbacks {
           reminder = prefs.getInt(("r_" + String(i)).c_str(), REMINDER_NONE);
           reminderValue = prefs.getInt(("rv_" + String(i)).c_str(), 0);
           lastResetTime = prefs.getULong(("lr_" + String(i)).c_str(), 0);
+          itemResetNumber = prefs.getInt(("rn_" + String(i)).c_str(), 0);
 
-          Serial.printf("✅ Selected item [%d]: %s (%s)\n", i, id.c_str(), itemName.c_str());
+          Serial.printf("✅ Selected item [%d]: %s (%s) resetNumber=%d\n", i, id.c_str(), itemName.c_str(), itemResetNumber);
           found = true;
           break;
         }
@@ -657,8 +668,11 @@ void updateReadChar() {
 
 
 // Send event to app via notification. This will be called everytime a button is pressed
-void notifyEvent(String event) {
+// For reset events, pass the OLD resetNumber before incrementing
+void notifyEvent(String event, int resetNum = -1) {
   if (!isConnected || NotifyChar == nullptr) return;
+
+  int eventResetNumber = (resetNum >= 0) ? resetNum : itemResetNumber;
 
   StaticJsonDocument<512> doc;
 
@@ -674,7 +688,7 @@ void notifyEvent(String event) {
   data["event"] = event;
   data["increment"] = itemIncrement;
   data["count"] = itemCount;
-  //data["todaycount"] = itemTodayCount; //todayCount doesn't need to be logged separately
+  data["resetNumber"] = eventResetNumber;
 
   String s;
   serializeJson(root, s);
@@ -758,7 +772,7 @@ void handleCommand(char cmd) {
 
     logEvent("increment");
     // Send delta update instead of full prefs (much smaller payload)
-    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime);
+    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
     delay(50);  // Brief gap between notifications
     if (isConnected) notifyEvent("increment");
 
@@ -768,6 +782,10 @@ void handleCommand(char cmd) {
       Serial.print("No Item Selected");
       return;
     }
+
+    // Option A: Log reset event with OLD resetNumber before incrementing
+    int oldResetNumber = itemResetNumber;
+
     itemCount = 0;
     itemTodayCount = 0;
     prefs.putInt(("c_" + String(currentItemIndex)).c_str(), itemCount);
@@ -776,13 +794,22 @@ void handleCommand(char cmd) {
     lastResetTime = rtc.now().unixtime();
     prefs.putULong(("lr_" + String(currentItemIndex)).c_str(), lastResetTime);
 
-    logEvent("reset");
+    // Log the reset event with OLD resetNumber (this reset ends period N)
+    logEvent("reset", oldResetNumber);
+
+    // Now increment resetNumber for the new period
+    itemResetNumber++;
+    prefs.putInt(("rn_" + String(currentItemIndex)).c_str(), itemResetNumber);
+
+    Serial.printf("🔄 Reset: period %d ended, now in period %d\n", oldResetNumber, itemResetNumber);
+
     prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
-    // Send delta update instead of full prefs (much smaller payload)
-    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime);
+    // Send delta update with NEW resetNumber (app needs current state)
+    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
     delay(50);  // Brief gap between notifications
-    if (isConnected) notifyEvent("reset");
+    // Send event notification with OLD resetNumber (the reset that ended period N)
+    if (isConnected) notifyEvent("reset", oldResetNumber);
     return;  // Already closed prefs, skip the final prefs.end()
 
   } else if (cmd == 's') {
@@ -805,6 +832,7 @@ void handleCommand(char cmd) {
     reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
     reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
     lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
+    itemResetNumber = prefs.getInt(("rn_" + String(currentItemIndex)).c_str(), 0);
 
     currentItemId = prefs.getString("selected_id", "none");
     prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
@@ -936,6 +964,7 @@ void setup() {
   reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
   reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
   lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
+  itemResetNumber = prefs.getInt(("rn_" + String(currentItemIndex)).c_str(), 0);
 
   if (currentItemIndex >= verifiedTotal) {
     currentItemIndex = 0;

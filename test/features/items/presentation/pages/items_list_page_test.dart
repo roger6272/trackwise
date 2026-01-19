@@ -130,6 +130,17 @@ class TestAppUiState extends ChangeNotifier implements AppUiState {
     _hasShownSwipeHint = true;
     notifyListeners();
   }
+
+  bool _hasShownReorderHint = false;
+
+  @override
+  bool get hasShownReorderHint => _hasShownReorderHint;
+
+  @override
+  void markReorderHintShown() {
+    _hasShownReorderHint = true;
+    notifyListeners();
+  }
 }
 
 void main() {

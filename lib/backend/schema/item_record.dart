@@ -66,6 +66,11 @@ class ItemRecord extends FirestoreRecord {
   DateTime? get lastResetTime => _lastResetTime;
   bool hasLastResetTime() => _lastResetTime != null;
 
+  // "reset_number" field.
+  int? _resetNumber;
+  int get resetNumber => _resetNumber ?? 0;
+  bool hasResetNumber() => _resetNumber != null;
+
   void _initializeFields() {
     _itemName = snapshotData['item_name'] as String?;
     _count = castToType<int>(snapshotData['count']);
@@ -77,6 +82,7 @@ class ItemRecord extends FirestoreRecord {
     _lastUpdated = snapshotData['lastUpdated'] as DateTime?;
     _reminderValue = castToType<int>(snapshotData['reminder_value']);
     _lastResetTime = snapshotData['lastResetTime'] as DateTime?;
+    _resetNumber = castToType<int>(snapshotData['reset_number']);
   }
 
   static CollectionReference get collection =>
@@ -123,6 +129,7 @@ Map<String, dynamic> createItemRecordData({
   DateTime? lastUpdated,
   int? reminderValue,
   DateTime? lastResetTime,
+  int? resetNumber,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -136,6 +143,7 @@ Map<String, dynamic> createItemRecordData({
       'lastUpdated': lastUpdated,
       'reminder_value': reminderValue,
       'lastResetTime': lastResetTime,
+      'reset_number': resetNumber,
     }.withoutNulls,
   );
 
@@ -156,7 +164,8 @@ class ItemRecordDocumentEquality implements Equality<ItemRecord> {
         e1?.todaycount == e2?.todaycount &&
         e1?.lastUpdated == e2?.lastUpdated &&
         e1?.reminderValue == e2?.reminderValue &&
-        e1?.lastResetTime == e2?.lastResetTime;
+        e1?.lastResetTime == e2?.lastResetTime &&
+        e1?.resetNumber == e2?.resetNumber;
   }
 
   @override
@@ -170,7 +179,8 @@ class ItemRecordDocumentEquality implements Equality<ItemRecord> {
         e?.todaycount,
         e?.lastUpdated,
         e?.reminderValue,
-        e?.lastResetTime
+        e?.lastResetTime,
+        e?.resetNumber,
       ]);
 
   @override
