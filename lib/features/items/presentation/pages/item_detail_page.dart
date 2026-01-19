@@ -11,6 +11,7 @@ import '../../../events/presentation/bloc/events_bloc.dart';
 import '../../../events/presentation/bloc/events_event.dart';
 import '../../../events/presentation/bloc/events_state.dart';
 import '../../domain/entities/item.dart';
+import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/stats_calculator.dart';
 import '../widgets/item_detail/dynamic_stats.dart';
 import '../widgets/item_detail/filter_section.dart';
@@ -83,6 +84,91 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   // UI state
   bool _showCumulative = false;
+  DateTime _lastUpdated = DateTime.now();
+
+  // Mutable item data (initialized from widget, updated on refresh)
+  late int _currentCount;
+  late int _initialCount;
+  int? _goal;
+  late int _incrementBy;
+  DateTime? _lastResetTime;
+  late ReminderType _reminderType;
+  late int _reminderValue;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize mutable state from widget parameters
+    _currentCount = widget.currentCount ?? 0;
+    _initialCount = widget.initialCount ?? 0;
+    _goal = widget.goal;
+    _incrementBy = widget.incrementBy ?? 1;
+    _lastResetTime = widget.lastResetTime;
+    _reminderType = widget.reminderType ?? ReminderType.none;
+    _reminderValue = widget.reminderValue ?? 0;
+  }
+
+  /// Refresh item data, events, and chart.
+  Future<void> _onRefresh(BuildContext context) async {
+    // Capture blocs before async gap
+    final eventsBloc = context.read<EventsBloc>();
+    final chartsBloc = context.read<ChartsBloc>();
+
+    // Fetch latest item data from database
+    final itemRepository = sl<ItemRepository>();
+    final result = await itemRepository.getItem(widget.itemId);
+
+    if (!mounted) return;
+
+    result.fold(
+      (failure) {
+        // Silently fail - keep existing data
+      },
+      (item) {
+        setState(() {
+          _currentCount = item.count;
+          _initialCount = item.initialCount;
+          _goal = item.goal;
+          _incrementBy = item.incrementBy;
+          _lastResetTime = item.lastResetTime;
+          _reminderType = item.reminder;
+          _reminderValue = item.reminderValue;
+        });
+      },
+    );
+
+    // Reload events from database
+    eventsBloc.add(LoadEvents(itemId: widget.itemId));
+    // Reload chart data
+    chartsBloc.add(_createChartEvent());
+    // Update timestamp
+    setState(() {
+      _lastUpdated = DateTime.now();
+    });
+    // Wait a brief moment for the UI to update
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  /// Format the last updated time as a relative or absolute string.
+  String _formatLastUpdated() {
+    final now = DateTime.now();
+    final diff = now.difference(_lastUpdated);
+
+    if (diff.inSeconds < 10) {
+      return 'Just now';
+    } else if (diff.inSeconds < 60) {
+      return '${diff.inSeconds}s ago';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else {
+      // Show time if more than an hour
+      final hour = _lastUpdated.hour;
+      final minute = _lastUpdated.minute.toString().padLeft(2, '0');
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+      return '$hour12:$minute $period';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,19 +220,38 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             ),
             body: SafeArea(
               top: true,
-              child: CustomScrollView(
-                slivers: [
+              child: RefreshIndicator(
+                onRefresh: () => _onRefresh(context),
+                color: primary,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                  // Last updated indicator at top
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
+                      child: Center(
+                        child: Text(
+                          'Updated ${_formatLastUpdated()} \u2022 Pull to refresh',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.0,
+                            color: secondaryText.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   // Static Header (Current Count, Initial, Goal)
-                  // NOT affected by filters - shows item's current state
+                  // Now updates on refresh
                   SliverToBoxAdapter(
                     child: StaticHeader(
-                      currentCount: widget.currentCount ?? 0,
-                      initialCount: widget.initialCount ?? 0,
-                      goal: widget.goal,
-                      incrementBy: widget.incrementBy ?? 1,
-                      lastResetTime: widget.lastResetTime,
-                      reminderType: widget.reminderType ?? ReminderType.none,
-                      reminderValue: widget.reminderValue ?? 0,
+                      currentCount: _currentCount,
+                      initialCount: _initialCount,
+                      goal: _goal,
+                      incrementBy: _incrementBy,
+                      lastResetTime: _lastResetTime,
+                      reminderType: _reminderType,
+                      reminderValue: _reminderValue,
                     ),
                   ),
                   // Sticky Filter Section (part of filtered zone)
@@ -324,8 +429,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                     DynamicStats(
                                       stats: stats,
                                       range: _aggregation,
-                                      initialCount: widget.initialCount ?? 0,
-                                      lastResetTime: widget.lastResetTime,
+                                      initialCount: _initialCount,
+                                      lastResetTime: _lastResetTime,
                                       showSinceReset: _showSinceReset,
                                     ),
                                   ],
@@ -335,7 +440,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       ),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -351,7 +457,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         events: eventsState.events,
         aggregation: _aggregation,
         endDate: _selectedDate,
-        lastResetTime: widget.lastResetTime,
+        lastResetTime: _lastResetTime,
         sinceResetOnly: _showSinceReset,
       );
     }
@@ -388,7 +494,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.daily);
 
     // Use lastResetTime filter when "Since Last Reset" is selected
-    final sinceResetTime = _showSinceReset ? widget.lastResetTime : null;
+    final sinceResetTime = _showSinceReset ? _lastResetTime : null;
 
     if (_showCumulative) {
       return LoadCumulativeChart(
