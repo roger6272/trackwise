@@ -30,10 +30,15 @@ class _ExportPageState extends State<ExportPage> {
   DateTime _endDate = DateTime.now();
   ExportAggregationLevel _aggregationLevel = ExportAggregationLevel.daily;
 
-  // FF Colors for consistent styling on light input backgrounds
-  static const Color _inputBackground = Color(0xFFE0E3E7);
-  static const Color _inputText = Color(0xFF14181B);
-  static const Color _inputHint = Color(0xFF57636C);
+  // Theme-aware color getters
+  Color _inputBackground(BuildContext context) =>
+      AppColors.alternate(Theme.of(context).brightness);
+  Color _inputText(BuildContext context) =>
+      AppColors.primaryText(Theme.of(context).brightness);
+  Color _inputHint(BuildContext context) =>
+      AppColors.secondaryText(Theme.of(context).brightness);
+
+  int get _dateRangeDays => _endDate.difference(_startDate).inDays + 1;
 
   @override
   void initState() {
@@ -135,13 +140,10 @@ class _ExportPageState extends State<ExportPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Date Range Section
-                          Text(
-                            'Date Range',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontFamily: 'Inter Tight',
-                              letterSpacing: 0.0,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          _buildSectionHeader(
+                            context: context,
+                            icon: Icons.date_range,
+                            title: 'Date Range',
                           ),
                           const SizedBox(height: 12.0),
                           _buildDateTile(
@@ -157,53 +159,59 @@ class _ExportPageState extends State<ExportPage> {
                             date: _endDate,
                             onTap: () => _selectEndDate(context),
                           ),
+                          const SizedBox(height: 8.0),
+                          Text(
+                            '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontFamily: 'Inter',
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              letterSpacing: 0.0,
+                            ),
+                          ),
                           const SizedBox(height: 24.0),
 
                           // Aggregation Level Section
-                          Text(
-                            'Aggregation Level',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontFamily: 'Inter Tight',
-                              letterSpacing: 0.0,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          _buildSectionHeader(
+                            context: context,
+                            icon: Icons.layers_outlined,
+                            title: 'Aggregation Level',
                           ),
                           const SizedBox(height: 12.0),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: _inputBackground,
-                              borderRadius: BorderRadius.circular(8.0),
-                              border: Border.all(
-                                color: _inputBackground,
-                              ),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<ExportAggregationLevel>(
-                                value: _aggregationLevel,
-                                isExpanded: true,
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                dropdownColor: _inputBackground,
-                                style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 16.0,
-                                  letterSpacing: 0.0,
-                                  color: _inputText,
-                                ),
-                                icon: const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: _inputHint,
-                                ),
-                                items: ExportAggregationLevel.values.map((level) {
-                                  return DropdownMenuItem<ExportAggregationLevel>(
-                                    value: level,
-                                    child: Text(_getAggregationLabel(level)),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() => _aggregationLevel = value);
+                          SizedBox(
+                            width: double.infinity,
+                            child: SegmentedButton<ExportAggregationLevel>(
+                              segments: ExportAggregationLevel.values.map((level) {
+                                return ButtonSegment<ExportAggregationLevel>(
+                                  value: level,
+                                  label: Text(_getAggregationLabel(level)),
+                                );
+                              }).toList(),
+                              selected: {_aggregationLevel},
+                              onSelectionChanged: (selected) {
+                                setState(() => _aggregationLevel = selected.first);
+                              },
+                              showSelectedIcon: false,
+                              style: ButtonStyle(
+                                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                                  if (states.contains(WidgetState.selected)) {
+                                    return AppColors.secondary;
                                   }
-                                },
+                                  return _inputBackground(context);
+                                }),
+                                foregroundColor: WidgetStateProperty.resolveWith((states) {
+                                  if (states.contains(WidgetState.selected)) {
+                                    return Colors.white;
+                                  }
+                                  return _inputText(context);
+                                }),
+                                textStyle: const WidgetStatePropertyAll(
+                                  TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13.0,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -219,13 +227,10 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 24.0),
 
                           // Email Section
-                          Text(
-                            'Email Address',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontFamily: 'Inter Tight',
-                              letterSpacing: 0.0,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          _buildSectionHeader(
+                            context: context,
+                            icon: Icons.email_outlined,
+                            title: 'Email Address',
                           ),
                           const SizedBox(height: 12.0),
                           TextFormField(
@@ -235,22 +240,22 @@ class _ExportPageState extends State<ExportPage> {
                             textInputAction: TextInputAction.done,
                             decoration: InputDecoration(
                               hintText: 'Enter your email address...',
-                              hintStyle: const TextStyle(
+                              hintStyle: TextStyle(
                                 fontFamily: 'Inter',
-                                color: _inputHint,
+                                color: _inputHint(context),
                                 fontSize: 16.0,
                                 letterSpacing: 0.0,
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderSide: const BorderSide(
-                                  color: _inputBackground,
+                                borderSide: BorderSide(
+                                  color: _inputBackground(context),
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                  color: AppColors.primary,
+                                  color: AppColors.primaryAdaptive(Theme.of(context).brightness),
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(8.0),
@@ -270,17 +275,17 @@ class _ExportPageState extends State<ExportPage> {
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               filled: true,
-                              fillColor: _inputBackground,
+                              fillColor: _inputBackground(context),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16.0,
                                 vertical: 12.0,
                               ),
                             ),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 16.0,
                               letterSpacing: 0.0,
-                              color: _inputText,
+                              color: _inputText(context),
                             ),
                             validator: _validateEmail,
                           ),
@@ -298,46 +303,50 @@ class _ExportPageState extends State<ExportPage> {
                           // Export Button
                           Builder(
                             builder: (blocContext) => SizedBox(
-                            width: double.infinity,
-                            height: 52.0,
-                            child: ElevatedButton(
-                              onPressed: isLoading ? null : () => _handleExport(blocContext),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8.0),
+                              width: double.infinity,
+                              height: 52.0,
+                              child: ElevatedButton.icon(
+                                onPressed: isLoading ? null : () => _handleExport(blocContext),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: _inputBackground(context),
+                                  disabledForegroundColor: _inputHint(context),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                isLoading ? 'Exporting...' : 'Export to Email',
-                                style: const TextStyle(
-                                  fontFamily: 'Inter Tight',
-                                  fontSize: 16.0,
-                                  fontWeight: FontWeight.w600,
+                                icon: isLoading
+                                    ? const SizedBox(
+                                        width: 20.0,
+                                        height: 20.0,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.0,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.send_rounded, size: 20.0),
+                                label: Text(
+                                  isLoading ? 'Exporting...' : 'Export to Email',
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter Tight',
+                                    fontSize: 16.0,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                          ),
                           if (isLoading) ...[
                             const SizedBox(height: 16.0),
                             Center(
-                              child: Column(
-                                children: [
-                                  CircularProgressIndicator(
-                                    color: AppColors.primary,
-                                  ),
-                                  const SizedBox(height: 12.0),
-                                  Text(
-                                    'Generating and sending export...',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      fontFamily: 'Inter',
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                      letterSpacing: 0.0,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                'Generating and sending export...',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'Inter',
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  letterSpacing: 0.0,
+                                ),
                               ),
                             ),
                           ],
@@ -354,6 +363,31 @@ class _ExportPageState extends State<ExportPage> {
     );
   }
 
+  Widget _buildSectionHeader({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20.0,
+          color: AppColors.primaryAdaptive(Theme.of(context).brightness),
+        ),
+        const SizedBox(width: 8.0),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontFamily: 'Inter Tight',
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDateTile({
     required BuildContext context,
     required String label,
@@ -366,7 +400,7 @@ class _ExportPageState extends State<ExportPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         decoration: BoxDecoration(
-          color: _inputBackground,
+          color: _inputBackground(context),
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: Row(
@@ -377,9 +411,9 @@ class _ExportPageState extends State<ExportPage> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
-                      color: _inputHint,
+                      color: _inputHint(context),
                       fontSize: 12.0,
                       letterSpacing: 0.0,
                     ),
@@ -387,19 +421,19 @@ class _ExportPageState extends State<ExportPage> {
                   const SizedBox(height: 4.0),
                   Text(
                     _formatDate(date),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 16.0,
                       letterSpacing: 0.0,
-                      color: _inputText,
+                      color: _inputText(context),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.calendar_today,
-              color: _inputHint,
+              color: _inputHint(context),
               size: 24.0,
             ),
           ],

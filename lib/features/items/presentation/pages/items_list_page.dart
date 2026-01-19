@@ -511,35 +511,35 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           ? (isDark ? const Color(0xFFB8B4FF) : _activateActionColor)
                           : primaryText;
                       return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Accent bar
-                          Container(
-                            width: 3.0,
-                            height: 24.0,
-                            decoration: BoxDecoration(
-                              color: accentColor,
-                              borderRadius: BorderRadius.circular(1.5),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Accent bar
+                            Container(
+                              width: 3.0,
+                              height: 24.0,
+                              decoration: BoxDecoration(
+                                color: accentColor,
+                                borderRadius: BorderRadius.circular(1.5),
+                              ),
                             ),
-                          ),
-                          // Count (centered between bar and chevron)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4.0),
-                            child: SizedBox(
-                              width: 72.0,  // Fixed width for alignment
-                              child: Text(
-                                _countFormat.format(displayCount),
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
-                                  color: textColor,
-                                  fontSize: 18.0,
-                                  fontWeight: FontWeight.w600,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
+                            // Count (centered between bar and chevron)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4.0),
+                              child: SizedBox(
+                                width: 72.0,  // Fixed width for alignment
+                                child: Text(
+                                  _countFormat.format(displayCount),
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    color: textColor,
+                                    fontSize: 18.0,
+                                    fontWeight: FontWeight.w600,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
                       );
                     },
                   ),

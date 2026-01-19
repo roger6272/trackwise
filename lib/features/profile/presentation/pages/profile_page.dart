@@ -54,14 +54,6 @@ class _ProfilePageState extends State<ProfilePage> {
         appBar: AppBar(
           backgroundColor: primaryBackground,
           automaticallyImplyLeading: false,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: primaryText,
-              size: 30.0,
-            ),
-            onPressed: () => context.pop(),
-          ),
           title: Text(
             'Profile',
             style: GoogleFonts.interTight(
@@ -295,6 +287,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
+    final primaryColor = AppColors.primaryAdaptive(brightness);
 
     return InkWell(
       onTap: onTap,
@@ -313,14 +306,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   Icon(
                     icon,
-                    color: isPrimary ? _primary : primaryText,
+                    color: isPrimary ? primaryColor : primaryText,
                     size: 24.0,
                   ),
                   const SizedBox(width: 12.0),
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      color: isPrimary ? _primary : primaryText,
+                      color: isPrimary ? primaryColor : primaryText,
                       fontSize: 16.0,
                     ),
                   ),
