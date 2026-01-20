@@ -256,7 +256,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                     ),
                     const SizedBox(width: 6.0),
                     Text(
-                      'Tap to connect device',
+                      'Connect to restore items',
                       style: GoogleFonts.inter(
                         color: secondaryText,
                         fontSize: 12.0,
