@@ -53,7 +53,7 @@ class StaticHeader extends StatelessWidget {
         children: [
           // Goal ring with current count (no container)
           _buildGoalRing(context, primary, primaryText, secondaryText),
-          const SizedBox(height: 16.0),
+          const SizedBox(height: 20.0),
           // Item stats row (in card, matching Activity/Statistics styling)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
@@ -119,7 +119,7 @@ class StaticHeader extends StatelessWidget {
                     progress: hasGoal ? progressFraction : 0.0,
                     ringColor: ringColor,
                     backgroundColor: secondaryText.withValues(alpha: 0.1),
-                    strokeWidth: 12.0,
+                    strokeWidth: 14.0,
                     hasGoal: hasGoal,
                   ),
                 ),

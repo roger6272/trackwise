@@ -16,6 +16,7 @@ import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
 import '../widgets/item_detail/filter_section.dart';
+import '../widgets/item_detail/period_stats_section.dart';
 import '../widgets/item_detail/shimmer_skeletons.dart';
 import '../widgets/item_detail/static_header.dart';
 import '../widgets/item_detail/stats_section.dart';
@@ -319,24 +320,39 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       reminderValue: _reminderValue,
                     ),
                   ),
+                  // Gap between static header and filtered zone
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 24.0),
+                  ),
                   // Sticky Filter Section (part of filtered zone)
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _StickyFilterHeaderDelegate(
                       backgroundColor: brightness == Brightness.light
                           ? const Color(0xFFF8F9FB)
-                          : primaryText.withValues(alpha: 0.03),
+                          : primaryText.withValues(alpha: 0.08),
                       child: Container(
                         decoration: BoxDecoration(
                           color: brightness == Brightness.light
                               ? const Color(0xFFF8F9FB)
-                              : primaryText.withValues(alpha: 0.03),
+                              : primaryText.withValues(alpha: 0.08),
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(24.0),
                             topRight: Radius.circular(24.0),
                           ),
+                          boxShadow: [
+                            // Top shadow to separate from header section
+                            BoxShadow(
+                              color: brightness == Brightness.light
+                                  ? Colors.black.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.4),
+                              blurRadius: 12.0,
+                              offset: const Offset(0, -6),
+                              spreadRadius: 0,
+                            ),
+                          ],
                         ),
-                        padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
+                        padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 8.0),
                         child: FilterSection(
                           intervals: _intervals,
                           selectedInterval: _selectedInterval ?? -1,
@@ -344,8 +360,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               _onIntervalSelected(interval, context),
                         ),
                       ),
-                      maxHeight: 68.0,
-                      minHeight: 68.0,
+                      maxHeight: 100.0,
+                      minHeight: 100.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
@@ -354,7 +370,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     child: Container(
                       color: brightness == Brightness.light
                           ? const Color(0xFFF8F9FB)
-                          : primaryText.withValues(alpha: 0.03),
+                          : primaryText.withValues(alpha: 0.08),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 24.0),
                         child: BlocBuilder<EventsBloc, EventsState>(
@@ -375,6 +391,36 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                     ? _filterEventsByInterval(eventsState.events)
                                     : <EventLog>[];
                                 final stats = _calculateStats(filteredEvents);
+                                // Get the selected interval data for period stats
+                                // For "All Time" (-1), use the first interval which is the Total row
+                                // For specific intervals, find the matching one
+                                final selectedIntervalData = _intervals.isNotEmpty
+                                    ? _intervals.firstWhere(
+                                        (i) => i.intervalNumber == (_selectedInterval ?? -1),
+                                        orElse: () => _intervals.first,
+                                      )
+                                    : null;
+
+                                // Compute display label for selected period
+                                String periodLabel = 'All Time';
+                                if (selectedIntervalData != null &&
+                                    selectedIntervalData.intervalNumber >= 0) {
+                                  final individualIntervals = _intervals
+                                      .where((i) => i.intervalNumber >= 0)
+                                      .toList();
+                                  final index = individualIntervals.indexWhere(
+                                    (i) => i.intervalNumber == selectedIntervalData.intervalNumber,
+                                  );
+                                  final totalPeriods = individualIntervals.length;
+                                  if (index == 0) {
+                                    periodLabel = 'Current Period';
+                                  } else if (index == 1) {
+                                    periodLabel = 'Previous Period';
+                                  } else {
+                                    periodLabel = 'Period ${totalPeriods - index}';
+                                  }
+                                }
+
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -390,18 +436,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         ),
                                       ),
                                     ),
-                                    // Activity sub-header
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
-                                      child: Text(
-                                        'Activity',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 13.0,
-                                          fontWeight: FontWeight.w500,
-                                          color: secondaryText,
-                                        ),
+                                    // Period Stats Section (high-level summary)
+                                    // Always shown for consistent layout, adapts content to selection
+                                    if (selectedIntervalData != null) ...[
+                                      PeriodStatsSection(
+                                        interval: selectedIntervalData,
+                                        periodLabel: periodLabel,
                                       ),
-                                    ),
+                                      const SizedBox(height: 16.0),
+                                    ],
                                     // Chart Section
                                     Container(
                                       decoration: BoxDecoration(

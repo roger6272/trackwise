@@ -112,7 +112,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
             centerTitle: true,
-            elevation: 2.0,
+            elevation: 0.0,
             actions: [
               TextButton(
                 onPressed: _hasChanges && !_isSaving ? _saveProfile : null,

@@ -144,7 +144,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   ),
                 ),
                 centerTitle: true,
-                elevation: 2.0,
+                elevation: 0.0,
                 actions: [
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),

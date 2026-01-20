@@ -68,6 +68,20 @@ class ChartSection extends StatelessWidget {
   static const Color _negativeColor = Color(0xFF9F0202);
   static const Color _neutralColor = Color(0xFF6B7280);
 
+  /// Get the chart window label based on range.
+  String _getWindowLabel() {
+    switch (range) {
+      case '1D':
+        return 'Today';
+      case '7D':
+        return 'Last 7 Days';
+      case '30D':
+        return 'Last 30 Days';
+      default:
+        return 'Activity';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
@@ -78,13 +92,37 @@ class ChartSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Section header (inside card) - matches PeriodStatsSection layout
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 16.0),
+          child: Row(
+            children: [
+              Icon(
+                Icons.bar_chart_rounded,
+                size: 16.0,
+                color: primary,
+              ),
+              const SizedBox(width: 6.0),
+              Text(
+                _getWindowLabel(),
+                style: GoogleFonts.inter(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w600,
+                  color: secondaryText,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
         // Chart controls (aggregation + date picker)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: _buildChartControls(context, primary, secondaryText, alternate),
         ),
         const SizedBox(height: 12.0),
-        _buildChartHeader(context, primary),
+        _buildChartHeader(context, primary, alternate),
         const SizedBox(height: 8.0),
         _buildChartArea(context, primary),
       ],
@@ -100,32 +138,54 @@ class ChartSection extends StatelessWidget {
   ) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    // Filter control background - blue tint to distinguish from content
+    final baseBackground = Color.lerp(alternate, primaryBackground, 0.5)!;
+    final controlBackground = Color.lerp(baseBackground, primary, 0.12)!;
 
     return Row(
       children: [
-        // Aggregation pills (1/3 width)
+        // Aggregation pills (45% width)
         Expanded(
-          flex: 1,
-          child: _buildAggregationPills(primary, alternate, secondaryText),
+          flex: 45,
+          child: _buildAggregationPills(
+            primary,
+            controlBackground,
+            secondaryText,
+          ),
         ),
-        const SizedBox(width: 10.0),
-        // Date picker (2/3 width)
+        const SizedBox(width: 8.0),
+        // Date picker (55% width)
         Expanded(
-          flex: 2,
-          child: _buildDatePicker(context, primary, primaryText, secondaryText, alternate),
+          flex: 55,
+          child: _buildDatePicker(
+            context,
+            primary,
+            primaryText,
+            secondaryText,
+            controlBackground,
+          ),
         ),
       ],
     );
   }
 
   /// Builds the aggregation period pills (1D, 7D, 30D).
-  Widget _buildAggregationPills(Color primary, Color alternate, Color secondaryText) {
+  Widget _buildAggregationPills(
+    Color primary,
+    Color background,
+    Color secondaryText,
+  ) {
     const periods = ['1D', '7D', '30D'];
 
     return Container(
       decoration: BoxDecoration(
-        color: alternate,
+        color: background,
         borderRadius: BorderRadius.circular(10.0),
+        border: Border.all(
+          color: secondaryText.withValues(alpha: 0.12),
+          width: 1.0,
+        ),
       ),
       padding: const EdgeInsets.all(3.0),
       child: Row(
@@ -140,12 +200,12 @@ class ChartSection extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 decoration: BoxDecoration(
                   color: isSelected ? primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8.0),
+                  borderRadius: BorderRadius.circular(7.0),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
                             color: primary.withValues(alpha: 0.3),
-                            blurRadius: 8.0,
+                            blurRadius: 6.0,
                             offset: const Offset(0, 2),
                           ),
                         ]
@@ -155,7 +215,7 @@ class ChartSection extends StatelessWidget {
                   child: Text(
                     period,
                     style: GoogleFonts.inter(
-                      fontSize: 13.0,
+                      fontSize: 12.0,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? Colors.white : secondaryText,
                     ),
@@ -175,7 +235,7 @@ class ChartSection extends StatelessWidget {
     Color primary,
     Color primaryText,
     Color secondaryText,
-    Color alternate,
+    Color background,
   ) {
     final dateFormat = DateFormat('EEE, MMM d');
     final isToday = _isToday(selectedDate);
@@ -183,8 +243,12 @@ class ChartSection extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: alternate,
+        color: background,
         borderRadius: BorderRadius.circular(10.0),
+        border: Border.all(
+          color: secondaryText.withValues(alpha: 0.12),
+          width: 1.0,
+        ),
       ),
       padding: const EdgeInsets.all(3.0),
       child: Row(
@@ -196,10 +260,10 @@ class ChartSection extends StatelessWidget {
             ),
             behavior: HitTestBehavior.opaque,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6.0),
               decoration: BoxDecoration(
-                color: primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8.0),
+                color: primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6.0),
               ),
               child: Icon(
                 Icons.chevron_left_rounded,
@@ -214,7 +278,7 @@ class ChartSection extends StatelessWidget {
               onTap: () => _showDatePickerBottomSheet(context),
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -231,18 +295,21 @@ class ChartSection extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          isToday ? 'Today' : dateFormat.format(selectedDate),
-                          style: GoogleFonts.interTight(
-                            fontSize: 13.0,
-                            fontWeight: FontWeight.w600,
-                            color: primaryText,
+                        Flexible(
+                          child: Text(
+                            isToday ? 'Today' : dateFormat.format(selectedDate),
+                            style: GoogleFonts.interTight(
+                              fontSize: 12.0,
+                              fontWeight: FontWeight.w600,
+                              color: primaryText,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 2.0),
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          size: 16.0,
+                          size: 14.0,
                           color: secondaryText,
                         ),
                       ],
@@ -261,12 +328,12 @@ class ChartSection extends StatelessWidget {
                 : null,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6.0),
               decoration: BoxDecoration(
                 color: canGoForward
-                    ? primary.withValues(alpha: 0.08)
+                    ? primary.withValues(alpha: 0.1)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(8.0),
+                borderRadius: BorderRadius.circular(6.0),
               ),
               child: Icon(
                 Icons.chevron_right_rounded,
@@ -427,10 +494,9 @@ class ChartSection extends StatelessWidget {
   }
 
   /// Builds the chart header with hero stat, trend, and toggle.
-  Widget _buildChartHeader(BuildContext context, Color primary) {
+  Widget _buildChartHeader(BuildContext context, Color primary, Color alternate) {
     final brightness = Theme.of(context).brightness;
     final secondaryText = AppColors.secondaryText(brightness);
-    final alternate = AppColors.alternate(brightness);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),

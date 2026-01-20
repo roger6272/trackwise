@@ -146,6 +146,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<BluetoothDevice> connect(String deviceId) async {
+    // Stop any ongoing scan before connecting (helps avoid GATT 133 errors)
+    if (FlutterBluePlus.isScanningNow) {
+      await FlutterBluePlus.stopScan();
+      // Brief delay to let the BLE stack settle
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
     // Disconnect from any existing connection
     if (_connectedDevice != null) {
       await disconnect(_connectedDevice!.remoteId.str);
@@ -153,11 +160,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
     final device = BluetoothDevice.fromId(deviceId);
 
-    await device.connect(
-      license: License.free,
-      timeout: const Duration(seconds: BluetoothConstants.connectionTimeoutSeconds),
-      autoConnect: false,
-    );
+    // Retry connection with exponential backoff for GATT 133 errors
+    await _connectWithRetry(device, maxRetries: 3);
 
     _connectedDevice = device;
     _connectedDeviceModel = BleDeviceModel.fromBluetoothDevice(device);
@@ -212,6 +216,52 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // to ensure characteristics are cached before any code reacts to "connected"
 
     return device;
+  }
+
+  /// Connects to a BLE device with automatic retry on failure.
+  ///
+  /// Handles common Android GATT errors (especially 133) by retrying
+  /// with exponential backoff: 500ms, 1000ms, 2000ms.
+  Future<void> _connectWithRetry(
+    BluetoothDevice device, {
+    int maxRetries = 3,
+  }) async {
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await device.connect(
+          license: License.free,
+          timeout: const Duration(seconds: BluetoothConstants.connectionTimeoutSeconds),
+          autoConnect: false,
+        );
+        return; // Success
+      } catch (e) {
+        final isLastAttempt = attempt == maxRetries;
+        final errorStr = e.toString();
+
+        // Check if it's a GATT 133 or similar transient error worth retrying
+        final isRetryableError = errorStr.contains('133') ||
+            errorStr.contains('GATT') ||
+            errorStr.contains('ANDROID_SPECIFIC_ERROR');
+
+        if (isLastAttempt || !isRetryableError) {
+          debugPrint('❌ BLE connect failed after ${attempt + 1} attempt(s): $e');
+          rethrow;
+        }
+
+        // Exponential backoff: 500ms, 1000ms, 2000ms
+        final delay = Duration(milliseconds: 500 * (1 << attempt));
+        debugPrint('⚠️ BLE connect failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        await Future.delayed(delay);
+
+        // Try to clear BLE stack state before retry
+        try {
+          await device.disconnect();
+        } catch (_) {
+          // Ignore disconnect errors during retry cleanup
+        }
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
   }
 
   @override

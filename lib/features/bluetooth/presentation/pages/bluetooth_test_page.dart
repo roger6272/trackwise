@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
@@ -372,9 +373,14 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: primaryBackground,
         title: const Text('Bluetooth Hardware Test'),
+        elevation: 0.0,
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline),

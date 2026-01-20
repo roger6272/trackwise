@@ -40,18 +40,21 @@ class IntervalOption {
   }
 
   /// Create from IntervalData.
+  ///
+  /// [displayNumber] is the user-facing period number (descending order).
   factory IntervalOption.fromIntervalData(
-    IntervalData data,
-    bool isCurrent,
-    bool isPrevious,
-  ) {
+    IntervalData data, {
+    required bool isCurrent,
+    required bool isPrevious,
+    required int displayNumber,
+  }) {
     String label;
     if (isCurrent) {
-      label = 'Current';
+      label = 'Current Period';
     } else if (isPrevious) {
-      label = 'Previous';
+      label = 'Previous Period';
     } else {
-      label = '#${data.intervalNumber}';
+      label = 'Period $displayNumber';
     }
     return IntervalOption(
       intervalNumber: data.intervalNumber,
@@ -100,14 +103,23 @@ class IntervalDropdown extends StatelessWidget {
     ));
 
     // Add individual intervals (skip total row)
+    // Intervals are already sorted most recent first
     final individualIntervals =
         intervals.where((i) => i.intervalNumber >= 0).toList();
+    final totalPeriods = individualIntervals.length;
 
     for (int i = 0; i < individualIntervals.length; i++) {
       final interval = individualIntervals[i];
       final isCurrent = i == 0; // First one is most recent (current)
       final isPrevious = i == 1; // Second one is previous
-      options.add(IntervalOption.fromIntervalData(interval, isCurrent, isPrevious));
+      // Display number: descending from total (e.g., 5, 4, 3, 2, 1)
+      final displayNumber = totalPeriods - i;
+      options.add(IntervalOption.fromIntervalData(
+        interval,
+        isCurrent: isCurrent,
+        isPrevious: isPrevious,
+        displayNumber: displayNumber,
+      ));
     }
 
     return options;
@@ -119,7 +131,11 @@ class IntervalDropdown extends StatelessWidget {
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
+    final primaryBackground = AppColors.primaryBackground(brightness);
     final primary = AppColors.primaryAdaptive(brightness);
+    // Filter control background - blue tint to distinguish from content
+    final baseBackground = Color.lerp(alternate, primaryBackground, 0.5)!;
+    final controlBackground = Color.lerp(baseBackground, primary, 0.12)!;
 
     // Find selected option
     final selectedOption = options.firstWhere(
@@ -129,10 +145,10 @@ class IntervalDropdown extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: alternate,
+        color: controlBackground,
         borderRadius: BorderRadius.circular(10.0),
         border: Border.all(
-          color: primaryText.withValues(alpha: 0.08),
+          color: secondaryText.withValues(alpha: 0.12),
           width: 1.0,
         ),
       ),
@@ -223,47 +239,16 @@ class IntervalDropdown extends StatelessWidget {
         Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
     final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
 
-    // Calculate menu height (header + max 5 items visible)
-    const headerHeight = 36.0;
+    // Calculate menu height (max 5 items visible)
     const itemHeight = 48.0;
     const maxVisibleItems = 5;
-    final menuHeight = headerHeight +
-        (options.length > maxVisibleItems
+    final menuHeight = (options.length > maxVisibleItems
             ? maxVisibleItems * itemHeight
             : options.length * itemHeight) +
         16.0; // padding
 
-    // Build menu items with header
+    // Build menu items
     final menuItems = <PopupMenuEntry<int>>[
-      // Header (non-selectable)
-      _DropdownHeader(
-        height: headerHeight,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 4.0),
-          child: Row(
-            children: [
-              Text(
-                'Filter by Reset Period',
-                style: GoogleFonts.inter(
-                  fontSize: 11.0,
-                  fontWeight: FontWeight.w600,
-                  color: secondaryText,
-                  letterSpacing: 0.3,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Count',
-                style: GoogleFonts.inter(
-                  fontSize: 10.0,
-                  fontWeight: FontWeight.w500,
-                  color: secondaryText.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
       // Period options
       ...options.map((option) {
         final isSelected = option.intervalNumber == selectedInterval;

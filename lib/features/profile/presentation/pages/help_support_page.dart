@@ -93,7 +93,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           ),
         ),
         centerTitle: true,
-        elevation: 2.0,
+        elevation: 0.0,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

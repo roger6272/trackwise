@@ -155,7 +155,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                 ),
               ),
               centerTitle: true,
-              elevation: 2.0,
+              elevation: 0.0,
             ),
             body: SafeArea(
               top: true,

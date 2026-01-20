@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
+import '../../../../core/theme/app_colors.dart';
+
 class PrivacyPolicyPage extends StatelessWidget {
   const PrivacyPolicyPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: primaryBackground,
         title: const Text('Privacy Policy'),
+        elevation: 0.0,
       ),
       body: FutureBuilder<String>(
         future: rootBundle.loadString('assets/privacy_policy.md'),

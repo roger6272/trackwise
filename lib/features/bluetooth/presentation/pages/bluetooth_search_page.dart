@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/ble_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
@@ -35,11 +37,24 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Find Device'),
+        backgroundColor: primaryBackground,
+        title: Text(
+          'Find Device',
+          style: GoogleFonts.interTight(
+            color: primaryText,
+            fontWeight: FontWeight.w600,
+            fontSize: 22.0,
+          ),
+        ),
+        elevation: 0.0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: primaryText),
           onPressed: () => context.pop(),
         ),
       ),

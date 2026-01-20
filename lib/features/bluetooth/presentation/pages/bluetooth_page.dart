@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
@@ -36,10 +38,23 @@ class _BluetoothPageState extends State<BluetoothPage> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bluetooth'),
+        backgroundColor: primaryBackground,
+        title: Text(
+          'Bluetooth',
+          style: GoogleFonts.interTight(
+            color: primaryText,
+            fontWeight: FontWeight.w600,
+            fontSize: 22.0,
+          ),
+        ),
         automaticallyImplyLeading: false,
+        elevation: 0.0,
       ),
       body: BlocBuilder<BluetoothBloc, BluetoothState>(
         builder: (context, state) {

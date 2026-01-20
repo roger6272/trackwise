@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../items/presentation/bloc/items_bloc.dart';
 import '../../../items/presentation/bloc/items_state.dart';
 import '../bloc/bluetooth_bloc.dart';
@@ -23,9 +24,14 @@ class DeviceManagementPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: primaryBackground,
         title: const Text('Device Manager'),
+        elevation: 0.0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),

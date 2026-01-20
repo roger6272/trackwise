@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/utils/interval_calculator.dart';
 import 'interval_dropdown.dart';
 
@@ -26,10 +28,33 @@ class FilterSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IntervalDropdown(
-      options: IntervalDropdown.buildOptions(intervals),
-      selectedInterval: selectedInterval,
-      onChanged: onIntervalChanged,
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // External label
+        Padding(
+          padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+          child: Text(
+            'Filter by Reset Period',
+            style: GoogleFonts.inter(
+              fontSize: 12.0,
+              fontWeight: FontWeight.w600,
+              color: secondaryText,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+        // Dropdown
+        IntervalDropdown(
+          options: IntervalDropdown.buildOptions(intervals),
+          selectedInterval: selectedInterval,
+          onChanged: onIntervalChanged,
+        ),
+      ],
     );
   }
 }
