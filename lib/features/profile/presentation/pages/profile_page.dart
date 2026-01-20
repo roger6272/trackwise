@@ -124,13 +124,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildDivider(context),
                         _buildSettingItem(
                           context,
-                          icon: Icons.notifications_outlined,
-                          title: 'Notifications',
-                          onTap: () {},
-                        ),
-                        _buildDivider(context),
-                        _buildSettingItem(
-                          context,
                           icon: Icons.lock_outline,
                           title: 'Privacy & Security',
                           onTap: () => _showPrivacyPolicy(context),
@@ -154,13 +147,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           icon: Icons.delete_outline,
                           title: 'Recently Deleted',
                           onTap: () => context.push('/profile/deleted-items'),
-                        ),
-                        _buildDivider(context),
-                        _buildSettingItem(
-                          context,
-                          icon: Icons.backup_outlined,
-                          title: 'Backup Settings',
-                          onTap: () {},
                         ),
                       ]),
                       const SizedBox(height: 24.0),
