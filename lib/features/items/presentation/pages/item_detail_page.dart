@@ -331,12 +331,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     delegate: _StickyFilterHeaderDelegate(
                       backgroundColor: brightness == Brightness.light
                           ? const Color(0xFFF8F9FB)
-                          : primaryText.withValues(alpha: 0.08),
+                          : const Color(0xFF1C1C1E),
                       child: Container(
                         decoration: BoxDecoration(
                           color: brightness == Brightness.light
                               ? const Color(0xFFF8F9FB)
-                              : primaryText.withValues(alpha: 0.08),
+                              : const Color(0xFF1C1C1E),
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(24.0),
                             topRight: Radius.circular(24.0),
@@ -371,7 +371,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     child: Container(
                       color: brightness == Brightness.light
                           ? const Color(0xFFF8F9FB)
-                          : primaryText.withValues(alpha: 0.08),
+                          : const Color(0xFF1C1C1E),
                       child: Column(
                         children: [
                           // Divider between filter and content
