@@ -34,6 +34,12 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
       },
       (items) {
         debugPrint('🗑️ DeletedItemsBloc: Loaded ${items.length} deleted items');
+        // Sort by deletedAt descending (most recently deleted first)
+        items.sort((a, b) {
+          final aDeleted = a.deletedAt ?? DateTime(1970);
+          final bDeleted = b.deletedAt ?? DateTime(1970);
+          return bDeleted.compareTo(aDeleted);
+        });
         _currentItems = items;
         emit(DeletedItemsLoaded(items: items));
       },
