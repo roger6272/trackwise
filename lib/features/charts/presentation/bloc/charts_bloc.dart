@@ -53,6 +53,7 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
         aggregationLevel: event.aggregationLevel,
         itemId: event.itemId,
         sinceResetTime: event.sinceResetTime,
+        untilResetTime: event.untilResetTime,
       ),
     );
 
@@ -87,6 +88,7 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
         aggregationLevel: event.aggregationLevel,
         itemId: event.itemId,
         sinceResetTime: event.sinceResetTime,
+        untilResetTime: event.untilResetTime,
       ),
     );
 

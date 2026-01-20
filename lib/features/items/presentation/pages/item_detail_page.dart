@@ -17,6 +17,7 @@ import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
 import '../widgets/item_detail/filter_section.dart';
 import '../widgets/item_detail/period_stats_section.dart';
+import '../widgets/item_detail/periods_table.dart';
 import '../widgets/item_detail/shimmer_skeletons.dart';
 import '../widgets/item_detail/static_header.dart';
 import '../widgets/item_detail/stats_section.dart';
@@ -372,7 +373,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           ? const Color(0xFFF8F9FB)
                           : primaryText.withValues(alpha: 0.08),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 24.0),
+                        padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 24.0),
                         child: BlocBuilder<EventsBloc, EventsState>(
                               builder: (context, eventsState) {
                                 // Show shimmer skeleton while loading
@@ -401,47 +402,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       )
                                     : null;
 
-                                // Compute display label for selected period
-                                String periodLabel = 'All Time';
-                                if (selectedIntervalData != null &&
-                                    selectedIntervalData.intervalNumber >= 0) {
-                                  final individualIntervals = _intervals
-                                      .where((i) => i.intervalNumber >= 0)
-                                      .toList();
-                                  final index = individualIntervals.indexWhere(
-                                    (i) => i.intervalNumber == selectedIntervalData.intervalNumber,
-                                  );
-                                  final totalPeriods = individualIntervals.length;
-                                  if (index == 0) {
-                                    periodLabel = 'Current Period';
-                                  } else if (index == 1) {
-                                    periodLabel = 'Previous Period';
-                                  } else {
-                                    periodLabel = 'Period ${totalPeriods - index}';
-                                  }
-                                }
-
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Results header
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4.0, bottom: 14.0),
-                                      child: Text(
-                                        'Results',
-                                        style: GoogleFonts.interTight(
-                                          fontSize: 16.0,
-                                          fontWeight: FontWeight.w600,
-                                          color: primaryText,
-                                        ),
-                                      ),
-                                    ),
-                                    // Period Stats Section (high-level summary)
-                                    // Always shown for consistent layout, adapts content to selection
+                                    // Summary card (total + time range)
                                     if (selectedIntervalData != null) ...[
                                       PeriodStatsSection(
                                         interval: selectedIntervalData,
-                                        periodLabel: periodLabel,
                                       ),
                                       const SizedBox(height: 16.0),
                                     ],
@@ -484,6 +451,16 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         periodLabel: stats.periodLabel,
                                       ),
                                     ),
+                                    // Periods comparison table
+                                    if (_intervals.isNotEmpty) ...[
+                                      const SizedBox(height: 16.0),
+                                      PeriodsTable(
+                                        intervals: _intervals,
+                                        selectedInterval: _selectedInterval ?? -1,
+                                        onIntervalSelected: (interval) =>
+                                            _onIntervalSelected(interval, context),
+                                      ),
+                                    ],
                                   ],
                                 );
                               },
@@ -545,14 +522,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         ? AggregationLevel.hourly
         : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.daily);
 
-    // Get the interval's start time for filtering (if specific interval selected)
+    // Get the interval's boundaries for filtering (if specific interval selected)
     DateTime? sinceResetTime;
+    DateTime? untilResetTime;
     if (_selectedInterval != null && _selectedInterval! >= 0) {
       final interval = _intervals.firstWhere(
         (i) => i.intervalNumber == _selectedInterval,
         orElse: () => _intervals.first,
       );
       sinceResetTime = interval.startTime;
+      // Only set end time for completed (non-current) intervals
+      if (!interval.isCurrent && interval.endTime != null) {
+        untilResetTime = interval.endTime;
+      }
     }
 
     if (_showCumulative) {
@@ -562,6 +544,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         aggregationLevel: aggregationLevel,
         itemId: widget.itemId,
         sinceResetTime: sinceResetTime,
+        untilResetTime: untilResetTime,
       );
     } else {
       return LoadBarChart(
@@ -570,6 +553,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         aggregationLevel: aggregationLevel,
         itemId: widget.itemId,
         sinceResetTime: sinceResetTime,
+        untilResetTime: untilResetTime,
       );
     }
   }

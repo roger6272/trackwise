@@ -20,8 +20,11 @@ class GetChartDataParams extends Equatable {
   /// Optional item ID to filter events by a specific item.
   final String? itemId;
 
-  /// Optional time to filter events after (for "since last reset" mode).
+  /// Optional time to filter events after (for interval start time).
   final DateTime? sinceResetTime;
+
+  /// Optional time to filter events before (for interval end time).
+  final DateTime? untilResetTime;
 
   const GetChartDataParams({
     required this.startDate,
@@ -29,10 +32,11 @@ class GetChartDataParams extends Equatable {
     this.aggregationLevel = AggregationLevel.daily,
     this.itemId,
     this.sinceResetTime,
+    this.untilResetTime,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime];
 }
 
 /// Use case for generating aggregated chart data from events.
@@ -82,10 +86,18 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
     return eventsResult.fold(
       (failure) => Left(failure),
       (events) {
-        // Filter events after sinceResetTime if provided
-        final filteredEvents = params.sinceResetTime != null
-            ? events.where((e) => e.createdTime.isAfter(params.sinceResetTime!)).toList()
-            : events;
+        // Filter events by interval boundaries if provided
+        var filteredEvents = events;
+        if (params.sinceResetTime != null) {
+          filteredEvents = filteredEvents
+              .where((e) => e.createdTime.isAfter(params.sinceResetTime!))
+              .toList();
+        }
+        if (params.untilResetTime != null) {
+          filteredEvents = filteredEvents
+              .where((e) => e.createdTime.isBefore(params.untilResetTime!))
+              .toList();
+        }
 
         final aggregated = _aggregateEvents(filteredEvents, params.aggregationLevel);
         return Right(ChartData(

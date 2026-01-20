@@ -195,42 +195,19 @@ class IntervalDropdown extends StatelessWidget {
     Color secondaryText,
     Color primary,
   ) {
-    return Row(
-      children: [
-        Text(
-          option.label,
-          style: GoogleFonts.inter(
-            fontSize: 13.0,
-            fontWeight: FontWeight.w600,
-            color: primaryText,
-          ),
-        ),
-        if (option.duration != null) ...[
-          Text(
-            '  ·  ${IntervalCalculator.formatDuration(option.duration!)}',
-            style: GoogleFonts.inter(
-              fontSize: 12.0,
-              fontWeight: FontWeight.w400,
-              color: secondaryText,
-            ),
-          ),
-        ],
-        Text(
-          '  ·  ${option.count}',
-          style: GoogleFonts.inter(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w500,
-            color: primary,
-          ),
-        ),
-      ],
+    return Text(
+      option.label,
+      style: GoogleFonts.inter(
+        fontSize: 13.0,
+        fontWeight: FontWeight.w600,
+        color: primaryText,
+      ),
     );
   }
 
   void _showDropdownMenu(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
-    final secondaryText = AppColors.secondaryText(brightness);
     final primary = AppColors.primaryAdaptive(brightness);
     final primaryBackground = AppColors.primaryBackground(brightness);
 
@@ -278,9 +255,8 @@ class IntervalDropdown extends StatelessWidget {
                   )
                 else
                   const SizedBox(width: 14.0),
-                // Label (fixed width for alignment)
-                SizedBox(
-                  width: 70,
+                // Label only
+                Expanded(
                   child: Text(
                     option.label,
                     style: GoogleFonts.inter(
@@ -288,28 +264,6 @@ class IntervalDropdown extends StatelessWidget {
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? primary : primaryText,
                     ),
-                  ),
-                ),
-                // Duration
-                Expanded(
-                  child: Text(
-                    option.duration != null
-                        ? IntervalCalculator.formatDuration(option.duration!)
-                        : '',
-                    style: GoogleFonts.inter(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.w400,
-                      color: secondaryText,
-                    ),
-                  ),
-                ),
-                // Count
-                Text(
-                  '${option.count}',
-                  style: GoogleFonts.interTight(
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? primary : primaryText,
                   ),
                 ),
                 // Check mark for selected

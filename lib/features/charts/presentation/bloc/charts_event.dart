@@ -34,8 +34,11 @@ class LoadBarChart extends ChartsEvent {
   /// Optional item ID to filter chart data to a specific item.
   final String? itemId;
 
-  /// Optional time to filter events after (for "since last reset" mode).
+  /// Optional time to filter events after (for interval start time).
   final DateTime? sinceResetTime;
+
+  /// Optional time to filter events before (for interval end time).
+  final DateTime? untilResetTime;
 
   const LoadBarChart({
     required this.startDate,
@@ -43,10 +46,11 @@ class LoadBarChart extends ChartsEvent {
     this.aggregationLevel = AggregationLevel.daily,
     this.itemId,
     this.sinceResetTime,
+    this.untilResetTime,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime];
 }
 
 /// Event to load cumulative chart data.
@@ -70,8 +74,11 @@ class LoadCumulativeChart extends ChartsEvent {
   /// Optional item ID to filter cumulative data to a specific item.
   final String? itemId;
 
-  /// Optional time to filter events after (for "since last reset" mode).
+  /// Optional time to filter events after (for interval start time).
   final DateTime? sinceResetTime;
+
+  /// Optional time to filter events before (for interval end time).
+  final DateTime? untilResetTime;
 
   const LoadCumulativeChart({
     required this.startDate,
@@ -79,10 +86,11 @@ class LoadCumulativeChart extends ChartsEvent {
     this.aggregationLevel = AggregationLevel.daily,
     this.itemId,
     this.sinceResetTime,
+    this.untilResetTime,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime];
 }
 
 /// Event to change the date range.

@@ -61,10 +61,18 @@ class GetCumulativeChartDataUseCase
     return eventsResult.fold(
       (failure) => Left(failure),
       (events) {
-        // Filter events after sinceResetTime if provided
-        final filteredEvents = params.sinceResetTime != null
-            ? events.where((e) => e.createdTime.isAfter(params.sinceResetTime!)).toList()
-            : events;
+        // Filter events by interval boundaries if provided
+        var filteredEvents = events;
+        if (params.sinceResetTime != null) {
+          filteredEvents = filteredEvents
+              .where((e) => e.createdTime.isAfter(params.sinceResetTime!))
+              .toList();
+        }
+        if (params.untilResetTime != null) {
+          filteredEvents = filteredEvents
+              .where((e) => e.createdTime.isBefore(params.untilResetTime!))
+              .toList();
+        }
 
         final cumulative = _calculateCumulative(filteredEvents, params.aggregationLevel);
         return Right(ChartData(
