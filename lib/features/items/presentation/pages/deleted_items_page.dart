@@ -235,35 +235,37 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
           ),
           if (!isConnected) ...[
             const SizedBox(height: 8.0),
-            GestureDetector(
-              onTap: () => context.go('/bluetooth'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
-                decoration: BoxDecoration(
-                  color: secondaryText.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20.0),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.bluetooth_disabled_rounded,
-                      size: 14.0,
-                      color: secondaryText,
-                    ),
-                    const SizedBox(width: 6.0),
-                    Text(
-                      'Connect to restore items',
-                      style: GoogleFonts.inter(
+            Center(
+              child: GestureDetector(
+                onTap: () => context.go('/bluetooth'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  decoration: BoxDecoration(
+                    color: secondaryText.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.bluetooth_disabled_rounded,
+                        size: 14.0,
                         color: secondaryText,
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.w500,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6.0),
+                      Text(
+                        'Connect to restore items',
+                        style: GoogleFonts.inter(
+                          color: secondaryText,
+                          fontSize: 12.0,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
