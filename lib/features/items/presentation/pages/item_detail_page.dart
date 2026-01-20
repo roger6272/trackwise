@@ -438,24 +438,34 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 // Get the selected interval data for period stats
                                 // For "All Time" (-1), use the first interval which is the Total row
                                 // For specific intervals, find the matching one
+                                // Create fallback for newly created items with no events
+                                final fallbackInterval = IntervalData(
+                                  intervalNumber: -1,
+                                  count: 0,
+                                  startTime: widget.lastResetTime ?? DateTime.now(),
+                                  endTime: null,
+                                );
                                 final selectedIntervalData = _intervals.isNotEmpty
                                     ? _intervals.firstWhere(
                                         (i) => i.intervalNumber == (_selectedInterval ?? -1),
                                         orElse: () => _intervals.first,
                                       )
-                                    : null;
+                                    : fallbackInterval;
+
+                                // Use intervals or create fallback list for table
+                                final displayIntervals = _intervals.isNotEmpty
+                                    ? _intervals
+                                    : [fallbackInterval];
 
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     // Summary card (total + time range)
-                                    if (selectedIntervalData != null) ...[
-                                      PeriodStatsSection(
-                                        interval: selectedIntervalData,
-                                        initialCount: widget.initialCount ?? 0,
-                                      ),
-                                      const SizedBox(height: 16.0),
-                                    ],
+                                    PeriodStatsSection(
+                                      interval: selectedIntervalData,
+                                      initialCount: widget.initialCount ?? 0,
+                                    ),
+                                    const SizedBox(height: 16.0),
                                     // Chart Section
                                     Container(
                                       decoration: BoxDecoration(
@@ -496,16 +506,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       ),
                                     ),
                                     // Periods comparison table
-                                    if (_intervals.isNotEmpty) ...[
-                                      const SizedBox(height: 16.0),
-                                      PeriodsTable(
-                                        intervals: _intervals,
-                                        selectedInterval: _selectedInterval ?? -1,
-                                        onIntervalSelected: (interval) =>
-                                            _onIntervalSelected(interval, context),
-                                        initialCount: widget.initialCount ?? 0,
-                                      ),
-                                    ],
+                                    const SizedBox(height: 16.0),
+                                    PeriodsTable(
+                                      intervals: displayIntervals,
+                                      selectedInterval: _selectedInterval ?? -1,
+                                      onIntervalSelected: (interval) =>
+                                          _onIntervalSelected(interval, context),
+                                      initialCount: widget.initialCount ?? 0,
+                                    ),
                                   ],
                                 );
                               },
