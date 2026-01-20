@@ -9,15 +9,25 @@ import '../../../domain/utils/interval_calculator.dart';
 ///
 /// Shows:
 /// - Total count (hero stat)
+/// - For All Time & Period 1: includes initial value with breakdown shown
 /// - Time range stacked vertically (precise to minute)
 class PeriodStatsSection extends StatelessWidget {
   /// The selected interval data.
   final IntervalData interval;
 
+  /// Initial count when the item was created.
+  /// Used to show breakdown for All Time and Period 1.
+  final int initialCount;
+
   const PeriodStatsSection({
     super.key,
     required this.interval,
+    this.initialCount = 0,
   });
+
+  /// Whether to show initial value breakdown (All Time or Period 1).
+  bool get _showInitialBreakdown =>
+      initialCount > 0 && (interval.intervalNumber == -1 || interval.intervalNumber == 0);
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +84,9 @@ class PeriodStatsSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      '+${interval.count}',
+                      _showInitialBreakdown
+                          ? '${initialCount + interval.count}'
+                          : '+${interval.count}',
                       style: GoogleFonts.interTight(
                         fontSize: 32.0,
                         fontWeight: FontWeight.w700,
@@ -82,14 +94,25 @@ class PeriodStatsSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2.0),
-                    Text(
-                      interval.intervalNumber == -1 ? 'lifetime' : 'total',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.0,
-                        fontWeight: FontWeight.w500,
-                        color: secondaryText,
+                    if (_showInitialBreakdown) ...[
+                      Text(
+                        '$initialCount+${interval.count}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.0,
+                          fontWeight: FontWeight.w500,
+                          color: secondaryText.withValues(alpha: 0.7),
+                        ),
                       ),
-                    ),
+                    ] else ...[
+                      Text(
+                        'total',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.0,
+                          fontWeight: FontWeight.w500,
+                          color: secondaryText,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

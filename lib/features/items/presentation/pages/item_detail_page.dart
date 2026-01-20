@@ -372,9 +372,17 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       color: brightness == Brightness.light
                           ? const Color(0xFFF8F9FB)
                           : primaryText.withValues(alpha: 0.08),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 24.0),
-                        child: BlocBuilder<EventsBloc, EventsState>(
+                      child: Column(
+                        children: [
+                          // Divider between filter and content
+                          Container(
+                            height: 1.0,
+                            margin: const EdgeInsets.symmetric(horizontal: 20.0),
+                            color: secondaryText.withValues(alpha: 0.12),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 24.0),
+                            child: BlocBuilder<EventsBloc, EventsState>(
                               builder: (context, eventsState) {
                                 // Show shimmer skeleton while loading
                                 if (eventsState is EventsLoading) {
@@ -409,6 +417,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                     if (selectedIntervalData != null) ...[
                                       PeriodStatsSection(
                                         interval: selectedIntervalData,
+                                        initialCount: widget.initialCount ?? 0,
                                       ),
                                       const SizedBox(height: 16.0),
                                     ],
@@ -459,16 +468,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         selectedInterval: _selectedInterval ?? -1,
                                         onIntervalSelected: (interval) =>
                                             _onIntervalSelected(interval, context),
+                                        initialCount: widget.initialCount ?? 0,
                                       ),
                                     ],
                                   ],
                                 );
                               },
                             ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  ],
+                ],
                 ),
               ),
             ),

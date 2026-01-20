@@ -23,11 +23,16 @@ class PeriodsTable extends StatefulWidget {
   /// Callback when a row is tapped.
   final ValueChanged<int> onIntervalSelected;
 
+  /// Initial count when the item was created.
+  /// Added to total for All Time and Period 1.
+  final int initialCount;
+
   const PeriodsTable({
     super.key,
     required this.intervals,
     required this.selectedInterval,
     required this.onIntervalSelected,
+    this.initialCount = 0,
   });
 
   @override
@@ -95,6 +100,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
 
   List<_RowData> _buildRowData() {
     final rows = <_RowData>[];
+    final initialCount = widget.initialCount;
 
     // Find the "All Time" entry (intervalNumber == -1)
     final allTimeInterval = widget.intervals.firstWhere(
@@ -102,19 +108,25 @@ class _PeriodsTableState extends State<PeriodsTable> {
       orElse: () => widget.intervals.first,
     );
 
-    // Add "All Time" row first
+    // Add "All Time" row first (includes initial value)
     rows.add(_RowData(
       intervalNumber: -1,
       label: 'All Time',
-      count: allTimeInterval.count,
+      count: allTimeInterval.count + initialCount,
       duration: allTimeInterval.duration,
       isAllTime: true,
+      includesInitial: initialCount > 0,
     ));
 
     // Add individual periods (excluding "All Time")
     final periods = widget.intervals
         .where((i) => i.intervalNumber >= 0)
         .toList();
+
+    // Find the first period (interval 0) to include initial value
+    final firstPeriodIntervalNumber = periods.isNotEmpty
+        ? periods.map((p) => p.intervalNumber).reduce((a, b) => a < b ? a : b)
+        : -1;
 
     for (var i = 0; i < periods.length; i++) {
       final interval = periods[i];
@@ -127,12 +139,17 @@ class _PeriodsTableState extends State<PeriodsTable> {
         label = 'Period ${periods.length - i}';
       }
 
+      // Period 1 (intervalNumber == 0) includes initial value
+      final isFirstPeriod = interval.intervalNumber == firstPeriodIntervalNumber;
+      final includesInitial = isFirstPeriod && initialCount > 0;
+
       rows.add(_RowData(
         intervalNumber: interval.intervalNumber,
         label: label,
-        count: interval.count,
+        count: includesInitial ? interval.count + initialCount : interval.count,
         duration: interval.duration,
         isAllTime: false,
+        includesInitial: includesInitial,
       ));
     }
 
@@ -333,11 +350,11 @@ class _PeriodsTableState extends State<PeriodsTable> {
                   ],
                 ),
               ),
-              // Count
+              // Count (no + prefix if includes initial value)
               Expanded(
                 flex: 2,
                 child: Text(
-                  '+${row.count}',
+                  row.includesInitial ? '${row.count}' : '+${row.count}',
                   style: GoogleFonts.interTight(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w600,
@@ -388,11 +405,15 @@ class _RowData {
   final Duration duration;
   final bool isAllTime;
 
+  /// Whether this count includes initial value (All Time or Period 1).
+  final bool includesInitial;
+
   const _RowData({
     required this.intervalNumber,
     required this.label,
     required this.count,
     required this.duration,
     required this.isAllTime,
+    this.includesInitial = false,
   });
 }
