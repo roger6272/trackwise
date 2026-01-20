@@ -235,37 +235,36 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
           ),
           if (!isConnected) ...[
             const SizedBox(height: 8.0),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 8.0,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8.0),
-                border: Border.all(
-                  color: AppColors.warning.withOpacity(0.3),
+            GestureDetector(
+              onTap: () => context.go('/bluetooth'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
                 ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.bluetooth_disabled,
-                    size: 16.0,
-                    color: AppColors.warning,
-                  ),
-                  const SizedBox(width: 8.0),
-                  Expanded(
-                    child: Text(
-                      'Connect to device to restore items',
+                decoration: BoxDecoration(
+                  color: secondaryText.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.bluetooth_disabled_rounded,
+                      size: 14.0,
+                      color: secondaryText,
+                    ),
+                    const SizedBox(width: 6.0),
+                    Text(
+                      'Tap to connect device',
                       style: GoogleFonts.inter(
-                        color: AppColors.warning,
+                        color: secondaryText,
                         fontSize: 12.0,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
