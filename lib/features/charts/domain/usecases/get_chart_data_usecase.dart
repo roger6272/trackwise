@@ -86,11 +86,11 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
     return eventsResult.fold(
       (failure) => Left(failure),
       (events) {
-        // Filter events by interval boundaries if provided
+        // Filter events by interval boundaries [start, end) - inclusive start, exclusive end
         var filteredEvents = events;
         if (params.sinceResetTime != null) {
           filteredEvents = filteredEvents
-              .where((e) => e.createdTime.isAfter(params.sinceResetTime!))
+              .where((e) => !e.createdTime.isBefore(params.sinceResetTime!))
               .toList();
         }
         if (params.untilResetTime != null) {
