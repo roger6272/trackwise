@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import 'package:injectable/injectable.dart';
 
-import '../../../../auth/firebase_auth/auth_util.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
 import '../../domain/entities/ble_connection_state.dart';
@@ -682,7 +682,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ));
 
     // Sync device data to Firestore
-    final userId = currentUserUid;
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (userId.isNotEmpty) {
       await _syncDeviceData.call(SyncDeviceDataParams(
         message: message,

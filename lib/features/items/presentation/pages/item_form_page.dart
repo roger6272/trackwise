@@ -4,8 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
@@ -575,7 +576,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
       );
     } else {
       // Create new item directly via repository to ensure we wait for completion
-      debugPrint('🟡 Creating item: name=$name, initialValue=$initialValue, userId=$currentUserUid');
+      final userId = _getUserId();
+      debugPrint('🟡 Creating item: name=$name, initialValue=$initialValue, userId=$userId');
 
       final itemRepository = sl<ItemRepository>();
       final now = DateTime.now();
@@ -590,7 +592,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         reminderValue: reminderValue,
         lastResetTime: null, // null = never reset
         lastUpdated: now,
-        userId: currentUserUid,
+        userId: userId,
         goal: goal,
       );
 
@@ -625,6 +627,15 @@ class _ItemFormPageState extends State<ItemFormPage> {
     }
   }
 
+  /// Gets the current user ID from AuthBloc
+  String _getUserId() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is auth.Authenticated) {
+      return authState.user.id;
+    }
+    return '';
+  }
+
   Future<void> _syncWithDevice({String? newItemId}) async {
     try {
       debugPrint('🔄 _syncWithDevice started');
@@ -633,7 +644,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
       // Fetch all items from repository
       final itemRepository = sl<ItemRepository>();
-      final itemsResult = await itemRepository.getItems(currentUserUid);
+      final itemsResult = await itemRepository.getItems(_getUserId());
 
       final items = itemsResult.fold(
         (failure) {

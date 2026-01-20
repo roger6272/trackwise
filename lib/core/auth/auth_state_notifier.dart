@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 
-import '/auth/base_auth_user_provider.dart';
-
 /// Global navigator key for GoRouter.
 GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
-/// Clean architecture replacement for FlutterFlow's AppStateNotifier.
+/// Auth state notifier for GoRouter's refreshListenable.
 ///
-/// Provides auth state as a ChangeNotifier for GoRouter's refreshListenable.
-/// This allows the router to rebuild when auth state changes.
+/// Provides auth state as a ChangeNotifier so the router rebuilds when auth changes.
+/// Uses simple properties instead of depending on FlutterFlow's BaseAuthUser.
 class AuthStateNotifier extends ChangeNotifier {
   AuthStateNotifier._();
 
   static AuthStateNotifier? _instance;
   static AuthStateNotifier get instance => _instance ??= AuthStateNotifier._();
 
-  BaseAuthUser? initialUser;
-  BaseAuthUser? user;
+  String? _uid;
+  String? _initialUid;
+  bool _isLoggedIn = false;
+  bool _initiallyLoggedIn = false;
   bool showSplashImage = true;
   String? _redirectLocation;
 
@@ -27,9 +27,10 @@ class AuthStateNotifier extends ChangeNotifier {
   /// Otherwise, this will trigger a refresh and interrupt the action(s).
   bool notifyOnAuthChange = true;
 
-  bool get loading => user == null || showSplashImage;
-  bool get loggedIn => user?.loggedIn ?? false;
-  bool get initiallyLoggedIn => initialUser?.loggedIn ?? false;
+  String? get uid => _uid;
+  bool get loading => _uid == null && !_isLoggedIn && showSplashImage;
+  bool get loggedIn => _isLoggedIn;
+  bool get initiallyLoggedIn => _initiallyLoggedIn;
   bool get shouldRedirect => loggedIn && _redirectLocation != null;
 
   String getRedirectLocation() => _redirectLocation!;
@@ -41,18 +42,27 @@ class AuthStateNotifier extends ChangeNotifier {
   /// to perform subsequent actions (such as navigation) afterwards.
   void updateNotifyOnAuthChange(bool notify) => notifyOnAuthChange = notify;
 
-  void update(BaseAuthUser newUser) {
-    final shouldUpdate =
-        user?.uid == null || newUser.uid == null || user?.uid != newUser.uid;
-    initialUser ??= newUser;
-    user = newUser;
+  /// Update auth state with user info from AuthBloc.
+  void updateAuthState({
+    required String? uid,
+    required bool isLoggedIn,
+  }) {
+    final shouldUpdate = _uid != uid || _isLoggedIn != isLoggedIn;
+
+    // Set initial state on first update
+    if (_initialUid == null && uid != null) {
+      _initialUid = uid;
+      _initiallyLoggedIn = isLoggedIn;
+    }
+
+    _uid = uid;
+    _isLoggedIn = isLoggedIn;
+
     // Refresh the app on auth change unless explicitly marked otherwise.
-    // No need to update unless the user has changed.
     if (notifyOnAuthChange && shouldUpdate) {
       notifyListeners();
     }
     // Once again mark the notifier as needing to update on auth change
-    // (in order to catch sign in / out events).
     updateNotifyOnAuthChange(true);
   }
 

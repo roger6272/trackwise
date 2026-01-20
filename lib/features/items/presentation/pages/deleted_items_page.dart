@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import '/auth/firebase_auth/auth_util.dart';
 import '../../../../core/di/injection.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
@@ -34,15 +35,25 @@ class DeletedItemsPage extends StatefulWidget {
 class _DeletedItemsPageState extends State<DeletedItemsPage> {
   late final DeletedItemsBloc _deletedItemsBloc;
 
+  /// Gets the current user ID from AuthBloc
+  String _getUserId() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is auth.Authenticated) {
+      return authState.user.id;
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
     _deletedItemsBloc = sl<DeletedItemsBloc>();
 
-    // Load items using currentUserUid from Firebase auth utilities
+    // Load items using userId from AuthBloc
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (currentUserUid.isNotEmpty) {
-        _deletedItemsBloc.add(LoadDeletedItems(userId: currentUserUid));
+      final userId = _getUserId();
+      if (userId.isNotEmpty) {
+        _deletedItemsBloc.add(LoadDeletedItems(userId: userId));
       }
     });
   }
@@ -344,7 +355,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                     ? () => _deletedItemsBloc.add(
                           RestoreDeletedItem(
                             itemId: item.id,
-                            userId: currentUserUid,
+                            userId: _getUserId(),
                           ),
                         )
                     : null,
@@ -422,7 +433,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
 
       // Fetch ALL active items from Firestore (not deleted ones)
       final itemRepository = sl<ItemRepository>();
-      final itemsResult = await itemRepository.getItems(currentUserUid);
+      final itemsResult = await itemRepository.getItems(_getUserId());
 
       final items = itemsResult.fold(
         (failure) {

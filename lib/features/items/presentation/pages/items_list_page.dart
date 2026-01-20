@@ -7,9 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '/auth/firebase_auth/auth_util.dart';
-import '/auth/firebase_auth/firebase_user_provider.dart' show trackwiseFirebaseUserStream;
 import '../../../../core/di/injection.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
@@ -35,16 +35,11 @@ class ItemsListPage extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final primaryBackground = AppColors.primaryBackground(brightness);
 
-    // Use StreamBuilder on trackwiseFirebaseUserStream to ensure we rebuild
-    // when auth state changes. This stream also sets currentUser which
-    // populates currentUserUid.
-    return StreamBuilder(
-      stream: trackwiseFirebaseUserStream(),
-      builder: (context, snapshot) {
+    // Use BlocBuilder to rebuild when auth state changes
+    return BlocBuilder<AuthBloc, auth.AuthState>(
+      builder: (context, state) {
         // Show loading while waiting for auth
-        if (snapshot.connectionState == ConnectionState.waiting ||
-            !snapshot.hasData ||
-            currentUserUid.isEmpty) {
+        if (state is! auth.Authenticated) {
           return Scaffold(
             backgroundColor: primaryBackground,
             body: Center(
@@ -54,14 +49,17 @@ class ItemsListPage extends StatelessWidget {
             ),
           );
         }
-        return _ItemsListContent(key: ValueKey(currentUserUid));
+        final userId = state.user.id;
+        return _ItemsListContent(key: ValueKey(userId), userId: userId);
       },
     );
   }
 }
 
 class _ItemsListContent extends StatefulWidget {
-  const _ItemsListContent({super.key});
+  const _ItemsListContent({super.key, required this.userId});
+
+  final String userId;
 
   @override
   State<_ItemsListContent> createState() => _ItemsListContentState();
@@ -116,10 +114,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
         ? _activatedColorDark
         : _activatedColorLight;
 
-    // Auth is guaranteed to be ready by parent StreamBuilder
+    // Auth is guaranteed to be ready by parent BlocBuilder
     return BlocProvider(
       create: (context) => sl<ItemsBloc>()
-        ..add(WatchItemsEvent(currentUserUid)),
+        ..add(WatchItemsEvent(widget.userId)),
       child: BlocBuilder<BluetoothBloc, BluetoothState>(
         builder: (context, bluetoothState) {
           final isConnected = bluetoothState.isConnected;
@@ -305,7 +303,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 return RefreshIndicator(
                                   color: _primary,
                                   onRefresh: () async {
-                                    context.read<ItemsBloc>().add(WatchItemsEvent(currentUserUid));
+                                    context.read<ItemsBloc>().add(WatchItemsEvent(widget.userId));
                                     // Wait a bit for the stream to emit
                                     await Future.delayed(const Duration(milliseconds: 500));
                                   },
@@ -643,6 +641,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                     await _syncWithDeviceAfterDelete(
                       bluetoothBloc: bluetoothBloc,
                       activeItemId: newSelectedId,
+                      userId: widget.userId,
                     );
                   }
                 } else {
@@ -759,6 +758,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   Future<void> _syncWithDeviceAfterDelete({
     required BluetoothBloc bluetoothBloc,
     required String activeItemId,
+    required String userId,
   }) async {
     try {
       // Small delay to allow Firestore to propagate the delete
@@ -766,7 +766,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
       // Fetch all items from repository
       final itemRepository = sl<ItemRepository>();
-      final itemsResult = await itemRepository.getItems(currentUserUid);
+      final itemsResult = await itemRepository.getItems(userId);
 
       final items = itemsResult.fold(
         (failure) {

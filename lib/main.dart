@@ -10,22 +10,19 @@ import 'package:go_router/go_router.dart';
 import 'core/di/injection.dart' as di;
 import 'core/state/app_ui_state.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'auth/firebase_auth/firebase_user_provider.dart';
-import 'auth/firebase_auth/auth_util.dart';
 
-import 'backend/firebase/firebase_config.dart';
+import 'core/firebase/firebase_config.dart';
 import 'core/theme/app_theme.dart';
-import 'app_state.dart';
 
-// Clean Architecture
 import 'core/di/injection.dart';
 import 'core/auth/auth_state_notifier.dart';
 import 'core/router/app_router.dart';
@@ -54,9 +51,6 @@ void main() async {
 
     await AppTheme.initialize();
 
-    final appState = FFAppState(); // Initialize FFAppState
-    await appState.initializePersistedState();
-
     // Initialize AppUiState
     final appUiState = di.sl<AppUiState>();
     await appUiState.initialize();
@@ -64,7 +58,6 @@ void main() async {
     runApp(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: appState),
           ChangeNotifierProvider.value(value: appUiState),
           // Clean Architecture BLoCs
           BlocProvider<BluetoothBloc>(
@@ -74,7 +67,7 @@ void main() async {
             create: (_) => di.sl<ProfileBloc>(),
           ),
           BlocProvider<AuthBloc>(
-            create: (_) => di.sl<AuthBloc>(),
+            create: (_) => di.sl<AuthBloc>()..add(const CheckAuthStatusEvent()),
           ),
         ],
         child: MyApp(),
@@ -87,7 +80,6 @@ void main() async {
 }
 
 class MyApp extends StatefulWidget {
-  // This widget is the root of your application.
   @override
   State<MyApp> createState() => _MyAppState();
 
@@ -108,9 +100,7 @@ class _MyAppState extends State<MyApp> {
 
   late AuthStateNotifier _authStateNotifier;
   late GoRouter _router;
-  late Stream<BaseAuthUser> userStream;
-
-  final authUserSub = authenticatedUserStream.listen((_) {});
+  StreamSubscription? _authBlocSubscription;
 
   String getRoute([RouteMatch? routeMatch]) {
     final RouteMatch lastMatch =
@@ -132,20 +122,44 @@ class _MyAppState extends State<MyApp> {
 
     _authStateNotifier = AuthStateNotifier.instance;
     _router = AppRouter.createRouter(_authStateNotifier);
-    userStream = trackwiseFirebaseUserStream()
-      ..listen((user) {
-        _authStateNotifier.update(user);
-      });
-    jwtTokenStream.listen((_) {});
+
+    // Listen to AuthBloc and update AuthStateNotifier
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authBloc = context.read<AuthBloc>();
+      _authBlocSubscription = authBloc.stream.listen(_onAuthStateChanged);
+      // Also check current state immediately
+      _onAuthStateChanged(authBloc.state);
+    });
+
     Future.delayed(
       Duration(milliseconds: 1000),
       () => _authStateNotifier.stopShowingSplashImage(),
     );
   }
 
+  void _onAuthStateChanged(AuthState state) {
+    if (state is Authenticated) {
+      _authStateNotifier.updateAuthState(
+        uid: state.user.id,
+        isLoggedIn: true,
+      );
+    } else if (state is Unauthenticated) {
+      _authStateNotifier.updateAuthState(
+        uid: null,
+        isLoggedIn: false,
+      );
+    } else if (state is AuthError) {
+      _authStateNotifier.updateAuthState(
+        uid: null,
+        isLoggedIn: false,
+      );
+    }
+    // AuthInitial and AuthLoading - don't update yet, wait for final state
+  }
+
   @override
   void dispose() {
-    authUserSub.cancel();
+    _authBlocSubscription?.cancel();
     super.dispose();
   }
 
@@ -156,29 +170,20 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<BluetoothBloc, BluetoothState>(
-      listener: (context, state) {
-        // Sync BluetoothBloc connection state to FFAppState for FF widgets
-        final ffAppState = context.read<FFAppState>();
-        if (ffAppState.deviceConnected != state.isConnected) {
-          ffAppState.deviceConnected = state.isConnected;
-        }
-      },
-      child: MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        title: 'Trackwise',
-        scrollBehavior: MyAppScrollBehavior(),
-        localizationsDelegates: [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('en', '')],
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: _themeMode,
-        routerConfig: _router,
-      ),
+    return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      title: 'Trackwise',
+      scrollBehavior: MyAppScrollBehavior(),
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en', '')],
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: _themeMode,
+      routerConfig: _router,
     );
   }
 }
