@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import 'package:trackwise/features/charts/domain/entities/chart_data.dart';
 import 'package:trackwise/features/charts/domain/entities/chart_data_point.dart';
 import 'package:trackwise/features/charts/presentation/bloc/charts_bloc.dart';
@@ -21,9 +24,13 @@ class MockEventsBloc extends MockBloc<EventsEvent, EventsState>
 class MockChartsBloc extends MockBloc<ChartsEvent, ChartsState>
     implements ChartsBloc {}
 
+class MockBluetoothBloc extends MockBloc<BluetoothEvent, BluetoothState>
+    implements BluetoothBloc {}
+
 void main() {
   late MockEventsBloc mockEventsBloc;
   late MockChartsBloc mockChartsBloc;
+  late MockBluetoothBloc mockBluetoothBloc;
 
   setUpAll(() {
     registerFallbackValue(const LoadEvents());
@@ -37,6 +44,7 @@ void main() {
   setUp(() {
     mockEventsBloc = MockEventsBloc();
     mockChartsBloc = MockChartsBloc();
+    mockBluetoothBloc = MockBluetoothBloc();
 
     // Register mocks in service locator
     final sl = GetIt.instance;
@@ -51,6 +59,7 @@ void main() {
 
     when(() => mockEventsBloc.state).thenReturn(const EventsInitial());
     when(() => mockChartsBloc.state).thenReturn(const ChartsInitial());
+    when(() => mockBluetoothBloc.state).thenReturn(const BluetoothState());
   });
 
   tearDown(() {
@@ -70,11 +79,14 @@ void main() {
     DateTime? lastResetTime,
   }) {
     return MaterialApp(
-      home: ItemDetailPage(
-        itemId: itemId,
-        itemName: itemName,
-        currentCount: currentCount,
-        lastResetTime: lastResetTime ?? DateTime.now(),
+      home: BlocProvider<BluetoothBloc>.value(
+        value: mockBluetoothBloc,
+        child: ItemDetailPage(
+          itemId: itemId,
+          itemName: itemName,
+          currentCount: currentCount,
+          lastResetTime: lastResetTime ?? DateTime.now(),
+        ),
       ),
     );
   }

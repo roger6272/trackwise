@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../bluetooth/domain/entities/ble_message.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../charts/domain/entities/chart_data.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../charts/presentation/bloc/charts_event.dart';
@@ -348,15 +351,30 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           create: (_) => sl<ChartsBloc>()..add(_createChartEvent()),
         ),
       ],
-      child: BlocListener<EventsBloc, EventsState>(
+      child: BlocListener<BluetoothBloc, BluetoothState>(
         listener: (context, state) {
-          _updateIntervalsFromEvents(state);
-          if (state is EventsLoaded) {
-            // Always reload chart when events are loaded to ensure sync
-            _reloadChart(context);
+          // Listen for delta messages that affect the current item
+          final message = state.lastMessage;
+          if (message != null && message.type == BleMessageType.itemDelta) {
+            // Extract item ID from delta message data
+            final data = message.data;
+            final deltaItemId = data is Map ? data['id']?.toString() : null;
+            if (deltaItemId == widget.itemId) {
+              // Device sent a delta update for this item - refresh to get latest data
+              debugPrint('📱 Delta received for current item, refreshing...');
+              _onRefresh(context);
+            }
           }
         },
-        child: Builder(
+        child: BlocListener<EventsBloc, EventsState>(
+          listener: (context, state) {
+            _updateIntervalsFromEvents(state);
+            if (state is EventsLoaded) {
+              // Always reload chart when events are loaded to ensure sync
+              _reloadChart(context);
+            }
+          },
+          child: Builder(
           builder: (context) {
             // Handle deferred data reload after widget update (e.g., BLE sync)
             if (_needsDataReload) {
@@ -606,6 +624,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ),
         );
       },
+        ),
         ),
       ),
     );
