@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -51,20 +52,28 @@ class EventsBloc extends Bloc<EventsEvent, EventsState> {
     LoadEvents event,
     Emitter<EventsState> emit,
   ) async {
+    debugPrint('🔍 EventsBloc: LoadEvents called with itemId=${event.itemId}');
     emit(const EventsLoading());
 
     // If filtering by item, use item-specific query
     if (event.itemId != null) {
+      debugPrint('🔍 EventsBloc: Fetching events for item ${event.itemId}');
       final result = await getEventsByItemUseCase(
         GetEventsByItemParams(event.itemId!),
       );
 
       result.fold(
-        (failure) => emit(EventsError(failure.message)),
-        (events) => emit(EventsLoaded(
-          events: events,
-          itemId: event.itemId,
-        )),
+        (failure) {
+          debugPrint('❌ EventsBloc: Failed to load events: ${failure.message}');
+          emit(EventsError(failure.message));
+        },
+        (events) {
+          debugPrint('✅ EventsBloc: Loaded ${events.length} events for item ${event.itemId}');
+          emit(EventsLoaded(
+            events: events,
+            itemId: event.itemId,
+          ));
+        },
       );
       return;
     }

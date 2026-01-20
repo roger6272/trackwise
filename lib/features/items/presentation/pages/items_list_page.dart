@@ -478,6 +478,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   'reminderType': item.reminder.name,
                   'reminderValue': item.reminderValue.toString(),
                   if (item.goal != null) 'goal': item.goal.toString(),
+                  'resetNumber': item.resetNumber.toString(),
                 },
               );
             },

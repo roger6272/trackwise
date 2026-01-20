@@ -124,6 +124,7 @@ class AppRouter {
                     final incrementByStr = state.uri.queryParameters['incrementBy'];
                     final reminderTypeStr = state.uri.queryParameters['reminderType'];
                     final reminderValueStr = state.uri.queryParameters['reminderValue'];
+                    final resetNumberStr = state.uri.queryParameters['resetNumber'];
 
                     // Parse reminder type from string
                     ReminderType? reminderType;
@@ -144,6 +145,7 @@ class AppRouter {
                       incrementBy: incrementByStr != null ? int.tryParse(incrementByStr) : null,
                       reminderType: reminderType,
                       reminderValue: reminderValueStr != null ? int.tryParse(reminderValueStr) : null,
+                      resetNumber: resetNumberStr != null ? int.tryParse(resetNumberStr) : null,
                     );
                   },
                 ),

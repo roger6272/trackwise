@@ -62,6 +62,9 @@ class ItemDetailPage extends StatefulWidget {
   /// Value for the reminder (target count or interval).
   final int? reminderValue;
 
+  /// Current reset number for this item.
+  final int? resetNumber;
+
   const ItemDetailPage({
     super.key,
     required this.itemId,
@@ -73,6 +76,7 @@ class ItemDetailPage extends StatefulWidget {
     this.incrementBy,
     this.reminderType,
     this.reminderValue,
+    this.resetNumber,
   });
 
   @override
@@ -102,6 +106,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   late int _incrementBy;
   late ReminderType _reminderType;
   late int _reminderValue;
+  late int _resetNumber;
 
   /// Flag to trigger data reload after widget update.
   bool _needsDataReload = false;
@@ -116,13 +121,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _incrementBy = widget.incrementBy ?? 1;
     _reminderType = widget.reminderType ?? ReminderType.none;
     _reminderValue = widget.reminderValue ?? 0;
+    _resetNumber = widget.resetNumber ?? 0;
   }
 
   @override
   void didUpdateWidget(ItemDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Detect if item data changed (e.g., from BLE sync)
-    if (oldWidget.currentCount != widget.currentCount) {
+    if (oldWidget.currentCount != widget.currentCount ||
+        oldWidget.resetNumber != widget.resetNumber) {
       // Update local state
       _currentCount = widget.currentCount ?? 0;
       _initialCount = widget.initialCount ?? 0;
@@ -130,6 +137,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       _incrementBy = widget.incrementBy ?? 1;
       _reminderType = widget.reminderType ?? ReminderType.none;
       _reminderValue = widget.reminderValue ?? 0;
+      _resetNumber = widget.resetNumber ?? 0;
       // Flag for reload (will be handled in build via post-frame callback)
       _needsDataReload = true;
     }
@@ -159,6 +167,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _incrementBy = item.incrementBy;
           _reminderType = item.reminder;
           _reminderValue = item.reminderValue;
+          _resetNumber = item.resetNumber;
         });
       },
     );
@@ -199,16 +208,77 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Update intervals when events are loaded.
   void _updateIntervalsFromEvents(EventsState eventsState) {
     if (eventsState is EventsLoaded) {
-      final intervals = IntervalCalculator.calculate(
+      var newIntervals = IntervalCalculator.calculate(
         events: eventsState.events,
         maxIntervals: 100, // Get all for dropdown
       );
+
+      // Check if the item has a higher resetNumber than any event
+      // This happens right after a reset - the new period has no events yet
+      final maxEventResetNumber = newIntervals
+          .where((i) => i.intervalNumber >= 0)
+          .map((i) => i.intervalNumber)
+          .fold<int>(-1, (max, n) => n > max ? n : max);
+
+      if (_resetNumber > maxEventResetNumber) {
+        // Create a virtual current interval for the new period (no events yet)
+        final virtualCurrentInterval = IntervalData(
+          intervalNumber: _resetNumber,
+          count: 0,
+          startTime: widget.lastResetTime ?? DateTime.now(),
+          endTime: null, // Current period
+        );
+
+        // Insert after "All Time" (index 0) as the new current period
+        if (newIntervals.isNotEmpty) {
+          newIntervals = [
+            newIntervals.first, // All Time
+            virtualCurrentInterval,
+            ...newIntervals.skip(1), // Previous intervals
+          ];
+        } else {
+          // No intervals at all - create All Time and current
+          final allTimeInterval = IntervalData(
+            intervalNumber: -1,
+            count: 0,
+            startTime: widget.lastResetTime ?? DateTime.now(),
+            endTime: null,
+          );
+          newIntervals = [allTimeInterval, virtualCurrentInterval];
+        }
+      }
+
+      // Get the current interval number (most recent, after "All Time")
+      final currentIntervalNumber = newIntervals.length > 1
+          ? newIntervals[1].intervalNumber
+          : null;
+
+      // Check what the old current interval was (before this update)
+      final oldCurrentIntervalNumber = _intervals.length > 1
+          ? _intervals[1].intervalNumber
+          : null;
+
       setState(() {
-        _intervals = intervals;
-        // Default to current interval if not set
-        if (_selectedInterval == null && intervals.length > 1) {
-          // intervals[0] is Total, intervals[1] is current (most recent)
-          _selectedInterval = intervals[1].intervalNumber;
+        _intervals = newIntervals;
+
+        // Update selected interval if:
+        // 1. Not set yet
+        if (_selectedInterval == null) {
+          _selectedInterval = currentIntervalNumber;
+        }
+        // 2. Selected interval no longer exists in new intervals
+        else if (_selectedInterval != -1 &&
+            !newIntervals.any((i) => i.intervalNumber == _selectedInterval)) {
+          _selectedInterval = currentIntervalNumber;
+        }
+        // 3. A new current interval appeared (reset happened) and we were viewing current
+        else if (_selectedInterval != -1 &&
+            currentIntervalNumber != null &&
+            oldCurrentIntervalNumber != null &&
+            currentIntervalNumber > oldCurrentIntervalNumber &&
+            _selectedInterval == oldCurrentIntervalNumber) {
+          // We were viewing the current interval and a reset created a new one
+          _selectedInterval = currentIntervalNumber;
         }
       });
     }

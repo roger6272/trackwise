@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../events/domain/entities/event_log.dart';
 
@@ -53,6 +54,12 @@ class IntervalCalculator {
     int maxIntervals = 10,
   }) {
     if (events.isEmpty) return [];
+
+    // Debug: Log all events being processed
+    debugPrint('📊 IntervalCalculator processing ${events.length} events:');
+    for (final e in events) {
+      debugPrint('  - ${e.eventName}: increment=${e.increment}, count=${e.currentCount}, time=${e.createdTime}, id=${e.id}');
+    }
 
     // Group events by resetNumber
     final Map<int, List<EventLog>> eventsByInterval = {};
