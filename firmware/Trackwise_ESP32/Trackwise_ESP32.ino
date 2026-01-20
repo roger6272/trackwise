@@ -145,12 +145,19 @@ void notifyLogsToApp(int page) {
   String jsonOut = getLogsAsString(page);
   jsonOut += "\n";  // For Flutter end-of-message detection
 
+  Serial.printf("📤 Sending logs page %d (%d bytes, %d chunks)\n", page, jsonOut.length(), (jsonOut.length() + 179) / 180);
+
   const int mtu = 180;
   for (int i = 0; i < jsonOut.length(); i += mtu) {
+    // Check connection before each chunk
+    if (!isConnected) {
+      Serial.println("⚠️ Connection lost during log transmission");
+      return;
+    }
     String chunk = jsonOut.substring(i, min(i + mtu, (int)jsonOut.length()));
     NotifyChar->setValue(chunk.c_str());
     NotifyChar->notify();
-    delay(10);
+    delay(20);  // Increased from 10ms for more reliable transmission
   }
   Serial.printf("✅ Finished sending logs page %d via notification.\n", page);
 }
@@ -195,15 +202,23 @@ String getLogsAsString(int page) {
   // Create outer object
   JsonObject root = doc.to<JsonObject>();
   root["type"] = "logs";
-  root["page"] = 0;
-
-  // Add array as "data" field
-  JsonArray arr = root.createNestedArray("data");
+  root["page"] = page;  // Fixed: was hardcoded to 0
 
   int startIndex = page * pageSize;
   int endIndex = min(startIndex + pageSize, logCount);
 
+  // Add hasMore BEFORE data array so it's not lost if JSON overflows
+  root["hasMore"] = endIndex < logCount;
+
+  // Add array as "data" field
+  JsonArray arr = root.createNestedArray("data");
+
   for (int i = startIndex; i < endIndex; i++) {
+    // Check for overflow before adding each entry
+    if (doc.overflowed()) {
+      Serial.println("⚠️ JSON document overflow - truncating logs");
+      break;
+    }
     JsonObject o = arr.createNestedObject();
     o["timestamp"] = logs[i].timestamp;
     o["itemId"] = logs[i].itemId;
@@ -214,7 +229,10 @@ String getLogsAsString(int page) {
     o["resetNumber"] = logs[i].resetNumber;
   }
 
-  root["hasMore"] = endIndex < logCount;
+  // Check if we overflowed
+  if (doc.overflowed()) {
+    Serial.printf("⚠️ JSON overflow detected! Doc size: %d, capacity: %d\n", doc.memoryUsage(), doc.capacity());
+  }
 
   String out;
   serializeJson(root, out);

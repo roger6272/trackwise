@@ -103,6 +103,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   late ReminderType _reminderType;
   late int _reminderValue;
 
+  /// Flag to trigger data reload after widget update.
+  bool _needsDataReload = false;
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +116,23 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _incrementBy = widget.incrementBy ?? 1;
     _reminderType = widget.reminderType ?? ReminderType.none;
     _reminderValue = widget.reminderValue ?? 0;
+  }
+
+  @override
+  void didUpdateWidget(ItemDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Detect if item data changed (e.g., from BLE sync)
+    if (oldWidget.currentCount != widget.currentCount) {
+      // Update local state
+      _currentCount = widget.currentCount ?? 0;
+      _initialCount = widget.initialCount ?? 0;
+      _goal = widget.goal;
+      _incrementBy = widget.incrementBy ?? 1;
+      _reminderType = widget.reminderType ?? ReminderType.none;
+      _reminderValue = widget.reminderValue ?? 0;
+      // Flag for reload (will be handled in build via post-frame callback)
+      _needsDataReload = true;
+    }
   }
 
   /// Refresh item data, events, and chart.
@@ -177,14 +197,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   }
 
   /// Update intervals when events are loaded.
-  /// Returns true if the selected interval was set for the first time.
-  bool _updateIntervalsFromEvents(EventsState eventsState) {
+  void _updateIntervalsFromEvents(EventsState eventsState) {
     if (eventsState is EventsLoaded) {
       final intervals = IntervalCalculator.calculate(
         events: eventsState.events,
         maxIntervals: 100, // Get all for dropdown
       );
-      final needsChartReload = _selectedInterval == null && intervals.length > 1;
       setState(() {
         _intervals = intervals;
         // Default to current interval if not set
@@ -193,9 +211,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _selectedInterval = intervals[1].intervalNumber;
         }
       });
-      return needsChartReload;
     }
-    return false;
   }
 
   /// Handle interval selection - auto-snap date and reload chart.
@@ -258,14 +274,25 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       ],
       child: BlocListener<EventsBloc, EventsState>(
         listener: (context, state) {
-          final needsChartReload = _updateIntervalsFromEvents(state);
-          if (needsChartReload) {
-            // Reload chart with proper interval filtering
+          _updateIntervalsFromEvents(state);
+          if (state is EventsLoaded) {
+            // Always reload chart when events are loaded to ensure sync
             _reloadChart(context);
           }
         },
         child: Builder(
-          builder: (context) => GestureDetector(
+          builder: (context) {
+            // Handle deferred data reload after widget update (e.g., BLE sync)
+            if (_needsDataReload) {
+              _needsDataReload = false;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  // Reload events - chart will be reloaded by BlocListener
+                  context.read<EventsBloc>().add(LoadEvents(itemId: widget.itemId));
+                }
+              });
+            }
+            return GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus();
             FocusManager.instance.primaryFocus?.unfocus();
@@ -493,8 +520,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               ),
             ),
           ),
+        );
+      },
         ),
-      ),
       ),
     );
   }
