@@ -177,12 +177,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   }
 
   /// Update intervals when events are loaded.
-  void _updateIntervalsFromEvents(EventsState eventsState) {
+  /// Returns true if the selected interval was set for the first time.
+  bool _updateIntervalsFromEvents(EventsState eventsState) {
     if (eventsState is EventsLoaded) {
       final intervals = IntervalCalculator.calculate(
         events: eventsState.events,
         maxIntervals: 100, // Get all for dropdown
       );
+      final needsChartReload = _selectedInterval == null && intervals.length > 1;
       setState(() {
         _intervals = intervals;
         // Default to current interval if not set
@@ -191,7 +193,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _selectedInterval = intervals[1].intervalNumber;
         }
       });
+      return needsChartReload;
     }
+    return false;
   }
 
   /// Handle interval selection - auto-snap date and reload chart.
@@ -254,7 +258,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       ],
       child: BlocListener<EventsBloc, EventsState>(
         listener: (context, state) {
-          _updateIntervalsFromEvents(state);
+          final needsChartReload = _updateIntervalsFromEvents(state);
+          if (needsChartReload) {
+            // Reload chart with proper interval filtering
+            _reloadChart(context);
+          }
         },
         child: Builder(
           builder: (context) => GestureDetector(
