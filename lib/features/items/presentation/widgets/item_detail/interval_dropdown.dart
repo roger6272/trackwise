@@ -1,71 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/utils/interval_calculator.dart';
 
-/// Represents a selectable interval option.
+/// Represents a selectable period option.
 class IntervalOption {
-  /// Interval number (-1 for "All Time").
+  /// Period number (-1 for "All Time").
   final int intervalNumber;
 
-  /// Display label (e.g., "Current (#3)", "#2", "All Time").
+  /// Display label (e.g., "Current", "Previous", "#3", "All Time").
   final String label;
 
-  /// Start time of the interval.
-  final DateTime? startTime;
+  /// Duration of the period (null for All Time).
+  final Duration? duration;
 
-  /// Count of increments in this interval.
+  /// Count of increments in this period.
   final int count;
 
-  /// Whether this is the current (ongoing) interval.
+  /// Whether this is the current (ongoing) period.
   final bool isCurrent;
 
   const IntervalOption({
     required this.intervalNumber,
     required this.label,
-    this.startTime,
+    this.duration,
     required this.count,
     this.isCurrent = false,
   });
 
   /// Create "All Time" option.
-  factory IntervalOption.allTime(int totalCount) {
+  factory IntervalOption.allTime(int totalCount, Duration? totalDuration) {
     return IntervalOption(
       intervalNumber: -1,
       label: 'All Time',
+      duration: totalDuration,
       count: totalCount,
     );
   }
 
   /// Create from IntervalData.
-  factory IntervalOption.fromIntervalData(IntervalData data, bool isCurrent) {
-    final label = isCurrent
-        ? 'Current (#${data.intervalNumber})'
-        : '#${data.intervalNumber}';
+  factory IntervalOption.fromIntervalData(
+    IntervalData data,
+    bool isCurrent,
+    bool isPrevious,
+  ) {
+    String label;
+    if (isCurrent) {
+      label = 'Current';
+    } else if (isPrevious) {
+      label = 'Previous';
+    } else {
+      label = '#${data.intervalNumber}';
+    }
     return IntervalOption(
       intervalNumber: data.intervalNumber,
       label: label,
-      startTime: data.startTime,
+      duration: data.duration,
       count: data.count,
       isCurrent: isCurrent,
     );
   }
 }
 
-/// Full-width dropdown for selecting intervals.
+/// Full-width dropdown for selecting periods.
 ///
-/// Shows interval options with start time and count.
+/// Shows period options with duration and count.
 /// Scrollable with ~5 visible items.
 class IntervalDropdown extends StatelessWidget {
-  /// List of interval options to display.
+  /// List of period options to display.
   final List<IntervalOption> options;
 
-  /// Currently selected interval number (-1 for All Time).
+  /// Currently selected period number (-1 for All Time).
   final int selectedInterval;
 
-  /// Callback when interval is selected.
+  /// Callback when period is selected.
   final ValueChanged<int> onChanged;
 
   const IntervalDropdown({
@@ -78,14 +87,17 @@ class IntervalDropdown extends StatelessWidget {
   /// Build options from interval data list.
   static List<IntervalOption> buildOptions(List<IntervalData> intervals) {
     if (intervals.isEmpty) {
-      return [IntervalOption.allTime(0)];
+      return [IntervalOption.allTime(0, null)];
     }
 
     final options = <IntervalOption>[];
 
     // Find total row (intervalNumber == -1)
     final totalRow = intervals.where((i) => i.intervalNumber == -1).firstOrNull;
-    options.add(IntervalOption.allTime(totalRow?.count ?? 0));
+    options.add(IntervalOption.allTime(
+      totalRow?.count ?? 0,
+      totalRow?.duration,
+    ));
 
     // Add individual intervals (skip total row)
     final individualIntervals =
@@ -94,7 +106,8 @@ class IntervalDropdown extends StatelessWidget {
     for (int i = 0; i < individualIntervals.length; i++) {
       final interval = individualIntervals[i];
       final isCurrent = i == 0; // First one is most recent (current)
-      options.add(IntervalOption.fromIntervalData(interval, isCurrent));
+      final isPrevious = i == 1; // Second one is previous
+      options.add(IntervalOption.fromIntervalData(interval, isCurrent, isPrevious));
     }
 
     return options;
@@ -166,8 +179,6 @@ class IntervalDropdown extends StatelessWidget {
     Color secondaryText,
     Color primary,
   ) {
-    final dateFormat = DateFormat('MMM d h:mm a');
-
     return Row(
       children: [
         Text(
@@ -178,9 +189,9 @@ class IntervalDropdown extends StatelessWidget {
             color: primaryText,
           ),
         ),
-        if (option.startTime != null) ...[
+        if (option.duration != null) ...[
           Text(
-            '  ·  From ${dateFormat.format(option.startTime!)}',
+            '  ·  ${IntervalCalculator.formatDuration(option.duration!)}',
             style: GoogleFonts.inter(
               fontSize: 12.0,
               fontWeight: FontWeight.w400,
@@ -204,7 +215,6 @@ class IntervalDropdown extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
-    final alternate = AppColors.alternate(brightness);
     final primary = AppColors.primaryAdaptive(brightness);
     final primaryBackground = AppColors.primaryBackground(brightness);
 
@@ -213,35 +223,49 @@ class IntervalDropdown extends StatelessWidget {
         Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
     final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
 
-    final dateFormat = DateFormat('MMM d h:mm a');
-
-    // Calculate menu height (max 5 items visible, ~52px each)
-    final itemHeight = 52.0;
-    final maxVisibleItems = 5;
-    final menuHeight = (options.length > maxVisibleItems
+    // Calculate menu height (header + max 5 items visible)
+    const headerHeight = 36.0;
+    const itemHeight = 48.0;
+    const maxVisibleItems = 5;
+    final menuHeight = headerHeight +
+        (options.length > maxVisibleItems
             ? maxVisibleItems * itemHeight
             : options.length * itemHeight) +
         16.0; // padding
 
-    showMenu<int>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        buttonPosition.dx,
-        buttonPosition.dy + button.size.height + 4.0,
-        buttonPosition.dx + button.size.width,
-        buttonPosition.dy + button.size.height + menuHeight + 4.0,
+    // Build menu items with header
+    final menuItems = <PopupMenuEntry<int>>[
+      // Header (non-selectable)
+      _DropdownHeader(
+        height: headerHeight,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 4.0),
+          child: Row(
+            children: [
+              Text(
+                'Filter by Reset Period',
+                style: GoogleFonts.inter(
+                  fontSize: 11.0,
+                  fontWeight: FontWeight.w600,
+                  color: secondaryText,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Count',
+                style: GoogleFonts.inter(
+                  fontSize: 10.0,
+                  fontWeight: FontWeight.w500,
+                  color: secondaryText.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      constraints: BoxConstraints(
-        minWidth: button.size.width,
-        maxWidth: button.size.width,
-        maxHeight: menuHeight,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
-      color: primaryBackground,
-      elevation: 8.0,
-      items: options.map((option) {
+      // Period options
+      ...options.map((option) {
         final isSelected = option.intervalNumber == selectedInterval;
         return PopupMenuItem<int>(
           value: option.intervalNumber,
@@ -269,38 +293,38 @@ class IntervalDropdown extends StatelessWidget {
                   )
                 else
                   const SizedBox(width: 14.0),
-                // Label
-                Text(
-                  option.label,
-                  style: GoogleFonts.inter(
-                    fontSize: 13.0,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? primary : primaryText,
+                // Label (fixed width for alignment)
+                SizedBox(
+                  width: 70,
+                  child: Text(
+                    option.label,
+                    style: GoogleFonts.inter(
+                      fontSize: 13.0,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected ? primary : primaryText,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8.0),
-                // Start time
-                if (option.startTime != null)
-                  Expanded(
-                    child: Text(
-                      'From ${dateFormat.format(option.startTime!)}',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.0,
-                        fontWeight: FontWeight.w400,
-                        color: secondaryText,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                // Duration
+                Expanded(
+                  child: Text(
+                    option.duration != null
+                        ? IntervalCalculator.formatDuration(option.duration!)
+                        : '',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w400,
+                      color: secondaryText,
                     ),
-                  )
-                else
-                  const Expanded(child: SizedBox()),
+                  ),
+                ),
                 // Count
                 Text(
                   '${option.count}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.0,
+                  style: GoogleFonts.interTight(
+                    fontSize: 13.0,
                     fontWeight: FontWeight.w600,
-                    color: isSelected ? primary : secondaryText,
+                    color: isSelected ? primary : primaryText,
                   ),
                 ),
                 // Check mark for selected
@@ -316,11 +340,56 @@ class IntervalDropdown extends StatelessWidget {
             ),
           ),
         );
-      }).toList(),
+      }),
+    ];
+
+    showMenu<int>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        buttonPosition.dx,
+        buttonPosition.dy + button.size.height + 4.0,
+        buttonPosition.dx + button.size.width,
+        buttonPosition.dy + button.size.height + menuHeight + 4.0,
+      ),
+      constraints: BoxConstraints(
+        minWidth: button.size.width,
+        maxWidth: button.size.width,
+        maxHeight: menuHeight,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12.0),
+      ),
+      color: primaryBackground,
+      elevation: 8.0,
+      items: menuItems,
     ).then((value) {
       if (value != null) {
         onChanged(value);
       }
     });
   }
+}
+
+/// Non-selectable header for the dropdown menu.
+class _DropdownHeader extends PopupMenuEntry<int> {
+  final Widget child;
+
+  @override
+  final double height;
+
+  const _DropdownHeader({
+    required this.child,
+    required this.height,
+  });
+
+  @override
+  bool represents(int? value) => false;
+
+  @override
+  State<_DropdownHeader> createState() => _DropdownHeaderState();
+}
+
+class _DropdownHeaderState extends State<_DropdownHeader> {
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
