@@ -127,9 +127,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   @override
   void didUpdateWidget(ItemDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Detect if item data changed (e.g., from BLE sync)
-    if (oldWidget.currentCount != widget.currentCount ||
-        oldWidget.resetNumber != widget.resetNumber) {
+    // Detect if any item data changed (e.g., from BLE sync or after editing)
+    final dataChanged = oldWidget.currentCount != widget.currentCount ||
+        oldWidget.resetNumber != widget.resetNumber ||
+        oldWidget.itemName != widget.itemName ||
+        oldWidget.goal != widget.goal ||
+        oldWidget.incrementBy != widget.incrementBy ||
+        oldWidget.initialCount != widget.initialCount;
+
+    if (dataChanged) {
       // Update local state
       _currentCount = widget.currentCount ?? 0;
       _initialCount = widget.initialCount ?? 0;
