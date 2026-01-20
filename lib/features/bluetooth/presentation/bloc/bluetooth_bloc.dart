@@ -674,7 +674,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     final message = event.message;
-    print('📨 Message received: type=${message.type}, selectedId=${message.selectedId}, hasMore=${message.hasMore}, page=${message.page}');
 
     emit(state.copyWith(
       lastMessage: message,
@@ -685,18 +684,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Sync device data to Firestore
     final userId = currentUserUid;
     if (userId.isNotEmpty) {
-      print('🔄 Syncing to Firestore...');
-      final result = await _syncDeviceData.call(SyncDeviceDataParams(
+      await _syncDeviceData.call(SyncDeviceDataParams(
         message: message,
         userId: userId,
       ));
-      result.fold(
-        (failure) => print('❌ Firestore sync failed: ${failure.message}'),
-        (_) => print('✅ Firestore sync complete'),
-      );
     }
-
-    print('🔍 Checking pagination: type=${message.type}, hasMore=${message.hasMore}');
 
     // Handle log pagination - if more pages available, request them
     if (message.type == BleMessageType.logs && message.hasMore) {
