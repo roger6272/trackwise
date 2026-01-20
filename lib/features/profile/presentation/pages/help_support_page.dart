@@ -170,16 +170,16 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         answer: 'On the Items tab, tap the "+" button in the top right corner. Enter a name for your item and configure the settings as needed.',
       ),
       (
-        question: 'How do I reset my daily count?',
-        answer: 'Daily counts reset automatically at midnight. You can also manually reset by going to the item details and tapping the reset option.',
+        question: 'How do I reset my count?',
+        answer: 'Daily counts reset automatically at midnight. You can also manually reset by going to the item details and tapping the reset option, which resets both the total count and daily count.',
       ),
       (
         question: 'How do I export my data?',
-        answer: 'Go to Profile > Export My Data. This will generate a JSON file containing all your items and event logs that you can save or share.',
+        answer: 'Go to Profile > Export My Data. This will generate a CSV file containing all your items and event logs that you can save or share.',
       ),
       (
         question: 'What happens to deleted items?',
-        answer: 'Deleted items are moved to "Recently Deleted" where they stay for 30 days. You can restore them anytime before they are permanently removed.',
+        answer: 'Deleted items are moved to "Recently Deleted" where they stay for 90 days. You can restore them anytime before they are permanently removed.',
       ),
       (
         question: 'How do I reorder my items?',
