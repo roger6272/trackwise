@@ -74,6 +74,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
   bool _swipeHintTriggered = false;
   bool _reorderHintTriggered = false;
 
+  // Search state
+  bool _isSearching = false;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +104,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   static const Color _activateActionColor = Color(0xFF3C38B5);
   static const Color _deleteActionColor = Color(0xFFD11F43);
   static const Color _disabledActionColor = Color(0xFF565656);
+  static const int _maxItems = 50;
 
   @override
   Widget build(BuildContext context) {
@@ -144,25 +150,52 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 centerTitle: true,
                 elevation: 0.0,
                 actions: [
+                  // Search icon
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _isSearching = !_isSearching;
+                        if (!_isSearching) {
+                          _searchController.clear();
+                          _searchQuery = '';
+                        }
+                      });
+                    },
+                    icon: Icon(
+                      _isSearching ? Icons.close_rounded : Icons.search_rounded,
+                      color: primaryText,
+                      size: 24.0,
+                    ),
+                  ),
+                  // Add item button
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),
-                    child: IconButton(
-                      onPressed: () async {
-                        if (isConnected) {
-                          context.pushNamed(ItemFormPage.routeName);
-                        } else {
-                          await _showConnectDeviceDialog(context);
-                        }
+                    child: BlocBuilder<ItemsBloc, ItemsState>(
+                      builder: (context, itemsState) {
+                        return IconButton(
+                          onPressed: () async {
+                            if (!isConnected) {
+                              await _showConnectDeviceDialog(context);
+                              return;
+                            }
+                            // Check item limit
+                            if (itemsState is ItemsLoaded && itemsState.items.length >= _maxItems) {
+                              await _showItemLimitDialog(context);
+                              return;
+                            }
+                            context.pushNamed(ItemFormPage.routeName);
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: _primary,
+                            shape: const CircleBorder(),
+                          ),
+                          icon: const Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: 24.0,
+                          ),
+                        );
                       },
-                      style: IconButton.styleFrom(
-                        backgroundColor: _primary,
-                        shape: const CircleBorder(),
-                      ),
-                      icon: const Icon(
-                        Icons.add_rounded,
-                        color: Colors.white,
-                        size: 24.0,
-                      ),
                     ),
                   ),
                 ],
@@ -178,6 +211,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       padding: const EdgeInsets.fromLTRB(10.0, 20.0, 10.0, 0.0),
                       child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
                     ),
+                    // Search field
+                    if (_isSearching)
+                      _buildSearchField(context, primaryText, secondaryText, alternate),
                     // Connection status banner
                     if (!isConnected)
                       _buildDisconnectedBanner(context),
@@ -210,14 +246,26 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             }
 
                             if (state is ItemsLoaded) {
+                              // Filter items based on search query
+                              final filteredItems = _searchQuery.isEmpty
+                                  ? state.items
+                                  : state.items.where((item) =>
+                                      item.name.toLowerCase().contains(_searchQuery)
+                                    ).toList();
+
                               if (state.items.isEmpty) {
                                 return _buildEmptyState(context, primaryText, secondaryText, isConnected);
+                              }
+
+                              // Show "no results" if search has no matches
+                              if (filteredItems.isEmpty && _searchQuery.isNotEmpty) {
+                                return _buildNoSearchResults(context, primaryText, secondaryText);
                               }
 
                               // Use ReorderableListView when connected, regular ListView when not
                               if (isConnected) {
                                 // Trigger reorder hint when connected and swipe hint already shown
-                                if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint) {
+                                if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint && _searchQuery.isEmpty) {
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
                                     _showReorderHint(appUiState, isConnected);
                                   });
@@ -226,7 +274,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
                                   physics: const AlwaysScrollableScrollPhysics(),
                                   buildDefaultDragHandles: false,
-                                  itemCount: state.items.length,
+                                  itemCount: filteredItems.length,
                                   onReorderStart: (_) => HapticFeedback.mediumImpact(),
                                   proxyDecorator: (child, index, animation) {
                                     return AnimatedBuilder(
@@ -275,9 +323,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                     });
                                   },
                                   itemBuilder: (context, index) {
-                                    final item = state.items[index];
-                                    // Pass animation for first item's reorder hint
-                                    final needsReorderHint = index == 0 && !appUiState.hasShownReorderHint;
+                                    final item = filteredItems[index];
+                                    // Pass animation for first item's reorder hint (only when not searching)
+                                    final needsReorderHint = index == 0 && !appUiState.hasShownReorderHint && _searchQuery.isEmpty;
                                     return _buildItemTile(
                                       context,
                                       item,
@@ -294,8 +342,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   },
                                 );
                               } else {
-                                // Trigger swipe hint only in regular ListView (not during reorder)
-                                if (!appUiState.hasShownSwipeHint) {
+                                // Trigger swipe hint only in regular ListView (not during reorder, not searching)
+                                if (!appUiState.hasShownSwipeHint && _searchQuery.isEmpty) {
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
                                     _showSwipeHint(appUiState);
                                   });
@@ -310,11 +358,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   child: ListView.builder(
                                     padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
                                     physics: const AlwaysScrollableScrollPhysics(),
-                                    itemCount: state.items.length,
+                                    itemCount: filteredItems.length,
                                     itemBuilder: (context, index) {
-                                      final item = state.items[index];
-                                      // Only pass controller for hint animation when not yet shown
-                                      final needsController = index == 0 && !appUiState.hasShownSwipeHint;
+                                      final item = filteredItems[index];
+                                      // Only pass controller for hint animation when not yet shown (and not searching)
+                                      final needsController = index == 0 && !appUiState.hasShownSwipeHint && _searchQuery.isEmpty;
                                       return _buildItemTile(
                                         context,
                                         item,
@@ -385,6 +433,47 @@ class _ItemsListContentState extends State<_ItemsListContent>
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchField(BuildContext context, Color primaryText, Color secondaryText, Color alternate) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 12.0),
+      child: TextField(
+        controller: _searchController,
+        autofocus: true,
+        style: GoogleFonts.inter(
+          color: primaryText,
+          fontSize: 16.0,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Search items...',
+          hintStyle: GoogleFonts.inter(
+            color: secondaryText,
+            fontSize: 16.0,
+          ),
+          prefixIcon: Icon(Icons.search_rounded, color: secondaryText),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear_rounded, color: secondaryText),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: alternate,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12.0),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        onChanged: (value) {
+          setState(() => _searchQuery = value.toLowerCase());
+        },
       ),
     );
   }
@@ -688,6 +777,38 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
+  Widget _buildNoSearchResults(BuildContext context, Color primaryText, Color secondaryText) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 64.0,
+            color: secondaryText,
+          ),
+          const SizedBox(height: 16.0),
+          Text(
+            'No items found',
+            style: GoogleFonts.interTight(
+              color: primaryText,
+              fontSize: 20.0,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          Text(
+            'Try a different search term',
+            style: GoogleFonts.inter(
+              color: secondaryText,
+              fontSize: 14.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText, bool isConnected) {
     return Center(
       child: Column(
@@ -742,6 +863,24 @@ class _ItemsListContentState extends State<_ItemsListContent>
       builder: (alertDialogContext) {
         return AlertDialog(
           content: const Text('Please connect your device first'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(alertDialogContext),
+              child: const Text('Ok'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showItemLimitDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (alertDialogContext) {
+        return AlertDialog(
+          title: const Text('Item Limit Reached'),
+          content: Text('You can only create up to $_maxItems items. Please delete some items to create new ones.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(alertDialogContext),
@@ -871,6 +1010,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   void dispose() {
     _firstItemController.dispose();
     _reorderHintController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 }
