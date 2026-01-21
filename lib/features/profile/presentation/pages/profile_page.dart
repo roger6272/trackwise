@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
@@ -27,10 +30,22 @@ class _ProfilePageState extends State<ProfilePage> {
   static const Color _primary = Color(0xFF4B39EF);
   static const Color _error = Color(0xFFFF5963);
 
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
     context.read<ProfileBloc>().add(const LoadProfileEvent());
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = 'v${packageInfo.version} (${packageInfo.buildNumber})';
+      });
+    }
   }
 
   @override
@@ -111,6 +126,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         color: alternate,
                       ),
                       const SizedBox(height: 24.0),
+                      // Device
+                      _buildSectionTitle(context, 'Device'),
+                      const SizedBox(height: 16.0),
+                      _buildDeviceCard(context),
+                      const SizedBox(height: 24.0),
                       // Account Settings
                       _buildSectionTitle(context, 'Account Settings'),
                       const SizedBox(height: 16.0),
@@ -139,7 +159,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           icon: Icons.download_outlined,
                           title: 'Export My Data',
                           onTap: () => context.push('/profile/export'),
-                          isPrimary: true,
                         ),
                         _buildDivider(context),
                         _buildSettingItem(
@@ -171,7 +190,23 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 24.0),
                       // Logout button
                       _buildLogoutButton(context),
+                      const SizedBox(height: 24.0),
+                      // Danger Zone
+                      _buildSectionTitle(context, 'Danger Zone'),
+                      const SizedBox(height: 16.0),
+                      _buildDeleteAccountButton(context),
                       const SizedBox(height: 32.0),
+                      // App version
+                      Center(
+                        child: Text(
+                          _appVersion,
+                          style: GoogleFonts.inter(
+                            color: secondaryText.withValues(alpha: 0.5),
+                            fontSize: 12.0,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24.0),
                     ],
                   ),
                 ),
@@ -331,6 +366,142 @@ class _ProfilePageState extends State<ProfilePage> {
             side: BorderSide(color: _error, width: 1.0),
           ),
           padding: const EdgeInsets.all(8.0),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceCard(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final secondaryBackground = AppColors.secondaryBackground(brightness);
+
+    return BlocBuilder<BluetoothBloc, BluetoothState>(
+      builder: (context, state) {
+        final isConnected = state.isConnected;
+        final deviceName = state.connectedDevice?.name ?? 'Unknown Device';
+
+        return InkWell(
+          onTap: () => context.push('/bluetooth'),
+          borderRadius: BorderRadius.circular(12.0),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: secondaryBackground,
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48.0,
+                  height: 48.0,
+                  decoration: BoxDecoration(
+                    color: isConnected
+                        ? AppColors.success.withValues(alpha: 0.1)
+                        : secondaryText.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: Icon(
+                    isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+                    color: isConnected ? AppColors.success : secondaryText,
+                    size: 24.0,
+                  ),
+                ),
+                const SizedBox(width: 16.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isConnected ? deviceName : 'No Device Connected',
+                        style: GoogleFonts.inter(
+                          color: primaryText,
+                          fontSize: 16.0,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2.0),
+                      Text(
+                        isConnected ? 'Connected' : 'Tap to connect',
+                        style: GoogleFonts.inter(
+                          color: isConnected ? AppColors.success : secondaryText,
+                          fontSize: 13.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: secondaryText,
+                  size: 20.0,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDeleteAccountButton(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryBackground = AppColors.secondaryBackground(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    return InkWell(
+      onTap: () => _showDeleteConfirmation(context),
+      borderRadius: BorderRadius.circular(12.0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: secondaryBackground,
+          borderRadius: BorderRadius.circular(12.0),
+          border: Border.all(
+            color: _error.withValues(alpha: 0.3),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: _error,
+              size: 24.0,
+            ),
+            const SizedBox(width: 12.0),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Delete Account',
+                    style: GoogleFonts.inter(
+                      color: _error,
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2.0),
+                  Text(
+                    'Permanently delete your account and all data',
+                    style: GoogleFonts.inter(
+                      color: secondaryText,
+                      fontSize: 12.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: secondaryText,
+              size: 20.0,
+            ),
+          ],
         ),
       ),
     );
