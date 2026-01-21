@@ -356,13 +356,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           // Listen for delta messages that affect the current item
           final message = state.lastMessage;
           if (message != null && message.type == BleMessageType.itemDelta) {
-            // Extract item ID from delta message data
+            // Extract item ID and resetNumber from delta message data
             final data = message.data;
-            final deltaItemId = data is Map ? data['id']?.toString() : null;
-            if (deltaItemId == widget.itemId) {
-              // Device sent a delta update for this item - refresh to get latest data
-              debugPrint('📱 Delta received for current item, refreshing...');
-              _onRefresh(context);
+            if (data is Map) {
+              final deltaItemId = data['id']?.toString();
+              final deltaResetNumber = data['resetNumber'] as int?;
+
+              // Only refresh if this item's resetNumber changed (i.e., a reset occurred)
+              if (deltaItemId == widget.itemId &&
+                  deltaResetNumber != null &&
+                  deltaResetNumber != _resetNumber) {
+                debugPrint('📱 Reset detected for current item (resetNumber: $_resetNumber -> $deltaResetNumber), refreshing...');
+                _onRefresh(context);
+              }
             }
           }
         },
