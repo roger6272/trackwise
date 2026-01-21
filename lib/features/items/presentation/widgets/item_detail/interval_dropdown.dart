@@ -50,11 +50,11 @@ class IntervalOption {
   }) {
     String label;
     if (isCurrent) {
-      label = 'Current Period';
+      label = 'Current Cycle';
     } else if (isPrevious) {
-      label = 'Previous Period';
+      label = 'Previous Cycle';
     } else {
-      label = 'Period $displayNumber';
+      label = 'Cycle $displayNumber';
     }
     return IntervalOption(
       intervalNumber: data.intervalNumber,

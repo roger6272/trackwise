@@ -136,7 +136,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
       } else if (i == 1) {
         label = 'Previous';
       } else {
-        label = 'Period ${periods.length - i}';
+        label = 'Cycle ${periods.length - i}';
       }
 
       // Period 1 (intervalNumber == 0) includes initial value
@@ -232,7 +232,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
           Expanded(
             flex: 3,
             child: Text(
-              'Period',
+              'Cycle',
               style: GoogleFonts.inter(
                 fontSize: 11.0,
                 fontWeight: FontWeight.w600,
