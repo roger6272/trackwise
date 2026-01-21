@@ -29,6 +29,7 @@ class _ExportPageState extends State<ExportPage> {
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now();
   ExportAggregationLevel _aggregationLevel = ExportAggregationLevel.daily;
+  ExportDataScope _dataScope = ExportDataScope.total;
 
   // Theme-aware color getters
   Color _inputBackground(BuildContext context) =>
@@ -218,6 +219,66 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 8.0),
                           Text(
                             _getAggregationDescription(_aggregationLevel),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontFamily: 'Inter',
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              letterSpacing: 0.0,
+                            ),
+                          ),
+                          const SizedBox(height: 24.0),
+
+                          // Data Scope Section
+                          _buildSectionHeader(
+                            context: context,
+                            icon: Icons.filter_list_rounded,
+                            title: 'Data Scope',
+                          ),
+                          const SizedBox(height: 12.0),
+                          SizedBox(
+                            width: double.infinity,
+                            child: SegmentedButton<ExportDataScope>(
+                              segments: const [
+                                ButtonSegment<ExportDataScope>(
+                                  value: ExportDataScope.total,
+                                  label: Text('Total'),
+                                ),
+                                ButtonSegment<ExportDataScope>(
+                                  value: ExportDataScope.latestCycle,
+                                  label: Text('Latest Cycle'),
+                                ),
+                              ],
+                              selected: {_dataScope},
+                              onSelectionChanged: (selected) {
+                                setState(() => _dataScope = selected.first);
+                              },
+                              showSelectedIcon: false,
+                              style: ButtonStyle(
+                                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                                  if (states.contains(WidgetState.selected)) {
+                                    return AppColors.secondary;
+                                  }
+                                  return _inputBackground(context);
+                                }),
+                                foregroundColor: WidgetStateProperty.resolveWith((states) {
+                                  if (states.contains(WidgetState.selected)) {
+                                    return Colors.white;
+                                  }
+                                  return _inputText(context);
+                                }),
+                                textStyle: const WidgetStatePropertyAll(
+                                  TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13.0,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8.0),
+                          Text(
+                            _getDataScopeDescription(_dataScope),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontFamily: 'Inter',
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -455,6 +516,15 @@ class _ExportPageState extends State<ExportPage> {
     }
   }
 
+  String _getDataScopeDescription(ExportDataScope scope) {
+    switch (scope) {
+      case ExportDataScope.total:
+        return 'Export all data within the selected date range, regardless of resets.';
+      case ExportDataScope.latestCycle:
+        return 'Export only data from the most recent reset cycle.';
+    }
+  }
+
   Future<void> _selectStartDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
@@ -500,6 +570,7 @@ class _ExportPageState extends State<ExportPage> {
       startDate: _startDate,
       endDate: _endDate,
       aggregationLevel: _aggregationLevel,
+      dataScope: _dataScope,
       email: emailController.text.trim(),
     ));
   }
