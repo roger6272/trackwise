@@ -163,15 +163,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 centerTitle: true,
                 elevation: 0.0,
                 actions: [
-                  // Total/Today toggle (only when no categories)
-                  BlocBuilder<CategoriesBloc, CategoriesState>(
-                    builder: (context, categoriesState) {
-                      final hasCategories = categoriesState is CategoriesLoaded &&
-                          categoriesState.categories.isNotEmpty;
-                      if (hasCategories) return const SizedBox.shrink();
-                      return _buildAppBarToggle(appUiState, primaryText, secondaryText);
-                    },
-                  ),
                   // Search icon
                   IconButton(
                     onPressed: () {
@@ -188,6 +179,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       color: primaryText,
                       size: 24.0,
                     ),
+                  ),
+                  // Total/Today toggle (only when no categories)
+                  BlocBuilder<CategoriesBloc, CategoriesState>(
+                    builder: (context, categoriesState) {
+                      final hasCategories = categoriesState is CategoriesLoaded &&
+                          categoriesState.categories.isNotEmpty;
+                      if (hasCategories) return const SizedBox.shrink();
+                      return _buildAppBarToggle(appUiState, primaryText, secondaryText, alternate);
+                    },
                   ),
                   // Add item button
                   Padding(
@@ -494,30 +494,34 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
-  Widget _buildAppBarToggle(AppUiState appUiState, Color primaryText, Color secondaryText) {
+  Widget _buildAppBarToggle(AppUiState appUiState, Color primaryText, Color secondaryText, Color alternate) {
     final isToday = appUiState.isTodayToggle;
     return GestureDetector(
       onTap: () => appUiState.isTodayToggle = !isToday,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        child: Row(
+      child: Container(
+        width: 42.0,
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        decoration: BoxDecoration(
+          color: secondaryText.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 44.0,
-              child: Text(
-                isToday ? 'Today' : 'Total',
-                style: GoogleFonts.inter(
-                  color: primaryText,
-                  fontSize: 14.0,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
             Icon(
-              Icons.swap_horiz_rounded,
-              size: 16,
-              color: secondaryText.withValues(alpha: 0.6),
+              isToday ? Icons.today_rounded : Icons.functions_rounded,
+              size: 18,
+              color: secondaryText,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              isToday ? 'Today' : 'Total',
+              style: GoogleFonts.inter(
+                color: primaryText,
+                fontSize: 10.0,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
