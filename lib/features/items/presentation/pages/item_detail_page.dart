@@ -430,6 +430,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       incrementBy: _incrementBy,
                       reminderType: _reminderType,
                       reminderValue: _reminderValue,
+                      resetNumber: _resetNumber,
                     ),
                   ),
                   // Gap between static header and filtered zone
@@ -472,8 +473,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               _onIntervalSelected(interval, context),
                         ),
                       ),
-                      maxHeight: 100.0,
-                      minHeight: 100.0,
+                      maxHeight: 108.0,
+                      minHeight: 108.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
