@@ -203,25 +203,28 @@ class _ItemsListContentState extends State<_ItemsListContent>
               ),
               body: SafeArea(
                 top: true,
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Total/Today Toggle
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10.0, 20.0, 10.0, 0.0),
-                      child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
-                    ),
-                    // Search field
-                    if (_isSearching)
-                      _buildSearchField(context, primaryText, secondaryText, alternate),
-                    // Connection status banner
-                    if (!isConnected)
-                      _buildDisconnectedBanner(context),
-                    // Items List
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 0.0),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Total/Today Toggle
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 0.0),
+                          child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
+                        ),
+                        // Search field
+                        if (_isSearching)
+                          _buildSearchField(context, primaryText, secondaryText, alternate),
+                        // Connection status banner
+                        if (!isConnected)
+                          _buildDisconnectedBanner(context),
+                        // Items List
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
                         child: BlocConsumer<ItemsBloc, ItemsState>(
                           listener: (context, state) {
                             if (state is ItemsError) {
@@ -389,7 +392,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         ),
                       ),
                     ),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -441,7 +446,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   Widget _buildSearchField(BuildContext context, Color primaryText, Color secondaryText, Color alternate) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 12.0),
+      padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 12.0),
       child: TextField(
         controller: _searchController,
         autofocus: true,
