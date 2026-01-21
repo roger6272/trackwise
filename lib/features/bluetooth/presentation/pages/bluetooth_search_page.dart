@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../items/presentation/pages/items_list_page.dart';
 import '../../domain/entities/ble_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
@@ -60,9 +61,9 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
       ),
       body: BlocConsumer<BluetoothBloc, BluetoothState>(
         listener: (context, state) {
-          // Navigate back when connected
+          // Navigate to items list when connected
           if (state.isConnected) {
-            context.pop();
+            context.go(ItemsListPage.routePath);
           }
           // Show error snackbar
           if (state.status == BluetoothStatus.error && state.errorMessage != null) {
