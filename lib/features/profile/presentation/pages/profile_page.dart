@@ -55,7 +55,7 @@ class _ProfilePageState extends State<ProfilePage> {
           backgroundColor: primaryBackground,
           automaticallyImplyLeading: false,
           title: Text(
-            'Profile',
+            'Account',
             style: GoogleFonts.interTight(
               color: primaryText,
               fontSize: 20.0,
@@ -195,26 +195,6 @@ class _ProfilePageState extends State<ProfilePage> {
     return Center(
       child: Column(
         children: [
-          Container(
-            width: 120.0,
-            height: 120.0,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: _primary, width: 3.0),
-              image: profile.photoUrl != null
-                  ? DecorationImage(
-                      fit: BoxFit.cover,
-                      image: NetworkImage(profile.photoUrl!),
-                    )
-                  : const DecorationImage(
-                      fit: BoxFit.cover,
-                      image: NetworkImage(
-                        'https://images.unsplash.com/photo-1607346256330-dee7af15f7c5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0NTYyMDF8MHwxfHJhbmRvbXx8fHx8fHx8fDE3NTQwNzQzODZ8&ixlib=rb-4.1.0&q=80&w=1080',
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 16.0),
           Text(
             profile.displayName ?? 'No name set',
             style: GoogleFonts.interTight(
