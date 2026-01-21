@@ -465,7 +465,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                             ),
                           ],
                         ),
-                        padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 8.0),
+                        padding: const EdgeInsets.fromLTRB(20.0, 18.0, 20.0, 6.0),
                         child: FilterSection(
                           intervals: _intervals,
                           selectedInterval: _selectedInterval ?? -1,
@@ -473,8 +473,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               _onIntervalSelected(interval, context),
                         ),
                       ),
-                      maxHeight: 108.0,
-                      minHeight: 108.0,
+                      maxHeight: 104.0,
+                      minHeight: 104.0,
                     ),
                   ),
                   // Filtered Content Zone (continues from filter section)
