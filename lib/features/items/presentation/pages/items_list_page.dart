@@ -910,19 +910,35 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   final bluetoothBloc = context.read<BluetoothBloc>();
                   final itemsState = itemsBloc.state;
                   if (itemsState is ItemsLoaded) {
-                    // Find actual index of this item in the full list
-                    final actualIndex = itemsState.items.indexWhere((i) => i.id == item.id);
-                    if (actualIndex > 0) {
-                      // Move to position 0
-                      itemsBloc.add(ReorderItemsEvent(oldIndex: actualIndex, newIndex: 0));
-                      // Sync to device
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (!mounted) return;
-                        final updatedState = itemsBloc.state;
-                        if (updatedState is ItemsLoaded) {
-                          bluetoothBloc.add(SendItemsToDevice(updatedState.items));
-                        }
-                      });
+                    final isInCategory = itemsState.isFilteredByCategory;
+                    if (isInCategory) {
+                      // Move to top within category
+                      final filteredIndex = itemsState.filteredItems.indexWhere((i) => i.id == item.id);
+                      if (filteredIndex > 0) {
+                        itemsBloc.add(ReorderItemsInCategoryEvent(oldIndex: filteredIndex, newIndex: 0));
+                        // Sync filtered items to device
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (!mounted) return;
+                          final updatedState = itemsBloc.state;
+                          if (updatedState is ItemsLoaded) {
+                            bluetoothBloc.add(SendItemsToDevice(updatedState.filteredItems));
+                          }
+                        });
+                      }
+                    } else {
+                      // Move to top globally
+                      final actualIndex = itemsState.items.indexWhere((i) => i.id == item.id);
+                      if (actualIndex > 0) {
+                        itemsBloc.add(ReorderItemsEvent(oldIndex: actualIndex, newIndex: 0));
+                        // Sync all items to device
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (!mounted) return;
+                          final updatedState = itemsBloc.state;
+                          if (updatedState is ItemsLoaded) {
+                            bluetoothBloc.add(SendItemsToDevice(updatedState.items));
+                          }
+                        });
+                      }
                     }
                   }
                   // Clear search to show item at top
