@@ -262,9 +262,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 return _buildNoSearchResults(context, primaryText, secondaryText);
                               }
 
-                              // Use ReorderableListView when connected and not searching
-                              // Disable reorder during search to avoid index mismatch
-                              if (isConnected && _searchQuery.isEmpty) {
+                              // Use ReorderableListView when connected
+                              // Long-press during search clears search and allows reordering
+                              if (isConnected) {
                                 // Trigger reorder hint when connected and swipe hint already shown
                                 if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint && _searchQuery.isEmpty) {
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -276,7 +276,17 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   physics: const AlwaysScrollableScrollPhysics(),
                                   buildDefaultDragHandles: false,
                                   itemCount: filteredItems.length,
-                                  onReorderStart: (_) => HapticFeedback.mediumImpact(),
+                                  onReorderStart: (_) {
+                                    HapticFeedback.mediumImpact();
+                                    // Clear search on drag start to show full list
+                                    if (_searchQuery.isNotEmpty) {
+                                      setState(() {
+                                        _searchController.clear();
+                                        _searchQuery = '';
+                                        _isSearching = false;
+                                      });
+                                    }
+                                  },
                                   proxyDecorator: (child, index, animation) {
                                     return AnimatedBuilder(
                                       animation: animation,
