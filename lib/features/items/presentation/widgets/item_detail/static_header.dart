@@ -29,6 +29,9 @@ class StaticHeader extends StatelessWidget {
   /// Value for the reminder (target count or interval).
   final int reminderValue;
 
+  /// Number of times the item has been reset.
+  final int resetNumber;
+
   const StaticHeader({
     super.key,
     required this.currentCount,
@@ -37,6 +40,7 @@ class StaticHeader extends StatelessWidget {
     required this.incrementBy,
     required this.reminderType,
     this.reminderValue = 0,
+    this.resetNumber = 0,
   });
 
   @override
@@ -139,7 +143,9 @@ class StaticHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 4.0),
                   Text(
-                    initialCount > 0 ? 'from $initialCount' : 'Current Count',
+                    // Only show "from X" on the original cycle (resetNumber == 0)
+                    // After a reset, show "Current Count" since the original initial is no longer relevant
+                    (initialCount > 0 && resetNumber == 0) ? 'from $initialCount' : 'Current Count',
                     style: GoogleFonts.inter(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w500,
@@ -217,6 +223,14 @@ class StaticHeader extends StatelessWidget {
           icon: Icons.add_rounded,
           label: 'Per Press',
           value: '+$incrementBy',
+          primaryText: primaryText,
+          secondaryText: secondaryText,
+        ),
+        _buildDivider(secondaryText),
+        _buildStatItem(
+          icon: Icons.restart_alt_rounded,
+          label: 'Cycle',
+          value: '#${resetNumber + 1}',
           primaryText: primaryText,
           secondaryText: secondaryText,
         ),
