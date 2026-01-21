@@ -492,27 +492,41 @@ class _ItemsListContentState extends State<_ItemsListContent>
     return GestureDetector(
       onTap: () => appUiState.isTodayToggle = !isToday,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        height: 40.0,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
         decoration: BoxDecoration(
           color: alternate,
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(10.0),
+          border: Border.all(
+            color: secondaryText.withValues(alpha: 0.15),
+            width: 1.0,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isToday ? Icons.today_rounded : Icons.functions_rounded,
-              size: 16,
+              size: 18,
               color: secondaryText,
             ),
             const SizedBox(width: 6),
-            Text(
-              isToday ? 'Today' : 'Total',
-              style: GoogleFonts.inter(
-                color: primaryText,
-                fontSize: 14.0,
-                fontWeight: FontWeight.w500,
+            SizedBox(
+              width: 38.0,
+              child: Text(
+                isToday ? 'Today' : 'Total',
+                style: GoogleFonts.inter(
+                  color: primaryText,
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.swap_horiz_rounded,
+              size: 16,
+              color: secondaryText.withValues(alpha: 0.6),
             ),
           ],
         ),
