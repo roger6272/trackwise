@@ -237,16 +237,30 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   final selectedCategoryId = itemsState is ItemsLoaded
                                       ? itemsState.selectedCategoryId
                                       : null;
-                                  return Padding(
-                                    padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 12.0),
-                                    child: _buildCategoryDropdown(
-                                      context,
-                                      categoriesState.categories,
-                                      selectedCategoryId,
-                                      primaryText,
-                                      secondaryText,
-                                      alternate,
-                                    ),
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 12.0),
+                                        child: _buildCategoryDropdown(
+                                          context,
+                                          categoriesState.categories,
+                                          selectedCategoryId,
+                                          primaryText,
+                                          secondaryText,
+                                          alternate,
+                                        ),
+                                      ),
+                                      // Divider between category filter and items
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                        child: Divider(
+                                          height: 1,
+                                          thickness: 0.5,
+                                          color: secondaryText.withValues(alpha: 0.2),
+                                        ),
+                                      ),
+                                    ],
                                   );
                                 },
                               );
@@ -636,8 +650,38 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 ],
               ),
             ),
+            // Divider before manage option
+            DropdownMenuItem<String?>(
+              value: '__divider2__',
+              enabled: false,
+              child: Divider(color: secondaryText.withValues(alpha: 0.2), height: 1),
+            ),
+            // Manage Categories option
+            DropdownMenuItem<String?>(
+              value: '__manage__',
+              child: Row(
+                children: [
+                  Icon(Icons.settings_outlined, color: secondaryText, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Manage Categories',
+                    style: GoogleFonts.inter(
+                      color: secondaryText,
+                      fontSize: 15.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
           onChanged: (value) {
+            // Handle "Manage Categories" navigation
+            if (value == '__manage__') {
+              context.push('/profile/categories');
+              return;
+            }
+
             final itemsBloc = context.read<ItemsBloc>();
             final bluetoothBloc = context.read<BluetoothBloc>();
             itemsBloc.add(FilterByCategoryEvent(value));
@@ -649,7 +693,25 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
               final itemsState = itemsBloc.state;
               if (itemsState is ItemsLoaded) {
-                bluetoothBloc.add(SendItemsToDevice(itemsState.filteredItems));
+                final filteredItems = itemsState.filteredItems;
+                bluetoothBloc.add(SendItemsToDevice(filteredItems));
+
+                // Check if selected item is in the filtered list
+                final selectedId = bluetoothBloc.state.selectedItemId;
+                final selectedInList = selectedId != null &&
+                    selectedId.isNotEmpty &&
+                    filteredItems.any((item) => item.id == selectedId);
+
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  if (!mounted) return;
+                  if (selectedInList) {
+                    // Re-send to update device's index
+                    bluetoothBloc.add(SendSelectedItem(selectedId));
+                  } else {
+                    // Clear selection - item not in filtered list
+                    bluetoothBloc.add(const SendSelectedItem('none'));
+                  }
+                });
               }
             });
           },
