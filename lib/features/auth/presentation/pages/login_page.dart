@@ -87,28 +87,14 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildLogo(BuildContext context) {
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 70.0, 0.0, 32.0),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
-            child: Icon(
-              Icons.flourescent_rounded,
-              color: Colors.white,
-              size: 44.0,
-            ),
-          ),
-          Text(
-            'Trackwise',
-            style: GoogleFonts.interTight(
-              color: Colors.white,
-              fontSize: 25.0,
-              letterSpacing: 0.0,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+      child: Text(
+        'Traxogic',
+        style: GoogleFonts.interTight(
+          color: Colors.white,
+          fontSize: 32.0,
+          letterSpacing: 0.0,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -432,7 +418,7 @@ class _LoginPageState extends State<LoginPage> {
             text: TextSpan(
               children: [
                 TextSpan(
-                  text: "Don't have an account?  ",
+                  text: "Don't have an account? ",
                   style: GoogleFonts.inter(
                     color: AppColors.primaryText(brightness),
                     fontSize: 14.0,

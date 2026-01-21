@@ -89,29 +89,15 @@ class _SignupPageState extends State<SignupPage> {
 
   Widget _buildLogo(BuildContext context) {
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 50.0, 0.0, 32.0),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
-            child: Icon(
-              Icons.flourescent_rounded,
-              color: Colors.white,
-              size: 44.0,
-            ),
-          ),
-          Text(
-            'Trackwise',
-            style: GoogleFonts.interTight(
-              color: Colors.white,
-              fontSize: 25.0,
-              letterSpacing: 0.0,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 70.0, 0.0, 32.0),
+      child: Text(
+        'Traxogic',
+        style: GoogleFonts.interTight(
+          color: Colors.white,
+          fontSize: 32.0,
+          letterSpacing: 0.0,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
