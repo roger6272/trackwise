@@ -900,6 +900,28 @@ class _ItemsListContentState extends State<_ItemsListContent>
           motion: const ScrollMotion(),
           extentRatio: 0.65,
           children: [
+            // Activate (pin) action
+            SlidableAction(
+              backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
+              icon: Icons.push_pin_rounded,
+              autoClose: false,
+              onPressed: (slidableContext) async {
+                HapticFeedback.lightImpact();
+                if (isConnected) {
+                  appUiState.activeItemId = item.id;
+                  // First sync all items to device (ensures new items are known)
+                  final itemsState = context.read<ItemsBloc>().state;
+                  if (itemsState is ItemsLoaded) {
+                    context.read<BluetoothBloc>().add(SendItemsToDevice(itemsState.items));
+                  }
+                  // Then send selected item to device
+                  context.read<BluetoothBloc>().add(SendSelectedItem(item.id));
+                } else {
+                  await _showConnectDeviceDialog(context);
+                }
+                Slidable.of(slidableContext)?.close();
+              },
+            ),
             // Move to Top action
             SlidableAction(
               backgroundColor: isConnected ? _moveToTopActionColor : _disabledActionColor,
@@ -951,28 +973,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       _isSearching = false;
                     });
                   }
-                } else {
-                  await _showConnectDeviceDialog(context);
-                }
-                Slidable.of(slidableContext)?.close();
-              },
-            ),
-            // Activate action
-            SlidableAction(
-              backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
-              icon: Icons.check_circle,
-              autoClose: false,
-              onPressed: (slidableContext) async {
-                HapticFeedback.lightImpact();
-                if (isConnected) {
-                  appUiState.activeItemId = item.id;
-                  // First sync all items to device (ensures new items are known)
-                  final itemsState = context.read<ItemsBloc>().state;
-                  if (itemsState is ItemsLoaded) {
-                    context.read<BluetoothBloc>().add(SendItemsToDevice(itemsState.items));
-                  }
-                  // Then send selected item to device
-                  context.read<BluetoothBloc>().add(SendSelectedItem(item.id));
                 } else {
                   await _showConnectDeviceDialog(context);
                 }
