@@ -102,6 +102,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   static const Color _activatedColorLight = Color(0xFFCAC6FF);
   static const Color _activatedColorDark = Color(0xFF3D3A6D);
   static const Color _activateActionColor = Color(0xFF3C38B5);
+  static const Color _moveToTopActionColor = Color(0xFF0891B2);
   static const Color _deleteActionColor = Color(0xFFD11F43);
   static const Color _disabledActionColor = Color(0xFF565656);
   static const int _maxItems = 50;
@@ -263,7 +264,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                               }
 
                               // Use ReorderableListView when connected and not searching
-                              // Reordering disabled during search to avoid index mismatch
+                              // During search, use ListView with "Move to Top" action instead
                               if (isConnected && _searchQuery.isEmpty) {
                                 // Trigger reorder hint when connected and swipe hint already shown
                                 if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint && _searchQuery.isEmpty) {
@@ -661,8 +662,50 @@ class _ItemsListContentState extends State<_ItemsListContent>
         controller: controller,
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
-          extentRatio: 0.5,
+          extentRatio: 0.65,
           children: [
+            // Move to Top action
+            SlidableAction(
+              backgroundColor: isConnected ? _moveToTopActionColor : _disabledActionColor,
+              icon: Icons.vertical_align_top_rounded,
+              autoClose: false,
+              onPressed: (slidableContext) async {
+                HapticFeedback.lightImpact();
+                if (isConnected) {
+                  final itemsBloc = context.read<ItemsBloc>();
+                  final bluetoothBloc = context.read<BluetoothBloc>();
+                  final itemsState = itemsBloc.state;
+                  if (itemsState is ItemsLoaded) {
+                    // Find actual index of this item in the full list
+                    final actualIndex = itemsState.items.indexWhere((i) => i.id == item.id);
+                    if (actualIndex > 0) {
+                      // Move to position 0
+                      itemsBloc.add(ReorderItemsEvent(oldIndex: actualIndex, newIndex: 0));
+                      // Sync to device
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (!mounted) return;
+                        final updatedState = itemsBloc.state;
+                        if (updatedState is ItemsLoaded) {
+                          bluetoothBloc.add(SendItemsToDevice(updatedState.items));
+                        }
+                      });
+                    }
+                  }
+                  // Clear search to show item at top
+                  if (_searchQuery.isNotEmpty) {
+                    setState(() {
+                      _searchController.clear();
+                      _searchQuery = '';
+                      _isSearching = false;
+                    });
+                  }
+                } else {
+                  await _showConnectDeviceDialog(context);
+                }
+                Slidable.of(slidableContext)?.close();
+              },
+            ),
+            // Activate action
             SlidableAction(
               backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
               icon: Icons.check_circle,
