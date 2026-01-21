@@ -512,7 +512,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
             const SizedBox(width: 6),
             SizedBox(
-              width: 38.0,
+              width: 44.0,
               child: Text(
                 isToday ? 'Today' : 'Total',
                 style: GoogleFonts.inter(
@@ -736,7 +736,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 12.0),
+        padding: const EdgeInsets.only(top: 12.0),
         child: GestureDetector(
           onTap: () => context.go('/bluetooth'),
           child: Container(
