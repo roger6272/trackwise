@@ -96,7 +96,7 @@ class PeriodStatsSection extends StatelessWidget {
                     const SizedBox(height: 2.0),
                     if (_showInitialBreakdown) ...[
                       Text(
-                        '$initialCount+${interval.count}',
+                        'from $initialCount',
                         style: GoogleFonts.inter(
                           fontSize: 12.0,
                           fontWeight: FontWeight.w500,
