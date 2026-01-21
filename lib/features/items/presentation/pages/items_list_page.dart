@@ -637,23 +637,17 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 ],
               ),
             ),
-            // Divider before manage option
-            DropdownMenuItem<String?>(
-              value: '__divider__',
-              enabled: false,
-              child: Divider(color: secondaryText.withValues(alpha: 0.2), height: 1),
-            ),
             // Manage Categories option
             DropdownMenuItem<String?>(
               value: '__manage__',
               child: Row(
                 children: [
-                  Icon(Icons.settings_outlined, color: secondaryText, size: 20),
+                  Icon(Icons.settings_outlined, color: AppColors.primary, size: 20),
                   const SizedBox(width: 12),
                   Text(
                     'Manage Categories',
                     style: GoogleFonts.inter(
-                      color: secondaryText,
+                      color: AppColors.primary,
                       fontSize: 15.0,
                       fontWeight: FontWeight.w500,
                     ),
