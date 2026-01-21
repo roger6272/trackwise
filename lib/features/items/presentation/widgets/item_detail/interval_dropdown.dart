@@ -148,9 +148,16 @@ class IntervalDropdown extends StatelessWidget {
         color: controlBackground,
         borderRadius: BorderRadius.circular(10.0),
         border: Border.all(
-          color: secondaryText.withValues(alpha: 0.12),
+          color: secondaryText.withValues(alpha: 0.08),
           width: 1.0,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8.0,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,

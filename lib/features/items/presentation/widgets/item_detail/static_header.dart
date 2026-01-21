@@ -139,7 +139,7 @@ class StaticHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 4.0),
                   Text(
-                    'Current Count',
+                    initialCount > 0 ? 'from $initialCount' : 'Current Count',
                     style: GoogleFonts.inter(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w500,
@@ -215,16 +215,8 @@ class StaticHeader extends StatelessWidget {
       children: [
         _buildStatItem(
           icon: Icons.add_rounded,
-          label: 'Increment',
+          label: 'Per Press',
           value: '+$incrementBy',
-          primaryText: primaryText,
-          secondaryText: secondaryText,
-        ),
-        _buildDivider(secondaryText),
-        _buildStatItem(
-          icon: Icons.start_rounded,
-          label: 'Initial',
-          value: initialCount.toString(),
           primaryText: primaryText,
           secondaryText: secondaryText,
         ),
