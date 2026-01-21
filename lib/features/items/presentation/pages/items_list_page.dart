@@ -232,37 +232,23 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                             if (!hasCategories) return const SizedBox.shrink();
 
-                            return Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
-                                  child: BlocBuilder<ItemsBloc, ItemsState>(
-                                    builder: (context, itemsState) {
-                                      final selectedCategoryId = itemsState is ItemsLoaded
-                                          ? itemsState.selectedCategoryId
-                                          : null;
-                                      return _buildCategoryDropdown(
-                                        context,
-                                        categoriesState.categories,
-                                        selectedCategoryId,
-                                        primaryText,
-                                        secondaryText,
-                                        alternate,
-                                      );
-                                    },
-                                  ),
-                                ),
-                                // Divider below the row
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                  child: Divider(
-                                    height: 1,
-                                    thickness: 0.5,
-                                    color: secondaryText.withValues(alpha: 0.2),
-                                  ),
-                                ),
-                              ],
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
+                              child: BlocBuilder<ItemsBloc, ItemsState>(
+                                builder: (context, itemsState) {
+                                  final selectedCategoryId = itemsState is ItemsLoaded
+                                      ? itemsState.selectedCategoryId
+                                      : null;
+                                  return _buildCategoryDropdown(
+                                    context,
+                                    categoriesState.categories,
+                                    selectedCategoryId,
+                                    primaryText,
+                                    secondaryText,
+                                    alternate,
+                                  );
+                                },
+                              ),
                             );
                           },
                         ),
@@ -272,6 +258,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         // Connection status banner
                         if (!isConnected)
                           _buildDisconnectedBanner(context),
+                        // Labeled divider showing Today/Total mode
+                        _buildLabeledDivider(appUiState, secondaryText),
                         // Items List
                         Expanded(
                           child: Padding(
@@ -507,6 +495,32 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLabeledDivider(AppUiState appUiState, Color secondaryText) {
+    final label = appUiState.isTodayToggle ? 'Today' : 'Total';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              color: secondaryText.withValues(alpha: 0.6),
+              fontSize: 12.0,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 0.5,
+              color: secondaryText.withValues(alpha: 0.2),
+            ),
+          ),
+        ],
       ),
     );
   }
