@@ -39,7 +39,7 @@ class FilterSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
           child: Text(
-            'Filter by Reset Period',
+            'Filter by Reset Cycle',
             style: GoogleFonts.inter(
               fontSize: 12.0,
               fontWeight: FontWeight.w600,
@@ -54,6 +54,7 @@ class FilterSection extends StatelessWidget {
           selectedInterval: selectedInterval,
           onChanged: onIntervalChanged,
         ),
+        const SizedBox(height: 8.0),
       ],
     );
   }
