@@ -4,9 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../bluetooth/domain/entities/ble_message.dart';
-import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../charts/domain/entities/chart_data.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../charts/presentation/bloc/charts_event.dart';
@@ -351,36 +348,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           create: (_) => sl<ChartsBloc>()..add(_createChartEvent()),
         ),
       ],
-      child: BlocListener<BluetoothBloc, BluetoothState>(
+      child: BlocListener<EventsBloc, EventsState>(
         listener: (context, state) {
-          // Listen for delta messages that affect the current item
-          final message = state.lastMessage;
-          if (message != null && message.type == BleMessageType.itemDelta) {
-            // Extract item ID and resetNumber from delta message data
-            final data = message.data;
-            if (data is Map) {
-              final deltaItemId = data['id']?.toString();
-              final deltaResetNumber = data['resetNumber'] as int?;
-
-              // Only refresh if this item's resetNumber changed (i.e., a reset occurred)
-              if (deltaItemId == widget.itemId &&
-                  deltaResetNumber != null &&
-                  deltaResetNumber != _resetNumber) {
-                debugPrint('📱 Reset detected for current item (resetNumber: $_resetNumber -> $deltaResetNumber), refreshing...');
-                _onRefresh(context);
-              }
-            }
+          _updateIntervalsFromEvents(state);
+          if (state is EventsLoaded) {
+            // Always reload chart when events are loaded to ensure sync
+            _reloadChart(context);
           }
         },
-        child: BlocListener<EventsBloc, EventsState>(
-          listener: (context, state) {
-            _updateIntervalsFromEvents(state);
-            if (state is EventsLoaded) {
-              // Always reload chart when events are loaded to ensure sync
-              _reloadChart(context);
-            }
-          },
-          child: Builder(
+        child: Builder(
           builder: (context) {
             // Handle deferred data reload after widget update (e.g., BLE sync)
             if (_needsDataReload) {
@@ -630,7 +606,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ),
         );
       },
-        ),
         ),
       ),
     );
