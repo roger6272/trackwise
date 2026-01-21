@@ -590,6 +590,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceId = state.connectedDevice?.id;
     if (deviceId == null) return;
 
+    // Optimistic update: update UI immediately before device responds
+    emit(state.copyWith(selectedItemId: event.itemId));
+
     final result = await _sendSelectedItem.call(
       SendSelectedItemParams(deviceId: deviceId, itemId: event.itemId),
     );
@@ -599,7 +602,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         status: BluetoothStatus.error,
         errorMessage: failure.message,
       )),
-      (_) => emit(state.copyWith(selectedItemId: event.itemId)),
+      (_) {}, // Already updated optimistically
     );
   }
 
