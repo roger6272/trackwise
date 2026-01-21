@@ -7,8 +7,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
-import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
@@ -125,11 +123,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         height: 1.0,
                         color: alternate,
                       ),
-                      const SizedBox(height: 24.0),
-                      // Device
-                      _buildSectionTitle(context, 'Device'),
-                      const SizedBox(height: 16.0),
-                      _buildDeviceCard(context),
                       const SizedBox(height: 24.0),
                       // Account Settings
                       _buildSectionTitle(context, 'Account Settings'),
@@ -368,81 +361,6 @@ class _ProfilePageState extends State<ProfilePage> {
           padding: const EdgeInsets.all(8.0),
         ),
       ),
-    );
-  }
-
-  Widget _buildDeviceCard(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final primaryText = AppColors.primaryText(brightness);
-    final secondaryText = AppColors.secondaryText(brightness);
-    final secondaryBackground = AppColors.secondaryBackground(brightness);
-
-    return BlocBuilder<BluetoothBloc, BluetoothState>(
-      builder: (context, state) {
-        final isConnected = state.isConnected;
-        final deviceName = state.connectedDevice?.name ?? 'Unknown Device';
-
-        return InkWell(
-          onTap: () => context.push('/bluetooth'),
-          borderRadius: BorderRadius.circular(12.0),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: secondaryBackground,
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48.0,
-                  height: 48.0,
-                  decoration: BoxDecoration(
-                    color: isConnected
-                        ? AppColors.success.withValues(alpha: 0.1)
-                        : secondaryText.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Icon(
-                    isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                    color: isConnected ? AppColors.success : secondaryText,
-                    size: 24.0,
-                  ),
-                ),
-                const SizedBox(width: 16.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isConnected ? deviceName : 'No Device Connected',
-                        style: GoogleFonts.inter(
-                          color: primaryText,
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2.0),
-                      Text(
-                        isConnected ? 'Connected' : 'Tap to connect',
-                        style: GoogleFonts.inter(
-                          color: isConnected ? AppColors.success : secondaryText,
-                          fontSize: 13.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: secondaryText,
-                  size: 20.0,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
