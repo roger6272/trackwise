@@ -510,6 +510,44 @@ class _ItemFormPageState extends State<ItemFormPage> {
     );
   }
 
+  /// Checks if an item with the same name already exists (case-insensitive).
+  /// Checks both active and soft-deleted items.
+  /// Returns true if duplicate exists, false otherwise.
+  Future<bool> _checkDuplicateName(String name) async {
+    final userId = _getUserId();
+    final itemRepository = sl<ItemRepository>();
+    final normalizedName = name.toLowerCase();
+
+    // Fetch active items
+    final activeResult = await itemRepository.getItems(userId);
+    final activeItems = activeResult.fold(
+      (failure) => <Item>[],
+      (items) => items,
+    );
+
+    // Fetch deleted items
+    final deletedResult = await itemRepository.getDeletedItems(userId);
+    final deletedItems = deletedResult.fold(
+      (failure) => <Item>[],
+      (items) => items,
+    );
+
+    // Combine all items
+    final allItems = [...activeItems, ...deletedItems];
+
+    // Check for duplicate (excluding current item if editing)
+    for (final item in allItems) {
+      // Skip the item being edited
+      if (isEditMode && item.id == widget.item!.id) continue;
+
+      if (item.name.toLowerCase() == normalizedName) {
+        return true; // Duplicate found
+      }
+    }
+
+    return false; // No duplicate
+  }
+
   Future<void> _handleSave(BuildContext blocContext) async {
     debugPrint('🔵 _handleSave called');
 
@@ -529,6 +567,21 @@ class _ItemFormPageState extends State<ItemFormPage> {
     setState(() => _isLoading = true);
 
     final name = nameController.text.trim();
+
+    // Check for duplicate item name
+    final duplicateExists = await _checkDuplicateName(name);
+    if (duplicateExists) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An item with this name already exists'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
     final initialValue = int.tryParse(initialValueController.text) ?? 0;
     final goalText = goalController.text.trim();
     final goal = goalText.isEmpty ? null : int.tryParse(goalText);
