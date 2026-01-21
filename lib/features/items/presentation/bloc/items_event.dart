@@ -195,3 +195,58 @@ class ReorderItemsEvent extends ItemsEvent {
   @override
   List<Object?> get props => [oldIndex, newIndex];
 }
+
+/// Event to filter items by category.
+///
+/// Sets the selected category filter for the items list.
+/// - null: Show all items (sorted by global order)
+/// - '': Show uncategorized items only
+/// - categoryId: Show items in that category (sorted by categoryOrder)
+///
+/// The filter is applied client-side on the already-watched items.
+///
+/// Example:
+/// ```dart
+/// // Show all items
+/// bloc.add(FilterByCategoryEvent(null));
+///
+/// // Show uncategorized items
+/// bloc.add(FilterByCategoryEvent(''));
+///
+/// // Show items in a specific category
+/// bloc.add(FilterByCategoryEvent('category_123'));
+/// ```
+class FilterByCategoryEvent extends ItemsEvent {
+  final String? categoryId;
+
+  const FilterByCategoryEvent(this.categoryId);
+
+  @override
+  List<Object?> get props => [categoryId];
+}
+
+/// Event to reorder items within a category.
+///
+/// Similar to ReorderItemsEvent but updates categoryOrder instead of order.
+/// Used when viewing items filtered by a specific category.
+/// Uses the current selectedCategoryId from state to determine which items to reorder.
+///
+/// Example:
+/// ```dart
+/// bloc.add(ReorderItemsInCategoryEvent(
+///   oldIndex: 2,
+///   newIndex: 0,
+/// ));
+/// ```
+class ReorderItemsInCategoryEvent extends ItemsEvent {
+  final int oldIndex;
+  final int newIndex;
+
+  const ReorderItemsInCategoryEvent({
+    required this.oldIndex,
+    required this.newIndex,
+  });
+
+  @override
+  List<Object?> get props => [oldIndex, newIndex];
+}

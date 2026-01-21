@@ -39,16 +39,46 @@ class ItemsLoading extends ItemsState {}
 /// - Determine reload behavior after mutations
 /// - Decide whether to use optimistic updates
 class ItemsLoaded extends ItemsState {
-  /// List of items for the current user
+  /// List of all items for the current user (unfiltered)
   final List<Item> items;
 
   /// True if subscribed to Firestore real-time updates via WatchItemsUseCase
   final bool isWatching;
 
-  const ItemsLoaded(this.items, {this.isWatching = false});
+  /// Currently selected category filter.
+  /// - null: Show all items (sorted by global order)
+  /// - '': Show uncategorized items only
+  /// - categoryId: Show items in that category (sorted by categoryOrder)
+  final String? selectedCategoryId;
+
+  const ItemsLoaded(
+    this.items, {
+    this.isWatching = false,
+    this.selectedCategoryId,
+  });
+
+  /// Returns filtered items based on selectedCategoryId.
+  List<Item> get filteredItems {
+    if (selectedCategoryId == null) {
+      // All items, sorted by global order
+      return List<Item>.from(items)..sort((a, b) => a.order.compareTo(b.order));
+    } else if (selectedCategoryId == '') {
+      // Uncategorized items only, sorted by categoryOrder
+      return List<Item>.from(items.where((item) => item.categoryId == null))
+        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+    } else {
+      // Items in specific category, sorted by categoryOrder
+      return List<Item>.from(
+          items.where((item) => item.categoryId == selectedCategoryId))
+        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+    }
+  }
+
+  /// Returns true if currently viewing a specific category (not "All")
+  bool get isFilteredByCategory => selectedCategoryId != null;
 
   @override
-  List<Object?> get props => [items, isWatching];
+  List<Object?> get props => [items, isWatching, selectedCategoryId];
 
   /// Create a copy with updated fields.
   ///
@@ -61,14 +91,21 @@ class ItemsLoaded extends ItemsState {
   ///
   /// // Update items list
   /// final newState = currentState.copyWith(items: updatedItems);
+  ///
+  /// // Filter by category
+  /// final newState = currentState.copyWith(selectedCategoryId: 'cat_123');
   /// ```
   ItemsLoaded copyWith({
     List<Item>? items,
     bool? isWatching,
+    String? selectedCategoryId,
+    bool clearCategoryFilter = false,
   }) {
     return ItemsLoaded(
       items ?? this.items,
       isWatching: isWatching ?? this.isWatching,
+      selectedCategoryId:
+          clearCategoryFilter ? null : (selectedCategoryId ?? this.selectedCategoryId),
     );
   }
 }

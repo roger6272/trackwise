@@ -141,4 +141,51 @@ abstract class ItemRepository {
   /// - Right(void): Items successfully reordered
   /// - Left(ServerFailure): Firestore batch update failed
   Future<Either<Failure, void>> reorderItems(List<Item> items);
+
+  /// Reorders items within a category by updating their categoryOrder field.
+  ///
+  /// Used for drag-to-reorder when viewing a specific category.
+  /// Each item's categoryOrder field is set to its index in the provided list.
+  ///
+  /// Parameters:
+  /// - [items]: List of items in their new order within the category
+  ///
+  /// Returns:
+  /// - Right(void): Items successfully reordered
+  /// - Left(ServerFailure): Firestore batch update failed
+  Future<Either<Failure, void>> reorderItemsInCategory(List<Item> items);
+
+  /// Moves an item to a different category.
+  ///
+  /// Updates the item's categoryId and sets categoryOrder to max+1
+  /// for the new category. If newCategoryId is null, the item becomes
+  /// uncategorized.
+  ///
+  /// Parameters:
+  /// - [itemId]: The item to move
+  /// - [newCategoryId]: The target category (null for uncategorized)
+  ///
+  /// Returns:
+  /// - Right(void): Item successfully moved
+  /// - Left(ServerFailure): Firestore update failed
+  Future<Either<Failure, void>> moveItemToCategory(
+    String itemId,
+    String? newCategoryId,
+  );
+
+  /// Gets the maximum categoryOrder value for items in a category.
+  ///
+  /// Used to calculate the next categoryOrder when adding/moving items.
+  ///
+  /// Parameters:
+  /// - [userId]: The user's items to check
+  /// - [categoryId]: The category to check (null for uncategorized)
+  ///
+  /// Returns:
+  /// - Right(int): The maximum categoryOrder value (0 if no items)
+  /// - Left(ServerFailure): Firestore query failed
+  Future<Either<Failure, int>> getMaxCategoryOrder(
+    String userId,
+    String? categoryId,
+  );
 }

@@ -79,6 +79,14 @@ class Item extends Equatable {
   /// Null means no goal is set.
   final int? goal;
 
+  /// Category ID this item belongs to.
+  /// Null means the item is uncategorized.
+  final String? categoryId;
+
+  /// Display order within the item's category (0-indexed).
+  /// Used for ordering items when viewing a specific category.
+  final int categoryOrder;
+
   const Item({
     required this.id,
     required this.name,
@@ -95,6 +103,8 @@ class Item extends Equatable {
     this.order = 0,
     this.initialCount = 0,
     this.goal,
+    this.categoryId,
+    this.categoryOrder = 0,
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -118,6 +128,9 @@ class Item extends Equatable {
     int? initialCount,
     int? goal,
     bool clearGoal = false,
+    String? categoryId,
+    bool clearCategoryId = false,
+    int? categoryOrder,
   }) {
     return Item(
       id: id ?? this.id,
@@ -135,6 +148,8 @@ class Item extends Equatable {
       order: order ?? this.order,
       initialCount: initialCount ?? this.initialCount,
       goal: clearGoal ? null : (goal ?? this.goal),
+      categoryId: clearCategoryId ? null : (categoryId ?? this.categoryId),
+      categoryOrder: categoryOrder ?? this.categoryOrder,
     );
   }
 
@@ -155,6 +170,8 @@ class Item extends Equatable {
         order,
         initialCount,
         goal,
+        categoryId,
+        categoryOrder,
       ];
 
   @override
@@ -162,6 +179,7 @@ class Item extends Equatable {
     return 'Item(id: $id, name: $name, count: $count, todayCount: $todayCount, '
         'incrementBy: $incrementBy, reminder: $reminder, reminderValue: $reminderValue, '
         'lastResetTime: $lastResetTime, resetNumber: $resetNumber, lastUpdated: $lastUpdated, '
-        'userId: $userId, deletedAt: $deletedAt, order: $order, initialCount: $initialCount, goal: $goal)';
+        'userId: $userId, deletedAt: $deletedAt, order: $order, initialCount: $initialCount, '
+        'goal: $goal, categoryId: $categoryId, categoryOrder: $categoryOrder)';
   }
 }

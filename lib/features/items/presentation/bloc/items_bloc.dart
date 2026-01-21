@@ -59,6 +59,8 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     on<DeleteItemEvent>(_onDeleteItem);
     on<IncrementItemEvent>(_onIncrementItem);
     on<ReorderItemsEvent>(_onReorderItems);
+    on<FilterByCategoryEvent>(_onFilterByCategory);
+    on<ReorderItemsInCategoryEvent>(_onReorderItemsInCategory);
   }
 
   /// Handle LoadItemsEvent - fetch items once.
@@ -85,6 +87,7 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
   ///
   /// Cancels any existing subscription before creating a new one.
   /// The stream will emit ItemsLoaded whenever Firestore data changes.
+  /// Preserves the current category filter when items update.
   ///
   /// Emits:
   /// 1. ItemsLoading - while setting up subscription
@@ -97,6 +100,11 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     // Cancel existing subscription if any
     await _itemsSubscription?.cancel();
 
+    // Preserve current category filter
+    final currentCategoryId = state is ItemsLoaded
+        ? (state as ItemsLoaded).selectedCategoryId
+        : null;
+
     emit(ItemsLoading());
 
     // Subscribe to the stream using emit.onEach (non-blocking)
@@ -105,7 +113,11 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       onData: (Either<Failure, List<Item>> either) {
         either.fold(
           (failure) => emit(ItemsError(failure.message)),
-          (items) => emit(ItemsLoaded(items, isWatching: true)),
+          (items) => emit(ItemsLoaded(
+            items,
+            isWatching: true,
+            selectedCategoryId: currentCategoryId,
+          )),
         );
       },
     );
@@ -383,6 +395,98 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
           // If not, keep optimistic reorder
           if (!currentState.isWatching) {
             emit(ItemsLoaded(updatedItems, isWatching: false));
+          }
+        },
+      );
+    }
+  }
+
+  /// Handle FilterByCategoryEvent - filter items by category.
+  ///
+  /// Updates the selectedCategoryId in the state.
+  /// Filtering is done client-side via ItemsLoaded.filteredItems getter.
+  ///
+  /// Emits:
+  /// ItemsLoaded with updated selectedCategoryId
+  void _onFilterByCategory(
+    FilterByCategoryEvent event,
+    Emitter<ItemsState> emit,
+  ) {
+    final currentState = state;
+
+    if (currentState is ItemsLoaded) {
+      if (event.categoryId == null) {
+        emit(currentState.copyWith(clearCategoryFilter: true));
+      } else {
+        emit(currentState.copyWith(selectedCategoryId: event.categoryId));
+      }
+    }
+  }
+
+  /// Handle ReorderItemsInCategoryEvent - reorder items within a category.
+  ///
+  /// Updates the categoryOrder field for items in the category.
+  /// Uses optimistic update: UI reorders immediately, then persists to Firestore.
+  ///
+  /// Emits:
+  /// 1. ItemsLoaded with reordered items - optimistic reorder
+  /// 2. Previous state + ItemsError - if reorder fails
+  Future<void> _onReorderItemsInCategory(
+    ReorderItemsInCategoryEvent event,
+    Emitter<ItemsState> emit,
+  ) async {
+    final currentState = state;
+
+    if (currentState is ItemsLoaded) {
+      // Get items in the current category view
+      final categoryItems = currentState.filteredItems;
+
+      // Calculate the actual new index (Flutter's ReorderableListView behavior)
+      int newIndex = event.newIndex;
+      if (event.oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+
+      // Skip if no actual change
+      if (event.oldIndex == newIndex) return;
+
+      // Optimistic reorder in category
+      final reorderedCategoryItems = List<Item>.from(categoryItems);
+      final movedItem = reorderedCategoryItems.removeAt(event.oldIndex);
+      reorderedCategoryItems.insert(newIndex, movedItem);
+
+      // Update categoryOrder field for each item in the category
+      final updatedCategoryItems = reorderedCategoryItems.asMap().entries.map((entry) {
+        return entry.value.copyWith(categoryOrder: entry.key);
+      }).toList();
+
+      // Update the full items list with the new categoryOrders
+      final updatedItems = currentState.items.map((item) {
+        final updatedItem = updatedCategoryItems.firstWhere(
+          (ui) => ui.id == item.id,
+          orElse: () => item,
+        );
+        return updatedItem.id == item.id ? updatedItem : item;
+      }).toList();
+
+      emit(currentState.copyWith(items: updatedItems));
+
+      // Persist to Firestore
+      final result = await itemRepository.reorderItemsInCategory(updatedCategoryItems);
+
+      result.fold(
+        (failure) {
+          // Revert on error
+          debugPrint('❌ Failed to reorder items in category: ${failure.message}');
+          emit(currentState);
+          emit(ItemsError(failure.message));
+        },
+        (_) {
+          debugPrint('✅ Items reordered in category successfully');
+          // If watching, stream will confirm the update
+          // If not, keep optimistic reorder
+          if (!currentState.isWatching) {
+            emit(currentState.copyWith(items: updatedItems));
           }
         },
       );

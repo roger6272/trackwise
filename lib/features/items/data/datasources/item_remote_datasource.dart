@@ -145,4 +145,43 @@ abstract class ItemRemoteDataSource {
   ///
   /// Throws [ServerException] if the Firestore batch operation fails.
   Future<void> reorderItems(List<ItemModel> items);
+
+  /// Updates the categoryOrder field for multiple items in a batch.
+  ///
+  /// Used for drag-to-reorder when viewing a specific category.
+  /// Each item's categoryOrder field is set to its index in the provided list.
+  ///
+  /// Parameters:
+  /// - [items]: List of items with their new categoryOrder values already set
+  ///
+  /// Throws [ServerException] if the Firestore batch operation fails.
+  Future<void> reorderItemsInCategory(List<ItemModel> items);
+
+  /// Moves an item to a different category.
+  ///
+  /// Updates the item's category_id and sets category_order to max+1
+  /// for the new category.
+  ///
+  /// Parameters:
+  /// - [itemId]: The item to move
+  /// - [newCategoryId]: The target category (null for uncategorized)
+  /// - [newCategoryOrder]: The new categoryOrder value for the item
+  ///
+  /// Throws [ServerException] if the Firestore update fails.
+  Future<void> moveItemToCategory(
+    String itemId,
+    String? newCategoryId,
+    int newCategoryOrder,
+  );
+
+  /// Gets the maximum categoryOrder value for items in a category.
+  ///
+  /// Parameters:
+  /// - [userId]: The user's items to check
+  /// - [categoryId]: The category to check (null for uncategorized)
+  ///
+  /// Returns the maximum categoryOrder value (0 if no items).
+  ///
+  /// Throws [ServerException] if the Firestore query fails.
+  Future<int> getMaxCategoryOrder(String userId, String? categoryId);
 }

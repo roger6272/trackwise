@@ -81,6 +81,28 @@ import 'package:trackwise/features/bluetooth/domain/usecases/watch_device_messag
     as _i508;
 import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart'
     as _i72;
+import 'package:trackwise/features/categories/data/datasources/category_remote_datasource.dart'
+    as _i558;
+import 'package:trackwise/features/categories/data/datasources/category_remote_datasource_impl.dart'
+    as _i307;
+import 'package:trackwise/features/categories/data/repositories/category_repository_impl.dart'
+    as _i671;
+import 'package:trackwise/features/categories/domain/repositories/category_repository.dart'
+    as _i349;
+import 'package:trackwise/features/categories/domain/usecases/create_category_usecase.dart'
+    as _i624;
+import 'package:trackwise/features/categories/domain/usecases/delete_category_usecase.dart'
+    as _i742;
+import 'package:trackwise/features/categories/domain/usecases/get_categories_usecase.dart'
+    as _i956;
+import 'package:trackwise/features/categories/domain/usecases/reorder_categories_usecase.dart'
+    as _i412;
+import 'package:trackwise/features/categories/domain/usecases/update_category_usecase.dart'
+    as _i41;
+import 'package:trackwise/features/categories/domain/usecases/watch_categories_usecase.dart'
+    as _i269;
+import 'package:trackwise/features/categories/presentation/bloc/categories_bloc.dart'
+    as _i408;
 import 'package:trackwise/features/charts/domain/usecases/get_chart_data_usecase.dart'
     as _i23;
 import 'package:trackwise/features/charts/domain/usecases/get_cumulative_chart_data_usecase.dart'
@@ -184,6 +206,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i1046.ItemRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i1001.BluetoothDataSource>(
         () => _i420.BluetoothDataSourceImpl());
+    gh.lazySingleton<_i558.CategoryRemoteDataSource>(() =>
+        _i307.CategoryRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i949.EventLogRemoteDataSource>(() =>
         _i419.EventLogRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i319.ItemRepository>(
@@ -198,6 +222,8 @@ extension GetItInjectableX on _i174.GetIt {
               firebaseAuth: gh<_i59.FirebaseAuth>(),
               firestore: gh<_i974.FirebaseFirestore>(),
             ));
+    gh.lazySingleton<_i349.CategoryRepository>(() =>
+        _i671.CategoryRepositoryImpl(gh<_i558.CategoryRemoteDataSource>()));
     gh.lazySingleton<_i769.CheckBluetoothEnabledUseCase>(() =>
         _i769.CheckBluetoothEnabledUseCase(gh<_i862.BluetoothRepository>()));
     gh.lazySingleton<_i733.ClearDeviceLogsUseCase>(
@@ -270,6 +296,18 @@ extension GetItInjectableX on _i174.GetIt {
           exportUserData: gh<_i764.ExportUserDataUseCase>(),
           deleteAccount: gh<_i535.DeleteAccountUseCase>(),
         ));
+    gh.lazySingleton<_i624.CreateCategoryUseCase>(
+        () => _i624.CreateCategoryUseCase(gh<_i349.CategoryRepository>()));
+    gh.lazySingleton<_i742.DeleteCategoryUseCase>(
+        () => _i742.DeleteCategoryUseCase(gh<_i349.CategoryRepository>()));
+    gh.lazySingleton<_i956.GetCategoriesUseCase>(
+        () => _i956.GetCategoriesUseCase(gh<_i349.CategoryRepository>()));
+    gh.lazySingleton<_i412.ReorderCategoriesUseCase>(
+        () => _i412.ReorderCategoriesUseCase(gh<_i349.CategoryRepository>()));
+    gh.lazySingleton<_i41.UpdateCategoryUseCase>(
+        () => _i41.UpdateCategoryUseCase(gh<_i349.CategoryRepository>()));
+    gh.lazySingleton<_i269.WatchCategoriesUseCase>(
+        () => _i269.WatchCategoriesUseCase(gh<_i349.CategoryRepository>()));
     gh.lazySingleton<_i311.CreateItemUseCase>(() => _i311.CreateItemUseCase(
           gh<_i319.ItemRepository>(),
           gh<_i978.EventLogRepository>(),
@@ -333,6 +371,13 @@ extension GetItInjectableX on _i174.GetIt {
           signOut: gh<_i549.SignOutUseCase>(),
           resetPassword: gh<_i517.ResetPasswordUseCase>(),
           watchAuthState: gh<_i28.WatchAuthStateUseCase>(),
+        ));
+    gh.factory<_i408.CategoriesBloc>(() => _i408.CategoriesBloc(
+          watchCategoriesUseCase: gh<_i269.WatchCategoriesUseCase>(),
+          createCategoryUseCase: gh<_i624.CreateCategoryUseCase>(),
+          updateCategoryUseCase: gh<_i41.UpdateCategoryUseCase>(),
+          deleteCategoryUseCase: gh<_i742.DeleteCategoryUseCase>(),
+          reorderCategoriesUseCase: gh<_i412.ReorderCategoriesUseCase>(),
         ));
     gh.factory<_i913.ItemsBloc>(() => _i913.ItemsBloc(
           getItemsUseCase: gh<_i1010.GetItemsUseCase>(),

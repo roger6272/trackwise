@@ -402,4 +402,102 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       throw ServerException('Unexpected error reordering items: $e');
     }
   }
+
+  @override
+  Future<void> reorderItemsInCategory(List<ItemModel> items) async {
+    try {
+      final batch = firestore.batch();
+
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        final itemRef = firestore.collection('Item').doc(item.id);
+        batch.update(itemRef, {'category_order': i});
+      }
+
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to reorder items in category: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error reordering items in category: $e');
+    }
+  }
+
+  @override
+  Future<void> moveItemToCategory(
+    String itemId,
+    String? newCategoryId,
+    int newCategoryOrder,
+  ) async {
+    try {
+      final updateData = <String, dynamic>{
+        'category_order': newCategoryOrder,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      if (newCategoryId != null) {
+        updateData['category_id'] = newCategoryId;
+      } else {
+        updateData['category_id'] = FieldValue.delete();
+      }
+
+      await firestore.collection('Item').doc(itemId).update(updateData);
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to move item to category: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error moving item to category: $e');
+    }
+  }
+
+  @override
+  Future<int> getMaxCategoryOrder(String userId, String? categoryId) async {
+    try {
+      final userRef = firestore.collection('users').doc(userId);
+      Query query = firestore
+          .collection('Item')
+          .where('uid', isEqualTo: userRef);
+
+      if (categoryId != null) {
+        query = query.where('category_id', isEqualTo: categoryId);
+      } else {
+        // For uncategorized items, we need to check for null category_id
+        // Firestore doesn't have a direct "is null" query, so we'll get all
+        // items and filter client-side
+        final snapshot = await firestore
+            .collection('Item')
+            .where('uid', isEqualTo: userRef)
+            .get();
+
+        int maxOrder = -1;
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          if (data['deletedAt'] == null && data['category_id'] == null) {
+            final order = data['category_order'] as int? ?? 0;
+            if (order > maxOrder) {
+              maxOrder = order;
+            }
+          }
+        }
+        return maxOrder;
+      }
+
+      final snapshot = await query.get();
+
+      int maxOrder = -1;
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        if (data['deletedAt'] == null) {
+          final order = data['category_order'] as int? ?? 0;
+          if (order > maxOrder) {
+            maxOrder = order;
+          }
+        }
+      }
+
+      return maxOrder;
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to get max category order: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error getting max category order: $e');
+    }
+  }
 }

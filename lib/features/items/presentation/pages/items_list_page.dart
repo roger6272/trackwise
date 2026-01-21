@@ -18,6 +18,10 @@ import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
+import '../../../categories/domain/entities/category.dart' as cat;
+import '../../../categories/presentation/bloc/categories_bloc.dart';
+import '../../../categories/presentation/bloc/categories_event.dart';
+import '../../../categories/presentation/bloc/categories_state.dart';
 import '../bloc/items_bloc.dart';
 import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
@@ -105,7 +109,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   static const Color _moveToTopActionColor = Color(0xFF0891B2);
   static const Color _deleteActionColor = Color(0xFFD11F43);
   static const Color _disabledActionColor = Color(0xFF565656);
-  static const int _maxItems = 50;
+  static const int _maxItems = 100;
 
   @override
   Widget build(BuildContext context) {
@@ -122,9 +126,17 @@ class _ItemsListContentState extends State<_ItemsListContent>
         : _activatedColorLight;
 
     // Auth is guaranteed to be ready by parent BlocBuilder
-    return BlocProvider(
-      create: (context) => sl<ItemsBloc>()
-        ..add(WatchItemsEvent(widget.userId)),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => sl<ItemsBloc>()
+            ..add(WatchItemsEvent(widget.userId)),
+        ),
+        BlocProvider(
+          create: (context) => sl<CategoriesBloc>()
+            ..add(WatchCategoriesEvent(widget.userId)),
+        ),
+      ],
       child: BlocBuilder<BluetoothBloc, BluetoothState>(
         builder: (context, bluetoothState) {
           final isConnected = bluetoothState.isConnected;
@@ -215,6 +227,33 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 0.0),
                           child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
                         ),
+                        // Category Filter Dropdown
+                        BlocBuilder<CategoriesBloc, CategoriesState>(
+                          builder: (context, categoriesState) {
+                            if (categoriesState is CategoriesLoaded &&
+                                categoriesState.categories.isNotEmpty) {
+                              return BlocBuilder<ItemsBloc, ItemsState>(
+                                builder: (context, itemsState) {
+                                  final selectedCategoryId = itemsState is ItemsLoaded
+                                      ? itemsState.selectedCategoryId
+                                      : null;
+                                  return Padding(
+                                    padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 12.0),
+                                    child: _buildCategoryDropdown(
+                                      context,
+                                      categoriesState.categories,
+                                      selectedCategoryId,
+                                      primaryText,
+                                      secondaryText,
+                                      alternate,
+                                    ),
+                                  );
+                                },
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
                         // Search field
                         if (_isSearching)
                           _buildSearchField(context, primaryText, secondaryText, alternate),
@@ -250,10 +289,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             }
 
                             if (state is ItemsLoaded) {
-                              // Filter items based on search query
+                              // Filter items based on category and search query
+                              final categoryFilteredItems = state.filteredItems;
                               final filteredItems = _searchQuery.isEmpty
-                                  ? state.items
-                                  : state.items.where((item) =>
+                                  ? categoryFilteredItems
+                                  : categoryFilteredItems.where((item) =>
                                       item.name.toLowerCase().contains(_searchQuery)
                                     ).toList();
 
@@ -305,17 +345,37 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                     final itemsBloc = context.read<ItemsBloc>();
                                     final bluetoothBloc = context.read<BluetoothBloc>();
                                     final selectedId = bluetoothState.selectedItemId;
+                                    final currentState = state;
+                                    final isFilteredByCategory = currentState.isFilteredByCategory;
 
-                                    itemsBloc.add(
-                                      ReorderItemsEvent(oldIndex: oldIndex, newIndex: newIndex),
-                                    );
+                                    // Use appropriate reorder event based on view mode
+                                    if (isFilteredByCategory) {
+                                      // Viewing a specific category - update categoryOrder
+                                      itemsBloc.add(
+                                        ReorderItemsInCategoryEvent(
+                                          oldIndex: oldIndex,
+                                          newIndex: newIndex,
+                                        ),
+                                      );
+                                    } else {
+                                      // Viewing all items - update global order
+                                      itemsBloc.add(
+                                        ReorderItemsEvent(oldIndex: oldIndex, newIndex: newIndex),
+                                      );
+                                    }
+
                                     // Sync to device after reorder
                                     // Small delay to let BLoC process the reorder
                                     Future.delayed(const Duration(milliseconds: 100), () {
                                       if (!mounted) return;
                                       final itemsState = itemsBloc.state;
                                       if (itemsState is ItemsLoaded) {
-                                        bluetoothBloc.add(SendItemsToDevice(itemsState.items));
+                                        // Sync filtered items to device when category is selected
+                                        // Otherwise sync all items
+                                        final itemsToSync = isFilteredByCategory
+                                            ? itemsState.filteredItems
+                                            : itemsState.items;
+                                        bluetoothBloc.add(SendItemsToDevice(itemsToSync));
                                         // Re-send selected item to update device's index
                                         // (firmware stores selected by index, not just ID)
                                         if (selectedId != null && selectedId.isNotEmpty) {
@@ -481,6 +541,106 @@ class _ItemsListContentState extends State<_ItemsListContent>
         onChanged: (value) {
           setState(() => _searchQuery = value.toLowerCase());
         },
+      ),
+    );
+  }
+
+  Widget _buildCategoryDropdown(
+    BuildContext context,
+    List<cat.Category> categories,
+    String? selectedCategoryId,
+    Color primaryText,
+    Color secondaryText,
+    Color alternate,
+  ) {
+    return Container(
+      height: 48.0,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      decoration: BoxDecoration(
+        color: alternate,
+        borderRadius: BorderRadius.circular(12.0),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: selectedCategoryId,
+          isExpanded: true,
+          icon: Icon(Icons.expand_more_rounded, color: secondaryText),
+          style: GoogleFonts.inter(
+            color: primaryText,
+            fontSize: 15.0,
+            fontWeight: FontWeight.w500,
+          ),
+          dropdownColor: alternate,
+          items: [
+            // All Categories option
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Row(
+                children: [
+                  Icon(Icons.list_rounded, color: secondaryText, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'All Categories',
+                    style: GoogleFonts.inter(
+                      color: primaryText,
+                      fontSize: 15.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Divider
+            DropdownMenuItem<String?>(
+              value: '__divider__',
+              enabled: false,
+              child: Divider(color: secondaryText.withOpacity(0.2), height: 1),
+            ),
+            // User categories
+            ...categories.map((category) => DropdownMenuItem<String?>(
+                  value: category.id,
+                  child: Row(
+                    children: [
+                      Icon(Icons.folder_outlined, color: secondaryText, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          category.name,
+                          style: GoogleFonts.inter(
+                            color: primaryText,
+                            fontSize: 15.0,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+            // Uncategorized option
+            DropdownMenuItem<String?>(
+              value: '',
+              child: Row(
+                children: [
+                  Icon(Icons.folder_off_outlined, color: secondaryText, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Uncategorized',
+                    style: GoogleFonts.inter(
+                      color: secondaryText,
+                      fontSize: 15.0,
+                      fontWeight: FontWeight.w500,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          onChanged: (value) {
+            context.read<ItemsBloc>().add(FilterByCategoryEvent(value));
+          },
+        ),
       ),
     );
   }

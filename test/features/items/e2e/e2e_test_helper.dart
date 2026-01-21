@@ -5,6 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:trackwise/features/events/data/datasources/event_log_remote_datasource.dart';
+import 'package:trackwise/features/events/data/datasources/event_log_remote_datasource_impl.dart';
+import 'package:trackwise/features/events/data/repositories/event_log_repository_impl.dart';
+import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
 import 'package:trackwise/features/items/data/datasources/item_remote_datasource.dart';
 import 'package:trackwise/features/items/data/datasources/item_remote_datasource_impl.dart';
 import 'package:trackwise/features/items/data/repositories/item_repository_impl.dart';
@@ -45,6 +49,8 @@ class E2ETestHelper {
   late FirebaseAuth auth;
   late ItemRemoteDataSource dataSource;
   late ItemRepository repository;
+  late EventLogRemoteDataSource eventLogDataSource;
+  late EventLogRepository eventLogRepository;
   late GetItemsUseCase getItemsUseCase;
   late WatchItemsUseCase watchItemsUseCase;
   late CreateItemUseCase createItemUseCase;
@@ -106,9 +112,11 @@ class E2ETestHelper {
       // Create the complete stack
       dataSource = ItemRemoteDataSourceImpl(firestore);
       repository = ItemRepositoryImpl(dataSource);
+      eventLogDataSource = EventLogRemoteDataSourceImpl(firestore);
+      eventLogRepository = EventLogRepositoryImpl(eventLogDataSource);
       getItemsUseCase = GetItemsUseCase(repository);
       watchItemsUseCase = WatchItemsUseCase(repository);
-      createItemUseCase = CreateItemUseCase(repository);
+      createItemUseCase = CreateItemUseCase(repository, eventLogRepository);
       updateItemUseCase = UpdateItemUseCase(repository);
       deleteItemUseCase = DeleteItemUseCase(repository);
       incrementItemUseCase = IncrementItemUseCase(repository);

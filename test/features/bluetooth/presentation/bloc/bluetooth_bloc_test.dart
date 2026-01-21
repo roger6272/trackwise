@@ -34,7 +34,6 @@ import 'package:trackwise/features/bluetooth/domain/usecases/watch_device_messag
 import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_state.dart';
-import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
 
 // Mocks
 class MockScanDevicesUseCase extends Mock implements ScanDevicesUseCase {}
@@ -65,8 +64,6 @@ class MockRequestBluetoothPermissionsUseCase extends Mock implements RequestBlue
 
 class MockSyncDeviceDataUseCase extends Mock implements SyncDeviceDataUseCase {}
 
-class MockItemRepository extends Mock implements ItemRepository {}
-
 void main() {
   late BluetoothBloc bloc;
   late MockScanDevicesUseCase mockScanDevices;
@@ -83,7 +80,6 @@ void main() {
   late MockCheckBluetoothEnabledUseCase mockCheckBluetoothEnabled;
   late MockRequestBluetoothPermissionsUseCase mockRequestPermissions;
   late MockSyncDeviceDataUseCase mockSyncDeviceData;
-  late MockItemRepository mockItemRepository;
 
   setUp(() {
     mockScanDevices = MockScanDevicesUseCase();
@@ -100,7 +96,6 @@ void main() {
     mockCheckBluetoothEnabled = MockCheckBluetoothEnabledUseCase();
     mockRequestPermissions = MockRequestBluetoothPermissionsUseCase();
     mockSyncDeviceData = MockSyncDeviceDataUseCase();
-    mockItemRepository = MockItemRepository();
 
     bloc = BluetoothBloc(
       mockScanDevices,
@@ -117,7 +112,6 @@ void main() {
       mockCheckBluetoothEnabled,
       mockRequestPermissions,
       mockSyncDeviceData,
-      mockItemRepository,
     );
   });
 

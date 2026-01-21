@@ -19,7 +19,7 @@
 
 // RAM-based log buffer setup
 #define MAX_LOG_ENTRIES 500
-#define maxPrefsSlots 20  // Max item slots supported
+#define maxPrefsSlots 100  // Max item slots supported (increased for inventory use)
 
 #define REMINDER_NONE 0
 #define REMINDER_TARGET 1
@@ -164,7 +164,7 @@ void notifyLogsToApp(int page) {
 
 // Convert ALL prefs into a JSON string to send to the app
 String getPrefsJson() {
-  StaticJsonDocument<2048> doc;
+  StaticJsonDocument<16384> doc;  // Increased for 100 items
 
   // Create the outer object
   JsonObject root = doc.to<JsonObject>();
@@ -260,7 +260,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
     // Check if buffer ends with ']' (simple heuristic for end of JSON array)
     if (incomingJsonBuffer.endsWith("]")) {
-      StaticJsonDocument<4096> doc;
+      StaticJsonDocument<32768> doc;  // Increased for 100 items
       DeserializationError err = deserializeJson(doc, incomingJsonBuffer);
       if (err) {
         Serial.print("JSON parse failed: ");

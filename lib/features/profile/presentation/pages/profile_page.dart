@@ -149,6 +149,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildSettingsCard(context, [
                         _buildSettingItem(
                           context,
+                          icon: Icons.category_outlined,
+                          title: 'Manage Categories',
+                          onTap: () => context.push('/profile/categories'),
+                        ),
+                        _buildDivider(context),
+                        _buildSettingItem(
+                          context,
                           icon: Icons.download_outlined,
                           title: 'Export My Data',
                           onTap: () => context.push('/profile/export'),

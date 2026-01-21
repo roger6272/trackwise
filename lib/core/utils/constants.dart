@@ -16,11 +16,15 @@ class AppConstants {
   static const int minReminderValue = 0;
   static const int maxReminderValue = 1000;
 
+  // Category Constraints
+  static const int maxCategoryNameLength = 30;
+
   // Firestore Collections
   static const String itemsCollection = 'Item';
   static const String eventLogCollection = 'EventLog';
   static const String usersCollection = 'users';
   static const String mailCollection = 'mail';
+  static const String categoriesCollection = 'Category';
 
   // Firestore Field Names (matching existing schema)
   static const String itemNameField = 'item_name';

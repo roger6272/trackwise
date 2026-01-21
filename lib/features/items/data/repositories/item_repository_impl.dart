@@ -79,6 +79,8 @@ class ItemRepositoryImpl implements ItemRepository {
         order: item.order,
         initialCount: item.initialCount,
         goal: item.goal,
+        categoryId: item.categoryId,
+        categoryOrder: item.categoryOrder,
       );
       final created = await remoteDataSource.createItem(itemModel);
       return Right(created);
@@ -104,6 +106,8 @@ class ItemRepositoryImpl implements ItemRepository {
         order: item.order,
         initialCount: item.initialCount,
         goal: item.goal,
+        categoryId: item.categoryId,
+        categoryOrder: item.categoryOrder,
       );
       final updated = await remoteDataSource.updateItem(itemModel);
       return Right(updated);
@@ -195,9 +199,81 @@ class ItemRepositoryImpl implements ItemRepository {
         order: item.order,
         initialCount: item.initialCount,
         goal: item.goal,
+        categoryId: item.categoryId,
+        categoryOrder: item.categoryOrder,
       )).toList();
       await remoteDataSource.reorderItems(itemModels);
       return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> reorderItemsInCategory(List<Item> items) async {
+    try {
+      final itemModels = items.map((item) => ItemModel(
+        id: item.id,
+        name: item.name,
+        count: item.count,
+        todayCount: item.todayCount,
+        incrementBy: item.incrementBy,
+        reminder: item.reminder,
+        reminderValue: item.reminderValue,
+        lastResetTime: item.lastResetTime,
+        lastUpdated: item.lastUpdated,
+        userId: item.userId,
+        deletedAt: item.deletedAt,
+        order: item.order,
+        initialCount: item.initialCount,
+        goal: item.goal,
+        categoryId: item.categoryId,
+        categoryOrder: item.categoryOrder,
+      )).toList();
+      await remoteDataSource.reorderItemsInCategory(itemModels);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> moveItemToCategory(
+    String itemId,
+    String? newCategoryId,
+  ) async {
+    try {
+      // Get the item to find userId
+      final item = await remoteDataSource.getItem(itemId);
+
+      // Get max categoryOrder for the target category
+      final maxOrder = await remoteDataSource.getMaxCategoryOrder(
+        item.userId,
+        newCategoryId,
+      );
+
+      await remoteDataSource.moveItemToCategory(
+        itemId,
+        newCategoryId,
+        maxOrder + 1,
+      );
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, int>> getMaxCategoryOrder(
+    String userId,
+    String? categoryId,
+  ) async {
+    try {
+      final maxOrder = await remoteDataSource.getMaxCategoryOrder(
+        userId,
+        categoryId,
+      );
+      return Right(maxOrder);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     }

@@ -9,9 +9,12 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
+import '../../../categories/domain/entities/category.dart' as cat;
+import '../../../categories/presentation/bloc/categories_bloc.dart';
+import '../../../categories/presentation/bloc/categories_event.dart';
+import '../../../categories/presentation/bloc/categories_state.dart';
 import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../bloc/items_bloc.dart';
@@ -49,6 +52,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
   late FocusNode reminderValueFocusNode;
 
   ReminderType? selectedReminder;
+  String? selectedCategoryId;
 
   bool _isLoading = false;
 
@@ -81,6 +85,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
     reminderValueFocusNode = FocusNode();
 
     selectedReminder = widget.item?.reminder ?? ReminderType.none;
+    selectedCategoryId = widget.item?.categoryId;
   }
 
   @override
@@ -109,8 +114,18 @@ class _ItemFormPageState extends State<ItemFormPage> {
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
 
-    return BlocProvider(
-      create: (context) => sl<ItemsBloc>(),
+    final userId = _getUserId();
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => sl<ItemsBloc>(),
+        ),
+        BlocProvider(
+          create: (context) => sl<CategoriesBloc>()
+            ..add(WatchCategoriesEvent(userId)),
+        ),
+      ],
       child: BlocListener<ItemsBloc, ItemsState>(
         listener: (context, state) {
           if (state is ItemsLoading) {
@@ -198,6 +213,71 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               return null;
                             },
                           ),
+                        ),
+                        // Category dropdown
+                        BlocBuilder<CategoriesBloc, CategoriesState>(
+                          builder: (context, categoriesState) {
+                            List<cat.Category> categories = [];
+                            if (categoriesState is CategoriesLoaded) {
+                              categories = categoriesState.categories;
+                            }
+                            return _buildFieldSection(
+                              label: 'Category (optional)',
+                              labelColor: primaryText,
+                              child: DropdownButtonFormField<String?>(
+                                value: selectedCategoryId,
+                                items: [
+                                  DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text(
+                                      'Uncategorized',
+                                      style: GoogleFonts.inter(
+                                        color: secondaryText,
+                                        fontSize: 16.0,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                  ...categories.map((category) => DropdownMenuItem<String?>(
+                                    value: category.id,
+                                    child: Text(
+                                      category.name,
+                                      style: GoogleFonts.inter(
+                                        color: primaryText,
+                                        fontSize: 16.0,
+                                      ),
+                                    ),
+                                  )),
+                                ],
+                                onChanged: (val) {
+                                  setState(() => selectedCategoryId = val);
+                                },
+                                style: GoogleFonts.inter(
+                                  color: primaryText,
+                                  fontSize: 16.0,
+                                ),
+                                dropdownColor: alternate,
+                                icon: Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: secondaryText,
+                                  size: 24.0,
+                                ),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: alternate,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    borderSide: BorderSide(color: alternate),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    borderSide: BorderSide(color: alternate),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         // Only show Initial Value field when creating (not editing)
                         if (!isEditMode)
@@ -598,6 +678,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
         reminderValue: reminderValue,
         goal: goal,
         clearGoal: goal == null,
+        categoryId: selectedCategoryId,
+        clearCategoryId: selectedCategoryId == null,
       );
 
       debugPrint('🟡 Updating item: id=${updatedItem.id}, name=$name');
@@ -647,6 +729,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         lastUpdated: now,
         userId: userId,
         goal: goal,
+        categoryId: selectedCategoryId,
       );
 
       final result = await itemRepository.createItem(newItem);

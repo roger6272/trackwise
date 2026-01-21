@@ -32,6 +32,21 @@ class Validators {
     return null;
   }
 
+  /// Validate category name.
+  ///
+  /// Rules:
+  /// - Required (not null or empty)
+  /// - Maximum 30 characters
+  static String? validateCategoryName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Category name is required';
+    }
+    if (value.length > AppConstants.maxCategoryNameLength) {
+      return 'Category name must be ${AppConstants.maxCategoryNameLength} characters or less';
+    }
+    return null;
+  }
+
   /// Validate email address.
   ///
   /// Rules:

@@ -20,6 +20,7 @@ import '../../features/bluetooth/presentation/pages/bluetooth_search_page.dart';
 import '../../features/bluetooth/presentation/pages/device_management_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_test_page.dart';
 import '../../features/items/domain/entities/item.dart';
+import '../../features/categories/presentation/pages/manage_categories_page.dart';
 
 /// App Router using GoRouter with shell navigation
 class AppRouter {
@@ -205,6 +206,11 @@ class AppRouter {
                   name: HelpSupportPage.routeName,
                   path: 'help',
                   builder: (context, state) => const HelpSupportPage(),
+                ),
+                GoRoute(
+                  name: ManageCategoriesPage.routeName,
+                  path: 'categories',
+                  builder: (context, state) => const ManageCategoriesPage(),
                 ),
               ],
             ),
