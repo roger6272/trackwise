@@ -262,8 +262,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 return _buildNoSearchResults(context, primaryText, secondaryText);
                               }
 
-                              // Use ReorderableListView when connected, regular ListView when not
-                              if (isConnected) {
+                              // Use ReorderableListView when connected and not searching
+                              // Disable reorder during search to avoid index mismatch
+                              if (isConnected && _searchQuery.isEmpty) {
                                 // Trigger reorder hint when connected and swipe hint already shown
                                 if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint && _searchQuery.isEmpty) {
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
