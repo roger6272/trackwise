@@ -222,50 +222,59 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       mainAxisSize: MainAxisSize.max,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Total/Today Toggle
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 0.0),
-                          child: _buildToggle(context, appUiState, primaryBackground, primaryText, secondaryText, alternate),
-                        ),
-                        // Category Filter Dropdown
+                        // Category Filter + Total/Today Toggle Row
                         BlocBuilder<CategoriesBloc, CategoriesState>(
                           builder: (context, categoriesState) {
-                            if (categoriesState is CategoriesLoaded &&
-                                categoriesState.categories.isNotEmpty) {
-                              return BlocBuilder<ItemsBloc, ItemsState>(
-                                builder: (context, itemsState) {
-                                  final selectedCategoryId = itemsState is ItemsLoaded
-                                      ? itemsState.selectedCategoryId
-                                      : null;
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.min,
+                            final hasCategories = categoriesState is CategoriesLoaded &&
+                                categoriesState.categories.isNotEmpty;
+
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
+                                  child: Row(
                                     children: [
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 12.0),
-                                        child: _buildCategoryDropdown(
-                                          context,
-                                          categoriesState.categories,
-                                          selectedCategoryId,
-                                          primaryText,
-                                          secondaryText,
-                                          alternate,
+                                      // Category dropdown (if categories exist)
+                                      if (hasCategories)
+                                        Expanded(
+                                          child: BlocBuilder<ItemsBloc, ItemsState>(
+                                            builder: (context, itemsState) {
+                                              final selectedCategoryId = itemsState is ItemsLoaded
+                                                  ? itemsState.selectedCategoryId
+                                                  : null;
+                                              return _buildCategoryDropdown(
+                                                context,
+                                                categoriesState.categories,
+                                                selectedCategoryId,
+                                                primaryText,
+                                                secondaryText,
+                                                alternate,
+                                              );
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                      // Divider between category filter and items
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                        child: Divider(
-                                          height: 1,
-                                          thickness: 0.5,
-                                          color: secondaryText.withValues(alpha: 0.2),
-                                        ),
-                                      ),
+                                      if (hasCategories)
+                                        const SizedBox(width: 12),
+                                      // Spacer when no categories to push toggle to the right
+                                      if (!hasCategories)
+                                        const Spacer(),
+                                      // Compact Total/Today toggle
+                                      _buildCompactToggle(appUiState, primaryText, secondaryText, alternate),
                                     ],
-                                  );
-                                },
-                              );
-                            }
-                            return const SizedBox.shrink();
+                                  ),
+                                ),
+                                // Divider below the row
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  child: Divider(
+                                    height: 1,
+                                    thickness: 0.5,
+                                    color: secondaryText.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                              ],
+                            );
                           },
                         ),
                         // Search field
@@ -478,40 +487,33 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
-  Widget _buildToggle(BuildContext context, AppUiState appUiState, Color primaryBackground, Color primaryText, Color secondaryText, Color alternate) {
+  Widget _buildCompactToggle(AppUiState appUiState, Color primaryText, Color secondaryText, Color alternate) {
     final isToday = appUiState.isTodayToggle;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+    return GestureDetector(
+      onTap: () => appUiState.isTodayToggle = !isToday,
       child: Container(
-        height: 50.0,
-        padding: const EdgeInsets.all(4.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
         decoration: BoxDecoration(
           color: alternate,
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.circular(8.0),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            for (final (label, value) in [('Total', false), ('Today', true)])
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => appUiState.isTodayToggle = value,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: isToday == value ? _primary : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    child: Center(
-                      child: Text(
-                        label,
-                        style: GoogleFonts.inter(
-                          color: isToday == value ? Colors.white : secondaryText,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+            Icon(
+              isToday ? Icons.today_rounded : Icons.functions_rounded,
+              size: 16,
+              color: secondaryText,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isToday ? 'Today' : 'Total',
+              style: GoogleFonts.inter(
+                color: primaryText,
+                fontSize: 14.0,
+                fontWeight: FontWeight.w500,
               ),
+            ),
           ],
         ),
       ),
