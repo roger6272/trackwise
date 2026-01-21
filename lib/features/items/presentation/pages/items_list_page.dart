@@ -163,20 +163,16 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 centerTitle: true,
                 elevation: 0.0,
                 actions: [
-                  // Search icon
+                  // Search icon (opens search, X in search bar closes it)
                   IconButton(
                     onPressed: () {
-                      setState(() {
-                        _isSearching = !_isSearching;
-                        if (!_isSearching) {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        }
-                      });
+                      if (!_isSearching) {
+                        setState(() => _isSearching = true);
+                      }
                     },
                     icon: Icon(
-                      _isSearching ? Icons.close_rounded : Icons.search_rounded,
-                      color: primaryText,
+                      Icons.search_rounded,
+                      color: _isSearching ? secondaryText : primaryText,
                       size: 24.0,
                     ),
                   ),
@@ -542,15 +538,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
             fontSize: 16.0,
           ),
           prefixIcon: Icon(Icons.search_rounded, color: secondaryText),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear_rounded, color: secondaryText),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                )
-              : null,
+          suffixIcon: IconButton(
+            icon: Icon(Icons.close_rounded, color: secondaryText),
+            onPressed: () {
+              if (_searchQuery.isNotEmpty) {
+                // Clear text first
+                _searchController.clear();
+                setState(() => _searchQuery = '');
+              } else {
+                // Close search when empty
+                setState(() => _isSearching = false);
+              }
+            },
+          ),
           filled: true,
           fillColor: alternate,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
