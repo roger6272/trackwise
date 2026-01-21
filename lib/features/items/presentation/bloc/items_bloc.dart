@@ -100,8 +100,8 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     // Cancel existing subscription if any
     await _itemsSubscription?.cancel();
 
-    // Preserve current category filter
-    final currentCategoryId = state is ItemsLoaded
+    // Preserve current category filter for initial load
+    final initialCategoryId = state is ItemsLoaded
         ? (state as ItemsLoaded).selectedCategoryId
         : null;
 
@@ -111,6 +111,11 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     await emit.onEach<Either<Failure, List<Item>>>(
       watchItemsUseCase(GetItemsParams(event.userId)),
       onData: (Either<Failure, List<Item>> either) {
+        // Get current category filter from state (may have changed since watch started)
+        final currentCategoryId = state is ItemsLoaded
+            ? (state as ItemsLoaded).selectedCategoryId
+            : initialCategoryId;
+
         either.fold(
           (failure) => emit(ItemsError(failure.message)),
           (items) => emit(ItemsLoaded(
