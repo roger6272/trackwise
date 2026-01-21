@@ -163,6 +163,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 centerTitle: true,
                 elevation: 0.0,
                 actions: [
+                  // Total/Today toggle (only when no categories)
+                  BlocBuilder<CategoriesBloc, CategoriesState>(
+                    builder: (context, categoriesState) {
+                      final hasCategories = categoriesState is CategoriesLoaded &&
+                          categoriesState.categories.isNotEmpty;
+                      if (hasCategories) return const SizedBox.shrink();
+                      return _buildAppBarToggle(appUiState, primaryText, secondaryText);
+                    },
+                  ),
                   // Search icon
                   IconButton(
                     onPressed: () {
@@ -222,11 +231,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       mainAxisSize: MainAxisSize.max,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Category Filter + Total/Today Toggle Row
+                        // Category Filter + Total/Today Toggle Row (only when categories exist)
                         BlocBuilder<CategoriesBloc, CategoriesState>(
                           builder: (context, categoriesState) {
                             final hasCategories = categoriesState is CategoriesLoaded &&
                                 categoriesState.categories.isNotEmpty;
+
+                            // When no categories, toggle is in app bar
+                            if (!hasCategories) return const SizedBox.shrink();
 
                             return Column(
                               mainAxisSize: MainAxisSize.min,
@@ -235,30 +247,25 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
                                   child: Row(
                                     children: [
-                                      // Category dropdown (if categories exist)
-                                      if (hasCategories)
-                                        Expanded(
-                                          child: BlocBuilder<ItemsBloc, ItemsState>(
-                                            builder: (context, itemsState) {
-                                              final selectedCategoryId = itemsState is ItemsLoaded
-                                                  ? itemsState.selectedCategoryId
-                                                  : null;
-                                              return _buildCategoryDropdown(
-                                                context,
-                                                categoriesState.categories,
-                                                selectedCategoryId,
-                                                primaryText,
-                                                secondaryText,
-                                                alternate,
-                                              );
-                                            },
-                                          ),
+                                      // Category dropdown
+                                      Expanded(
+                                        child: BlocBuilder<ItemsBloc, ItemsState>(
+                                          builder: (context, itemsState) {
+                                            final selectedCategoryId = itemsState is ItemsLoaded
+                                                ? itemsState.selectedCategoryId
+                                                : null;
+                                            return _buildCategoryDropdown(
+                                              context,
+                                              categoriesState.categories,
+                                              selectedCategoryId,
+                                              primaryText,
+                                              secondaryText,
+                                              alternate,
+                                            );
+                                          },
                                         ),
-                                      if (hasCategories)
-                                        const SizedBox(width: 12),
-                                      // Spacer when no categories to push toggle to the right
-                                      if (!hasCategories)
-                                        const Spacer(),
+                                      ),
+                                      const SizedBox(width: 12),
                                       // Compact Total/Today toggle
                                       _buildCompactToggle(appUiState, primaryText, secondaryText, alternate),
                                     ],
@@ -483,6 +490,37 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildAppBarToggle(AppUiState appUiState, Color primaryText, Color secondaryText) {
+    final isToday = appUiState.isTodayToggle;
+    return GestureDetector(
+      onTap: () => appUiState.isTodayToggle = !isToday,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 44.0,
+              child: Text(
+                isToday ? 'Today' : 'Total',
+                style: GoogleFonts.inter(
+                  color: primaryText,
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.swap_horiz_rounded,
+              size: 16,
+              color: secondaryText.withValues(alpha: 0.6),
+            ),
+          ],
+        ),
       ),
     );
   }
