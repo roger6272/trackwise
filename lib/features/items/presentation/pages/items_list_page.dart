@@ -638,7 +638,20 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           ],
           onChanged: (value) {
-            context.read<ItemsBloc>().add(FilterByCategoryEvent(value));
+            final itemsBloc = context.read<ItemsBloc>();
+            final bluetoothBloc = context.read<BluetoothBloc>();
+            itemsBloc.add(FilterByCategoryEvent(value));
+
+            // Sync filtered items to device after filter changes
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (!mounted) return;
+              if (!bluetoothBloc.state.isConnected) return;
+
+              final itemsState = itemsBloc.state;
+              if (itemsState is ItemsLoaded) {
+                bluetoothBloc.add(SendItemsToDevice(itemsState.filteredItems));
+              }
+            });
           },
         ),
       ),
