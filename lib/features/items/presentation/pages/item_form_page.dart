@@ -221,11 +221,16 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             if (categoriesState is CategoriesLoaded) {
                               categories = categoriesState.categories;
                             }
+                            // Validate selectedCategoryId exists in categories list
+                            final validCategoryId = selectedCategoryId != null &&
+                                categories.any((c) => c.id == selectedCategoryId)
+                                ? selectedCategoryId
+                                : null;
                             return _buildFieldSection(
                               label: 'Category (optional)',
                               labelColor: primaryText,
                               child: DropdownButtonFormField<String?>(
-                                value: selectedCategoryId,
+                                value: validCategoryId,
                                 items: [
                                   DropdownMenuItem<String?>(
                                     value: null,
