@@ -305,7 +305,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                       children: [
                         Text(
                           tooltipDate != null
-                              ? DateFormat('MMM dd, yy').format(tooltipDate!)
+                              ? DateFormat(widget.range == '1D' ? 'MMM dd, h a' : 'MMM dd, yy').format(tooltipDate!)
                               : '',
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
