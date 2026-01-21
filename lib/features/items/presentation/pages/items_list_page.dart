@@ -28,7 +28,7 @@ class ItemsListPage extends StatelessWidget {
   const ItemsListPage({super.key});
 
   static String routeName = 'ItemsListPage';
-  static String routePath = '/items';
+  static String routePath = '/';
 
   @override
   Widget build(BuildContext context) {
