@@ -180,15 +180,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       size: 24.0,
                     ),
                   ),
-                  // Total/Today toggle (only when no categories)
-                  BlocBuilder<CategoriesBloc, CategoriesState>(
-                    builder: (context, categoriesState) {
-                      final hasCategories = categoriesState is CategoriesLoaded &&
-                          categoriesState.categories.isNotEmpty;
-                      if (hasCategories) return const SizedBox.shrink();
-                      return _buildAppBarToggle(appUiState, primaryText, secondaryText, alternate);
-                    },
-                  ),
+                  // Total/Today toggle
+                  _buildAppBarToggle(appUiState, primaryText, secondaryText, alternate),
                   // Add item button
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),
@@ -231,13 +224,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       mainAxisSize: MainAxisSize.max,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Category Filter + Total/Today Toggle Row (only when categories exist)
+                        // Category Filter Row (only when categories exist)
                         BlocBuilder<CategoriesBloc, CategoriesState>(
                           builder: (context, categoriesState) {
                             final hasCategories = categoriesState is CategoriesLoaded &&
                                 categoriesState.categories.isNotEmpty;
 
-                            // When no categories, toggle is in app bar
                             if (!hasCategories) return const SizedBox.shrink();
 
                             return Column(
@@ -245,30 +237,20 @@ class _ItemsListContentState extends State<_ItemsListContent>
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
-                                  child: Row(
-                                    children: [
-                                      // Category dropdown
-                                      Expanded(
-                                        child: BlocBuilder<ItemsBloc, ItemsState>(
-                                          builder: (context, itemsState) {
-                                            final selectedCategoryId = itemsState is ItemsLoaded
-                                                ? itemsState.selectedCategoryId
-                                                : null;
-                                            return _buildCategoryDropdown(
-                                              context,
-                                              categoriesState.categories,
-                                              selectedCategoryId,
-                                              primaryText,
-                                              secondaryText,
-                                              alternate,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // Compact Total/Today toggle
-                                      _buildCompactToggle(appUiState, primaryText, secondaryText, alternate),
-                                    ],
+                                  child: BlocBuilder<ItemsBloc, ItemsState>(
+                                    builder: (context, itemsState) {
+                                      final selectedCategoryId = itemsState is ItemsLoaded
+                                          ? itemsState.selectedCategoryId
+                                          : null;
+                                      return _buildCategoryDropdown(
+                                        context,
+                                        categoriesState.categories,
+                                        selectedCategoryId,
+                                        primaryText,
+                                        secondaryText,
+                                        alternate,
+                                      );
+                                    },
                                   ),
                                 ),
                                 // Divider below the row
@@ -522,53 +504,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 fontSize: 10.0,
                 fontWeight: FontWeight.w500,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompactToggle(AppUiState appUiState, Color primaryText, Color secondaryText, Color alternate) {
-    final isToday = appUiState.isTodayToggle;
-    return GestureDetector(
-      onTap: () => appUiState.isTodayToggle = !isToday,
-      child: Container(
-        height: 40.0,
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        decoration: BoxDecoration(
-          color: alternate,
-          borderRadius: BorderRadius.circular(10.0),
-          border: Border.all(
-            color: secondaryText.withValues(alpha: 0.15),
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isToday ? Icons.today_rounded : Icons.functions_rounded,
-              size: 18,
-              color: secondaryText,
-            ),
-            const SizedBox(width: 6),
-            SizedBox(
-              width: 44.0,
-              child: Text(
-                isToday ? 'Today' : 'Total',
-                style: GoogleFonts.inter(
-                  color: primaryText,
-                  fontSize: 14.0,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.swap_horiz_rounded,
-              size: 16,
-              color: secondaryText.withValues(alpha: 0.6),
             ),
           ],
         ),
