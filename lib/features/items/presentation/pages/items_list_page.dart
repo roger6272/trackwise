@@ -604,12 +604,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 ],
               ),
             ),
-            // Divider
-            DropdownMenuItem<String?>(
-              value: '__divider__',
-              enabled: false,
-              child: Divider(color: secondaryText.withOpacity(0.2), height: 1),
-            ),
             // User categories
             ...categories.map((category) => DropdownMenuItem<String?>(
                   value: category.id,
@@ -652,7 +646,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
             // Divider before manage option
             DropdownMenuItem<String?>(
-              value: '__divider2__',
+              value: '__divider__',
               enabled: false,
               child: Divider(color: secondaryText.withValues(alpha: 0.2), height: 1),
             ),
