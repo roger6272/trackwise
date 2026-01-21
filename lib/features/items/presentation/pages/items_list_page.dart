@@ -841,11 +841,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           children: [
                             // Accent bar
                             Container(
-                              width: 3.0,
+                              width: 4.0,
                               height: 24.0,
                               decoration: BoxDecoration(
                                 color: accentColor,
-                                borderRadius: BorderRadius.circular(1.5),
+                                borderRadius: BorderRadius.circular(2.0),
                               ),
                             ),
                             // Count (centered between bar and chevron)
