@@ -142,10 +142,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Profile photo
-                  _buildProfilePhoto(context, secondaryText),
-                  const SizedBox(height: 32.0),
-
                   // Display name field
                   _buildTextField(
                     context,
@@ -181,67 +177,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildProfilePhoto(BuildContext context, Color secondaryText) {
-    return Column(
-      children: [
-        Stack(
-          children: [
-            Container(
-              width: 120.0,
-              height: 120.0,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _primary, width: 3.0),
-                image: widget.profile.photoUrl != null
-                    ? DecorationImage(
-                        fit: BoxFit.cover,
-                        image: NetworkImage(widget.profile.photoUrl!),
-                      )
-                    : const DecorationImage(
-                        fit: BoxFit.cover,
-                        image: NetworkImage(
-                          'https://images.unsplash.com/photo-1607346256330-dee7af15f7c5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0NTYyMDF8MHwxfHJhbmRvbXx8fHx8fHx8fDE3NTQwNzQzODZ8&ixlib=rb-4.1.0&q=80&w=1080',
-                        ),
-                      ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                width: 36.0,
-                height: 36.0,
-                decoration: BoxDecoration(
-                  color: _primary,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2.0),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.camera_alt, color: Colors.white, size: 18.0),
-                  onPressed: () {
-                    // TODO: Implement photo picker
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Photo picker coming soon')),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12.0),
-        Text(
-          'Tap to change photo',
-          style: GoogleFonts.inter(
-            color: secondaryText,
-            fontSize: 14.0,
-          ),
-        ),
-      ],
     );
   }
 
