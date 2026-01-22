@@ -31,6 +31,7 @@ class TestAppUiState extends ChangeNotifier implements AppUiState {
   int _currentLogPage = 0;
   bool _showAfterResetOnly = false;
   bool _toggleRefresh = false;
+  String? _selectedCategoryId;
 
   @override
   bool get isTodayToggle => _isTodayToggle;
@@ -87,6 +88,15 @@ class TestAppUiState extends ChangeNotifier implements AppUiState {
   }
 
   @override
+  String? get selectedCategoryId => _selectedCategoryId;
+
+  @override
+  set selectedCategoryId(String? value) {
+    _selectedCategoryId = value;
+    notifyListeners();
+  }
+
+  @override
   bool get toggleRefresh => _toggleRefresh;
 
   @override
@@ -102,6 +112,7 @@ class TestAppUiState extends ChangeNotifier implements AppUiState {
   void clear() {
     _datePicked = null;
     _isTodayToggle = false;
+    _selectedCategoryId = null;
     _showCounter = false;
     _currentLogPage = 0;
     _showAfterResetOnly = false;

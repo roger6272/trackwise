@@ -3,27 +3,92 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:trackwise/core/error/failures.dart';
+import 'package:trackwise/features/categories/domain/entities/category.dart';
 import 'package:trackwise/features/export/domain/entities/csv_export_config.dart';
 import 'package:trackwise/features/export/domain/usecases/generate_csv_usecase.dart';
+import 'package:trackwise/features/items/domain/entities/item.dart' show Item, ReminderType;
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';
 
 void main() {
   late GenerateCSVUseCase useCase;
-  late MockEventLogRepository mockRepository;
+  late MockEventLogRepository mockEventRepository;
+  late MockItemRepository mockItemRepository;
+  late MockCategoryRepository mockCategoryRepository;
 
   setUp(() {
-    mockRepository = MockEventLogRepository();
-    useCase = GenerateCSVUseCase(mockRepository);
+    mockEventRepository = MockEventLogRepository();
+    mockItemRepository = MockItemRepository();
+    mockCategoryRepository = MockCategoryRepository();
+    useCase = GenerateCSVUseCase(
+      mockEventRepository,
+      mockItemRepository,
+      mockCategoryRepository,
+    );
   });
+
+  // Helper to set up item and category mocks
+  void setupItemAndCategoryMocks() {
+    when(() => mockItemRepository.getItems(any())).thenAnswer(
+      (_) async => Right([
+        Item(
+          id: 'item_1',
+          name: 'Coffee',
+          categoryId: 'cat_1',
+          userId: 'user_1',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: DateTime.now(),
+          order: 0,
+        ),
+        Item(
+          id: 'item_2',
+          name: 'Tea',
+          categoryId: 'cat_2',
+          userId: 'user_1',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: DateTime.now(),
+          order: 1,
+        ),
+      ]),
+    );
+    when(() => mockCategoryRepository.getCategories(any())).thenAnswer(
+      (_) async => Right([
+        Category(
+          id: 'cat_1',
+          name: 'Drinks',
+          userId: 'user_1',
+          order: 0,
+          createdAt: DateTime.now(),
+          lastUpdated: DateTime.now(),
+        ),
+        Category(
+          id: 'cat_2',
+          name: 'Beverages',
+          userId: 'user_1',
+          order: 1,
+          createdAt: DateTime.now(),
+          lastUpdated: DateTime.now(),
+        ),
+      ]),
+    );
+  }
 
   group('GenerateCSVUseCase', () {
     group('raw aggregation', () {
       test('should generate CSV with raw events', () async {
         // Arrange
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => Right(testEventsForCSV));
+        setupItemAndCategoryMocks();
 
         // Act
         final result = await useCase(testCSVConfigRaw);
@@ -34,7 +99,7 @@ void main() {
           (failure) => fail('Should not fail'),
           (csv) {
             final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Timestamp,Event Count'); // Raw uses Timestamp
+            expect(lines[0], 'Item Name,Category,Cycle,Timestamp,Event Count'); // Raw uses Timestamp
             expect(lines.length, 5); // Header + 4 events
             expect(lines[1], contains('Coffee'));
             expect(lines[1], contains('2024-01-15'));
@@ -46,8 +111,9 @@ void main() {
     group('daily aggregation', () {
       test('should aggregate events by day', () async {
         // Arrange
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => Right(testEventsForCSV));
+        setupItemAndCategoryMocks();
 
         // Act
         final result = await useCase(testCSVConfig);
@@ -58,7 +124,7 @@ void main() {
           (failure) => fail('Should not fail'),
           (csv) {
             final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Date,Event Count');
+            expect(lines[0], 'Item Name,Category,Date,Event Count');
             // Coffee: Jan 15 (3+2=5), Jan 16 (4)
             // Tea: Jan 16 (1)
             // = 3 data rows + header
@@ -78,8 +144,9 @@ void main() {
     group('weekly aggregation', () {
       test('should aggregate events by week', () async {
         // Arrange
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => Right(testEventsMultipleWeeks));
+        setupItemAndCategoryMocks();
 
         // Act
         final result = await useCase(testCSVConfigWeekly);
@@ -90,7 +157,7 @@ void main() {
           (failure) => fail('Should not fail'),
           (csv) {
             final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Date,Event Count');
+            expect(lines[0], 'Item Name,Category,Date,Event Count');
             // Week 1: 2+3=5
             // Week 2: 4+1=5
             expect(lines.length, 3); // Header + 2 weeks
@@ -107,8 +174,9 @@ void main() {
     group('monthly aggregation', () {
       test('should aggregate events by month', () async {
         // Arrange
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => Right(testEventsMultipleMonths));
+        setupItemAndCategoryMocks();
 
         // Act
         final result = await useCase(testCSVConfigMonthly);
@@ -119,7 +187,7 @@ void main() {
           (failure) => fail('Should not fail'),
           (csv) {
             final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Date,Event Count');
+            expect(lines[0], 'Item Name,Category,Date,Event Count');
             // January: 5+3=8
             // February: 7
             expect(lines.length, 3); // Header + 2 months
@@ -136,8 +204,9 @@ void main() {
     group('special characters', () {
       test('should escape commas in item names', () async {
         // Arrange
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => Right(testEventsWithSpecialChars));
+        setupItemAndCategoryMocks();
 
         // Act
         final result = await useCase(testCSVConfigRaw);
@@ -155,8 +224,9 @@ void main() {
 
       test('should escape quotes in item names', () async {
         // Arrange
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => Right(testEventsWithSpecialChars));
+        setupItemAndCategoryMocks();
 
         // Act
         final result = await useCase(testCSVConfigRaw);
@@ -176,7 +246,7 @@ void main() {
     group('empty data', () {
       test('should return header only when no events', () async {
         // Arrange
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => const Right([]));
 
         // Act
@@ -189,7 +259,7 @@ void main() {
           (csv) {
             final lines = csv.trim().split('\n');
             expect(lines.length, 1);
-            expect(lines[0], 'Item Name,Date,Event Count');
+            expect(lines[0], 'Item Name,Category,Date,Event Count');
           },
         );
       });
@@ -199,7 +269,7 @@ void main() {
       test('should return failure when repository fails', () async {
         // Arrange
         const failure = ServerFailure('Failed to fetch events');
-        when(() => mockRepository.getEventsByDateRange(any(), any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => const Left(failure));
 
         // Act
@@ -219,15 +289,37 @@ void main() {
           aggregationLevel: ExportAggregationLevel.daily,
           itemId: testItemId,
         );
-        when(() => mockRepository.getEventsByItem(any()))
+        when(() => mockEventRepository.getEventsByItem(any()))
             .thenAnswer((_) async => Right(testEventsForCSV));
+        setupItemAndCategoryMocks();
 
         // Act
         await useCase(config);
 
         // Assert
-        verify(() => mockRepository.getEventsByItem(testItemId)).called(1);
-        verifyNever(() => mockRepository.getEventsByDateRange(any(), any()));
+        verify(() => mockEventRepository.getEventsByItem(testItemId)).called(1);
+        verifyNever(() => mockEventRepository.getEventsByDateRange(any(), any()));
+      });
+    });
+
+    group('userId validation', () {
+      test('should return ValidationFailure when userId is empty', () async {
+        // Arrange
+        final eventsWithEmptyUserId = [
+          testEventsForCSV.first.copyWith(userId: ''),
+        ];
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(eventsWithEmptyUserId));
+
+        // Act
+        final result = await useCase(testCSVConfig);
+
+        // Assert
+        expect(result.isLeft(), true);
+        result.fold(
+          (failure) => expect(failure, isA<ValidationFailure>()),
+          (_) => fail('Should fail'),
+        );
       });
     });
   });

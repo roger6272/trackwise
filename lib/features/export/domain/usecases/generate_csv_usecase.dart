@@ -3,17 +3,21 @@ import 'package:injectable/injectable.dart';
 
 import 'package:trackwise/core/error/failures.dart';
 import 'package:trackwise/core/usecases/usecase.dart';
+import 'package:trackwise/features/categories/domain/repositories/category_repository.dart';
 import 'package:trackwise/features/events/domain/entities/event_log.dart';
 import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
 import 'package:trackwise/features/export/domain/entities/aggregation_key.dart';
 import 'package:trackwise/features/export/domain/entities/csv_export_config.dart';
+import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
 
 /// Use case for generating CSV from event data.
 @injectable
 class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
   final EventLogRepository repository;
+  final ItemRepository itemRepository;
+  final CategoryRepository categoryRepository;
 
-  GenerateCSVUseCase(this.repository);
+  GenerateCSVUseCase(this.repository, this.itemRepository, this.categoryRepository);
 
   @override
   Future<Either<Failure, String>> call(CSVExportConfig params) async {
@@ -29,36 +33,101 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       );
     }
 
-    return eventsResult.fold(
-      (failure) => Left(failure),
-      (events) {
-        // Filter events by date range if we fetched by item
-        final filteredEvents = params.itemId != null
-            ? events
-                .where((e) =>
-                    !e.createdTime.isBefore(params.startDate) &&
-                    !e.createdTime.isAfter(params.endDate))
-                .toList()
-            : events;
+    if (eventsResult.isLeft()) {
+      return Left(eventsResult.fold((l) => l, (_) => throw Exception()));
+    }
 
-        final csv = _generateCSV(filteredEvents, params.aggregationLevel);
-        return Right(csv);
+    final events = eventsResult.getOrElse(() => []);
+
+    // Filter events by date range if we fetched by item
+    var filteredEvents = params.itemId != null
+        ? events
+            .where((e) =>
+                !e.createdTime.isBefore(params.startDate) &&
+                !e.createdTime.isAfter(params.endDate))
+            .toList()
+        : events;
+
+    // Filter by data scope
+    if (params.dataScope == ExportDataScope.latestCycle && filteredEvents.isNotEmpty) {
+      // Find the maximum reset number per item (latest cycle per item)
+      final Map<String, int> maxResetPerItem = {};
+      for (final event in filteredEvents) {
+        final currentMax = maxResetPerItem[event.itemId] ?? 0;
+        if (event.resetNumber > currentMax) {
+          maxResetPerItem[event.itemId] = event.resetNumber;
+        }
+      }
+      filteredEvents = filteredEvents
+          .where((e) => e.resetNumber == maxResetPerItem[e.itemId])
+          .toList();
+    }
+
+    if (filteredEvents.isEmpty) {
+      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}));
+    }
+
+    // Get userId from first event to fetch items and categories
+    final userId = filteredEvents.first.userId;
+    if (userId.isEmpty) {
+      return const Left(ValidationFailure('Invalid user data in events'));
+    }
+
+    // Verify all events belong to the same user (data integrity check)
+    final hasMultipleUsers = filteredEvents.any((e) => e.userId != userId);
+    if (hasMultipleUsers) {
+      return const Left(ValidationFailure('Events contain mixed user data'));
+    }
+
+    // Build itemId -> categoryId mapping
+    final itemsResult = await itemRepository.getItems(userId);
+    final Map<String, String?> itemCategoryMap = {};
+    itemsResult.fold(
+      (_) {},
+      (items) {
+        for (final item in items) {
+          itemCategoryMap[item.id] = item.categoryId;
+        }
       },
     );
+
+    // Build categoryId -> categoryName mapping
+    final categoriesResult = await categoryRepository.getCategories(userId);
+    final Map<String, String> categoryNameMap = {};
+    categoriesResult.fold(
+      (_) {},
+      (categories) {
+        for (final category in categories) {
+          categoryNameMap[category.id] = category.name;
+        }
+      },
+    );
+
+    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap);
+    return Right(csv);
   }
 
   /// Generate CSV string from events.
   String _generateCSV(
     List<EventLog> events,
     ExportAggregationLevel aggregationLevel,
+    Map<String, String?> itemCategoryMap,
+    Map<String, String> categoryNameMap,
   ) {
     final buffer = StringBuffer();
 
+    // Helper to get category name from itemId
+    String getCategoryName(String itemId) {
+      final categoryId = itemCategoryMap[itemId];
+      if (categoryId == null || categoryId.isEmpty) return 'Uncategorized';
+      return categoryNameMap[categoryId] ?? 'Uncategorized';
+    }
+
     // Header row - use Timestamp for raw, Date for aggregated
     if (aggregationLevel == ExportAggregationLevel.raw) {
-      buffer.writeln('Item Name,Timestamp,Event Count');
+      buffer.writeln('Item Name,Category,Cycle,Timestamp,Event Count');
     } else {
-      buffer.writeln('Item Name,Date,Event Count');
+      buffer.writeln('Item Name,Category,Date,Event Count');
     }
 
     if (events.isEmpty) {
@@ -68,13 +137,14 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     if (aggregationLevel == ExportAggregationLevel.raw) {
       // Raw events - one row per event with full timestamp
       for (final event in events) {
+        final category = getCategoryName(event.itemId);
         buffer.writeln(
-          '${_escapeCSV(event.eventName)},${_formatDateTime(event.createdTime)},${event.increment}',
+          '${_escapeCSV(event.eventName)},${_escapeCSV(category)},${event.resetNumber},${_formatDateTime(event.createdTime)},${event.increment}',
         );
       }
     } else {
-      // Aggregated events
-      final aggregated = _aggregateEvents(events, aggregationLevel);
+      // Aggregated events - group by item, category, and date
+      final aggregated = _aggregateEvents(events, aggregationLevel, itemCategoryMap, categoryNameMap);
 
       // Sort by item name, then by date
       final sortedKeys = aggregated.keys.toList()
@@ -86,7 +156,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
       for (final key in sortedKeys) {
         buffer.writeln(
-          '${_escapeCSV(key.itemName)},${_formatDate(key.date)},${aggregated[key]}',
+          '${_escapeCSV(key.itemName)},${_escapeCSV(key.category)},${_formatDate(key.date)},${aggregated[key]}',
         );
       }
     }
@@ -98,12 +168,22 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
   Map<AggregationKey, int> _aggregateEvents(
     List<EventLog> events,
     ExportAggregationLevel level,
+    Map<String, String?> itemCategoryMap,
+    Map<String, String> categoryNameMap,
   ) {
     final Map<AggregationKey, int> aggregated = {};
+
+    // Helper to get category name from itemId
+    String getCategoryName(String itemId) {
+      final categoryId = itemCategoryMap[itemId];
+      if (categoryId == null || categoryId.isEmpty) return 'Uncategorized';
+      return categoryNameMap[categoryId] ?? 'Uncategorized';
+    }
 
     for (final event in events) {
       final key = AggregationKey(
         itemName: event.eventName,
+        category: getCategoryName(event.itemId),
         date: _getAggregationDate(event.createdTime, level),
       );
       aggregated[key] = (aggregated[key] ?? 0) + event.increment;
@@ -120,9 +200,10 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       case ExportAggregationLevel.daily:
         return DateTime(date.year, date.month, date.day);
       case ExportAggregationLevel.weekly:
-        // Start of week (Monday)
-        final weekday = date.weekday;
-        return DateTime(date.year, date.month, date.day - (weekday - 1));
+        // Start of week (Monday) - use Duration for proper date arithmetic
+        final daysToSubtract = date.weekday - 1;
+        final weekStart = date.subtract(Duration(days: daysToSubtract));
+        return DateTime(weekStart.year, weekStart.month, weekStart.day);
       case ExportAggregationLevel.monthly:
         return DateTime(date.year, date.month);
     }

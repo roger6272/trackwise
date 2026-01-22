@@ -32,6 +32,8 @@ class _ExportPageState extends State<ExportPage> {
   ExportDataScope _dataScope = ExportDataScope.total;
 
   // Theme-aware color getters
+  Color _cardBackground(BuildContext context) =>
+      AppColors.secondaryBackground(Theme.of(context).brightness);
   Color _inputBackground(BuildContext context) =>
       AppColors.alternate(Theme.of(context).brightness);
   Color _inputText(BuildContext context) =>
@@ -46,29 +48,59 @@ class _ExportPageState extends State<ExportPage> {
     super.initState();
     emailController = TextEditingController();
     emailFocusNode = FocusNode();
+    // Update preview card when email changes
+    emailController.addListener(_onEmailChanged);
+  }
+
+  void _onEmailChanged() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    emailController.removeListener(_onEmailChanged);
     emailController.dispose();
     emailFocusNode.dispose();
     super.dispose();
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  /// Format date as "Jan 21, 2025"
+  String _formatDateFriendly(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  /// Format date as "Jan 21" (short form for preview)
+  String _formatDateShort(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}';
   }
 
   String _getAggregationLabel(ExportAggregationLevel level) {
     switch (level) {
       case ExportAggregationLevel.raw:
-        return 'Raw Data';
+        return 'Raw';
       case ExportAggregationLevel.daily:
         return 'Daily';
       case ExportAggregationLevel.weekly:
         return 'Weekly';
       case ExportAggregationLevel.monthly:
         return 'Monthly';
+    }
+  }
+
+  String _getDataScopeLabel(ExportDataScope scope) {
+    switch (scope) {
+      case ExportDataScope.total:
+        return 'All data';
+      case ExportDataScope.latestCycle:
+        return 'Latest cycle';
     }
   }
 
@@ -80,8 +112,8 @@ class _ExportPageState extends State<ExportPage> {
         listener: (context, state) {
           if (state is ExportSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Export sent! Check your email.'),
+              const SnackBar(
+                content: Text('Export sent! Check your email.'),
                 backgroundColor: AppColors.success,
               ),
             );
@@ -133,48 +165,44 @@ class _ExportPageState extends State<ExportPage> {
               body: SafeArea(
                 top: true,
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.all(20.0),
                   child: SingleChildScrollView(
                     child: Form(
                       key: formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Export Preview Card
+                          _buildPreviewCard(context),
+                          const SizedBox(height: 24.0),
+
                           // Date Range Section
                           _buildSectionHeader(
                             context: context,
-                            icon: Icons.date_range,
+                            icon: Icons.date_range_rounded,
                             title: 'Date Range',
                           ),
                           const SizedBox(height: 12.0),
-                          _buildDateTile(
-                            context: context,
-                            label: 'Start Date',
-                            date: _startDate,
-                            onTap: () => _selectStartDate(context),
-                          ),
+                          _buildDateRangeSelector(context),
                           const SizedBox(height: 8.0),
-                          _buildDateTile(
-                            context: context,
-                            label: 'End Date',
-                            date: _endDate,
-                            onTap: () => _selectEndDate(context),
-                          ),
-                          const SizedBox(height: 8.0),
-                          Text(
-                            '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontFamily: 'Inter',
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              letterSpacing: 0.0,
+                          Center(
+                            child: Text(
+                              '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontFamily: 'Inter',
+                                color: AppColors.secondary,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.0,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 24.0),
+
+                          _buildSectionDivider(context),
 
                           // Aggregation Level Section
                           _buildSectionHeader(
                             context: context,
-                            icon: Icons.layers_outlined,
+                            icon: Icons.layers_rounded,
                             title: 'Aggregation Level',
                           ),
                           const SizedBox(height: 12.0),
@@ -225,7 +253,8 @@ class _ExportPageState extends State<ExportPage> {
                               letterSpacing: 0.0,
                             ),
                           ),
-                          const SizedBox(height: 24.0),
+
+                          _buildSectionDivider(context),
 
                           // Data Scope Section
                           _buildSectionHeader(
@@ -285,12 +314,13 @@ class _ExportPageState extends State<ExportPage> {
                               letterSpacing: 0.0,
                             ),
                           ),
-                          const SizedBox(height: 24.0),
+
+                          _buildSectionDivider(context),
 
                           // Email Section
                           _buildSectionHeader(
                             context: context,
-                            icon: Icons.email_outlined,
+                            icon: Icons.email_rounded,
                             title: 'Email Address',
                           ),
                           const SizedBox(height: 12.0),
@@ -307,39 +337,44 @@ class _ExportPageState extends State<ExportPage> {
                                 fontSize: 16.0,
                                 letterSpacing: 0.0,
                               ),
+                              prefixIcon: Icon(
+                                Icons.alternate_email_rounded,
+                                color: _inputHint(context),
+                                size: 20.0,
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
                                   color: _inputBackground(context),
                                   width: 1.0,
                                 ),
-                                borderRadius: BorderRadius.circular(8.0),
+                                borderRadius: BorderRadius.circular(12.0),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
                                   color: AppColors.primaryAdaptive(Theme.of(context).brightness),
-                                  width: 1.0,
+                                  width: 2.0,
                                 ),
-                                borderRadius: BorderRadius.circular(8.0),
+                                borderRadius: BorderRadius.circular(12.0),
                               ),
                               errorBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
+                                borderSide: const BorderSide(
                                   color: AppColors.error,
                                   width: 1.0,
                                 ),
-                                borderRadius: BorderRadius.circular(8.0),
+                                borderRadius: BorderRadius.circular(12.0),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
+                                borderSide: const BorderSide(
                                   color: AppColors.error,
-                                  width: 1.0,
+                                  width: 2.0,
                                 ),
-                                borderRadius: BorderRadius.circular(8.0),
+                                borderRadius: BorderRadius.circular(12.0),
                               ),
                               filled: true,
-                              fillColor: _inputBackground(context),
+                              fillColor: _cardBackground(context),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16.0,
-                                vertical: 12.0,
+                                vertical: 16.0,
                               ),
                             ),
                             style: TextStyle(
@@ -365,7 +400,7 @@ class _ExportPageState extends State<ExportPage> {
                           Builder(
                             builder: (blocContext) => SizedBox(
                               width: double.infinity,
-                              height: 52.0,
+                              height: 56.0,
                               child: ElevatedButton.icon(
                                 onPressed: isLoading ? null : () => _handleExport(blocContext),
                                 style: ElevatedButton.styleFrom(
@@ -373,17 +408,19 @@ class _ExportPageState extends State<ExportPage> {
                                   foregroundColor: Colors.white,
                                   disabledBackgroundColor: _inputBackground(context),
                                   disabledForegroundColor: _inputHint(context),
+                                  elevation: 2,
+                                  shadowColor: AppColors.primaryAdaptive(Theme.of(context).brightness).withAlpha(77),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8.0),
+                                    borderRadius: BorderRadius.circular(12.0),
                                   ),
                                 ),
                                 icon: isLoading
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 20.0,
                                         height: 20.0,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2.0,
-                                          color: Colors.white,
+                                          color: _inputHint(context),
                                         ),
                                       )
                                     : const Icon(Icons.send_rounded, size: 20.0),
@@ -424,6 +461,181 @@ class _ExportPageState extends State<ExportPage> {
     );
   }
 
+  /// Preview card showing export summary
+  Widget _buildPreviewCard(BuildContext context) {
+    final hasEmail = emailController.text.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: _cardBackground(context),
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(
+          color: AppColors.secondary.withAlpha(77),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(13),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withAlpha(26),
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                child: const Icon(
+                  Icons.summarize_rounded,
+                  size: 20.0,
+                  color: AppColors.secondary,
+                ),
+              ),
+              const SizedBox(width: 12.0),
+              Text(
+                'Export Preview',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontFamily: 'Inter Tight',
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16.0),
+          _buildPreviewRow(
+            context: context,
+            icon: Icons.calendar_today_rounded,
+            label: '${_formatDateShort(_startDate)} → ${_formatDateShort(_endDate)}',
+            subtitle: '$_dateRangeDays days',
+          ),
+          const SizedBox(height: 10.0),
+          _buildPreviewRow(
+            context: context,
+            icon: Icons.layers_rounded,
+            label: '${_getAggregationLabel(_aggregationLevel)} aggregation',
+            subtitle: _getDataScopeLabel(_dataScope),
+          ),
+          if (hasEmail) ...[
+            const SizedBox(height: 10.0),
+            _buildPreviewRow(
+              context: context,
+              icon: Icons.email_rounded,
+              label: emailController.text,
+              subtitle: null,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewRow({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String? subtitle,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16.0,
+          color: _inputHint(context),
+        ),
+        const SizedBox(width: 10.0),
+        Expanded(
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14.0,
+                  color: _inputText(context),
+                  letterSpacing: 0.0,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(width: 8.0),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
+                  decoration: BoxDecoration(
+                    color: _inputBackground(context),
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12.0,
+                      color: _inputHint(context),
+                      letterSpacing: 0.0,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Date range selector with visual connector
+  Widget _buildDateRangeSelector(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildDateTile(
+            context: context,
+            label: 'Start',
+            date: _startDate,
+            onTap: () => _selectStartDate(context),
+            isStart: true,
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8.0),
+          child: Icon(
+            Icons.arrow_forward_rounded,
+            color: AppColors.secondary,
+            size: 24.0,
+          ),
+        ),
+        Expanded(
+          child: _buildDateTile(
+            context: context,
+            label: 'End',
+            date: _endDate,
+            onTap: () => _selectEndDate(context),
+            isStart: false,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionDivider(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20.0),
+      child: Divider(
+        height: 1,
+        thickness: 1,
+        color: _inputBackground(context),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader({
     required BuildContext context,
     required IconData icon,
@@ -431,16 +643,24 @@ class _ExportPageState extends State<ExportPage> {
   }) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20.0,
-          color: AppColors.primaryAdaptive(Theme.of(context).brightness),
+        Container(
+          padding: const EdgeInsets.all(6.0),
+          decoration: BoxDecoration(
+            color: AppColors.primaryAdaptive(Theme.of(context).brightness).withAlpha(26),
+            borderRadius: BorderRadius.circular(6.0),
+          ),
+          child: Icon(
+            icon,
+            size: 18.0,
+            color: AppColors.primaryAdaptive(Theme.of(context).brightness),
+          ),
         ),
-        const SizedBox(width: 8.0),
+        const SizedBox(width: 10.0),
         Text(
           title,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontFamily: 'Inter Tight',
+            fontSize: 16.0,
             letterSpacing: 0.0,
             fontWeight: FontWeight.w600,
           ),
@@ -454,50 +674,76 @@ class _ExportPageState extends State<ExportPage> {
     required String label,
     required DateTime date,
     required VoidCallback onTap,
+    required bool isStart,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8.0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        decoration: BoxDecoration(
-          color: _inputBackground(context),
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: _inputHint(context),
-                      fontSize: 12.0,
-                      letterSpacing: 0.0,
-                    ),
-                  ),
-                  const SizedBox(height: 4.0),
-                  Text(
-                    _formatDate(date),
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 16.0,
-                      letterSpacing: 0.0,
-                      color: _inputText(context),
-                    ),
-                  ),
-                ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12.0),
+        child: Container(
+          padding: const EdgeInsets.all(12.0),
+          decoration: BoxDecoration(
+            color: _cardBackground(context),
+            borderRadius: BorderRadius.circular(12.0),
+            border: Border.all(
+              color: _inputBackground(context),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(8),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
-            Icon(
-              Icons.calendar_today,
-              color: _inputHint(context),
-              size: 24.0,
-            ),
-          ],
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isStart ? AppColors.secondary : AppColors.tertiary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: _inputHint(context),
+                        fontSize: 11.0,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      _formatDateFriendly(date),
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.0,
+                        color: _inputText(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.calendar_today_rounded,
+                color: _inputHint(context),
+                size: 18.0,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -530,10 +776,16 @@ class _ExportPageState extends State<ExportPage> {
       context: context,
       initialDate: _startDate,
       firstDate: DateTime(2020),
-      lastDate: _endDate,
+      lastDate: DateTime.now(),
     );
     if (picked != null && picked != _startDate) {
-      setState(() => _startDate = picked);
+      setState(() {
+        _startDate = picked;
+        // Ensure end date is not before start date
+        if (_endDate.isBefore(_startDate)) {
+          _endDate = _startDate;
+        }
+      });
     }
   }
 
@@ -553,8 +805,11 @@ class _ExportPageState extends State<ExportPage> {
     if (value == null || value.isEmpty) {
       return 'Email is required';
     }
-    // Simple email validation regex
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    // Email validation - check basic format, let email service validate fully
+    // Supports longer TLDs (.business, .international) and avoids false negatives
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9.!#$%&*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$',
+    );
     if (!emailRegex.hasMatch(value)) {
       return 'Please enter a valid email address';
     }
