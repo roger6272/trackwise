@@ -65,3 +65,4 @@ GoogleService-Info.plist
 
 # CCPM local settings
 .claude/ccpm/settings.local.json
+firebase/extensions/*.env
