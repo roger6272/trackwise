@@ -70,6 +70,8 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
               .where((item) => item.id != event.itemId)
               .toList();
           emit(ItemRestored(itemId: event.itemId, remainingItems: _currentItems));
+          // Re-emit loaded state so UI properly transitions out of restoring state
+          emit(DeletedItemsLoaded(items: _currentItems));
         },
       );
     } catch (e, stackTrace) {
