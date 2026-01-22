@@ -269,6 +269,23 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             );
                           },
                         ),
+                        // Active item chip (shows when connected with active item)
+                        BlocBuilder<ItemsBloc, ItemsState>(
+                          builder: (context, itemsState) {
+                            if (!isConnected || itemsState is! ItemsLoaded) {
+                              return const SizedBox.shrink();
+                            }
+                            return _buildActiveItemChip(
+                              context,
+                              itemsState,
+                              bluetoothState,
+                              appUiState,
+                              primaryText,
+                              secondaryText,
+                              alternate,
+                            );
+                          },
+                        ),
                         // Search field
                         if (_isSearching)
                           _buildSearchField(context, primaryText, secondaryText, alternate),
@@ -706,6 +723,92 @@ class _ItemsListContentState extends State<_ItemsListContent>
             context.read<ItemsBloc>().add(FilterByCategoryEvent(value));
             context.read<AppUiState>().selectedCategoryId = value;
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveItemChip(
+    BuildContext context,
+    ItemsLoaded itemsState,
+    BluetoothState bluetoothState,
+    AppUiState appUiState,
+    Color primaryText,
+    Color secondaryText,
+    Color alternate,
+  ) {
+    // Get the active item ID from device or fallback to app state
+    final activeId = bluetoothState.selectedItemId ?? appUiState.activeItemId;
+    if (activeId.isEmpty) return const SizedBox.shrink();
+
+    // Find the active item in the items list
+    final activeItem = itemsState.items.where((i) => i.id == activeId).firstOrNull;
+    if (activeItem == null) return const SizedBox.shrink();
+
+    // Check if we're already viewing the active item's category
+    final currentCategoryId = itemsState.selectedCategoryId;
+    final activeCategoryId = activeItem.categoryId;
+    final isInCurrentCategory = currentCategoryId == null || // viewing "All"
+        (currentCategoryId == '' && (activeCategoryId == null || activeCategoryId.isEmpty)) || // both uncategorized
+        currentCategoryId == activeCategoryId;
+
+    // Get category name
+    final categoriesState = context.read<CategoriesBloc>().state;
+    String categoryName = 'Uncategorized';
+    if (activeCategoryId != null && activeCategoryId.isNotEmpty && categoriesState is CategoriesLoaded) {
+      final category = categoriesState.categories.where((c) => c.id == activeCategoryId).firstOrNull;
+      if (category != null) categoryName = category.name;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: GestureDetector(
+        onTap: () {
+          if (!isInCurrentCategory) {
+            // Navigate to the active item's category
+            final targetCategoryId = (activeCategoryId == null || activeCategoryId.isEmpty)
+                ? '' // uncategorized
+                : activeCategoryId;
+            context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
+            context.read<AppUiState>().selectedCategoryId = targetCategoryId;
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          decoration: BoxDecoration(
+            color: _activateActionColor.withAlpha(15),
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.push_pin_rounded,
+                size: 11.0,
+                color: _activateActionColor,
+              ),
+              const SizedBox(width: 4.0),
+              Flexible(
+                child: Text(
+                  '${activeItem.name} · $categoryName',
+                  style: GoogleFonts.inter(
+                    color: secondaryText,
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (!isInCurrentCategory) ...[
+                const SizedBox(width: 4.0),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 11.0,
+                  color: secondaryText,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
