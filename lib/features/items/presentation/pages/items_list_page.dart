@@ -264,6 +264,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             );
                           },
                         ),
+                        // Search field (between category filter and pin chip)
+                        if (_isSearching)
+                          _buildSearchField(context, primaryText, secondaryText, alternate),
                         // Active item chip (shows when connected with active item)
                         BlocBuilder<ItemsBloc, ItemsState>(
                           builder: (context, itemsState) {
@@ -281,9 +284,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             );
                           },
                         ),
-                        // Search field
-                        if (_isSearching)
-                          _buildSearchField(context, primaryText, secondaryText, alternate),
                         // Connection status banner
                         if (!isConnected)
                           _buildDisconnectedBanner(context),
@@ -513,13 +513,18 @@ class _ItemsListContentState extends State<_ItemsListContent>
           GestureDetector(
             onTap: () => appUiState.isTodayToggle = !isToday,
             child: Container(
+              width: 70.0, // Fixed width to prevent layout shift
               padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
               decoration: BoxDecoration(
-                color: secondaryText.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: secondaryText.withValues(alpha: 0.3),
+                  width: 1.0,
+                ),
                 borderRadius: BorderRadius.circular(12.0),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.swap_horiz_rounded,
