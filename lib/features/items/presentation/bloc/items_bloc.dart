@@ -392,12 +392,12 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       result.fold(
         (failure) {
           // Revert on error
-          debugPrint('❌ Failed to reorder items: ${failure.message}');
+          debugPrint('Failed to reorder items: ${failure.message}');
           emit(currentState);
           emit(ItemsError(failure.message));
         },
         (_) {
-          debugPrint('✅ Items reordered successfully');
+          debugPrint('Items reordered successfully');
           // If watching, stream will confirm the update
           // If not, keep optimistic reorder
           if (!currentState.isWatching) {
@@ -468,13 +468,11 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       }).toList();
 
       // Update the full items list with the new categoryOrders
-      final updatedItems = currentState.items.map((item) {
-        final updatedItem = updatedCategoryItems.firstWhere(
-          (ui) => ui.id == item.id,
-          orElse: () => item,
-        );
-        return updatedItem.id == item.id ? updatedItem : item;
-      }).toList();
+      // Use Map for O(1) lookup instead of O(n) firstWhere
+      final updatedMap = {for (var i in updatedCategoryItems) i.id: i};
+      final updatedItems = currentState.items.map((item) =>
+        updatedMap[item.id] ?? item
+      ).toList();
 
       emit(currentState.copyWith(items: updatedItems));
 
@@ -484,12 +482,12 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       result.fold(
         (failure) {
           // Revert on error
-          debugPrint('❌ Failed to reorder items in category: ${failure.message}');
+          debugPrint('Failed to reorder items in category: ${failure.message}');
           emit(currentState);
           emit(ItemsError(failure.message));
         },
         (_) {
-          debugPrint('✅ Items reordered in category successfully');
+          debugPrint('Items reordered in category successfully');
           // If watching, stream will confirm the update
           // If not, keep optimistic reorder
           if (!currentState.isWatching) {

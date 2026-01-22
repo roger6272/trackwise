@@ -1,6 +1,9 @@
 /// Serialization utilities extracted from FlutterFlow.
 /// Used by backend schema files for Firestore document serialization.
 
+// Re-export castToType from app_util to avoid duplication
+export 'app_util.dart' show castToType;
+
 /// Parameter types for serialization/deserialization.
 enum ParamType {
   int,
@@ -81,28 +84,6 @@ T? deserializeParam<T>(
     default:
       return null;
   }
-}
-
-/// Safely casts a value to type T, handling int/double conversions.
-T? castToType<T>(dynamic value) {
-  if (value == null) {
-    return null;
-  }
-  switch (T) {
-    case double:
-      // Doubles may be stored as ints in some cases.
-      return value.toDouble() as T;
-    case int:
-      // Likewise, ints may be stored as doubles. If this is the case
-      // (i.e. no decimal value), return the value as an int.
-      if (value is num && value.toInt() == value) {
-        return value.toInt() as T;
-      }
-      break;
-    default:
-      break;
-  }
-  return value as T;
 }
 
 /// Extension to filter null values from a List.
