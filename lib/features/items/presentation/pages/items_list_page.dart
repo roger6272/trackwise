@@ -83,6 +83,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Cached category names map (updated via BlocListener when categories change)
+  Map<String, String> _cachedCategoryNames = {};
+
   @override
   void initState() {
     super.initState();
@@ -98,16 +101,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
-  /// Builds a map of categoryId -> categoryName from the CategoriesBloc state.
-  Map<String, String> _buildCategoryNamesMap(BuildContext context) {
-    final categoriesState = context.read<CategoriesBloc>().state;
-    if (categoriesState is CategoriesLoaded) {
-      return {
-        for (final category in categoriesState.categories)
+  /// Updates the cached category names map from CategoriesBloc state.
+  void _updateCategoryCache(CategoriesState state) {
+    if (state is CategoriesLoaded) {
+      _cachedCategoryNames = {
+        for (final category in state.categories)
           category.id: category.name,
       };
     }
-    return {};
   }
 
   // Static colors (theme-independent)
@@ -155,343 +156,355 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ..add(WatchCategoriesEvent(widget.userId)),
         ),
       ],
-      child: BlocBuilder<BluetoothBloc, BluetoothState>(
-        builder: (context, bluetoothState) {
-          final isConnected = bluetoothState.isConnected;
+      child: BlocListener<CategoriesBloc, CategoriesState>(
+        listener: (context, state) {
+          _updateCategoryCache(state);
+        },
+        child: BlocBuilder<BluetoothBloc, BluetoothState>(
+          builder: (context, bluetoothState) {
+            final isConnected = bluetoothState.isConnected;
 
-          return GestureDetector(
-            onTap: () {
-              FocusScope.of(context).unfocus();
-              FocusManager.instance.primaryFocus?.unfocus();
-            },
-            child: Scaffold(
-              key: scaffoldKey,
-              backgroundColor: primaryBackground,
-              appBar: AppBar(
+            return GestureDetector(
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              child: Scaffold(
+                key: scaffoldKey,
                 backgroundColor: primaryBackground,
-                automaticallyImplyLeading: false,
-                title: Text(
-                  'Items',
-                  style: GoogleFonts.interTight(
-                    color: primaryText,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 20.0,
-                  ),
-                ),
-                centerTitle: true,
-                elevation: 0.0,
-                actions: [
-                  // Search icon (opens search, X in search bar closes it)
-                  IconButton(
-                    onPressed: () {
-                      if (!_isSearching) {
-                        setState(() => _isSearching = true);
-                      }
-                    },
-                    icon: Icon(
-                      Icons.search_rounded,
-                      color: _isSearching ? secondaryText : primaryText,
-                      size: 24.0,
+                appBar: AppBar(
+                  backgroundColor: primaryBackground,
+                  automaticallyImplyLeading: false,
+                  title: Text(
+                    'Items',
+                    style: GoogleFonts.interTight(
+                      color: primaryText,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 20.0,
                     ),
                   ),
-                  // Add item button
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: BlocBuilder<ItemsBloc, ItemsState>(
-                      builder: (context, itemsState) {
-                        return IconButton(
-                          onPressed: () async {
-                            if (!isConnected) {
-                              await _showConnectDeviceDialog(context);
-                              return;
-                            }
-                            // Check item limit
-                            if (itemsState is ItemsLoaded && itemsState.items.length >= _maxItems) {
-                              await _showItemLimitDialog(context);
-                              return;
-                            }
-                            context.pushNamed(ItemFormPage.routeName);
-                          },
-                          style: IconButton.styleFrom(
-                            backgroundColor: _primary,
-                            shape: const CircleBorder(),
-                          ),
-                          icon: const Icon(
-                            Icons.add_rounded,
-                            color: Colors.white,
-                            size: 24.0,
-                          ),
-                        );
+                  centerTitle: true,
+                  elevation: 0.0,
+                  actions: [
+                    // Search icon (opens search, X in search bar closes it)
+                    IconButton(
+                      onPressed: () {
+                        if (!_isSearching) {
+                          setState(() => _isSearching = true);
+                        }
                       },
+                      icon: Icon(
+                        Icons.search_rounded,
+                        color: _isSearching ? secondaryText : primaryText,
+                        size: 24.0,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              body: SafeArea(
-                top: true,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Category Filter Row (only when categories exist)
-                        BlocBuilder<CategoriesBloc, CategoriesState>(
-                          builder: (context, categoriesState) {
-                            final hasCategories = categoriesState is CategoriesLoaded &&
-                                categoriesState.categories.isNotEmpty;
+                    // Add item button
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: BlocBuilder<ItemsBloc, ItemsState>(
+                        builder: (context, itemsState) {
+                          return IconButton(
+                            onPressed: () async {
+                              if (!isConnected) {
+                                await _showConnectDeviceDialog(context);
+                                return;
+                              }
+                              // Check item limit
+                              if (itemsState is ItemsLoaded && itemsState.items.length >= _maxItems) {
+                                await _showItemLimitDialog(context);
+                                return;
+                              }
+                              context.pushNamed(ItemFormPage.routeName);
+                            },
+                            style: IconButton.styleFrom(
+                              backgroundColor: _primary,
+                              shape: const CircleBorder(),
+                            ),
+                            icon: const Icon(
+                              Icons.add_rounded,
+                              color: Colors.white,
+                              size: 24.0,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                body: SafeArea(
+                  top: true,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Category Filter Row (only when categories exist)
+                          BlocBuilder<CategoriesBloc, CategoriesState>(
+                            builder: (context, categoriesState) {
+                              final hasCategories = categoriesState is CategoriesLoaded &&
+                                  categoriesState.categories.isNotEmpty;
 
-                            if (!hasCategories) return const SizedBox.shrink();
-
-                            return Padding(
-                              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
-                              child: BlocBuilder<ItemsBloc, ItemsState>(
-                                builder: (context, itemsState) {
-                                  final selectedCategoryId = itemsState is ItemsLoaded
-                                      ? itemsState.selectedCategoryId
-                                      : null;
-                                  return _buildCategoryDropdown(
-                                    context,
-                                    categoriesState.categories,
-                                    selectedCategoryId,
-                                    primaryText,
-                                    secondaryText,
-                                    alternate,
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                        // Search field (between category filter and pin chip)
-                        if (_isSearching)
-                          _buildSearchField(context, primaryText, secondaryText, alternate),
-                        // Active item chip (shows when connected with active item)
-                        BlocBuilder<ItemsBloc, ItemsState>(
-                          builder: (context, itemsState) {
-                            if (!isConnected || itemsState is! ItemsLoaded) {
-                              return const SizedBox.shrink();
-                            }
-                            return _buildActiveItemChip(
-                              context,
-                              itemsState,
-                              bluetoothState,
-                              appUiState,
-                              primaryText,
-                              secondaryText,
-                              alternate,
-                            );
-                          },
-                        ),
-                        // Connection status banner
-                        if (!isConnected)
-                          _buildDisconnectedBanner(context),
-                        // Labeled divider showing Today/Total mode
-                        _buildLabeledDivider(appUiState, secondaryText),
-                        // Items List
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
-                        child: BlocConsumer<ItemsBloc, ItemsState>(
-                          listener: (context, state) {
-                            if (state is ItemsError) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(state.message),
-                                  backgroundColor: _deleteActionColor,
-                                ),
-                              );
-                            }
-                          },
-                          builder: (context, state) {
-                            if (state is ItemsLoading) {
-                              return Center(
-                                child: SizedBox(
-                                  width: 50.0,
-                                  height: 50.0,
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(_primary),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            if (state is ItemsLoaded) {
-                              // Filter items based on category and search query
-                              final categoryFilteredItems = state.filteredItems;
-                              final filteredItems = _searchQuery.isEmpty
-                                  ? categoryFilteredItems
-                                  : categoryFilteredItems.where((item) =>
-                                      item.name.toLowerCase().contains(_searchQuery)
-                                    ).toList();
-
-                              if (state.items.isEmpty) {
-                                return _buildEmptyState(context, primaryText, secondaryText, isConnected);
+                              // Update cache on first build when categories are loaded
+                              if (categoriesState is CategoriesLoaded && _cachedCategoryNames.isEmpty) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  _updateCategoryCache(categoriesState);
+                                });
                               }
 
-                              // Show "no results" if search has no matches
-                              if (filteredItems.isEmpty && _searchQuery.isNotEmpty) {
-                                return _buildNoSearchResults(context, primaryText, secondaryText);
-                              }
+                              if (!hasCategories) return const SizedBox.shrink();
 
-                              // Use ReorderableListView when connected and not searching
-                              // During search, use ListView with "Move to Top" action instead
-                              if (isConnected && _searchQuery.isEmpty) {
-                                // Trigger reorder hint when connected and swipe hint already shown
-                                if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint && _searchQuery.isEmpty) {
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    _showReorderHint(appUiState, isConnected);
-                                  });
-                                }
-                                return ReorderableListView.builder(
-                                  padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  buildDefaultDragHandles: false,
-                                  itemCount: filteredItems.length,
-                                  onReorderStart: (_) => HapticFeedback.mediumImpact(),
-                                  proxyDecorator: (child, index, animation) {
-                                    return AnimatedBuilder(
-                                      animation: animation,
-                                      builder: (context, child) {
-                                        final scale = Tween<double>(begin: 1.0, end: 1.03).animate(
-                                          CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-                                        );
-                                        return Transform.scale(
-                                          scale: scale.value,
-                                          child: Material(
-                                            elevation: 4.0 * animation.value,
-                                            borderRadius: BorderRadius.circular(8.0),
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                      child: child,
-                                    );
-                                  },
-                                  onReorder: (oldIndex, newIndex) {
-                                    // Capture references BEFORE any async operations
-                                    final itemsBloc = context.read<ItemsBloc>();
-                                    final bluetoothBloc = context.read<BluetoothBloc>();
-                                    final selectedId = bluetoothState.selectedItemId;
-                                    final currentState = state;
-                                    final isFilteredByCategory = currentState.isFilteredByCategory;
-
-                                    // Use appropriate reorder event based on view mode
-                                    if (isFilteredByCategory) {
-                                      // Viewing a specific category - update categoryOrder
-                                      itemsBloc.add(
-                                        ReorderItemsInCategoryEvent(
-                                          oldIndex: oldIndex,
-                                          newIndex: newIndex,
-                                        ),
-                                      );
-                                    } else {
-                                      // Viewing all items - update global order
-                                      itemsBloc.add(
-                                        ReorderItemsEvent(oldIndex: oldIndex, newIndex: newIndex),
-                                      );
-                                    }
-
-                                    // Sync to device after reorder
-                                    // Small delay to let BLoC process the reorder
-                                    Future.delayed(const Duration(milliseconds: 100), () {
-                                      if (!mounted) return;
-                                      final itemsState = itemsBloc.state;
-                                      if (itemsState is ItemsLoaded) {
-                                        // Sync filtered items to device when category is selected
-                                        // Otherwise sync all items
-                                        final itemsToSync = isFilteredByCategory
-                                            ? itemsState.filteredItems
-                                            : itemsState.items;
-                                        bluetoothBloc.add(SendItemsToDevice(
-                                          itemsToSync,
-                                          categoryNames: _buildCategoryNamesMap(context),
-                                        ));
-                                        // Re-send selected item to update device's index
-                                        // (firmware stores selected by index, not just ID)
-                                        if (selectedId != null && selectedId.isNotEmpty) {
-                                          Future.delayed(const Duration(milliseconds: 200), () {
-                                            if (!mounted) return;
-                                            bluetoothBloc.add(SendSelectedItem(selectedId));
-                                          });
-                                        }
-                                      }
-                                    });
-                                  },
-                                  itemBuilder: (context, index) {
-                                    final item = filteredItems[index];
-                                    // Pass animation for first item's reorder hint (only when not searching)
-                                    final needsReorderHint = index == 0 && !appUiState.hasShownReorderHint && _searchQuery.isEmpty;
-                                    return _buildItemTile(
+                              return Padding(
+                                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
+                                child: BlocBuilder<ItemsBloc, ItemsState>(
+                                  builder: (context, itemsState) {
+                                    final selectedCategoryId = itemsState is ItemsLoaded
+                                        ? itemsState.selectedCategoryId
+                                        : null;
+                                    return _buildCategoryDropdown(
                                       context,
-                                      item,
-                                      index,
-                                      appUiState,
-                                      isConnected,
-                                      bluetoothState.selectedItemId,
+                                      categoriesState.categories,
+                                      selectedCategoryId,
                                       primaryText,
                                       secondaryText,
                                       alternate,
-                                      activatedColor,
-                                      liftAnimation: needsReorderHint ? _liftAnimation : null,
                                     );
                                   },
+                                ),
+                              );
+                            },
+                          ),
+                          // Search field (between category filter and pin chip)
+                          if (_isSearching)
+                            _buildSearchField(context, primaryText, secondaryText, alternate),
+                          // Active item chip (shows when connected with active item)
+                          BlocBuilder<ItemsBloc, ItemsState>(
+                            builder: (context, itemsState) {
+                              if (!isConnected || itemsState is! ItemsLoaded) {
+                                return const SizedBox.shrink();
+                              }
+                              return _buildActiveItemChip(
+                                context,
+                                itemsState,
+                                bluetoothState,
+                                appUiState,
+                                primaryText,
+                                secondaryText,
+                                alternate,
+                              );
+                            },
+                          ),
+                          // Connection status banner
+                          if (!isConnected)
+                            _buildDisconnectedBanner(context),
+                          // Labeled divider showing Today/Total mode
+                          _buildLabeledDivider(appUiState, secondaryText),
+                          // Items List
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
+                          child: BlocConsumer<ItemsBloc, ItemsState>(
+                            listener: (context, state) {
+                              if (state is ItemsError) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(state.message),
+                                    backgroundColor: _deleteActionColor,
+                                  ),
                                 );
-                              } else {
-                                // Trigger swipe hint only in regular ListView (not during reorder, not searching)
-                                if (!appUiState.hasShownSwipeHint && _searchQuery.isEmpty) {
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    _showSwipeHint(appUiState);
-                                  });
+                              }
+                            },
+                            builder: (context, state) {
+                              if (state is ItemsLoading) {
+                                return Center(
+                                  child: SizedBox(
+                                    width: 50.0,
+                                    height: 50.0,
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(_primary),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              if (state is ItemsLoaded) {
+                                // Filter items based on category and search query
+                                final categoryFilteredItems = state.filteredItems;
+                                final filteredItems = _searchQuery.isEmpty
+                                    ? categoryFilteredItems
+                                    : categoryFilteredItems.where((item) =>
+                                        item.name.toLowerCase().contains(_searchQuery)
+                                      ).toList();
+
+                                if (state.items.isEmpty) {
+                                  return _buildEmptyState(context, primaryText, secondaryText, isConnected);
                                 }
-                                return RefreshIndicator(
-                                  color: _primary,
-                                  onRefresh: () async {
-                                    context.read<ItemsBloc>().add(WatchItemsEvent(widget.userId));
-                                    // Wait a bit for the stream to emit
-                                    await Future.delayed(const Duration(milliseconds: 500));
-                                  },
-                                  child: ListView.builder(
+
+                                // Show "no results" if search has no matches
+                                if (filteredItems.isEmpty && _searchQuery.isNotEmpty) {
+                                  return _buildNoSearchResults(context, primaryText, secondaryText);
+                                }
+
+                                // Use ReorderableListView when connected and not searching
+                                // During search, use ListView with "Move to Top" action instead
+                                if (isConnected && _searchQuery.isEmpty) {
+                                  // Trigger reorder hint when connected and swipe hint already shown
+                                  if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint && _searchQuery.isEmpty) {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      _showReorderHint(appUiState, isConnected);
+                                    });
+                                  }
+                                  return ReorderableListView.builder(
                                     padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
                                     physics: const AlwaysScrollableScrollPhysics(),
+                                    buildDefaultDragHandles: false,
                                     itemCount: filteredItems.length,
+                                    onReorderStart: (_) => HapticFeedback.mediumImpact(),
+                                    proxyDecorator: (child, index, animation) {
+                                      return AnimatedBuilder(
+                                        animation: animation,
+                                        builder: (context, child) {
+                                          final scale = Tween<double>(begin: 1.0, end: 1.03).animate(
+                                            CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+                                          );
+                                          return Transform.scale(
+                                            scale: scale.value,
+                                            child: Material(
+                                              elevation: 4.0 * animation.value,
+                                              borderRadius: BorderRadius.circular(8.0),
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                        child: child,
+                                      );
+                                    },
+                                    onReorder: (oldIndex, newIndex) {
+                                      // Capture references BEFORE any async operations
+                                      final itemsBloc = context.read<ItemsBloc>();
+                                      final bluetoothBloc = context.read<BluetoothBloc>();
+                                      final selectedId = bluetoothState.selectedItemId;
+                                      final currentState = state;
+                                      final isFilteredByCategory = currentState.isFilteredByCategory;
+
+                                      // Use appropriate reorder event based on view mode
+                                      if (isFilteredByCategory) {
+                                        // Viewing a specific category - update categoryOrder
+                                        itemsBloc.add(
+                                          ReorderItemsInCategoryEvent(
+                                            oldIndex: oldIndex,
+                                            newIndex: newIndex,
+                                          ),
+                                        );
+                                      } else {
+                                        // Viewing all items - update global order
+                                        itemsBloc.add(
+                                          ReorderItemsEvent(oldIndex: oldIndex, newIndex: newIndex),
+                                        );
+                                      }
+
+                                      // Sync to device after reorder
+                                      // Small delay to let BLoC process the reorder
+                                      Future.delayed(const Duration(milliseconds: 100), () {
+                                        if (!mounted) return;
+                                        final itemsState = itemsBloc.state;
+                                        if (itemsState is ItemsLoaded) {
+                                          // Sync filtered items to device when category is selected
+                                          // Otherwise sync all items
+                                          final itemsToSync = isFilteredByCategory
+                                              ? itemsState.filteredItems
+                                              : itemsState.items;
+                                          bluetoothBloc.add(SendItemsToDevice(
+                                            itemsToSync,
+                                            categoryNames: _cachedCategoryNames,
+                                          ));
+                                          // Re-send selected item to update device's index
+                                          // (firmware stores selected by index, not just ID)
+                                          if (selectedId != null && selectedId.isNotEmpty) {
+                                            Future.delayed(const Duration(milliseconds: 200), () {
+                                              if (!mounted) return;
+                                              bluetoothBloc.add(SendSelectedItem(selectedId));
+                                            });
+                                          }
+                                        }
+                                      });
+                                    },
                                     itemBuilder: (context, index) {
                                       final item = filteredItems[index];
-                                      // Only pass controller for hint animation when not yet shown (and not searching)
-                                      final needsController = index == 0 && !appUiState.hasShownSwipeHint && _searchQuery.isEmpty;
+                                      // Pass animation for first item's reorder hint (only when not searching)
+                                      final needsReorderHint = index == 0 && !appUiState.hasShownReorderHint && _searchQuery.isEmpty;
                                       return _buildItemTile(
                                         context,
                                         item,
                                         index,
                                         appUiState,
                                         isConnected,
-                                      bluetoothState.selectedItemId,
-                                      primaryText,
-                                      secondaryText,
-                                      alternate,
-                                      activatedColor,
-                                      controller: needsController ? _firstItemController : null,
-                                    );
+                                        bluetoothState.selectedItemId,
+                                        primaryText,
+                                        secondaryText,
+                                        alternate,
+                                        activatedColor,
+                                        liftAnimation: needsReorderHint ? _liftAnimation : null,
+                                      );
                                     },
-                                  ),
-                                );
+                                  );
+                                } else {
+                                  // Trigger swipe hint only in regular ListView (not during reorder, not searching)
+                                  if (!appUiState.hasShownSwipeHint && _searchQuery.isEmpty) {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      _showSwipeHint(appUiState);
+                                    });
+                                  }
+                                  return RefreshIndicator(
+                                    color: _primary,
+                                    onRefresh: () async {
+                                      context.read<ItemsBloc>().add(WatchItemsEvent(widget.userId));
+                                      // Wait a bit for the stream to emit
+                                      await Future.delayed(const Duration(milliseconds: 500));
+                                    },
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      itemCount: filteredItems.length,
+                                      itemBuilder: (context, index) {
+                                        final item = filteredItems[index];
+                                        // Only pass controller for hint animation when not yet shown (and not searching)
+                                        final needsController = index == 0 && !appUiState.hasShownSwipeHint && _searchQuery.isEmpty;
+                                        return _buildItemTile(
+                                          context,
+                                          item,
+                                          index,
+                                          appUiState,
+                                          isConnected,
+                                        bluetoothState.selectedItemId,
+                                        primaryText,
+                                        secondaryText,
+                                        alternate,
+                                        activatedColor,
+                                        controller: needsController ? _firstItemController : null,
+                                      );
+                                      },
+                                    ),
+                                  );
+                                }
                               }
-                            }
 
-                            return const SizedBox();
-                          },
+                              return const SizedBox();
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -739,12 +752,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
         (currentCategoryId == '' && (activeCategoryId == null || activeCategoryId.isEmpty)) || // both uncategorized
         currentCategoryId == activeCategoryId;
 
-    // Get category name
-    final categoriesState = context.read<CategoriesBloc>().state;
+    // Get category name from cached map
     String categoryName = 'Uncategorized';
-    if (activeCategoryId != null && activeCategoryId.isNotEmpty && categoriesState is CategoriesLoaded) {
-      final category = categoriesState.categories.where((c) => c.id == activeCategoryId).firstOrNull;
-      if (category != null) categoryName = category.name;
+    if (activeCategoryId != null && activeCategoryId.isNotEmpty) {
+      categoryName = _cachedCategoryNames[activeCategoryId] ?? 'Uncategorized';
     }
 
     return Padding(
@@ -1014,7 +1025,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                     context.read<BluetoothBloc>().add(SendItemsToDevice(
                       categoryItems,
-                      categoryNames: _buildCategoryNamesMap(context),
+                      categoryNames: _cachedCategoryNames,
                     ));
                   }
                   // Then send selected item to device
@@ -1050,7 +1061,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           if (updatedState is ItemsLoaded) {
                             bluetoothBloc.add(SendItemsToDevice(
                               updatedState.filteredItems,
-                              categoryNames: _buildCategoryNamesMap(context),
+                              categoryNames: _cachedCategoryNames,
                             ));
                           }
                         });
@@ -1067,7 +1078,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           if (updatedState is ItemsLoaded) {
                             bluetoothBloc.add(SendItemsToDevice(
                               updatedState.items,
-                              categoryNames: _buildCategoryNamesMap(context),
+                              categoryNames: _cachedCategoryNames,
                             ));
                           }
                         });
@@ -1314,29 +1325,29 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
       final items = itemsResult.fold(
         (failure) {
-          debugPrint('❌ Failed to fetch items after delete: ${failure.message}');
+          debugPrint('Failed to fetch items after delete: ${failure.message}');
           return <Item>[];
         },
         (items) => items,
       );
 
-      debugPrint('📦 Fetched ${items.length} items after delete');
+      debugPrint('Fetched ${items.length} items after delete');
 
       // Send updated items list to device
-      debugPrint('📤 Sending ${items.length} items to device after delete');
+      debugPrint('Sending ${items.length} items to device after delete');
       bluetoothBloc.add(SendItemsToDevice(
         items,
-        categoryNames: _buildCategoryNamesMap(context),
+        categoryNames: _cachedCategoryNames,
       ));
 
       // Send selected item to device (may have changed if deleted item was active)
       bluetoothBloc.add(SendSelectedItem(activeItemId));
 
       // Request prefs from device to get updated counts
-      debugPrint('📥 Requesting prefs from device after delete');
+      debugPrint('Requesting prefs from device after delete');
       bluetoothBloc.add(const RequestDeviceData(type: DeviceDataType.prefs));
     } catch (e) {
-      debugPrint('❌ Error syncing with device after delete: $e');
+      debugPrint('Error syncing with device after delete: $e');
     }
   }
 
