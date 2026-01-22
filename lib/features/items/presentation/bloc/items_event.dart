@@ -38,17 +38,22 @@ class LoadItemsEvent extends ItemsEvent {
 ///
 /// Automatically cancels any previous subscription before creating a new one.
 ///
+/// Optional [initialCategoryId] can be provided to restore a category filter
+/// when navigating back to the items list.
+///
 /// Example:
 /// ```dart
 /// bloc.add(WatchItemsEvent('user_123'));
+/// bloc.add(WatchItemsEvent('user_123', initialCategoryId: 'category_123'));
 /// ```
 class WatchItemsEvent extends ItemsEvent {
   final String userId;
+  final String? initialCategoryId;
 
-  const WatchItemsEvent(this.userId);
+  const WatchItemsEvent(this.userId, {this.initialCategoryId});
 
   @override
-  List<Object?> get props => [userId];
+  List<Object?> get props => [userId, initialCategoryId];
 }
 
 /// Event to stop watching real-time updates.

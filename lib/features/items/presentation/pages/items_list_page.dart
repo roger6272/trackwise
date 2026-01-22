@@ -144,14 +144,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (context) {
-            final bloc = sl<ItemsBloc>()..add(WatchItemsEvent(widget.userId));
-            // Restore category filter after items load
-            if (savedCategoryId != null) {
-              bloc.add(FilterByCategoryEvent(savedCategoryId));
-            }
-            return bloc;
-          },
+          create: (context) => sl<ItemsBloc>()
+            ..add(WatchItemsEvent(
+              widget.userId,
+              initialCategoryId: savedCategoryId,
+            )),
         ),
         BlocProvider(
           create: (context) => sl<CategoriesBloc>()

@@ -89,6 +89,9 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
   /// The stream will emit ItemsLoaded whenever Firestore data changes.
   /// Preserves the current category filter when items update.
   ///
+  /// If [event.initialCategoryId] is provided, it will be used as the initial
+  /// category filter (useful for restoring state after navigation).
+  ///
   /// Emits:
   /// 1. ItemsLoading - while setting up subscription
   /// 2. ItemsLoaded(isWatching: true) - on each stream update
@@ -100,10 +103,9 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     // Cancel existing subscription if any
     await _itemsSubscription?.cancel();
 
-    // Preserve current category filter for initial load
-    final initialCategoryId = state is ItemsLoaded
-        ? (state as ItemsLoaded).selectedCategoryId
-        : null;
+    // Use event's initialCategoryId if provided, otherwise preserve current filter
+    final initialCategoryId = event.initialCategoryId ??
+        (state is ItemsLoaded ? (state as ItemsLoaded).selectedCategoryId : null);
 
     emit(ItemsLoading());
 
