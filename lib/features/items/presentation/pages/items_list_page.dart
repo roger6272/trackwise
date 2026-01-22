@@ -503,33 +503,40 @@ class _ItemsListContentState extends State<_ItemsListContent>
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => appUiState.isTodayToggle = !isToday,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.swap_horiz_rounded,
-                  size: 14.0,
-                  color: secondaryText.withValues(alpha: 0.6),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    color: secondaryText.withValues(alpha: 0.6),
-                    fontSize: 12.0,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
           Expanded(
             child: Container(
               height: 0.5,
               color: secondaryText.withValues(alpha: 0.2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => appUiState.isTodayToggle = !isToday,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: secondaryText.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.swap_horiz_rounded,
+                    size: 14.0,
+                    color: secondaryText.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      color: secondaryText.withValues(alpha: 0.7),
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
