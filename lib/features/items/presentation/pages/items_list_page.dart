@@ -98,6 +98,18 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
+  /// Builds a map of categoryId -> categoryName from the CategoriesBloc state.
+  Map<String, String> _buildCategoryNamesMap(BuildContext context) {
+    final categoriesState = context.read<CategoriesBloc>().state;
+    if (categoriesState is CategoriesLoaded) {
+      return {
+        for (final category in categoriesState.categories)
+          category.id: category.name,
+      };
+    }
+    return {};
+  }
+
   // Static colors (theme-independent)
   static const Color _primary = Color(0xFF4B39EF);
 
@@ -371,7 +383,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         final itemsToSync = isFilteredByCategory
                                             ? itemsState.filteredItems
                                             : itemsState.items;
-                                        bluetoothBloc.add(SendItemsToDevice(itemsToSync));
+                                        bluetoothBloc.add(SendItemsToDevice(
+                                          itemsToSync,
+                                          categoryNames: _buildCategoryNamesMap(context),
+                                        ));
                                         // Re-send selected item to update device's index
                                         // (firmware stores selected by index, not just ID)
                                         if (selectedId != null && selectedId.isNotEmpty) {
@@ -689,7 +704,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
               final itemsState = itemsBloc.state;
               if (itemsState is ItemsLoaded) {
                 final filteredItems = itemsState.filteredItems;
-                bluetoothBloc.add(SendItemsToDevice(filteredItems));
+                bluetoothBloc.add(SendItemsToDevice(
+                  filteredItems,
+                  categoryNames: _buildCategoryNamesMap(context),
+                ));
 
                 // Check if selected item is in the filtered list
                 final selectedId = bluetoothBloc.state.selectedItemId;
@@ -911,7 +929,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   // First sync all items to device (ensures new items are known)
                   final itemsState = context.read<ItemsBloc>().state;
                   if (itemsState is ItemsLoaded) {
-                    context.read<BluetoothBloc>().add(SendItemsToDevice(itemsState.items));
+                    context.read<BluetoothBloc>().add(SendItemsToDevice(
+                      itemsState.items,
+                      categoryNames: _buildCategoryNamesMap(context),
+                    ));
                   }
                   // Then send selected item to device
                   context.read<BluetoothBloc>().add(SendSelectedItem(item.id));
@@ -944,7 +965,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           if (!mounted) return;
                           final updatedState = itemsBloc.state;
                           if (updatedState is ItemsLoaded) {
-                            bluetoothBloc.add(SendItemsToDevice(updatedState.filteredItems));
+                            bluetoothBloc.add(SendItemsToDevice(
+                              updatedState.filteredItems,
+                              categoryNames: _buildCategoryNamesMap(context),
+                            ));
                           }
                         });
                       }
@@ -958,7 +982,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           if (!mounted) return;
                           final updatedState = itemsBloc.state;
                           if (updatedState is ItemsLoaded) {
-                            bluetoothBloc.add(SendItemsToDevice(updatedState.items));
+                            bluetoothBloc.add(SendItemsToDevice(
+                              updatedState.items,
+                              categoryNames: _buildCategoryNamesMap(context),
+                            ));
                           }
                         });
                       }
@@ -1214,7 +1241,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
       // Send updated items list to device
       debugPrint('📤 Sending ${items.length} items to device after delete');
-      bluetoothBloc.add(SendItemsToDevice(items));
+      bluetoothBloc.add(SendItemsToDevice(
+        items,
+        categoryNames: _buildCategoryNamesMap(context),
+      ));
 
       // Send selected item to device (may have changed if deleted item was active)
       bluetoothBloc.add(SendSelectedItem(activeItemId));

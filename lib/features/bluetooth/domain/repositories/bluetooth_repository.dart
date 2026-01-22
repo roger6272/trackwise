@@ -95,7 +95,9 @@ abstract class BluetoothRepository {
   /// Sends the item list to ESP32 device.
   ///
   /// Formats items as JSON array with fields:
-  /// id, name, count, todaycount, increment, reminder, reminder_value, lastResetTime
+  /// id, name, count, todaycount, increment, reminder, reminder_value, lastResetTime, category
+  ///
+  /// [categoryNames] maps categoryId -> categoryName for resolving display names.
   ///
   /// Handles 180-byte MTU chunking with 30ms delay between chunks.
   /// Writes to SET_ITEMS characteristic (12345678-1234-1234-1234-123456789008).
@@ -103,7 +105,11 @@ abstract class BluetoothRepository {
   /// Returns:
   /// - Right(void): Items sent successfully
   /// - Left(BluetoothFailure): Send failed (not connected, write error, etc.)
-  Future<Either<Failure, void>> sendItems(String deviceId, List<Item> items);
+  Future<Either<Failure, void>> sendItems(
+    String deviceId,
+    List<Item> items, {
+    Map<String, String> categoryNames = const {},
+  });
 
   /// Sends selected item command to ESP32.
   ///

@@ -51,6 +51,7 @@ int itemCount = 0;
 int itemTodayCount = 0;
 int itemIncrement = 1;
 String itemName = "Item";
+String itemCategory = "";
 unsigned long connectedAt = 0;
 bool didInitialSync = false;
 bool isConnected = false;
@@ -285,6 +286,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       // Clear all slots
       for (int i = 0; i < maxPrefsSlots; i++) {
         prefs.remove(("n_" + String(i)).c_str());
+        prefs.remove(("cat_" + String(i)).c_str());
         prefs.remove(("c_" + String(i)).c_str());
         prefs.remove(("tc_" + String(i)).c_str());
         prefs.remove(("i_" + String(i)).c_str());
@@ -300,6 +302,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         if (index >= maxPrefsSlots) break;
         String id = item["id"].as<String>();
         String name = item["name"].as<String>();
+        String category = item.containsKey("category") ? item["category"].as<String>() : "";
         int increment = item["increment"];
         int reminder = item["reminder"];
         int reminderValue = item["reminder_value"];
@@ -328,6 +331,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
         prefs.putString(("id_" + String(index)).c_str(), id);
         prefs.putString(("n_" + String(index)).c_str(), name);
+        prefs.putString(("cat_" + String(index)).c_str(), category);
         prefs.putInt(("c_" + String(index)).c_str(), count);
         prefs.putInt(("tc_" + String(index)).c_str(), todaycount);
         prefs.putInt(("i_" + String(index)).c_str(), increment);
@@ -336,8 +340,8 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         prefs.putULong(("lr_" + String(index)).c_str(), lastResetTime);
         prefs.putInt(("rn_" + String(index)).c_str(), resetNumber);
 
-        Serial.printf("[%d] ID=%s Name=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
-              index, id.c_str(), name.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
+        Serial.printf("[%d] ID=%s Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
+              index, id.c_str(), name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
         index++;
       }
 
@@ -382,12 +386,13 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
         itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
         itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
+        itemCategory = prefs.getString(("cat_" + String(currentItemIndex)).c_str(), "");
         reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
         reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
         lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
         itemResetNumber = prefs.getInt(("rn_" + String(currentItemIndex)).c_str(), 0);
-        Serial.printf("🔄 Refreshed runtime vars: %s, increment=%d, reminder=%d, resetNumber=%d\n",
-                      itemName.c_str(), itemIncrement, reminder, itemResetNumber);
+        Serial.printf("🔄 Refreshed runtime vars: %s, category=%s, increment=%d, reminder=%d, resetNumber=%d\n",
+                      itemName.c_str(), itemCategory.c_str(), itemIncrement, reminder, itemResetNumber);
       }
 
       prefs.end();
@@ -452,12 +457,13 @@ class WriteCallback : public BLECharacteristicCallbacks {
           itemTodayCount = prefs.getInt(("tc_" + String(i)).c_str(), 0);
           itemIncrement = prefs.getInt(("i_" + String(i)).c_str(), 1);
           itemName = prefs.getString(("n_" + String(i)).c_str(), "Item");
+          itemCategory = prefs.getString(("cat_" + String(i)).c_str(), "");
           reminder = prefs.getInt(("r_" + String(i)).c_str(), REMINDER_NONE);
           reminderValue = prefs.getInt(("rv_" + String(i)).c_str(), 0);
           lastResetTime = prefs.getULong(("lr_" + String(i)).c_str(), 0);
           itemResetNumber = prefs.getInt(("rn_" + String(i)).c_str(), 0);
 
-          Serial.printf("✅ Selected item [%d]: %s (%s) resetNumber=%d\n", i, id.c_str(), itemName.c_str(), itemResetNumber);
+          Serial.printf("✅ Selected item [%d]: %s (%s) category=%s resetNumber=%d\n", i, id.c_str(), itemName.c_str(), itemCategory.c_str(), itemResetNumber);
           found = true;
           break;
         }
@@ -850,6 +856,7 @@ void handleCommand(char cmd) {
     itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
     itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
     itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
+    itemCategory = prefs.getString(("cat_" + String(currentItemIndex)).c_str(), "");
     reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
     reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
     lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
@@ -878,6 +885,11 @@ void handleCommand(char cmd) {
  // Serial.print(now.hour(), DEC);
  // Serial.print(" ");
   Serial.print(itemName);
+  if (itemCategory.length() > 0) {
+    Serial.print(" (");
+    Serial.print(itemCategory);
+    Serial.print(")");
+  }
   Serial.print(" [ID: ");
   Serial.print(currentItemId);
   Serial.print("] Count: ");
@@ -986,6 +998,7 @@ void setup() {
   itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
   itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
   itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
+  itemCategory = prefs.getString(("cat_" + String(currentItemIndex)).c_str(), "");
   reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
   reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
   lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);

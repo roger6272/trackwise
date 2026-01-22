@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../categories/presentation/bloc/categories_bloc.dart';
+import '../../../categories/presentation/bloc/categories_state.dart';
 import '../../../items/presentation/bloc/items_bloc.dart';
 import '../../../items/presentation/bloc/items_state.dart';
 import '../bloc/bluetooth_bloc.dart';
@@ -110,7 +112,16 @@ class DeviceManagementPage extends StatelessWidget {
   void _syncItems(BuildContext context) {
     final itemsState = context.read<ItemsBloc>().state;
     if (itemsState is ItemsLoaded) {
-      context.read<BluetoothBloc>().add(SendItemsToDevice(itemsState.items));
+      // Build category names map
+      final categoriesState = context.read<CategoriesBloc>().state;
+      final categoryNames = categoriesState is CategoriesLoaded
+          ? {for (final c in categoriesState.categories) c.id: c.name}
+          : <String, String>{};
+
+      context.read<BluetoothBloc>().add(SendItemsToDevice(
+        itemsState.items,
+        categoryNames: categoryNames,
+      ));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Synced ${itemsState.items.length} items')),
       );

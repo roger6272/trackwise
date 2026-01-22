@@ -571,7 +571,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     if (deviceId == null) return;
 
     final result = await _sendItems.call(
-      SendItemsParams(deviceId: deviceId, items: event.items),
+      SendItemsParams(
+        deviceId: deviceId,
+        items: event.items,
+        categoryNames: event.categoryNames,
+      ),
     );
 
     result.fold(

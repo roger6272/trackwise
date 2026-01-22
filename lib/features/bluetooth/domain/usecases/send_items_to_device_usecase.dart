@@ -12,13 +12,17 @@ class SendItemsParams extends Equatable {
   final String deviceId;
   final List<Item> items;
 
+  /// Map of categoryId -> categoryName for resolving category names.
+  final Map<String, String> categoryNames;
+
   const SendItemsParams({
     required this.deviceId,
     required this.items,
+    this.categoryNames = const {},
   });
 
   @override
-  List<Object> get props => [deviceId, items];
+  List<Object> get props => [deviceId, items, categoryNames];
 }
 
 /// Use case for sending item list to ESP32 device.
@@ -44,6 +48,10 @@ class SendItemsToDeviceUseCase extends UseCase<void, SendItemsParams> {
       ));
     }
 
-    return await repository.sendItems(params.deviceId, params.items);
+    return await repository.sendItems(
+      params.deviceId,
+      params.items,
+      categoryNames: params.categoryNames,
+    );
   }
 }

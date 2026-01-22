@@ -12,6 +12,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
+import '../../../categories/presentation/bloc/categories_bloc.dart';
+import '../../../categories/presentation/bloc/categories_state.dart';
 import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../bloc/deleted_items_bloc.dart';
@@ -121,9 +123,16 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
 
                       // Sync with device after restoration
                       if (isConnected) {
+                        // Build category names map
+                        final categoriesState = context.read<CategoriesBloc>().state;
+                        final categoryNames = categoriesState is CategoriesLoaded
+                            ? {for (final c in categoriesState.categories) c.id: c.name}
+                            : <String, String>{};
+
                         _syncWithDeviceAfterRestore(
                           bluetoothBloc: context.read<BluetoothBloc>(),
                           restoredItemId: state.itemId,
+                          categoryNames: categoryNames,
                         );
                       }
                     }
@@ -426,6 +435,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
   Future<void> _syncWithDeviceAfterRestore({
     required BluetoothBloc bluetoothBloc,
     required String restoredItemId,
+    Map<String, String> categoryNames = const {},
   }) async {
     try {
       // Wait for Firestore propagation
@@ -445,7 +455,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
 
       // Send updated items list to device
       debugPrint('📤 Sending ${items.length} items to device after restore');
-      bluetoothBloc.add(SendItemsToDevice(items));
+      bluetoothBloc.add(SendItemsToDevice(items, categoryNames: categoryNames));
 
       // Wait for device to process items before sending selected item
       await Future.delayed(const Duration(milliseconds: 500));

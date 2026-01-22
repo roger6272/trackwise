@@ -96,10 +96,13 @@ class ConnectionStateChanged extends BluetoothEvent {
 class SendItemsToDevice extends BluetoothEvent {
   final List<Item> items;
 
-  const SendItemsToDevice(this.items);
+  /// Map of categoryId -> categoryName for resolving category names.
+  final Map<String, String> categoryNames;
+
+  const SendItemsToDevice(this.items, {this.categoryNames = const {}});
 
   @override
-  List<Object?> get props => [items];
+  List<Object?> get props => [items, categoryNames];
 }
 
 /// Send selected item change to the ESP32 device.

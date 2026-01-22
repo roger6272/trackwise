@@ -801,9 +801,18 @@ class _ItemFormPageState extends State<ItemFormPage> {
       }
 
       if (mounted) {
+        // Build category names map
+        final categoriesState = context.read<CategoriesBloc>().state;
+        final categoryNames = categoriesState is CategoriesLoaded
+            ? {for (final c in categoriesState.categories) c.id: c.name}
+            : <String, String>{};
+
         // Send items to device
         debugPrint('📤 Sending ${items.length} items to device');
-        context.read<BluetoothBloc>().add(SendItemsToDevice(items));
+        context.read<BluetoothBloc>().add(SendItemsToDevice(
+          items,
+          categoryNames: categoryNames,
+        ));
 
         // Wait for device to process items before sending selected item
         await Future.delayed(const Duration(milliseconds: 500));

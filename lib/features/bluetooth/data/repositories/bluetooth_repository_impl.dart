@@ -93,10 +93,11 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   @override
   Future<Either<Failure, void>> sendItems(
     String deviceId,
-    List<Item> items,
-  ) async {
+    List<Item> items, {
+    Map<String, String> categoryNames = const {},
+  }) async {
     try {
-      final jsonData = _formatItemsForEsp32(items);
+      final jsonData = _formatItemsForEsp32(items, categoryNames);
       print('📤 JSON sent to device: $jsonData');
       await dataSource.writeItems(deviceId, jsonData);
       return const Right(null);
@@ -121,11 +122,15 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   ///     "lastResetTime": 1234567890,
   ///     "count": 10,
   ///     "todaycount": 5,
-  ///     "reset_number": 0
+  ///     "reset_number": 0,
+  ///     "category": "Category Name"
   ///   }
   /// ]
   /// ```
-  String _formatItemsForEsp32(List<Item> items) {
+  String _formatItemsForEsp32(
+    List<Item> items,
+    Map<String, String> categoryNames,
+  ) {
     final itemList = items.map((item) => {
       'id': item.id,
       'name': item.name,
@@ -136,6 +141,9 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       'count': item.count,
       'todaycount': item.todayCount,
       'reset_number': item.resetNumber,
+      'category': item.categoryId != null
+          ? (categoryNames[item.categoryId] ?? '')
+          : '',
     }).toList();
 
     return jsonEncode(itemList);
