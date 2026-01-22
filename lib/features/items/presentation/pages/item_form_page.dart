@@ -52,7 +52,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
   late FocusNode reminderValueFocusNode;
 
   ReminderType? selectedReminder;
-  String? selectedCategoryId;
+  String selectedCategoryId = '';
 
   bool _isLoading = false;
 
@@ -85,7 +85,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
     reminderValueFocusNode = FocusNode();
 
     selectedReminder = widget.item?.reminder ?? ReminderType.none;
-    selectedCategoryId = widget.item?.categoryId;
+    selectedCategoryId = widget.item?.categoryId ?? '';
   }
 
   @override
@@ -222,18 +222,19 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               categories = categoriesState.categories;
                             }
                             // Validate selectedCategoryId exists in categories list
-                            final validCategoryId = selectedCategoryId != null &&
+                            // Use '' for uncategorized, or valid category ID
+                            final validCategoryId = selectedCategoryId.isEmpty ||
                                 categories.any((c) => c.id == selectedCategoryId)
                                 ? selectedCategoryId
-                                : null;
+                                : '';
                             return _buildFieldSection(
                               label: 'Category (optional)',
                               labelColor: primaryText,
-                              child: DropdownButtonFormField<String?>(
+                              child: DropdownButtonFormField<String>(
                                 value: validCategoryId,
                                 items: [
-                                  DropdownMenuItem<String?>(
-                                    value: null,
+                                  DropdownMenuItem<String>(
+                                    value: '',
                                     child: Text(
                                       'Uncategorized',
                                       style: GoogleFonts.inter(
@@ -243,7 +244,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                       ),
                                     ),
                                   ),
-                                  ...categories.map((category) => DropdownMenuItem<String?>(
+                                  ...categories.map((category) => DropdownMenuItem<String>(
                                     value: category.id,
                                     child: Text(
                                       category.name,
@@ -254,7 +255,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                     ),
                                   )),
                                   // Manage Categories option
-                                  DropdownMenuItem<String?>(
+                                  DropdownMenuItem<String>(
                                     value: '__manage__',
                                     child: Row(
                                       children: [
@@ -278,7 +279,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                     context.push('/profile/categories');
                                     return;
                                   }
-                                  setState(() => selectedCategoryId = val);
+                                  setState(() => selectedCategoryId = val ?? '');
                                 },
                                 style: GoogleFonts.inter(
                                   color: primaryText,
@@ -706,8 +707,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         reminderValue: reminderValue,
         goal: goal,
         clearGoal: goal == null,
-        categoryId: selectedCategoryId,
-        clearCategoryId: selectedCategoryId == null,
+        categoryId: selectedCategoryId, // '' for uncategorized
       );
 
       debugPrint('🟡 Updating item: id=${updatedItem.id}, name=$name');

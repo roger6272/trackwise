@@ -194,8 +194,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       size: 24.0,
                     ),
                   ),
-                  // Total/Today toggle
-                  _buildAppBarToggle(appUiState, primaryText, secondaryText, alternate),
                   // Add item button
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),
@@ -498,53 +496,33 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
-  Widget _buildAppBarToggle(AppUiState appUiState, Color primaryText, Color secondaryText, Color alternate) {
-    final isToday = appUiState.isTodayToggle;
-    return GestureDetector(
-      onTap: () => appUiState.isTodayToggle = !isToday,
-      child: Container(
-        width: 42.0,
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        decoration: BoxDecoration(
-          color: secondaryText.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isToday ? Icons.today_rounded : Icons.functions_rounded,
-              size: 18,
-              color: secondaryText,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              isToday ? 'Today' : 'Total',
-              style: GoogleFonts.inter(
-                color: primaryText,
-                fontSize: 10.0,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildLabeledDivider(AppUiState appUiState, Color secondaryText) {
-    final label = appUiState.isTodayToggle ? 'Today' : 'Total';
+    final isToday = appUiState.isTodayToggle;
+    final label = isToday ? 'Today' : 'Total';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
       child: Row(
         children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              color: secondaryText.withValues(alpha: 0.6),
-              fontSize: 12.0,
-              fontWeight: FontWeight.w500,
+          GestureDetector(
+            onTap: () => appUiState.isTodayToggle = !isToday,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.swap_horiz_rounded,
+                  size: 14.0,
+                  color: secondaryText.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    color: secondaryText.withValues(alpha: 0.6),
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 8),
