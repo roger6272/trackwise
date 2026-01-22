@@ -190,7 +190,7 @@ class _ExportPageState extends State<ExportPage> {
                               '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 fontFamily: 'Inter',
-                                color: AppColors.secondary,
+                                color: AppColors.primary,
                                 fontWeight: FontWeight.w500,
                                 letterSpacing: 0.0,
                               ),
@@ -223,7 +223,7 @@ class _ExportPageState extends State<ExportPage> {
                               style: ButtonStyle(
                                 backgroundColor: WidgetStateProperty.resolveWith((states) {
                                   if (states.contains(WidgetState.selected)) {
-                                    return AppColors.secondary;
+                                    return AppColors.primaryAdaptive(Theme.of(context).brightness);
                                   }
                                   return _inputBackground(context);
                                 }),
@@ -284,7 +284,7 @@ class _ExportPageState extends State<ExportPage> {
                               style: ButtonStyle(
                                 backgroundColor: WidgetStateProperty.resolveWith((states) {
                                   if (states.contains(WidgetState.selected)) {
-                                    return AppColors.secondary;
+                                    return AppColors.primaryAdaptive(Theme.of(context).brightness);
                                   }
                                   return _inputBackground(context);
                                 }),
@@ -472,7 +472,7 @@ class _ExportPageState extends State<ExportPage> {
         color: _cardBackground(context),
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(
-          color: AppColors.secondary.withAlpha(77),
+          color: AppColors.primary.withAlpha(51),
           width: 1.0,
         ),
         boxShadow: [
@@ -491,13 +491,13 @@ class _ExportPageState extends State<ExportPage> {
               Container(
                 padding: const EdgeInsets.all(8.0),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withAlpha(26),
+                  color: AppColors.primary.withAlpha(26),
                   borderRadius: BorderRadius.circular(8.0),
                 ),
                 child: const Icon(
                   Icons.summarize_rounded,
                   size: 20.0,
-                  color: AppColors.secondary,
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(width: 12.0),
@@ -608,7 +608,7 @@ class _ExportPageState extends State<ExportPage> {
           padding: EdgeInsets.symmetric(horizontal: 8.0),
           child: Icon(
             Icons.arrow_forward_rounded,
-            color: AppColors.secondary,
+            color: AppColors.primary,
             size: 24.0,
           ),
         ),
@@ -704,7 +704,7 @@ class _ExportPageState extends State<ExportPage> {
                 width: 4,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: isStart ? AppColors.secondary : AppColors.tertiary,
+                  color: isStart ? AppColors.primary : AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
