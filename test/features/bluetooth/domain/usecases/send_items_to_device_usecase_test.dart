@@ -126,11 +126,11 @@ void main() {
   });
 
   group('SendItemsParams', () {
-    test('props should contain deviceId and items', () {
+    test('props should contain deviceId, items, and categoryNames', () {
       final tItems = [createTestItem('1')];
       final params = SendItemsParams(deviceId: tDeviceId, items: tItems);
 
-      expect(params.props, [tDeviceId, tItems]);
+      expect(params.props, [tDeviceId, tItems, const <String, String>{}]);
     });
 
     test('two params with same values should be equal', () {
