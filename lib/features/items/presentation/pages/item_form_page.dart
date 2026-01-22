@@ -731,8 +731,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (item) async {
           debugPrint('🟢 Item updated: ${item.id}');
 
-          // Sync with device after update (send items from the item's category)
-          await _syncWithDevice(itemCategoryId: item.categoryId);
+          // Sync with device after update (send items from the NEW category)
+          // Use selectedCategoryId, not item.categoryId (which may be stale)
+          await _syncWithDevice(itemCategoryId: selectedCategoryId);
 
           if (mounted) context.pop();
         },
