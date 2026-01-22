@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:injectable/injectable.dart';
 
 import '../../domain/entities/category.dart';
@@ -43,7 +44,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     WatchCategoriesEvent event,
     Emitter<CategoriesState> emit,
   ) async {
-    print('🔵 CategoriesBloc: Starting to watch categories for user ${event.userId}');
+    if (kDebugMode) print('🔵 CategoriesBloc: Starting to watch categories for user ${event.userId}');
     emit(const CategoriesLoading());
 
     await _categoriesSubscription?.cancel();
@@ -52,22 +53,22 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       WatchCategoriesParams(event.userId),
     ).listen(
       (result) {
-        print('🟢 CategoriesBloc: Received stream update');
+        if (kDebugMode) print('🟢 CategoriesBloc: Received stream update');
         result.fold(
           (failure) {
-            print('🔴 CategoriesBloc: Stream failure - ${failure.message}');
+            if (kDebugMode) print('🔴 CategoriesBloc: Stream failure - ${failure.message}');
             add(CategoriesUpdatedEvent(const []));
           },
           (categories) {
-            print('🟢 CategoriesBloc: Loaded ${categories.length} categories');
+            if (kDebugMode) print('🟢 CategoriesBloc: Loaded ${categories.length} categories');
             add(CategoriesUpdatedEvent(categories));
           },
         );
       },
       onError: (error, stackTrace) {
         // Emit empty list on stream error to show empty state
-        print('❌ CategoriesBloc: Stream error - $error');
-        print('Stack trace: $stackTrace');
+        if (kDebugMode) print('❌ CategoriesBloc: Stream error - $error');
+        if (kDebugMode) print('Stack trace: $stackTrace');
         add(CategoriesUpdatedEvent(const []));
       },
     );

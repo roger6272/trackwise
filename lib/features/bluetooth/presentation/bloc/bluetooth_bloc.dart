@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import 'package:injectable/injectable.dart';
 
@@ -152,7 +153,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           _lastConnectedDeviceId != null) {
         _reconnectTimer?.cancel();
         final delay = _getReconnectDelay();
-        print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+        if (kDebugMode) print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
         _reconnectTimer = Timer(delay, () {
           if (!_isManualDisconnect &&
               state.status == BluetoothStatus.ready &&
@@ -482,7 +483,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       if (!_isManualDisconnect && _lastConnectedDeviceId != null) {
         _reconnectTimer?.cancel();
         final delay = _getReconnectDelay();
-        print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+        if (kDebugMode) print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
         _reconnectTimer = Timer(delay, () {
           if (!_isManualDisconnect &&
               state.status == BluetoothStatus.ready &&
@@ -517,8 +518,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Send time sync first and await it
     final timeSyncResult = await _sendTimeSync.call(SendTimeSyncParams(deviceId));
     timeSyncResult.fold(
-      (failure) => print('Time sync failed: ${failure.message}'),
-      (_) => print('Initial sync: time sync sent'),
+      (failure) { if (kDebugMode) print('Time sync failed: ${failure.message}'); },
+      (_) { if (kDebugMode) print('Initial sync: time sync sent'); },
     );
 
     // Small delay between commands to avoid overwhelming BLE
@@ -535,8 +536,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     prefsResult.fold(
-      (failure) => print('Failed to request prefs: ${failure.message}'),
-      (_) => print('Initial sync: prefs requested'),
+      (failure) { if (kDebugMode) print('Failed to request prefs: ${failure.message}'); },
+      (_) { if (kDebugMode) print('Initial sync: prefs requested'); },
     );
 
     // Small delay before requesting logs
@@ -553,8 +554,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     logsResult.fold(
-      (failure) => print('Failed to request logs: ${failure.message}'),
-      (_) => print('Initial sync: logs requested'),
+      (failure) { if (kDebugMode) print('Failed to request logs: ${failure.message}'); },
+      (_) { if (kDebugMode) print('Initial sync: logs requested'); },
     );
 
     // Note: We no longer send items/counts from app to device on connect.
@@ -702,7 +703,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       final deviceId = state.connectedDevice?.id;
       if (deviceId != null) {
         final currentPage = message.page ?? 0;
-        print('📖 More logs available, requesting page ${currentPage + 1}');
+        if (kDebugMode) print('📖 More logs available, requesting page ${currentPage + 1}');
         await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
         add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1));
       }
@@ -710,7 +711,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     // Clear logs on device when all pages received
     if (message.type == BleMessageType.logs && !message.hasMore) {
-      print('🧹 All logs received, clearing logs on device');
+      if (kDebugMode) print('🧹 All logs received, clearing logs on device');
       add(const ClearDeviceLogs());
     }
   }
