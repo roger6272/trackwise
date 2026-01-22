@@ -30,6 +30,17 @@ class AppUiState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Selected category filter for items list
+  /// - null: Show all items
+  /// - '': Show uncategorized items only
+  /// - categoryId: Show items in that category
+  String? _selectedCategoryId;
+  String? get selectedCategoryId => _selectedCategoryId;
+  set selectedCategoryId(String? value) {
+    _selectedCategoryId = value;
+    notifyListeners();
+  }
+
   /// Show counter mode in items list
   bool _showCounter = false;
   bool get showCounter => _showCounter;
@@ -122,6 +133,7 @@ class AppUiState extends ChangeNotifier {
   void clear() {
     _datePicked = null;
     _isTodayToggle = false;
+    _selectedCategoryId = null;
     _showCounter = false;
     _currentLogPage = 0;
     _showAfterResetOnly = false;
