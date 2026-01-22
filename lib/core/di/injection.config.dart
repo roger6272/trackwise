@@ -296,6 +296,11 @@ extension GetItInjectableX on _i174.GetIt {
           exportUserData: gh<_i764.ExportUserDataUseCase>(),
           deleteAccount: gh<_i535.DeleteAccountUseCase>(),
         ));
+    gh.factory<_i1020.GenerateCSVUseCase>(() => _i1020.GenerateCSVUseCase(
+          gh<_i978.EventLogRepository>(),
+          gh<_i319.ItemRepository>(),
+          gh<_i349.CategoryRepository>(),
+        ));
     gh.lazySingleton<_i624.CreateCategoryUseCase>(
         () => _i624.CreateCategoryUseCase(gh<_i349.CategoryRepository>()));
     gh.lazySingleton<_i742.DeleteCategoryUseCase>(
@@ -342,8 +347,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i635.SignUpUseCase(gh<_i578.AuthRepository>()));
     gh.factory<_i28.WatchAuthStateUseCase>(
         () => _i28.WatchAuthStateUseCase(gh<_i578.AuthRepository>()));
-    gh.factory<_i1020.GenerateCSVUseCase>(
-        () => _i1020.GenerateCSVUseCase(gh<_i978.EventLogRepository>()));
     gh.lazySingleton<_i23.GetChartDataUseCase>(
         () => _i23.GetChartDataUseCase(gh<_i978.EventLogRepository>()));
     gh.lazySingleton<_i1067.GetCumulativeChartDataUseCase>(() =>

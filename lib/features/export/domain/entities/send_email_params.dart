@@ -8,6 +8,7 @@ class SendEmailParams extends Equatable {
   final DateTime startDate;
   final DateTime endDate;
   final ExportAggregationLevel aggregationLevel;
+  final ExportDataScope dataScope;
   final String? itemId;
 
   const SendEmailParams({
@@ -15,11 +16,12 @@ class SendEmailParams extends Equatable {
     required this.startDate,
     required this.endDate,
     this.aggregationLevel = ExportAggregationLevel.daily,
+    this.dataScope = ExportDataScope.total,
     this.itemId,
   });
 
   @override
-  List<Object?> get props => [email, startDate, endDate, aggregationLevel, itemId];
+  List<Object?> get props => [email, startDate, endDate, aggregationLevel, dataScope, itemId];
 
   /// Convert to CSVExportConfig for CSV generation.
   CSVExportConfig toCSVExportConfig() {
@@ -27,6 +29,7 @@ class SendEmailParams extends Equatable {
       startDate: startDate,
       endDate: endDate,
       aggregationLevel: aggregationLevel,
+      dataScope: dataScope,
       itemId: itemId,
     );
   }

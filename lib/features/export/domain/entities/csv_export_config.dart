@@ -8,22 +8,32 @@ enum ExportAggregationLevel {
   monthly,
 }
 
+/// Data scope for CSV export.
+enum ExportDataScope {
+  /// Export all data within date range
+  total,
+  /// Export only data from the latest reset cycle
+  latestCycle,
+}
+
 /// Configuration for CSV export.
 class CSVExportConfig extends Equatable {
   final DateTime startDate;
   final DateTime endDate;
   final ExportAggregationLevel aggregationLevel;
+  final ExportDataScope dataScope;
   final String? itemId; // Optional: export for specific item only
 
   const CSVExportConfig({
     required this.startDate,
     required this.endDate,
     this.aggregationLevel = ExportAggregationLevel.daily,
+    this.dataScope = ExportDataScope.total,
     this.itemId,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, dataScope, itemId];
 
   /// Generate filename for the CSV export.
   String get filename {
