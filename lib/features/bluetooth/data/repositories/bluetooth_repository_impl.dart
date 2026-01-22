@@ -141,9 +141,9 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       'count': item.count,
       'todaycount': item.todayCount,
       'reset_number': item.resetNumber,
-      'category': item.categoryId != null
-          ? (categoryNames[item.categoryId] ?? '')
-          : '',
+      'category': (item.categoryId == null || item.categoryId!.isEmpty)
+          ? 'Uncategorized'
+          : (categoryNames[item.categoryId] ?? 'Uncategorized'),
     }).toList();
 
     return jsonEncode(itemList);

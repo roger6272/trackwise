@@ -253,8 +253,31 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                       ),
                                     ),
                                   )),
+                                  // Manage Categories option
+                                  DropdownMenuItem<String?>(
+                                    value: '__manage__',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.settings_outlined, color: AppColors.primary, size: 20),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Manage Categories',
+                                          style: GoogleFonts.inter(
+                                            color: AppColors.primary,
+                                            fontSize: 16.0,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                                 onChanged: (val) {
+                                  // Handle "Manage Categories" navigation
+                                  if (val == '__manage__') {
+                                    context.push('/profile/categories');
+                                    return;
+                                  }
                                   setState(() => selectedCategoryId = val);
                                 },
                                 style: GoogleFonts.inter(
@@ -708,8 +731,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (item) async {
           debugPrint('🟢 Item updated: ${item.id}');
 
-          // Sync with device after update
-          await _syncWithDevice();
+          // Sync with device after update (send items from the item's category)
+          await _syncWithDevice(itemCategoryId: item.categoryId);
 
           if (mounted) context.pop();
         },
@@ -757,8 +780,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
             context.read<AppUiState>().activeItemId = createdItem.id;
           }
 
-          // Sync with device after create (item is guaranteed to exist now)
-          await _syncWithDevice(newItemId: createdItem.id);
+          // Sync with device after create (send items from the item's category)
+          await _syncWithDevice(
+            newItemId: createdItem.id,
+            itemCategoryId: createdItem.categoryId,
+          );
           debugPrint('🟢 _syncWithDevice completed');
 
           if (mounted) context.pop();
@@ -777,7 +803,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
     return '';
   }
 
-  Future<void> _syncWithDevice({String? newItemId}) async {
+  Future<void> _syncWithDevice({String? newItemId, String? itemCategoryId}) async {
     try {
       debugPrint('🔄 _syncWithDevice started');
       // Small delay to allow Firestore to propagate the write
@@ -787,7 +813,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
       final itemRepository = sl<ItemRepository>();
       final itemsResult = await itemRepository.getItems(_getUserId());
 
-      final items = itemsResult.fold(
+      final allItems = itemsResult.fold(
         (failure) {
           debugPrint('❌ Failed to fetch items: ${failure.message}');
           return <Item>[];
@@ -795,10 +821,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (items) => items,
       );
 
-      debugPrint('📦 Fetched ${items.length} items');
-      for (final item in items) {
-        debugPrint('📦 Item: ${item.name}, incrementBy=${item.incrementBy}, reminder=${item.reminder}');
-      }
+      debugPrint('📦 Fetched ${allItems.length} items');
 
       if (mounted) {
         // Build category names map
@@ -807,10 +830,24 @@ class _ItemFormPageState extends State<ItemFormPage> {
             ? {for (final c in categoriesState.categories) c.id: c.name}
             : <String, String>{};
 
-        // Send items to device
-        debugPrint('📤 Sending ${items.length} items to device');
+        // Filter items by the selected item's category (matching pin action behavior)
+        // This ensures device only loops through items in the same category
+        final targetCategoryId = itemCategoryId;
+        final categoryItems = allItems.where((i) {
+          final cat = i.categoryId;
+          if (targetCategoryId == null || targetCategoryId.isEmpty) {
+            // Item is uncategorized - get all uncategorized
+            return cat == null || cat.isEmpty;
+          }
+          return cat == targetCategoryId;
+        }).toList();
+
+        // Sort by categoryOrder for consistent device ordering
+        categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+        debugPrint('📤 Sending ${categoryItems.length} items (category: $targetCategoryId) to device');
         context.read<BluetoothBloc>().add(SendItemsToDevice(
-          items,
+          categoryItems,
           categoryNames: categoryNames,
         ));
 
