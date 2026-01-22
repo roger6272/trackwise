@@ -83,11 +83,24 @@ BLECharacteristic* setItemsChar;
 BLECharacteristic* writeChar;  //combine clearlogs and setselected
 BLECharacteristic* readChar;
 
-// For Vibration
-void triggerVibration(int duration = 300) {
+// For Non-Blocking Vibration
+struct VibrationState {
+  unsigned long endTime = 0;
+  bool isActive = false;
+} vibration;
+
+void triggerVibrationNonBlocking(int duration = 300) {
   digitalWrite(VIBRATION_PIN, HIGH);
-  delay(duration);
-  digitalWrite(VIBRATION_PIN, LOW);
+  vibration.endTime = millis() + duration;
+  vibration.isActive = true;
+}
+
+// Check and turn off vibration in loop() - call this every iteration
+void updateVibration() {
+  if (vibration.isActive && millis() >= vibration.endTime) {
+    digitalWrite(VIBRATION_PIN, LOW);
+    vibration.isActive = false;
+  }
 }
 
 // Store a new log event in RAM
@@ -176,14 +189,21 @@ String getPrefsJson() {
 
   prefs.begin("counter", false);
   int total = prefs.getInt("item_total", 0);
+  char key[16];  // Buffer for preference keys
   for (int i = 0; i < total; i++) {
     JsonObject item = arr.createNestedObject();
-    item["id"] = prefs.getString(("id_" + String(i)).c_str(), "");
-    item["name"] = prefs.getString(("n_" + String(i)).c_str(), "");
-    item["count"] = prefs.getInt(("c_" + String(i)).c_str(), 0);
-    item["todaycount"] = prefs.getInt(("tc_" + String(i)).c_str(), 0); //pref needs todaycount
-    item["lastResetTime"] = prefs.getULong(("lr_" + String(i)).c_str(), 0);
-    item["resetNumber"] = prefs.getInt(("rn_" + String(i)).c_str(), 0);
+    snprintf(key, sizeof(key), "id_%d", i);
+    item["id"] = prefs.getString(key, "");
+    snprintf(key, sizeof(key), "n_%d", i);
+    item["name"] = prefs.getString(key, "");
+    snprintf(key, sizeof(key), "c_%d", i);
+    item["count"] = prefs.getInt(key, 0);
+    snprintf(key, sizeof(key), "tc_%d", i);
+    item["todaycount"] = prefs.getInt(key, 0); //pref needs todaycount
+    snprintf(key, sizeof(key), "lr_%d", i);
+    item["lastResetTime"] = prefs.getULong(key, 0);
+    snprintf(key, sizeof(key), "rn_%d", i);
+    item["resetNumber"] = prefs.getInt(key, 0);
   }
 
   //Add selected_id to update the appstate
@@ -277,24 +297,38 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       String existingIds[maxPrefsSlots];
       int existingCounts[maxPrefsSlots];
       int existingTodayCounts[maxPrefsSlots];
+      char key[16];  // Buffer for preference keys
       for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
-        existingIds[i] = prefs.getString(("id_" + String(i)).c_str(), "");
-        existingCounts[i] = prefs.getInt(("c_" + String(i)).c_str(), 0);
-        existingTodayCounts[i] = prefs.getInt(("tc_" + String(i)).c_str(), 0);
+        snprintf(key, sizeof(key), "id_%d", i);
+        existingIds[i] = prefs.getString(key, "");
+        snprintf(key, sizeof(key), "c_%d", i);
+        existingCounts[i] = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "tc_%d", i);
+        existingTodayCounts[i] = prefs.getInt(key, 0);
       }
 
       // Clear all slots
       for (int i = 0; i < maxPrefsSlots; i++) {
-        prefs.remove(("n_" + String(i)).c_str());
-        prefs.remove(("cat_" + String(i)).c_str());
-        prefs.remove(("c_" + String(i)).c_str());
-        prefs.remove(("tc_" + String(i)).c_str());
-        prefs.remove(("i_" + String(i)).c_str());
-        prefs.remove(("id_" + String(i)).c_str());
-        prefs.remove(("r_" + String(i)).c_str());
-        prefs.remove(("rv_" + String(i)).c_str());
-        prefs.remove(("lr_" + String(i)).c_str());
-        prefs.remove(("rn_" + String(i)).c_str());
+        snprintf(key, sizeof(key), "n_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "cat_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "c_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "tc_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "i_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "id_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "r_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "rv_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "lr_%d", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "rn_%d", i);
+        prefs.remove(key);
       }
 
       int index = 0;
@@ -329,16 +363,26 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
           todaycount = item["todaycount"].as<int>();
         }
 
-        prefs.putString(("id_" + String(index)).c_str(), id);
-        prefs.putString(("n_" + String(index)).c_str(), name);
-        prefs.putString(("cat_" + String(index)).c_str(), category);
-        prefs.putInt(("c_" + String(index)).c_str(), count);
-        prefs.putInt(("tc_" + String(index)).c_str(), todaycount);
-        prefs.putInt(("i_" + String(index)).c_str(), increment);
-        prefs.putInt(("r_" + String(index)).c_str(), reminder);
-        prefs.putInt(("rv_" + String(index)).c_str(), reminderValue);
-        prefs.putULong(("lr_" + String(index)).c_str(), lastResetTime);
-        prefs.putInt(("rn_" + String(index)).c_str(), resetNumber);
+        snprintf(key, sizeof(key), "id_%d", index);
+        prefs.putString(key, id);
+        snprintf(key, sizeof(key), "n_%d", index);
+        prefs.putString(key, name);
+        snprintf(key, sizeof(key), "cat_%d", index);
+        prefs.putString(key, category);
+        snprintf(key, sizeof(key), "c_%d", index);
+        prefs.putInt(key, count);
+        snprintf(key, sizeof(key), "tc_%d", index);
+        prefs.putInt(key, todaycount);
+        snprintf(key, sizeof(key), "i_%d", index);
+        prefs.putInt(key, increment);
+        snprintf(key, sizeof(key), "r_%d", index);
+        prefs.putInt(key, reminder);
+        snprintf(key, sizeof(key), "rv_%d", index);
+        prefs.putInt(key, reminderValue);
+        snprintf(key, sizeof(key), "lr_%d", index);
+        prefs.putULong(key, lastResetTime);
+        snprintf(key, sizeof(key), "rn_%d", index);
+        prefs.putInt(key, resetNumber);
 
         Serial.printf("[%d] ID=%s Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
               index, id.c_str(), name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
@@ -352,7 +396,8 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       if (currentItemId != "none") {
         bool found = false;
         for (int i = 0; i < index; i++) {
-          String testId = prefs.getString(("id_" + String(i)).c_str(), "");
+          snprintf(key, sizeof(key), "id_%d", i);
+          String testId = prefs.getString(key, "");
           if (testId == currentItemId) {
             currentItemIndex = i;
             prefs.putInt("selected_index", i);
@@ -382,15 +427,24 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       // Refresh runtime variables for currently selected item
       // This ensures updated incrementBy, reminder, etc. take effect immediately
       if (currentItemId != "none" && currentItemIndex < index) {
-        itemCount = prefs.getInt(("c_" + String(currentItemIndex)).c_str(), 0);
-        itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
-        itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
-        itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
-        itemCategory = prefs.getString(("cat_" + String(currentItemIndex)).c_str(), "");
-        reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
-        reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
-        lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
-        itemResetNumber = prefs.getInt(("rn_" + String(currentItemIndex)).c_str(), 0);
+        snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+        itemCount = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+        itemTodayCount = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "i_%d", currentItemIndex);
+        itemIncrement = prefs.getInt(key, 1);
+        snprintf(key, sizeof(key), "n_%d", currentItemIndex);
+        itemName = prefs.getString(key, "Item");
+        snprintf(key, sizeof(key), "cat_%d", currentItemIndex);
+        itemCategory = prefs.getString(key, "");
+        snprintf(key, sizeof(key), "r_%d", currentItemIndex);
+        reminder = prefs.getInt(key, REMINDER_NONE);
+        snprintf(key, sizeof(key), "rv_%d", currentItemIndex);
+        reminderValue = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "lr_%d", currentItemIndex);
+        lastResetTime = prefs.getULong(key, 0);
+        snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
+        itemResetNumber = prefs.getInt(key, 0);
         Serial.printf("🔄 Refreshed runtime vars: %s, category=%s, increment=%d, reminder=%d, resetNumber=%d\n",
                       itemName.c_str(), itemCategory.c_str(), itemIncrement, reminder, itemResetNumber);
       }
@@ -446,22 +500,33 @@ class WriteCallback : public BLECharacteristicCallbacks {
       }
 
       bool found = false;
+      char key[16];  // Buffer for preference keys
       for (int i = 0; i < total; i++) {
-        String testId = prefs.getString(("id_" + String(i)).c_str(), "");  //loop through all index with each id compared with the target id
+        snprintf(key, sizeof(key), "id_%d", i);
+        String testId = prefs.getString(key, "");  //loop through all index with each id compared with the target id
         if (testId == id) {
           currentItemId = id;
           currentItemIndex = i;
           prefs.putString("selected_id", id);
           prefs.putInt("selected_index", i);
-          itemCount = prefs.getInt(("c_" + String(i)).c_str(), 0);
-          itemTodayCount = prefs.getInt(("tc_" + String(i)).c_str(), 0);
-          itemIncrement = prefs.getInt(("i_" + String(i)).c_str(), 1);
-          itemName = prefs.getString(("n_" + String(i)).c_str(), "Item");
-          itemCategory = prefs.getString(("cat_" + String(i)).c_str(), "");
-          reminder = prefs.getInt(("r_" + String(i)).c_str(), REMINDER_NONE);
-          reminderValue = prefs.getInt(("rv_" + String(i)).c_str(), 0);
-          lastResetTime = prefs.getULong(("lr_" + String(i)).c_str(), 0);
-          itemResetNumber = prefs.getInt(("rn_" + String(i)).c_str(), 0);
+          snprintf(key, sizeof(key), "c_%d", i);
+          itemCount = prefs.getInt(key, 0);
+          snprintf(key, sizeof(key), "tc_%d", i);
+          itemTodayCount = prefs.getInt(key, 0);
+          snprintf(key, sizeof(key), "i_%d", i);
+          itemIncrement = prefs.getInt(key, 1);
+          snprintf(key, sizeof(key), "n_%d", i);
+          itemName = prefs.getString(key, "Item");
+          snprintf(key, sizeof(key), "cat_%d", i);
+          itemCategory = prefs.getString(key, "");
+          snprintf(key, sizeof(key), "r_%d", i);
+          reminder = prefs.getInt(key, REMINDER_NONE);
+          snprintf(key, sizeof(key), "rv_%d", i);
+          reminderValue = prefs.getInt(key, 0);
+          snprintf(key, sizeof(key), "lr_%d", i);
+          lastResetTime = prefs.getULong(key, 0);
+          snprintf(key, sizeof(key), "rn_%d", i);
+          itemResetNumber = prefs.getInt(key, 0);
 
           Serial.printf("✅ Selected item [%d]: %s (%s) category=%s resetNumber=%d\n", i, id.c_str(), itemName.c_str(), itemCategory.c_str(), itemResetNumber);
           found = true;
@@ -472,7 +537,8 @@ class WriteCallback : public BLECharacteristicCallbacks {
       if (!found) {
         Serial.println("Selected ItemId unchanged:");
         for (int i = 0; i < total; i++) {
-          Serial.println(prefs.getString(("id_" + String(i)).c_str(), ""));
+          snprintf(key, sizeof(key), "id_%d", i);
+          Serial.println(prefs.getString(key, ""));
         }
       }
       prefs.end();
@@ -552,16 +618,17 @@ class WriteCallback : public BLECharacteristicCallbacks {
       prefs.begin("counter", false);
       int total = prefs.getInt("item_total", 0);
 
+      char key[16];  // Buffer for preference keys
       for (int i = 0; i < total; i++) {
         // Reset todaycount to 0
-        String tcKey = "tc_" + String(i);
-        prefs.putInt(tcKey.c_str(), 0);
+        snprintf(key, sizeof(key), "tc_%d", i);
+        prefs.putInt(key, 0);
 
         // Update lastResetTime to UTC timestamp (not localTimestamp which has offset applied)
-        String lrKey = "lr_" + String(i);
-        prefs.putULong(lrKey.c_str(), utcTimestamp);
+        snprintf(key, sizeof(key), "lr_%d", i);
+        prefs.putULong(key, utcTimestamp);
 
-        Serial.printf("Force reset: %s = 0, lastResetTime = %lu (UTC)\n", tcKey.c_str(), utcTimestamp);
+        Serial.printf("Force reset: %s = 0, lastResetTime = %lu (UTC)\n", key, utcTimestamp);
       }
 
       // Update last_reset_date to today
@@ -772,6 +839,7 @@ void handleCommand(char cmd) {
   prefs.begin("counter", false);
 
   int total = prefs.getInt("item_total", 0);
+  char key[16];  // Buffer for preference keys
   if (cmd == 'u') {
     // Increment current item count and update in prefs using indexed keys
     if (currentItemId == "none") {
@@ -783,19 +851,23 @@ void handleCommand(char cmd) {
     itemTodayCount += itemIncrement;
 
     //extract from prefs
-    reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
-    reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
+    snprintf(key, sizeof(key), "r_%d", currentItemIndex);
+    reminder = prefs.getInt(key, REMINDER_NONE);
+    snprintf(key, sizeof(key), "rv_%d", currentItemIndex);
+    reminderValue = prefs.getInt(key, 0);
 
     if (reminder == REMINDER_TARGET && itemCount == reminderValue) {
-      triggerVibration();
+      triggerVibrationNonBlocking();
       // trigger vibration here
     } else if (reminder == REMINDER_INTERVAL && reminderValue > 0 && itemCount > 0 && itemCount % reminderValue == 0){
-      triggerVibration();
+      triggerVibrationNonBlocking();
       // trigger vibration here
     }
 
-    prefs.putInt(("c_" + String(currentItemIndex)).c_str(), itemCount);
-    prefs.putInt(("tc_" + String(currentItemIndex)).c_str(), itemTodayCount);
+    snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+    prefs.putInt(key, itemCount);
+    snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+    prefs.putInt(key, itemTodayCount);
 
     logEvent("increment");
     // Send delta update instead of full prefs (much smaller payload)
@@ -815,18 +887,22 @@ void handleCommand(char cmd) {
 
     itemCount = 0;
     itemTodayCount = 0;
-    prefs.putInt(("c_" + String(currentItemIndex)).c_str(), itemCount);
-    prefs.putInt(("tc_" + String(currentItemIndex)).c_str(), itemTodayCount);
+    snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+    prefs.putInt(key, itemCount);
+    snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+    prefs.putInt(key, itemTodayCount);
 
     lastResetTime = rtc.now().unixtime();
-    prefs.putULong(("lr_" + String(currentItemIndex)).c_str(), lastResetTime);
+    snprintf(key, sizeof(key), "lr_%d", currentItemIndex);
+    prefs.putULong(key, lastResetTime);
 
     // Log the reset event with OLD resetNumber (this reset ends period N)
     logEvent("reset", oldResetNumber);
 
     // Now increment resetNumber for the new period
     itemResetNumber++;
-    prefs.putInt(("rn_" + String(currentItemIndex)).c_str(), itemResetNumber);
+    snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
+    prefs.putInt(key, itemResetNumber);
 
     Serial.printf("🔄 Reset: period %d ended, now in period %d\n", oldResetNumber, itemResetNumber);
 
@@ -847,20 +923,30 @@ void handleCommand(char cmd) {
 
     // Cycle to the next item index
     currentItemIndex = (currentItemIndex + 1) % total;
-    currentItemId = prefs.getString(("id_" + String(currentItemIndex)).c_str(), "none");
+    snprintf(key, sizeof(key), "id_%d", currentItemIndex);
+    currentItemId = prefs.getString(key, "none");
 
     // Update state with new selection
     prefs.putString("selected_id", currentItemId);
     prefs.putInt("selected_index", currentItemIndex);
-    itemCount = prefs.getInt(("c_" + String(currentItemIndex)).c_str(), 0);
-    itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
-    itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
-    itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
-    itemCategory = prefs.getString(("cat_" + String(currentItemIndex)).c_str(), "");
-    reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
-    reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
-    lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
-    itemResetNumber = prefs.getInt(("rn_" + String(currentItemIndex)).c_str(), 0);
+    snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+    itemCount = prefs.getInt(key, 0);
+    snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+    itemTodayCount = prefs.getInt(key, 0);
+    snprintf(key, sizeof(key), "i_%d", currentItemIndex);
+    itemIncrement = prefs.getInt(key, 1);
+    snprintf(key, sizeof(key), "n_%d", currentItemIndex);
+    itemName = prefs.getString(key, "Item");
+    snprintf(key, sizeof(key), "cat_%d", currentItemIndex);
+    itemCategory = prefs.getString(key, "");
+    snprintf(key, sizeof(key), "r_%d", currentItemIndex);
+    reminder = prefs.getInt(key, REMINDER_NONE);
+    snprintf(key, sizeof(key), "rv_%d", currentItemIndex);
+    reminderValue = prefs.getInt(key, 0);
+    snprintf(key, sizeof(key), "lr_%d", currentItemIndex);
+    lastResetTime = prefs.getULong(key, 0);
+    snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
+    itemResetNumber = prefs.getInt(key, 0);
 
     currentItemId = prefs.getString("selected_id", "none");
     prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
@@ -933,16 +1019,17 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
     time_t utcTimestamp = rtc.now().unixtime();
 
     int total = prefs.getInt("item_total", 0);
+    char key[16];  // Buffer for preference keys
     for (int i = 0; i < total; i++) {
       // Reset todaycount to 0
-      String tcKey = "tc_" + String(i);
-      prefs.putInt(tcKey.c_str(), 0);
+      snprintf(key, sizeof(key), "tc_%d", i);
+      prefs.putInt(key, 0);
 
       // Update lastResetTime to UTC timestamp (not localTimestamp which has offset applied)
-      String lrKey = "lr_" + String(i);
-      prefs.putULong(lrKey.c_str(), utcTimestamp);
+      snprintf(key, sizeof(key), "lr_%d", i);
+      prefs.putULong(key, utcTimestamp);
 
-      Serial.printf("Reset: %s, lastResetTime: %lu (UTC)\n", tcKey.c_str(), utcTimestamp);
+      Serial.printf("Reset: %s, lastResetTime: %lu (UTC)\n", key, utcTimestamp);
     }
 
     if (currentItemId != "none") {
@@ -978,8 +1065,10 @@ void setup() {
   prefs.begin("counter", false);
   // ✅ Verify and store item_total
   int verifiedTotal = 0;
+  char key[16];  // Buffer for preference keys
   for (int i = 0; i < maxPrefsSlots; i++) {
-    String id = prefs.getString(("id_" + String(i)).c_str(), "");
+    snprintf(key, sizeof(key), "id_%d", i);
+    String id = prefs.getString(key, "");
     if (id.length() > 0) {
       verifiedTotal++;
     } else {
@@ -994,15 +1083,24 @@ void setup() {
   Serial.print("CurrentItemid:");
   Serial.print(currentItemId);
   currentItemIndex = prefs.getInt("selected_index", 0);
-  itemCount = prefs.getInt(("c_" + String(currentItemIndex)).c_str(), 0);
-  itemTodayCount = prefs.getInt(("tc_" + String(currentItemIndex)).c_str(), 0);
-  itemIncrement = prefs.getInt(("i_" + String(currentItemIndex)).c_str(), 1);
-  itemName = prefs.getString(("n_" + String(currentItemIndex)).c_str(), "Item");
-  itemCategory = prefs.getString(("cat_" + String(currentItemIndex)).c_str(), "");
-  reminder = prefs.getInt(("r_" + String(currentItemIndex)).c_str(), REMINDER_NONE);
-  reminderValue = prefs.getInt(("rv_" + String(currentItemIndex)).c_str(), 0);
-  lastResetTime = prefs.getULong(("lr_" + String(currentItemIndex)).c_str(), 0);
-  itemResetNumber = prefs.getInt(("rn_" + String(currentItemIndex)).c_str(), 0);
+  snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+  itemCount = prefs.getInt(key, 0);
+  snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+  itemTodayCount = prefs.getInt(key, 0);
+  snprintf(key, sizeof(key), "i_%d", currentItemIndex);
+  itemIncrement = prefs.getInt(key, 1);
+  snprintf(key, sizeof(key), "n_%d", currentItemIndex);
+  itemName = prefs.getString(key, "Item");
+  snprintf(key, sizeof(key), "cat_%d", currentItemIndex);
+  itemCategory = prefs.getString(key, "");
+  snprintf(key, sizeof(key), "r_%d", currentItemIndex);
+  reminder = prefs.getInt(key, REMINDER_NONE);
+  snprintf(key, sizeof(key), "rv_%d", currentItemIndex);
+  reminderValue = prefs.getInt(key, 0);
+  snprintf(key, sizeof(key), "lr_%d", currentItemIndex);
+  lastResetTime = prefs.getULong(key, 0);
+  snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
+  itemResetNumber = prefs.getInt(key, 0);
 
   if (currentItemIndex >= verifiedTotal) {
     currentItemIndex = 0;
@@ -1031,6 +1129,9 @@ void setup() {
 
 // Main loop waits for user commands from serial input
 void loop() {
+
+  // Update non-blocking vibration state
+  updateVibration();
 
     if (millis() - lastResetCheck > 60000) {  // every 60 seconds. Might need to update this for battery life
       resetTodayCountsIfNeeded();
