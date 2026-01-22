@@ -138,11 +138,20 @@ class _ItemsListContentState extends State<_ItemsListContent>
         : _activatedColorLight;
 
     // Auth is guaranteed to be ready by parent BlocBuilder
+    // Restore saved category filter from AppUiState
+    final savedCategoryId = appUiState.selectedCategoryId;
+
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (context) => sl<ItemsBloc>()
-            ..add(WatchItemsEvent(widget.userId)),
+          create: (context) {
+            final bloc = sl<ItemsBloc>()..add(WatchItemsEvent(widget.userId));
+            // Restore category filter after items load
+            if (savedCategoryId != null) {
+              bloc.add(FilterByCategoryEvent(savedCategoryId));
+            }
+            return bloc;
+          },
         ),
         BlocProvider(
           create: (context) => sl<CategoriesBloc>()
@@ -692,41 +701,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
               return;
             }
 
-            final itemsBloc = context.read<ItemsBloc>();
-            final bluetoothBloc = context.read<BluetoothBloc>();
-            itemsBloc.add(FilterByCategoryEvent(value));
-
-            // Sync filtered items to device after filter changes
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (!mounted) return;
-              if (!bluetoothBloc.state.isConnected) return;
-
-              final itemsState = itemsBloc.state;
-              if (itemsState is ItemsLoaded) {
-                final filteredItems = itemsState.filteredItems;
-                bluetoothBloc.add(SendItemsToDevice(
-                  filteredItems,
-                  categoryNames: _buildCategoryNamesMap(context),
-                ));
-
-                // Check if selected item is in the filtered list
-                final selectedId = bluetoothBloc.state.selectedItemId;
-                final selectedInList = selectedId != null &&
-                    selectedId.isNotEmpty &&
-                    filteredItems.any((item) => item.id == selectedId);
-
-                Future.delayed(const Duration(milliseconds: 200), () {
-                  if (!mounted) return;
-                  if (selectedInList) {
-                    // Re-send to update device's index
-                    bluetoothBloc.add(SendSelectedItem(selectedId));
-                  } else {
-                    // Clear selection - item not in filtered list
-                    bluetoothBloc.add(const SendSelectedItem('none'));
-                  }
-                });
-              }
-            });
+            // Update UI filter only - no device sync
+            // Device is only updated when user explicitly activates (pins) an item
+            context.read<ItemsBloc>().add(FilterByCategoryEvent(value));
+            context.read<AppUiState>().selectedCategoryId = value;
           },
         ),
       ),
@@ -926,11 +904,26 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 HapticFeedback.lightImpact();
                 if (isConnected) {
                   appUiState.activeItemId = item.id;
-                  // First sync all items to device (ensures new items are known)
+                  // Send only items from the activated item's category to device
                   final itemsState = context.read<ItemsBloc>().state;
                   if (itemsState is ItemsLoaded) {
+                    // Filter items by the activated item's category
+                    final activatedCategoryId = item.categoryId;
+                    final categoryItems = itemsState.items.where((i) {
+                      // Match items with same categoryId (including uncategorized)
+                      final itemCategoryId = i.categoryId;
+                      if (activatedCategoryId == null || activatedCategoryId.isEmpty) {
+                        // Activated item is uncategorized - get all uncategorized
+                        return itemCategoryId == null || itemCategoryId.isEmpty;
+                      }
+                      return itemCategoryId == activatedCategoryId;
+                    }).toList();
+
+                    // Sort by categoryOrder for consistent device ordering
+                    categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
                     context.read<BluetoothBloc>().add(SendItemsToDevice(
-                      itemsState.items,
+                      categoryItems,
                       categoryNames: _buildCategoryNamesMap(context),
                     ));
                   }
