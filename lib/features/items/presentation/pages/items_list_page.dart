@@ -500,7 +500,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final isToday = appUiState.isTodayToggle;
     final label = isToday ? 'Today' : 'Total';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+      padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 4.0),
       child: Row(
         children: [
           Expanded(
