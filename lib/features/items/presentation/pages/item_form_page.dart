@@ -11,7 +11,6 @@ import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
-import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
 import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../categories/presentation/bloc/categories_bloc.dart';
@@ -732,10 +731,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
         },
         (item) async {
           debugPrint('🟢 Item updated: ${item.id}');
-
-          // Sync device with selected item's category
-          await _syncWithDevice(updatedItem: item);
-
+          // Note: Device sync for updates is handled by items_list_page.dart's
+          // BlocBuilder buildWhen callback to avoid duplicate syncs
           if (mounted) context.pop();
         },
       );
@@ -782,10 +779,10 @@ class _ItemFormPageState extends State<ItemFormPage> {
             context.read<AppUiState>().activeItemId = createdItem.id;
           }
 
-          // Sync device with selected item's category
+          // Sync device with new item's category
           await _syncWithDevice(
             newItemId: createdItem.id,
-            updatedItem: createdItem,
+            newItem: createdItem,
           );
           debugPrint('🟢 _syncWithDevice completed');
 
@@ -805,9 +802,22 @@ class _ItemFormPageState extends State<ItemFormPage> {
     return '';
   }
 
-  Future<void> _syncWithDevice({String? newItemId, Item? updatedItem}) async {
+  /// Syncs device when a new item is created.
+  /// Note: Update syncs are handled by items_list_page.dart's buildWhen callback.
+  Future<void> _syncWithDevice({
+    required String newItemId,
+    required Item newItem,
+  }) async {
     try {
       if (!mounted) return;
+
+      // Get device's selected item ID early to check if sync is needed
+      final bluetoothBloc = context.read<BluetoothBloc>();
+      final bluetoothState = bluetoothBloc.state;
+      final deviceSelectedId = bluetoothState.selectedItemId;
+
+      // If no device connection, skip sync
+      if (!bluetoothState.isConnected) return;
 
       // Small delay to allow Firestore to propagate
       await Future.delayed(const Duration(milliseconds: 300));
@@ -823,19 +833,14 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
       if (!mounted || allItems.isEmpty) return;
 
-      // Get device's selected item ID
-      final bluetoothBloc = context.read<BluetoothBloc>();
-      final bluetoothState = bluetoothBloc.state;
-      final deviceSelectedId = bluetoothState.selectedItemId;
-
       // Find the category of the device's selected item
-      // Fallback to updated item's category if no device selection
+      // For new items, use the new item's category if no device selection
       String? selectedCategoryId;
-      if (deviceSelectedId != null && deviceSelectedId != 'none') {
+      if (deviceSelectedId != null && deviceSelectedId.isNotEmpty && deviceSelectedId != 'none') {
         final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
         selectedCategoryId = selectedItem?.categoryId;
-      } else if (updatedItem != null) {
-        selectedCategoryId = updatedItem.categoryId;
+      } else {
+        selectedCategoryId = newItem.categoryId;
       }
 
       // Fetch categories from repository
@@ -867,10 +872,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
       // Wait for device to process items before sending selected item
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Send selected item to device
-      final selectedItemId = newItemId ?? deviceSelectedId;
-      if (selectedItemId != null && selectedItemId.isNotEmpty && selectedItemId != 'none') {
-        bluetoothBloc.add(SendSelectedItem(selectedItemId));
+      // Send the new item as selected to device
+      if (newItemId.isNotEmpty) {
+        bluetoothBloc.add(SendSelectedItem(newItemId));
       }
     } catch (e) {
       // Silently handle sync errors - device sync is best-effort

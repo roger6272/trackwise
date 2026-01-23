@@ -92,6 +92,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
   // Track dragged item index for label visibility
   int? _draggingIndex;
 
+  // Track last synced category items to prevent duplicate syncs
+  String? _lastSyncedSignature;
+
   @override
   void initState() {
     super.initState();
@@ -348,6 +351,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
                           child: BlocConsumer<ItemsBloc, ItemsState>(
+                            listenWhen: (previous, current) {
+                              // Only listen for errors
+                              return current is ItemsError;
+                            },
                             listener: (context, state) {
                               if (state is ItemsError) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -357,6 +364,53 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   ),
                                 );
                               }
+                            },
+                            buildWhen: (previous, current) {
+                              // Rebuild on any state change, but also check if we need to sync device
+                              if (previous is ItemsLoaded && current is ItemsLoaded) {
+                                final bluetoothState = context.read<BluetoothBloc>().state;
+                                if (bluetoothState.isConnected) {
+                                  final selectedId = bluetoothState.selectedItemId;
+                                  if (selectedId != null && selectedId.isNotEmpty) {
+                                    // Find selected item's category
+                                    final selectedItem = current.items
+                                        .where((i) => i.id == selectedId)
+                                        .firstOrNull;
+                                    if (selectedItem != null) {
+                                      final selectedCatId = selectedItem.categoryId ?? '';
+
+                                      // Get items in selected category from both states, sorted by categoryOrder
+                                      final prevCategoryItems = previous.items
+                                          .where((i) => (i.categoryId ?? '') == selectedCatId)
+                                          .toList()
+                                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+                                      final currentCategoryItems = current.items
+                                          .where((i) => (i.categoryId ?? '') == selectedCatId)
+                                          .toList()
+                                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+                                      // Create signature from current category items (config fields only, not counts)
+                                      final currentSignature = currentCategoryItems
+                                          .map((i) => '${i.id}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
+                                          .join(',');
+
+                                      // Only sync if signature changed (prevents duplicate syncs)
+                                      if (currentSignature != _lastSyncedSignature) {
+                                        _lastSyncedSignature = currentSignature;
+                                        context.read<BluetoothBloc>().add(SendItemsToDevice(
+                                          currentCategoryItems,
+                                          categoryNames: _cachedCategoryNames,
+                                        ));
+                                        Future.delayed(const Duration(milliseconds: 100), () {
+                                          if (!mounted) return;
+                                          context.read<BluetoothBloc>().add(SendSelectedItem(selectedId));
+                                        });
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                              return true; // Always rebuild
                             },
                             builder: (context, state) {
                               if (state is ItemsLoading) {
@@ -618,6 +672,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           }
                                         } else {
                                           // Cross-category move via BLoC (optimistic update)
+                                          // Device sync is handled by BlocListener when state changes
                                           itemsBloc.add(MoveItemToCategoryEvent(
                                             itemId: movedItem.id,
                                             targetCategoryId: targetCat.isEmpty ? null : targetCat,
@@ -629,30 +684,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       }
 
                                       // Viewing a specific category - update categoryOrder
+                                      // Device sync is handled by BlocListener when state changes
                                       itemsBloc.add(
                                         ReorderItemsInCategoryEvent(
                                           oldIndex: oldIndex,
                                           newIndex: newIndex,
                                         ),
                                       );
-
-                                      // Sync to device after reorder
-                                      Future.delayed(const Duration(milliseconds: 100), () {
-                                        if (!mounted) return;
-                                        final itemsState = itemsBloc.state;
-                                        if (itemsState is ItemsLoaded) {
-                                          bluetoothBloc.add(SendItemsToDevice(
-                                            itemsState.filteredItems,
-                                            categoryNames: _cachedCategoryNames,
-                                          ));
-                                          if (selectedId != null && selectedId.isNotEmpty) {
-                                            Future.delayed(const Duration(milliseconds: 200), () {
-                                              if (!mounted) return;
-                                              bluetoothBloc.add(SendSelectedItem(selectedId));
-                                            });
-                                          }
-                                        }
-                                      });
                                     },
                                     itemBuilder: (context, index) {
                                       final entry = listEntries[index];
@@ -1558,14 +1596,25 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                     itemsBloc.add(DeleteItemEvent(item.id));
 
-                    // Sync device with selected item's category (minus deleted item)
-                    _syncDeviceWithSelectedCategory(
-                      bluetoothBloc: bluetoothBloc,
-                      allItems: currentItems,
-                      deviceSelectedId: newSelectedId,
-                      excludeItemId: item.id,
-                      fallbackCategoryId: item.categoryId,
-                    );
+                    // Only sync if deleted item is in selected item's category
+                    final deletedCatId = item.categoryId ?? '';
+                    String? selectedCatId;
+                    if (newSelectedId != 'none') {
+                      final selectedItem = currentItems.where((i) => i.id == newSelectedId).firstOrNull;
+                      selectedCatId = selectedItem?.categoryId ?? '';
+                    }
+
+                    // Sync only if deleted item was in selected category
+                    // (or if selected item was the one deleted)
+                    if (newSelectedId == 'none' || deletedCatId == selectedCatId) {
+                      _syncDeviceWithSelectedCategory(
+                        bluetoothBloc: bluetoothBloc,
+                        allItems: currentItems,
+                        deviceSelectedId: newSelectedId,
+                        excludeItemId: item.id,
+                        fallbackCategoryId: item.categoryId,
+                      );
+                    }
                   }
                 } else {
                   await _showConnectDeviceDialog(context);
@@ -1828,10 +1877,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
     if (deviceSelectedId != null && deviceSelectedId != 'none') {
       final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
       selectedCategoryId = selectedItem?.categoryId;
-      debugPrint('📍 Selected item category: $selectedCategoryId');
     } else if (fallbackCategoryId != null) {
       selectedCategoryId = fallbackCategoryId;
-      debugPrint('📍 No device selection, using fallback category: $selectedCategoryId');
     }
 
     // Get items from the selected item's category
@@ -1862,7 +1909,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     // Sort by categoryOrder to match app's order
     categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
-    debugPrint('📤 Syncing ${categoryItems.length} items to device (category: $selectedCategoryId)');
     bluetoothBloc.add(SendItemsToDevice(
       categoryItems,
       categoryNames: _cachedCategoryNames,

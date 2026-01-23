@@ -423,6 +423,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
   }
 
   /// Syncs the device with items from the selected item's category after restore.
+  /// Only syncs if the restored item is in the same category as the selected item.
   Future<void> _syncWithDeviceAfterRestore({
     required BluetoothBloc bluetoothBloc,
     required String restoredItemId,
@@ -435,6 +436,11 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       final bluetoothState = bluetoothBloc.state;
       final deviceSelectedId = bluetoothState.selectedItemId;
 
+      // If no device selection, skip sync (restore doesn't set selected item)
+      if (deviceSelectedId == null || deviceSelectedId.isEmpty || deviceSelectedId == 'none') {
+        return;
+      }
+
       // Fetch ALL active items from Firestore
       final itemRepository = sl<ItemRepository>();
       final itemsResult = await itemRepository.getItems(_getUserId());
@@ -444,6 +450,21 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
         (items) => items,
       );
 
+      // Find the restored item and selected item
+      final restoredItem = allItems.where((i) => i.id == restoredItemId).firstOrNull;
+      final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
+
+      if (restoredItem == null || selectedItem == null) return;
+
+      // Check if restored item is in the same category as selected item
+      final restoredCatId = restoredItem.categoryId ?? '';
+      final selectedCatId = selectedItem.categoryId ?? '';
+
+      if (restoredCatId != selectedCatId) {
+        // Restored item is in a different category, no sync needed
+        return;
+      }
+
       // Fetch categories from repository
       final categoryRepository = sl<CategoryRepository>();
       final categoriesResult = await categoryRepository.getCategories(_getUserId());
@@ -452,26 +473,10 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
         (categories) => {for (final c in categories) c.id: c.name},
       );
 
-      // Find the category of the device's selected item
-      // Fallback to restored item's category if no device selection
-      String? selectedCategoryId;
-      if (deviceSelectedId != null && deviceSelectedId != 'none') {
-        final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
-        selectedCategoryId = selectedItem?.categoryId;
-      } else {
-        // No device selection - use the restored item's category
-        final restoredItem = allItems.where((i) => i.id == restoredItemId).firstOrNull;
-        selectedCategoryId = restoredItem?.categoryId;
-      }
-
       // Filter items to selected item's category
       final categoryItems = allItems.where((i) {
-        final cat = i.categoryId;
-        final catEmpty = cat == null || cat.isEmpty;
-        final selectedEmpty = selectedCategoryId == null || selectedCategoryId.isEmpty;
-        if (catEmpty && selectedEmpty) return true;
-        if (catEmpty || selectedEmpty) return false;
-        return cat == selectedCategoryId;
+        final cat = i.categoryId ?? '';
+        return cat == selectedCatId;
       }).toList();
 
       // Sort by categoryOrder to match app's order
@@ -483,10 +488,8 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       // Wait for device to process items before sending selected item
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Keep current selected item (don't change to restored item)
-      if (deviceSelectedId != null && deviceSelectedId != 'none') {
-        bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
-      }
+      // Keep current selected item
+      bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
     } catch (e) {
       // Silently handle sync errors - device sync is best-effort
     }
