@@ -568,8 +568,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SendItemsToDevice event,
     Emitter<BluetoothState> emit,
   ) async {
+    if (kDebugMode) print('📥 _onSendItems called with ${event.items.length} items');
     final deviceId = state.connectedDevice?.id;
-    if (deviceId == null) return;
+    if (deviceId == null) {
+      if (kDebugMode) print('❌ _onSendItems: deviceId is null, not connected');
+      return;
+    }
+    if (kDebugMode) print('📤 _onSendItems: sending to device $deviceId');
 
     final result = await _sendItems.call(
       SendItemsParams(
@@ -580,11 +585,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        status: BluetoothStatus.error,
-        errorMessage: failure.message,
-      )),
-      (_) {}, // Success - no state change needed
+      (failure) {
+        if (kDebugMode) print('❌ _onSendItems failed: ${failure.message}');
+        emit(state.copyWith(
+          status: BluetoothStatus.error,
+          errorMessage: failure.message,
+        ));
+      },
+      (_) {
+        if (kDebugMode) print('✅ _onSendItems succeeded');
+      },
     );
   }
 
@@ -592,8 +602,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SendSelectedItem event,
     Emitter<BluetoothState> emit,
   ) async {
+    if (kDebugMode) print('📥 _onSendSelectedItem called with itemId: ${event.itemId}');
     final deviceId = state.connectedDevice?.id;
-    if (deviceId == null) return;
+    if (deviceId == null) {
+      if (kDebugMode) print('❌ _onSendSelectedItem: deviceId is null, not connected');
+      return;
+    }
+    if (kDebugMode) print('📤 _onSendSelectedItem: sending to device $deviceId');
 
     // Optimistic update: update UI immediately before device responds
     emit(state.copyWith(selectedItemId: event.itemId));
@@ -603,11 +618,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        status: BluetoothStatus.error,
-        errorMessage: failure.message,
-      )),
-      (_) {}, // Already updated optimistically
+      (failure) {
+        if (kDebugMode) print('❌ _onSendSelectedItem failed: ${failure.message}');
+        emit(state.copyWith(
+          status: BluetoothStatus.error,
+          errorMessage: failure.message,
+        ));
+      },
+      (_) {
+        if (kDebugMode) print('✅ _onSendSelectedItem succeeded');
+      },
     );
   }
 

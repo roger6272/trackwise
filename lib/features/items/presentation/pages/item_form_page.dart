@@ -809,27 +809,33 @@ class _ItemFormPageState extends State<ItemFormPage> {
       debugPrint('🔄 _syncWithDevice started');
       if (!mounted) return;
 
-      final bluetoothBloc = context.read<BluetoothBloc>();
-      final bluetoothState = bluetoothBloc.state;
+      // Small delay to allow Firestore to propagate
+      await Future.delayed(const Duration(milliseconds: 300));
 
-      // Only sync if connected
-      if (!bluetoothState.isConnected) {
-        debugPrint('⏭️ Not connected, skipping device sync');
+      // Fetch fresh items from repository
+      final itemRepository = sl<ItemRepository>();
+      final itemsResult = await itemRepository.getItems(_getUserId());
+
+      final allItems = itemsResult.fold(
+        (failure) {
+          debugPrint('❌ Failed to fetch items: ${failure.message}');
+          return <Item>[];
+        },
+        (items) => items,
+      );
+
+      if (!mounted || allItems.isEmpty) {
+        debugPrint('❌ _syncWithDevice: not mounted or no items');
         return;
       }
+      debugPrint('📦 Fetched ${allItems.length} items from Firestore');
 
       // Get device's selected item ID
+      final bluetoothBloc = context.read<BluetoothBloc>();
+      final bluetoothState = bluetoothBloc.state;
+      debugPrint('🔌 BluetoothState: isConnected=${bluetoothState.isConnected}, connectedDevice=${bluetoothState.connectedDevice?.id}');
       final deviceSelectedId = bluetoothState.selectedItemId;
       debugPrint('📍 Device selected item: $deviceSelectedId');
-
-      // Get current items from app state
-      final itemsState = context.read<ItemsBloc>().state;
-      if (itemsState is! ItemsLoaded) {
-        debugPrint('⏭️ Items not loaded, skipping sync');
-        return;
-      }
-
-      final allItems = itemsState.items;
 
       // Find the category of the device's selected item
       // Fallback to updated item's category if no device selection
@@ -839,7 +845,6 @@ class _ItemFormPageState extends State<ItemFormPage> {
         selectedCategoryId = selectedItem?.categoryId;
         debugPrint('📍 Selected item category: $selectedCategoryId');
       } else if (updatedItem != null) {
-        // No device selection - use the updated item's category
         selectedCategoryId = updatedItem.categoryId;
         debugPrint('📍 No device selection, using updated item category: $selectedCategoryId');
       }
@@ -851,23 +856,14 @@ class _ItemFormPageState extends State<ItemFormPage> {
           : <String, String>{};
 
       // Get items from the selected item's category
-      var categoryItems = allItems.where((i) {
+      final categoryItems = allItems.where((i) {
         final cat = i.categoryId;
-        // Match category (treat null and empty as same - uncategorized)
         final catEmpty = cat == null || cat.isEmpty;
         final selectedEmpty = selectedCategoryId == null || selectedCategoryId.isEmpty;
         if (catEmpty && selectedEmpty) return true;
         if (catEmpty || selectedEmpty) return false;
         return cat == selectedCategoryId;
       }).toList();
-
-      // Include/update item if specified (for create/update)
-      if (updatedItem != null) {
-        categoryItems = categoryItems.map((i) => i.id == updatedItem.id ? updatedItem : i).toList();
-        if (!categoryItems.any((i) => i.id == updatedItem.id)) {
-          categoryItems.add(updatedItem);
-        }
-      }
 
       // Sort by categoryOrder to match app's order
       categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
@@ -881,7 +877,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
       // Wait for device to process items before sending selected item
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Send selected item to device (use newItemId if provided, otherwise keep current)
+      // Send selected item to device
       final selectedItemId = newItemId ?? deviceSelectedId;
       debugPrint('⭐ Selected item ID: $selectedItemId');
       if (selectedItemId != null && selectedItemId.isNotEmpty && selectedItemId != 'none') {
