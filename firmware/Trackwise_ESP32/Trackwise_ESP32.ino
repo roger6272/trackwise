@@ -125,7 +125,7 @@ void notifyPrefsToApp() {
     String chunk = jsonOut.substring(i, min(i + mtu, (int)jsonOut.length()));
     NotifyChar->setValue(chunk.c_str());
     NotifyChar->notify();
-    delay(10);  // Reduced from 30ms - high priority connection can handle this
+    delay(20);  // Unified 20ms delay for reliable BLE chunk transmission
   }
   Serial.println("✅ Finished sending prefs via notification.");
 }
@@ -794,7 +794,7 @@ void notifyEvent(String event, int resetNum = -1) {
     String chunk = s.substring(i, min(i + mtu, (int)s.length()));  //min to end the loop if empty info detected in the last round
     NotifyChar->setValue(chunk.c_str());
     NotifyChar->notify();
-    delay(10);  // Reduced from 30ms - high priority connection can handle this
+    delay(20);  // Unified 20ms delay for reliable BLE chunk transmission
   }
   //Serial.println("📤 Sent notifyEvent:");
   //Serial.println(s);

@@ -40,8 +40,8 @@ class BluetoothConstants {
   static const int attOverhead = 3;
 
   /// Delay between message chunks in milliseconds
-  /// ESP32 requires 30ms delay to process each chunk
-  static const int chunkDelayMs = 30;
+  /// ESP32 requires 20ms delay to process each chunk
+  static const int chunkDelayMs = 20;
 
   /// Message delimiter (newline character)
   /// ESP32 uses newline to detect end of message
