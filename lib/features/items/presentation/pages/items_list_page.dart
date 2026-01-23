@@ -12,12 +12,10 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../bluetooth/domain/usecases/request_device_data_usecase.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../domain/entities/item.dart';
-import '../../domain/repositories/item_repository.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
 import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
@@ -1128,31 +1126,18 @@ class _ItemsListContentState extends State<_ItemsListContent>
               onPressed: (slidableContext) async {
                 HapticFeedback.mediumImpact();
                 if (isConnected) {
-                  // Capture ALL references BEFORE the async dialog
+                  // Capture references BEFORE the async dialog
                   final itemsBloc = context.read<ItemsBloc>();
-                  final bluetoothBloc = context.read<BluetoothBloc>();
                   final appUiStateRef = appUiState;
-                  // Use device's selected item, not just appUiState
-                  final deviceSelectedId = selectedItemId;
 
                   final confirmed = await _showDeleteConfirmation(context, item.name);
                   if (confirmed) {
-                    // Check both appUiState and device selection
                     if (appUiStateRef.activeItemId == item.id) {
                       appUiStateRef.activeItemId = 'none';
                     }
-                    // Determine what selected item to send after delete
-                    final newSelectedId = (deviceSelectedId == item.id || deviceSelectedId == null)
-                        ? 'none'
-                        : deviceSelectedId;
 
                     itemsBloc.add(DeleteItemEvent(item.id));
-                    // Sync with device after deletion using captured references
-                    await _syncWithDeviceAfterDelete(
-                      bluetoothBloc: bluetoothBloc,
-                      activeItemId: newSelectedId,
-                      userId: widget.userId,
-                    );
+                    // Device keeps its original list - sync will happen on next manual sync
                   }
                 } else {
                   await _showConnectDeviceDialog(context);
@@ -1311,49 +1296,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
         );
       },
     );
-  }
-
-  /// Syncs the updated items list to the device after deletion.
-  /// Takes pre-captured references to avoid deactivated widget errors.
-  Future<void> _syncWithDeviceAfterDelete({
-    required BluetoothBloc bluetoothBloc,
-    required String activeItemId,
-    required String userId,
-  }) async {
-    try {
-      // Small delay to allow Firestore to propagate the delete
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // Fetch all items from repository
-      final itemRepository = sl<ItemRepository>();
-      final itemsResult = await itemRepository.getItems(userId);
-
-      final items = itemsResult.fold(
-        (failure) {
-          debugPrint('Failed to fetch items after delete: ${failure.message}');
-          return <Item>[];
-        },
-        (items) => items,
-      );
-
-      debugPrint('Fetched ${items.length} items after delete');
-
-      // Send updated items list to device
-      debugPrint('Sending ${items.length} items to device after delete');
-      bluetoothBloc.add(SendItemsToDevice(
-        items,
-        categoryNames: _cachedCategoryNames,
-      ));
-
-      // Send selected item to device (may have changed if deleted item was active)
-      bluetoothBloc.add(SendSelectedItem(activeItemId));
-
-      // Request prefs from device to get updated counts
-      debugPrint('Requesting prefs from device after delete');
-      bluetoothBloc.add(const RequestDeviceData(type: DeviceDataType.prefs));
-    } catch (e) {
-      debugPrint('Error syncing with device after delete: $e');
-    }
   }
 
   Future<bool> _showDeleteConfirmation(BuildContext context, String itemName) async {
