@@ -13,6 +13,7 @@ import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
+import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
 import '../../../categories/presentation/bloc/categories_state.dart';
@@ -849,12 +850,17 @@ class _ItemFormPageState extends State<ItemFormPage> {
         debugPrint('📍 No device selection, using updated item category: $selectedCategoryId');
       }
 
-      // Build category names map from service locator (context may be invalid after pop)
-      final categoriesBloc = sl<CategoriesBloc>();
-      final categoriesState = categoriesBloc.state;
-      final categoryNames = categoriesState is CategoriesLoaded
-          ? {for (final c in categoriesState.categories) c.id: c.name}
-          : <String, String>{};
+      // Fetch categories from repository (BLoC instance from sl is a new empty instance)
+      final categoryRepository = sl<CategoryRepository>();
+      final categoriesResult = await categoryRepository.getCategories(_getUserId());
+      final categoryNames = categoriesResult.fold(
+        (failure) {
+          debugPrint('❌ Failed to fetch categories: ${failure.message}');
+          return <String, String>{};
+        },
+        (categories) => {for (final c in categories) c.id: c.name},
+      );
+      debugPrint('📂 Category names: $categoryNames');
 
       // Get items from the selected item's category
       final categoryItems = allItems.where((i) {
