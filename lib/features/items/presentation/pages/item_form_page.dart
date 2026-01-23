@@ -849,8 +849,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
         debugPrint('📍 No device selection, using updated item category: $selectedCategoryId');
       }
 
-      // Build category names map
-      final categoriesState = context.read<CategoriesBloc>().state;
+      // Build category names map from service locator (context may be invalid after pop)
+      final categoriesBloc = sl<CategoriesBloc>();
+      final categoriesState = categoriesBloc.state;
       final categoryNames = categoriesState is CategoriesLoaded
           ? {for (final c in categoriesState.categories) c.id: c.name}
           : <String, String>{};
