@@ -26,7 +26,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   BluetoothDevice? _connectedDevice;
   BleDeviceModel? _connectedDeviceModel;
 
-  // Cached characteristics
+  // Cached characteristics (cleared on disconnect, reused for performance)
   BluetoothCharacteristic? _readChar;
   BluetoothCharacteristic? _notifyChar;
   BluetoothCharacteristic? _setItemsChar;
@@ -173,12 +173,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       await device.requestConnectionPriority(
         connectionPriorityRequest: ConnectionPriority.high,
       );
-      debugPrint('🚀 Requested HIGH connection priority (target: ~7.5ms interval)');
+      debugPrint('Requested HIGH connection priority (target: ~7.5ms interval)');
       debugPrint('   - Default interval: ~30-50ms');
       debugPrint('   - High priority interval: ~7.5-15ms');
       debugPrint('   - Note: iOS ignores this request (Apple controls parameters)');
     } catch (e) {
-      debugPrint('⚠️ Could not set connection priority: $e');
+      debugPrint('Could not set connection priority: $e');
       debugPrint('   Connection will continue with default parameters');
     }
 
@@ -190,13 +190,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       // Use the more conservative value to avoid write failures
       final calculatedPayload = mtu - BluetoothConstants.attOverhead;
       _negotiatedMtu = calculatedPayload > 509 ? 509 : calculatedPayload; // Cap at 509 (512-3)
-      debugPrint('📦 MTU negotiated: $mtu bytes (payload: $_negotiatedMtu bytes)');
+      debugPrint('MTU negotiated: $mtu bytes (payload: $_negotiatedMtu bytes)');
       debugPrint('   - Default MTU: 23 bytes');
       debugPrint('   - Requested: ${BluetoothConstants.requestedMtu} bytes');
       debugPrint('   - Negotiated: $mtu bytes, using payload: $_negotiatedMtu bytes');
     } catch (e) {
       _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
-      debugPrint('⚠️ MTU negotiation failed, using default: $_negotiatedMtu bytes');
+      debugPrint('MTU negotiation failed, using default: $_negotiatedMtu bytes');
       debugPrint('   Error: $e');
     }
 
@@ -244,13 +244,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
             errorStr.contains('ANDROID_SPECIFIC_ERROR');
 
         if (isLastAttempt || !isRetryableError) {
-          debugPrint('❌ BLE connect failed after ${attempt + 1} attempt(s): $e');
+          debugPrint('BLE connect failed after ${attempt + 1} attempt(s): $e');
           rethrow;
         }
 
         // Exponential backoff: 500ms, 1000ms, 2000ms
         final delay = Duration(milliseconds: 500 * (1 << attempt));
-        debugPrint('⚠️ BLE connect failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        debugPrint('BLE connect failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
         await Future.delayed(delay);
 
         // Try to clear BLE stack state before retry
@@ -276,19 +276,31 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     _clearConnectionState();
   }
 
+  /// Clears all connection state including cached characteristics.
+  ///
+  /// Called on disconnect to ensure fresh discovery on next connection.
   void _clearConnectionState() {
     _connectedDevice = null;
     _connectedDeviceModel = null;
-    _readChar = null;
-    _notifyChar = null;
-    _setItemsChar = null;
-    _writeChar = null;
+    _clearCharacteristicCache();
     _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
     _notifySubscription?.cancel();
     _notifySubscription = null;
     _messageBuffer.clear();
     _messageTimeoutTimer?.cancel();
     _messageTimeoutTimer = null;
+  }
+
+  /// Clears the cached characteristics.
+  ///
+  /// This forces a fresh discoverServices() call on next operation,
+  /// which is necessary after reconnection to get valid characteristic handles.
+  void _clearCharacteristicCache() {
+    _readChar = null;
+    _notifyChar = null;
+    _setItemsChar = null;
+    _writeChar = null;
+    debugPrint('BLE characteristic cache cleared');
   }
 
   BleConnectionState _mapConnectionState(BluetoothConnectionState state) {
@@ -315,6 +327,23 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   }
 
   // ========== Services & Characteristics ==========
+
+  /// Ensures characteristics are cached, discovering services only if needed.
+  ///
+  /// This optimization avoids redundant discoverServices() calls which take
+  /// 400-1000ms each. Characteristics are cached after first discovery and
+  /// reused for subsequent operations until disconnect.
+  Future<void> _ensureCharacteristicsCached(BluetoothDevice device) async {
+    // Return immediately if already cached
+    if (_writeChar != null && _readChar != null && _notifyChar != null && _setItemsChar != null) {
+      debugPrint('Using cached BLE characteristics (skipping discovery)');
+      return;
+    }
+
+    // Need to discover services and cache characteristics
+    debugPrint('Discovering BLE services (first time or cache cleared)...');
+    await discoverServices(device);
+  }
 
   @override
   Future<void> discoverServices(BluetoothDevice device) async {
@@ -348,11 +377,11 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     if (missingChars.isNotEmpty) {
       final error = 'Missing required BLE characteristics: ${missingChars.join(', ')}. '
           'Device may not be a valid Trackwise device or firmware needs update.';
-      debugPrint('❌ $error');
+      debugPrint(error);
       throw StateError(error);
     }
 
-    debugPrint('✅ All BLE characteristics discovered successfully');
+    debugPrint('All BLE characteristics discovered and cached successfully');
 
     // Subscribe to notifications
     await _subscribeToNotifications();
@@ -381,7 +410,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
     // Check buffer size to prevent memory exhaustion
     if (_messageBuffer.length > _maxBufferSize) {
-      debugPrint('⚠️ Message buffer overflow (${_messageBuffer.length} bytes) - clearing to prevent memory exhaustion');
+      debugPrint('Message buffer overflow (${_messageBuffer.length} bytes) - clearing to prevent memory exhaustion');
       _messageBuffer.clear();
       _messageTimeoutTimer?.cancel();
       _messageTimeoutTimer = null;
@@ -400,7 +429,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Clears stale partial messages to prevent blocking subsequent messages.
   void _onMessageAssemblyTimeout() {
     if (_messageBuffer.isNotEmpty) {
-      debugPrint('⚠️ Message assembly timeout - clearing stale buffer: ${_messageBuffer.toString().substring(0, _messageBuffer.length > 100 ? 100 : _messageBuffer.length)}...');
+      debugPrint('Message assembly timeout - clearing stale buffer: ${_messageBuffer.toString().substring(0, _messageBuffer.length > 100 ? 100 : _messageBuffer.length)}...');
       _messageBuffer.clear();
     }
   }
@@ -418,13 +447,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       if (messageJson.trim().isEmpty) continue;
 
       try {
-        debugPrint('📨 Parsing BLE message: $messageJson');
+        debugPrint('Parsing BLE message: $messageJson');
         final message = BleMessageModel.fromJson(messageJson);
-        debugPrint('✅ Parsed message type: ${message.type}, data: ${message.data}');
+        debugPrint('Parsed message type: ${message.type}, data: ${message.data}');
         _messageController.add(message);
       } catch (e) {
-        debugPrint('❌ BLE message parse error: $e');
-        debugPrint('❌ Raw message was: $messageJson');
+        debugPrint('BLE message parse error: $e');
+        debugPrint('Raw message was: $messageJson');
       }
     }
 
@@ -460,6 +489,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   }
 
   /// Writes a command without newline delimiter (for prepare_read commands).
+  @override
   Future<void> writeCommandRaw(String jsonData) async {
     if (_writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
@@ -517,13 +547,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       } catch (e) {
         final isLastAttempt = attempt == maxRetries;
         if (isLastAttempt) {
-          debugPrint('❌ BLE write failed after ${maxRetries + 1} attempts: $e');
+          debugPrint('BLE write failed after ${maxRetries + 1} attempts: $e');
           rethrow;
         }
 
         // Exponential backoff: 100ms, 200ms, 400ms
         final delay = Duration(milliseconds: 100 * (1 << attempt));
-        debugPrint('⚠️ BLE write failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        debugPrint('BLE write failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
         await Future.delayed(delay);
       }
     }
@@ -545,13 +575,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       } catch (e) {
         final isLastAttempt = attempt == maxRetries;
         if (isLastAttempt) {
-          debugPrint('❌ BLE read failed after ${maxRetries + 1} attempts: $e');
+          debugPrint('BLE read failed after ${maxRetries + 1} attempts: $e');
           rethrow;
         }
 
         // Exponential backoff: 100ms, 200ms, 400ms
         final delay = Duration(milliseconds: 100 * (1 << attempt));
-        debugPrint('⚠️ BLE read failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        debugPrint('BLE read failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
         await Future.delayed(delay);
       }
     }
@@ -576,29 +606,15 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('Not connected to any device.');
     }
 
-    // Rediscover services - this is the key pattern from old working code
-    // The old readBLEDataAndHandle calls discoverServices() again before reading
-    final services = await _connectedDevice!.discoverServices();
+    // Use cached characteristics if available (avoids redundant discovery)
+    await _ensureCharacteristicsCached(_connectedDevice!);
 
-    // Find READ characteristic again (matches old code pattern exactly)
-    BluetoothCharacteristic? readChar;
-    for (final service in services) {
-      for (final char in service.characteristics) {
-        final uuid = char.uuid.toString().toLowerCase();
-        if (uuid == BluetoothConstants.readCharacteristicUUID.toLowerCase()) {
-          readChar = char;
-          break;
-        }
-      }
-      if (readChar != null) break;
+    if (_readChar == null) {
+      throw StateError('READ characteristic not found after discovery.');
     }
 
-    if (readChar == null) {
-      throw StateError('READ characteristic not found after rediscovery.');
-    }
-
-    // Read from the freshly discovered characteristic with retry
-    final bytes = await _readWithRetry(readChar);
+    // Read from the cached characteristic with retry
+    final bytes = await _readWithRetry(_readChar!);
     final result = utf8.decode(bytes, allowMalformed: true);
     return result;
   }
@@ -609,32 +625,19 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('Not connected to any device.');
     }
 
-    final deviceId = _connectedDevice!.remoteId.str;
+    // Ensure characteristics are cached (only discovers if not already cached)
+    await _ensureCharacteristicsCached(_connectedDevice!);
 
-    // MATCH OLD CODE EXACTLY: Create new BluetoothDevice object each time
-    // Old prepareBLERead: final device = BluetoothDevice(remoteId: DeviceIdentifier(deviceId));
-    final writeDevice = BluetoothDevice.fromId(deviceId);
-
-    // STEP 1: Discover services and write command (matches prepareBLERead exactly)
-    var services = await writeDevice.discoverServices();
-
-    BluetoothCharacteristic? writeChar;
-    for (final service in services) {
-      for (final char in service.characteristics) {
-        final uuid = char.uuid.toString().toLowerCase();
-        if (uuid == BluetoothConstants.writeCharacteristicUUID.toLowerCase()) {
-          writeChar = char;
-          break;
-        }
-      }
-      if (writeChar != null) break;
-    }
-
-    if (writeChar == null) {
+    if (_writeChar == null) {
       throw StateError('WRITE characteristic not found.');
     }
 
-    await writeChar.write(utf8.encode(command), withoutResponse: false);
+    if (_readChar == null) {
+      throw StateError('READ characteristic not found.');
+    }
+
+    // STEP 1: Write command using cached write characteristic
+    await _writeChar!.write(utf8.encode(command), withoutResponse: false);
 
     // Add delay to give ESP32 time to process command and update READ characteristic
     await Future.delayed(const Duration(milliseconds: BluetoothConstants.prepareReadDelayMs));
@@ -644,30 +647,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('Device disconnected during prepare_read cycle.');
     }
 
-    // MATCH OLD CODE EXACTLY: Create ANOTHER new BluetoothDevice object for read
-    // Old readBLEDataAndHandle: final device = BluetoothDevice(remoteId: DeviceIdentifier(deviceId));
-    final readDevice = BluetoothDevice.fromId(deviceId);
-
-    // STEP 2: Discover services AGAIN and read (matches readBLEDataAndHandle exactly)
-    services = await readDevice.discoverServices();
-
-    BluetoothCharacteristic? readChar;
-    for (final service in services) {
-      for (final char in service.characteristics) {
-        final uuid = char.uuid.toString().toLowerCase();
-        if (uuid == BluetoothConstants.readCharacteristicUUID.toLowerCase()) {
-          readChar = char;
-          break;
-        }
-      }
-      if (readChar != null) break;
-    }
-
-    if (readChar == null) {
-      throw StateError('READ characteristic not found.');
-    }
-
-    final bytes = await _readWithRetry(readChar);
+    // STEP 2: Read from cached read characteristic
+    final bytes = await _readWithRetry(_readChar!);
     final result = utf8.decode(bytes, allowMalformed: true);
     return result;
   }
