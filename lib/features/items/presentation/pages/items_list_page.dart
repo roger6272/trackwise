@@ -202,8 +202,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                     // Add item button
                     Padding(
                       padding: const EdgeInsets.only(right: 8.0),
-                      child: BlocBuilder<ItemsBloc, ItemsState>(
-                        builder: (context, itemsState) {
+                      child: BlocSelector<ItemsBloc, ItemsState, bool>(
+                        selector: (state) => state is ItemsLoaded && state.items.length >= _maxItems,
+                        builder: (context, hasReachedLimit) {
                           return IconButton(
                             onPressed: () async {
                               if (!isConnected) {
@@ -211,7 +212,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 return;
                               }
                               // Check item limit
-                              if (itemsState is ItemsLoaded && itemsState.items.length >= _maxItems) {
+                              if (hasReachedLimit) {
                                 await _showItemLimitDialog(context);
                                 return;
                               }
@@ -242,30 +243,33 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Category Filter Row (only when categories exist)
-                          BlocBuilder<CategoriesBloc, CategoriesState>(
-                            builder: (context, categoriesState) {
-                              final hasCategories = categoriesState is CategoriesLoaded &&
-                                  categoriesState.categories.isNotEmpty;
-
-                              // Update cache on first build when categories are loaded
-                              if (categoriesState is CategoriesLoaded && _cachedCategoryNames.isEmpty) {
+                          BlocSelector<CategoriesBloc, CategoriesState, List<cat.Category>>(
+                            selector: (state) => state is CategoriesLoaded ? state.categories : [],
+                            builder: (context, categories) {
+                              // Update cache when categories change
+                              if (categories.isNotEmpty && _cachedCategoryNames.isEmpty) {
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  _updateCategoryCache(categoriesState);
+                                  if (mounted) {
+                                    setState(() {
+                                      _cachedCategoryNames = {
+                                        for (final category in categories)
+                                          category.id: category.name,
+                                      };
+                                    });
+                                  }
                                 });
                               }
 
-                              if (!hasCategories) return const SizedBox.shrink();
+                              if (categories.isEmpty) return const SizedBox.shrink();
 
                               return Padding(
                                 padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
-                                child: BlocBuilder<ItemsBloc, ItemsState>(
-                                  builder: (context, itemsState) {
-                                    final selectedCategoryId = itemsState is ItemsLoaded
-                                        ? itemsState.selectedCategoryId
-                                        : null;
+                                child: BlocSelector<ItemsBloc, ItemsState, String?>(
+                                  selector: (state) => state is ItemsLoaded ? state.selectedCategoryId : null,
+                                  builder: (context, selectedCategoryId) {
                                     return _buildCategoryDropdown(
                                       context,
-                                      categoriesState.categories,
+                                      categories,
                                       selectedCategoryId,
                                       primaryText,
                                       secondaryText,
@@ -280,9 +284,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           if (_isSearching)
                             _buildSearchField(context, primaryText, secondaryText, alternate),
                           // Active item chip (shows when connected with active item)
-                          BlocBuilder<ItemsBloc, ItemsState>(
+                          BlocSelector<ItemsBloc, ItemsState, ItemsLoaded?>(
+                            selector: (state) => state is ItemsLoaded ? state : null,
                             builder: (context, itemsState) {
-                              if (!isConnected || itemsState is! ItemsLoaded) {
+                              if (!isConnected || itemsState == null) {
                                 return const SizedBox.shrink();
                               }
                               return _buildActiveItemChip(
