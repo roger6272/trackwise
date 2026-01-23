@@ -558,9 +558,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                                       // Capture references BEFORE any async operations
                                       final itemsBloc = context.read<ItemsBloc>();
-                                      final bluetoothBloc = context.read<BluetoothBloc>();
                                       final itemRepository = itemsBloc.itemRepository;
-                                      final selectedId = bluetoothState.selectedItemId;
                                       final currentState = state;
                                       final isFilteredByCategory = currentState.isFilteredByCategory;
 
@@ -1504,26 +1502,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 HapticFeedback.lightImpact();
                 if (isConnected) {
                   final itemsBloc = context.read<ItemsBloc>();
-                  final bluetoothBloc = context.read<BluetoothBloc>();
                   final itemsState = itemsBloc.state;
                   if (itemsState is ItemsLoaded) {
                     final isInCategory = itemsState.isFilteredByCategory;
                     if (isInCategory) {
                       // Move to top within category
+                      // Device sync handled by buildWhen if selected category is affected
                       final filteredIndex = itemsState.filteredItems.indexWhere((i) => i.id == item.id);
                       if (filteredIndex > 0) {
                         itemsBloc.add(ReorderItemsInCategoryEvent(oldIndex: filteredIndex, newIndex: 0));
-                        // Sync filtered items to device
-                        Future.delayed(const Duration(milliseconds: 100), () {
-                          if (!mounted) return;
-                          final updatedState = itemsBloc.state;
-                          if (updatedState is ItemsLoaded) {
-                            bluetoothBloc.add(SendItemsToDevice(
-                              updatedState.filteredItems,
-                              categoryNames: _cachedCategoryNames,
-                            ));
-                          }
-                        });
                       }
                     } else {
                       // In "All" view - move to top within item's category
