@@ -504,7 +504,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Writes data in chunks to respect MTU limits.
   ///
   /// Uses negotiated MTU (or default 180 bytes if negotiation failed).
-  /// ESP32 requires 30ms delay between chunks to process.
+  /// ESP32 requires 20ms delay between chunks to process.
   Future<void> _writeChunked(
     BluetoothCharacteristic char,
     String data,

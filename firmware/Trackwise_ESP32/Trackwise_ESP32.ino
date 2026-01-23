@@ -88,21 +88,24 @@ BLECharacteristic* setItemsChar;
 BLECharacteristic* writeChar;  //combine clearlogs and setselected
 BLECharacteristic* readChar;
 
-// For Non-Blocking Vibration
+// For Non-Blocking Vibration (handles millis() overflow after ~49 days)
 struct VibrationState {
-  unsigned long endTime = 0;
+  unsigned long startTime = 0;
+  unsigned int duration = 0;
   bool isActive = false;
 } vibration;
 
 void triggerVibrationNonBlocking(int duration = 300) {
   digitalWrite(VIBRATION_PIN, HIGH);
-  vibration.endTime = millis() + duration;
+  vibration.startTime = millis();
+  vibration.duration = duration;
   vibration.isActive = true;
 }
 
 // Check and turn off vibration in loop() - call this every iteration
+// Uses subtraction to handle millis() overflow correctly
 void updateVibration() {
-  if (vibration.isActive && millis() >= vibration.endTime) {
+  if (vibration.isActive && (millis() - vibration.startTime >= vibration.duration)) {
     digitalWrite(VIBRATION_PIN, LOW);
     vibration.isActive = false;
   }
@@ -155,7 +158,7 @@ void notifyPrefsToApp() {
 // Send error notification to app via NOTIFY characteristic
 // Used to report command failures, parse errors, etc. for better debugging
 void notifyError(const char* cmd, const char* reason) {
-  if (!isConnected || NotifyChar == nullptr) return;
+  if (!isConnected || NotifyChar == nullptr || cmd == nullptr || reason == nullptr) return;
 
   StaticJsonDocument<256> doc;
   doc["type"] = "error";
@@ -1217,6 +1220,14 @@ void loop() {
     if (millis() - lastResetCheck > 60000) {  // every 60 seconds. Might need to update this for battery life
       resetTodayCountsIfNeeded();
       lastResetCheck = millis();
+    }
+
+    // Periodic NVS flush - ensure dirty data is written every 5 minutes
+    // Uses subtraction to handle millis() overflow correctly
+    static unsigned long lastNvsFlush = 0;
+    if (countsDirty && (millis() - lastNvsFlush > 300000)) {  // 5 minutes
+      flushPendingNvsWrites();
+      lastNvsFlush = millis();
     }
 
   // Check for stale incoming JSON buffer (incomplete transfer from app)
