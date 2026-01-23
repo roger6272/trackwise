@@ -434,17 +434,13 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       // Get device's selected item
       final bluetoothState = bluetoothBloc.state;
       final deviceSelectedId = bluetoothState.selectedItemId;
-      debugPrint('📍 Device selected item: $deviceSelectedId');
 
       // Fetch ALL active items from Firestore
       final itemRepository = sl<ItemRepository>();
       final itemsResult = await itemRepository.getItems(_getUserId());
 
       final allItems = itemsResult.fold(
-        (failure) {
-          debugPrint('❌ Failed to fetch items after restore: ${failure.message}');
-          return <Item>[];
-        },
+        (failure) => <Item>[],
         (items) => items,
       );
 
@@ -452,10 +448,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       final categoryRepository = sl<CategoryRepository>();
       final categoriesResult = await categoryRepository.getCategories(_getUserId());
       final categoryNames = categoriesResult.fold(
-        (failure) {
-          debugPrint('❌ Failed to fetch categories: ${failure.message}');
-          return <String, String>{};
-        },
+        (failure) => <String, String>{},
         (categories) => {for (final c in categories) c.id: c.name},
       );
 
@@ -465,18 +458,15 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       if (deviceSelectedId != null && deviceSelectedId != 'none') {
         final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
         selectedCategoryId = selectedItem?.categoryId;
-        debugPrint('📍 Selected item category: $selectedCategoryId');
       } else {
         // No device selection - use the restored item's category
         final restoredItem = allItems.where((i) => i.id == restoredItemId).firstOrNull;
         selectedCategoryId = restoredItem?.categoryId;
-        debugPrint('📍 No device selection, using restored item category: $selectedCategoryId');
       }
 
       // Filter items to selected item's category
       final categoryItems = allItems.where((i) {
         final cat = i.categoryId;
-        // Match category (treat null and empty as same - uncategorized)
         final catEmpty = cat == null || cat.isEmpty;
         final selectedEmpty = selectedCategoryId == null || selectedCategoryId.isEmpty;
         if (catEmpty && selectedEmpty) return true;
@@ -488,7 +478,6 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
       // Send items from selected category to device
-      debugPrint('📤 Sending ${categoryItems.length} items to device after restore (category: $selectedCategoryId)');
       bluetoothBloc.add(SendItemsToDevice(categoryItems, categoryNames: categoryNames));
 
       // Wait for device to process items before sending selected item
@@ -496,11 +485,10 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
 
       // Keep current selected item (don't change to restored item)
       if (deviceSelectedId != null && deviceSelectedId != 'none') {
-        debugPrint('📤 Keeping selected item: $deviceSelectedId');
         bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
       }
     } catch (e) {
-      debugPrint('❌ Error syncing with device after restore: $e');
+      // Silently handle sync errors - device sync is best-effort
     }
   }
 }

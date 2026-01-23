@@ -807,7 +807,6 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
   Future<void> _syncWithDevice({String? newItemId, Item? updatedItem}) async {
     try {
-      debugPrint('🔄 _syncWithDevice started');
       if (!mounted) return;
 
       // Small delay to allow Firestore to propagate
@@ -818,25 +817,16 @@ class _ItemFormPageState extends State<ItemFormPage> {
       final itemsResult = await itemRepository.getItems(_getUserId());
 
       final allItems = itemsResult.fold(
-        (failure) {
-          debugPrint('❌ Failed to fetch items: ${failure.message}');
-          return <Item>[];
-        },
+        (failure) => <Item>[],
         (items) => items,
       );
 
-      if (!mounted || allItems.isEmpty) {
-        debugPrint('❌ _syncWithDevice: not mounted or no items');
-        return;
-      }
-      debugPrint('📦 Fetched ${allItems.length} items from Firestore');
+      if (!mounted || allItems.isEmpty) return;
 
       // Get device's selected item ID
       final bluetoothBloc = context.read<BluetoothBloc>();
       final bluetoothState = bluetoothBloc.state;
-      debugPrint('🔌 BluetoothState: isConnected=${bluetoothState.isConnected}, connectedDevice=${bluetoothState.connectedDevice?.id}');
       final deviceSelectedId = bluetoothState.selectedItemId;
-      debugPrint('📍 Device selected item: $deviceSelectedId');
 
       // Find the category of the device's selected item
       // Fallback to updated item's category if no device selection
@@ -844,24 +834,17 @@ class _ItemFormPageState extends State<ItemFormPage> {
       if (deviceSelectedId != null && deviceSelectedId != 'none') {
         final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
         selectedCategoryId = selectedItem?.categoryId;
-        debugPrint('📍 Selected item category: $selectedCategoryId');
       } else if (updatedItem != null) {
         selectedCategoryId = updatedItem.categoryId;
-        debugPrint('📍 No device selection, using updated item category: $selectedCategoryId');
       }
 
-      // Fetch categories from repository (BLoC instance from sl is a new empty instance)
+      // Fetch categories from repository
       final categoryRepository = sl<CategoryRepository>();
       final categoriesResult = await categoryRepository.getCategories(_getUserId());
       final categoryNames = categoriesResult.fold(
-        (failure) {
-          debugPrint('❌ Failed to fetch categories: ${failure.message}');
-          return <String, String>{};
-        },
+        (failure) => <String, String>{},
         (categories) => {for (final c in categories) c.id: c.name},
       );
-      debugPrint('📂 Category names (${categoryNames.length}): $categoryNames');
-      debugPrint('🔍 Selected category "$selectedCategoryId" resolves to: "${categoryNames[selectedCategoryId] ?? "NOT FOUND"}"');
 
       // Get items from the selected item's category
       final categoryItems = allItems.where((i) {
@@ -876,7 +859,6 @@ class _ItemFormPageState extends State<ItemFormPage> {
       // Sort by categoryOrder to match app's order
       categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
-      debugPrint('📤 Sending ${categoryItems.length} items (category: $selectedCategoryId) to device');
       bluetoothBloc.add(SendItemsToDevice(
         categoryItems,
         categoryNames: categoryNames,
@@ -887,15 +869,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
       // Send selected item to device
       final selectedItemId = newItemId ?? deviceSelectedId;
-      debugPrint('⭐ Selected item ID: $selectedItemId');
       if (selectedItemId != null && selectedItemId.isNotEmpty && selectedItemId != 'none') {
-        debugPrint('📤 Sending selected item: $selectedItemId');
         bluetoothBloc.add(SendSelectedItem(selectedItemId));
       }
-
-      debugPrint('✅ _syncWithDevice completed');
     } catch (e) {
-      debugPrint('❌ Error syncing with device: $e');
+      // Silently handle sync errors - device sync is best-effort
     }
   }
 
