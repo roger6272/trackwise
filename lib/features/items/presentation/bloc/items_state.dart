@@ -60,8 +60,21 @@ class ItemsLoaded extends ItemsState {
   /// Returns filtered items based on selectedCategoryId.
   List<Item> get filteredItems {
     if (selectedCategoryId == null) {
-      // All items, sorted by global order
-      return List<Item>.from(items)..sort((a, b) => a.order.compareTo(b.order));
+      // All items, grouped by category, sorted by categoryOrder within each group
+      final sorted = List<Item>.from(items);
+      sorted.sort((a, b) {
+        // First sort by categoryId (null/empty categories go last)
+        final catA = a.categoryId ?? '';
+        final catB = b.categoryId ?? '';
+        if (catA != catB) {
+          if (catA.isEmpty) return 1; // Uncategorized last
+          if (catB.isEmpty) return -1;
+          return catA.compareTo(catB);
+        }
+        // Within same category, sort by categoryOrder
+        return a.categoryOrder.compareTo(b.categoryOrder);
+      });
+      return sorted;
     } else if (selectedCategoryId == '') {
       // Uncategorized items only, sorted by categoryOrder
       return List<Item>.from(items.where((item) => item.categoryId == null))

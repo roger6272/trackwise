@@ -84,6 +84,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
   // Cached category names map (updated via BlocListener when categories change)
   Map<String, String> _cachedCategoryNames = {};
 
+  // Scroll controller for sticky headers
+  final _scrollController = ScrollController();
+  String? _stickyCategory;
+
   @override
   void initState() {
     super.initState();
@@ -382,13 +386,33 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       _showReorderHint(appUiState, isConnected);
                                     });
                                   }
-                                  return ReorderableListView.builder(
-                                    padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
+                                  final listWidget = ReorderableListView.builder(
+                                    scrollController: _scrollController,
+                                    padding: EdgeInsets.only(
+                                      top: state.isFilteredByCategory ? 8.0 : 24.0, // Extra top for sticky header
+                                      bottom: 80.0,
+                                    ),
                                     physics: const AlwaysScrollableScrollPhysics(),
                                     buildDefaultDragHandles: false,
                                     itemCount: filteredItems.length,
                                     onReorderStart: (_) => HapticFeedback.mediumImpact(),
                                     proxyDecorator: (child, index, animation) {
+                                      // Rebuild the tile without category label for dragging
+                                      final item = filteredItems[index];
+                                      final dragProxy = _buildItemTile(
+                                        context,
+                                        item,
+                                        index,
+                                        appUiState,
+                                        isConnected,
+                                        bluetoothState.selectedItemId,
+                                        primaryText,
+                                        secondaryText,
+                                        alternate,
+                                        activatedColor,
+                                        // No categoryLabel - just the tile
+                                      );
+
                                       return AnimatedBuilder(
                                         animation: animation,
                                         builder: (context, child) {
@@ -404,7 +428,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                             ),
                                           );
                                         },
-                                        child: child,
+                                        child: dragProxy,
                                       );
                                     },
                                     onReorder: (oldIndex, newIndex) {
@@ -415,21 +439,73 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       final currentState = state;
                                       final isFilteredByCategory = currentState.isFilteredByCategory;
 
-                                      // Use appropriate reorder event based on view mode
-                                      if (isFilteredByCategory) {
-                                        // Viewing a specific category - update categoryOrder
-                                        itemsBloc.add(
-                                          ReorderItemsInCategoryEvent(
-                                            oldIndex: oldIndex,
-                                            newIndex: newIndex,
-                                          ),
-                                        );
-                                      } else {
-                                        // Viewing all items - update global order
-                                        itemsBloc.add(
-                                          ReorderItemsEvent(oldIndex: oldIndex, newIndex: newIndex),
-                                        );
+                                      if (!isFilteredByCategory) {
+                                        // In "All" view - reorder within the item's category
+                                        final movedItem = filteredItems[oldIndex];
+                                        final movedItemCat = movedItem.categoryId ?? '';
+
+                                        // Get items in the same category, sorted by categoryOrder
+                                        final categoryItems = filteredItems
+                                            .where((i) => (i.categoryId ?? '') == movedItemCat)
+                                            .toList();
+
+                                        // Find the old position within the category
+                                        final oldCatIndex = categoryItems.indexWhere((i) => i.id == movedItem.id);
+
+                                        // Calculate new position within category based on drop location
+                                        // Find where in the category the item was dropped
+                                        int newCatIndex = oldCatIndex;
+
+                                        // Adjust newIndex for Flutter's ReorderableListView behavior
+                                        int adjustedNewIndex = newIndex;
+                                        if (oldIndex < newIndex) {
+                                          adjustedNewIndex -= 1;
+                                        }
+
+                                        // Check if dropped within the same category
+                                        if (adjustedNewIndex >= 0 && adjustedNewIndex < filteredItems.length) {
+                                          final targetItem = filteredItems[adjustedNewIndex];
+                                          final targetCat = targetItem.categoryId ?? '';
+
+                                          if (targetCat == movedItemCat) {
+                                            // Dropped within same category - find new position
+                                            newCatIndex = categoryItems.indexWhere((i) => i.id == targetItem.id);
+                                            if (oldCatIndex < newCatIndex) {
+                                              // Moving down - place after target
+                                            } else if (oldCatIndex > newCatIndex) {
+                                              // Moving up - place at target position
+                                            }
+                                          } else {
+                                            // Dropped in different category - ignore
+                                            return;
+                                          }
+                                        }
+
+                                        if (oldCatIndex != newCatIndex) {
+                                          // Temporarily switch to category, reorder, switch back
+                                          itemsBloc.add(FilterByCategoryEvent(movedItemCat));
+                                          Future.delayed(const Duration(milliseconds: 50), () {
+                                            if (!mounted) return;
+                                            itemsBloc.add(ReorderItemsInCategoryEvent(
+                                              oldIndex: oldCatIndex,
+                                              newIndex: newCatIndex > oldCatIndex ? newCatIndex + 1 : newCatIndex,
+                                            ));
+                                            Future.delayed(const Duration(milliseconds: 50), () {
+                                              if (!mounted) return;
+                                              itemsBloc.add(const FilterByCategoryEvent(null));
+                                            });
+                                          });
+                                        }
+                                        return;
                                       }
+
+                                      // Viewing a specific category - update categoryOrder
+                                      itemsBloc.add(
+                                        ReorderItemsInCategoryEvent(
+                                          oldIndex: oldIndex,
+                                          newIndex: newIndex,
+                                        ),
+                                      );
 
                                       // Sync to device after reorder
                                       // Small delay to let BLoC process the reorder
@@ -437,13 +513,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         if (!mounted) return;
                                         final itemsState = itemsBloc.state;
                                         if (itemsState is ItemsLoaded) {
-                                          // Sync filtered items to device when category is selected
-                                          // Otherwise sync all items
-                                          final itemsToSync = isFilteredByCategory
-                                              ? itemsState.filteredItems
-                                              : itemsState.items;
                                           bluetoothBloc.add(SendItemsToDevice(
-                                            itemsToSync,
+                                            itemsState.filteredItems,
                                             categoryNames: _cachedCategoryNames,
                                           ));
                                           // Re-send selected item to update device's index
@@ -461,6 +532,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       final item = filteredItems[index];
                                       // Pass animation for first item's reorder hint (only when not searching)
                                       final needsReorderHint = index == 0 && !appUiState.hasShownReorderHint && _searchQuery.isEmpty;
+
+                                      // Determine if this item needs a category label (first in its group)
+                                      String? categoryLabelText;
+                                      if (!state.isFilteredByCategory) {
+                                        final currentCat = item.categoryId ?? '';
+                                        final prevCat = index > 0 ? (filteredItems[index - 1].categoryId ?? '') : null;
+                                        if (prevCat == null || currentCat != prevCat) {
+                                          categoryLabelText = currentCat.isEmpty
+                                              ? 'Uncategorized'
+                                              : _cachedCategoryNames[currentCat] ?? 'Unknown';
+                                        }
+                                      }
+
                                       return _buildItemTile(
                                         context,
                                         item,
@@ -473,9 +557,47 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         alternate,
                                         activatedColor,
                                         liftAnimation: needsReorderHint ? _liftAnimation : null,
+                                        categoryLabel: categoryLabelText,
                                       );
                                     },
                                   );
+
+                                  // Wrap in Stack for sticky header in "All" view
+                                  if (!state.isFilteredByCategory) {
+                                    return NotificationListener<ScrollNotification>(
+                                      onNotification: (notification) {
+                                        if (notification is ScrollUpdateNotification) {
+                                          final newStickyCategory = _calculateStickyCategory(
+                                            filteredItems,
+                                            notification.metrics.pixels,
+                                          );
+                                          if (newStickyCategory != _stickyCategory) {
+                                            setState(() {
+                                              _stickyCategory = newStickyCategory;
+                                            });
+                                          }
+                                        }
+                                        return false;
+                                      },
+                                      child: Stack(
+                                        children: [
+                                          listWidget,
+                                          if (_stickyCategory != null)
+                                            Positioned(
+                                              top: 0,
+                                              left: 0,
+                                              right: 0,
+                                              child: _buildStickyHeader(
+                                                _stickyCategory!,
+                                                secondaryText,
+                                                primaryBackground,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return listWidget;
                                 } else {
                                   // Trigger swipe hint only in regular ListView (not during reorder, not searching)
                                   if (!appUiState.hasShownSwipeHint && _searchQuery.isEmpty) {
@@ -483,7 +605,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       _showSwipeHint(appUiState);
                                     });
                                   }
-                                  return RefreshIndicator(
+                                  final listWidget = RefreshIndicator(
                                     color: _primary,
                                     onRefresh: () async {
                                       context.read<ItemsBloc>().add(WatchItemsEvent(widget.userId));
@@ -491,29 +613,84 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       await Future.delayed(const Duration(milliseconds: 500));
                                     },
                                     child: ListView.builder(
-                                      padding: const EdgeInsets.only(top: 8.0, bottom: 80.0),
+                                      controller: _scrollController,
+                                      padding: EdgeInsets.only(
+                                        top: state.isFilteredByCategory ? 8.0 : 24.0, // Extra top for sticky header
+                                        bottom: 80.0,
+                                      ),
                                       physics: const AlwaysScrollableScrollPhysics(),
                                       itemCount: filteredItems.length,
                                       itemBuilder: (context, index) {
                                         final item = filteredItems[index];
                                         // Only pass controller for hint animation when not yet shown (and not searching)
                                         final needsController = index == 0 && !appUiState.hasShownSwipeHint && _searchQuery.isEmpty;
+
+                                        // Determine if this item needs a category label (first in its group)
+                                        String? categoryLabelText;
+                                        if (!state.isFilteredByCategory) {
+                                          final currentCat = item.categoryId ?? '';
+                                          final prevCat = index > 0 ? (filteredItems[index - 1].categoryId ?? '') : null;
+                                          if (prevCat == null || currentCat != prevCat) {
+                                            categoryLabelText = currentCat.isEmpty
+                                                ? 'Uncategorized'
+                                                : _cachedCategoryNames[currentCat] ?? 'Unknown';
+                                          }
+                                        }
+
                                         return _buildItemTile(
                                           context,
                                           item,
                                           index,
                                           appUiState,
                                           isConnected,
-                                        bluetoothState.selectedItemId,
-                                        primaryText,
-                                        secondaryText,
-                                        alternate,
-                                        activatedColor,
-                                        controller: needsController ? _firstItemController : null,
-                                      );
+                                          bluetoothState.selectedItemId,
+                                          primaryText,
+                                          secondaryText,
+                                          alternate,
+                                          activatedColor,
+                                          controller: needsController ? _firstItemController : null,
+                                          categoryLabel: categoryLabelText,
+                                        );
                                       },
                                     ),
                                   );
+
+                                  // Wrap in Stack for sticky header in "All" view
+                                  if (!state.isFilteredByCategory) {
+                                    return NotificationListener<ScrollNotification>(
+                                      onNotification: (notification) {
+                                        if (notification is ScrollUpdateNotification) {
+                                          final newStickyCategory = _calculateStickyCategory(
+                                            filteredItems,
+                                            notification.metrics.pixels,
+                                          );
+                                          if (newStickyCategory != _stickyCategory) {
+                                            setState(() {
+                                              _stickyCategory = newStickyCategory;
+                                            });
+                                          }
+                                        }
+                                        return false;
+                                      },
+                                      child: Stack(
+                                        children: [
+                                          listWidget,
+                                          if (_stickyCategory != null)
+                                            Positioned(
+                                              top: 0,
+                                              left: 0,
+                                              right: 0,
+                                              child: _buildStickyHeader(
+                                                _stickyCategory!,
+                                                secondaryText,
+                                                primaryBackground,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return listWidget;
                                 }
                               }
 
@@ -587,6 +764,78 @@ class _ItemsListContentState extends State<_ItemsListContent>
         ],
       ),
     );
+  }
+
+  /// Builds a category label for "All" view, showing the category name
+  Widget _buildCategoryLabel(String categoryName, Color secondaryText) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0.0, 8.0, 16.0, 4.0),
+      child: Text(
+        categoryName,
+        style: GoogleFonts.inter(
+          color: secondaryText.withValues(alpha: 0.7),
+          fontSize: 12.0,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Builds a sticky category header for "All" view
+  Widget _buildStickyHeader(String categoryName, Color secondaryText, Color backgroundColor) {
+    return Container(
+      width: double.infinity,
+      color: backgroundColor,
+      padding: const EdgeInsets.fromLTRB(0.0, 8.0, 16.0, 4.0),
+      child: Text(
+        categoryName,
+        style: GoogleFonts.inter(
+          color: secondaryText.withValues(alpha: 0.7),
+          fontSize: 12.0,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Calculates which category should be sticky based on scroll offset
+  String? _calculateStickyCategory(List<Item> filteredItems, double scrollOffset) {
+    if (filteredItems.isEmpty) return null;
+
+    // Approximate item height (tile ~68px, with label ~88px)
+    const double itemHeight = 68.0;
+    const double labelHeight = 20.0;
+
+    double currentOffset = 8.0; // Initial padding
+    String? lastCategory;
+
+    for (int i = 0; i < filteredItems.length; i++) {
+      final item = filteredItems[i];
+      final currentCat = item.categoryId ?? '';
+      final prevCat = i > 0 ? (filteredItems[i - 1].categoryId ?? '') : null;
+      final isFirstInCategory = prevCat == null || currentCat != prevCat;
+
+      // Add label height if first in category
+      if (isFirstInCategory) {
+        currentOffset += labelHeight;
+        final categoryName = currentCat.isEmpty
+            ? 'Uncategorized'
+            : _cachedCategoryNames[currentCat] ?? 'Unknown';
+        if (currentOffset > scrollOffset) {
+          return lastCategory;
+        }
+        lastCategory = categoryName;
+      }
+
+      currentOffset += itemHeight;
+
+      if (currentOffset > scrollOffset + 50) {
+        // Found the item at scroll position
+        return lastCategory;
+      }
+    }
+
+    return lastCategory;
   }
 
   Widget _buildSearchField(BuildContext context, Color primaryText, Color secondaryText, Color alternate) {
@@ -893,6 +1142,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Color activatedColor, {
     SlidableController? controller,
     Animation<double>? liftAnimation,
+    String? categoryLabel,
   }) {
     // Use Bluetooth selectedItemId from device, fallback to appUiState
     final activeId = selectedItemId ?? appUiState.activeItemId;
@@ -1095,20 +1345,23 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         });
                       }
                     } else {
-                      // Move to top globally
-                      final actualIndex = itemsState.items.indexWhere((i) => i.id == item.id);
-                      if (actualIndex > 0) {
-                        itemsBloc.add(ReorderItemsEvent(oldIndex: actualIndex, newIndex: 0));
-                        // Sync all items to device
-                        Future.delayed(const Duration(milliseconds: 100), () {
+                      // In "All" view - move to top within item's category
+                      final itemCategoryId = item.categoryId ?? '';
+                      final categoryItems = itemsState.items
+                          .where((i) => (i.categoryId ?? '') == itemCategoryId)
+                          .toList()
+                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+                      final categoryIndex = categoryItems.indexWhere((i) => i.id == item.id);
+                      if (categoryIndex > 0) {
+                        // Switch to category, reorder, switch back
+                        itemsBloc.add(FilterByCategoryEvent(itemCategoryId));
+                        Future.delayed(const Duration(milliseconds: 50), () {
                           if (!mounted) return;
-                          final updatedState = itemsBloc.state;
-                          if (updatedState is ItemsLoaded) {
-                            bluetoothBloc.add(SendItemsToDevice(
-                              updatedState.items,
-                              categoryNames: _cachedCategoryNames,
-                            ));
-                          }
+                          itemsBloc.add(ReorderItemsInCategoryEvent(oldIndex: categoryIndex, newIndex: 0));
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            if (!mounted) return;
+                            itemsBloc.add(const FilterByCategoryEvent(null));
+                          });
                         });
                       }
                     }
@@ -1223,9 +1476,21 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }
 
     // Key must be at the root for ReorderableListView
+    // If there's a category label, include it above the tile
+    final finalWidget = categoryLabel != null
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCategoryLabel(categoryLabel, secondaryText),
+              result,
+            ],
+          )
+        : result;
+
     return KeyedSubtree(
       key: ValueKey(item.id),
-      child: result,
+      child: finalWidget,
     );
   }
 
@@ -1485,6 +1750,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     _firstItemController.dispose();
     _reorderHintController.dispose();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }
