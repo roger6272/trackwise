@@ -490,8 +490,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       // Don't allow reordering labels
                                       if (oldEntry.isLabel) return;
 
-                                      debugPrint('🔄 onReorder: oldIndex=$oldIndex, newIndex=$newIndex');
-
                                       // Capture references BEFORE any async operations
                                       final itemsBloc = context.read<ItemsBloc>();
                                       final bluetoothBloc = context.read<BluetoothBloc>();
@@ -503,7 +501,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       if (!isFilteredByCategory) {
                                         final movedItem = oldEntry.item!;
                                         final movedItemCat = movedItem.categoryId ?? '';
-                                        debugPrint('🔄 Moving "${movedItem.name}" from category "$movedItemCat"');
 
                                         // Create virtual list without the moved item
                                         final virtualList = listEntries
@@ -519,7 +516,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                                         // Clamp to valid range
                                         final clampedNewIndex = adjustedNewIndex.clamp(0, virtualList.length);
-                                        debugPrint('🔄 Adjusted index: $newIndex → $clampedNewIndex');
 
                                         // What we're inserting before (null if at end)
                                         final insertBefore = clampedNewIndex < virtualList.length
@@ -580,8 +576,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           insertPos = targetPosInCat >= 0 ? targetPosInCat : categoryItems.length;
                                         }
 
-                                        debugPrint('🔄 Target: category="$targetCat", insertPos=$insertPos');
-
                                         // Check for no-op (same category, same position)
                                         if (targetCat == movedItemCat) {
                                           final originalCategoryItems = filteredItems
@@ -624,7 +618,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           }
                                         } else {
                                           // Cross-category move via BLoC (optimistic update)
-                                          debugPrint('🔄 Cross-category move: "$movedItemCat" → "$targetCat" at position $insertPos');
                                           itemsBloc.add(MoveItemToCategoryEvent(
                                             itemId: movedItem.id,
                                             targetCategoryId: targetCat.isEmpty ? null : targetCat,
