@@ -7,6 +7,7 @@ import 'package:equatable/equatable.dart';
 /// - [event]: Real-time events (increment, switch, etc.)
 /// - [logs]: Historical event logs with pagination
 /// - [itemDelta]: Single item count update (efficient alternative to full prefs)
+/// - [error]: Error notification from firmware (command failures, parse errors)
 /// - [unknown]: Unrecognized message type
 enum BleMessageType {
   /// Item preferences/status update
@@ -24,6 +25,10 @@ enum BleMessageType {
   /// Single item delta update (count changed)
   /// Contains: id, count, todaycount, lastResetTime
   itemDelta,
+
+  /// Error notification from firmware
+  /// Contains: cmd (failed command), reason (error description)
+  error,
 
   /// Unknown or malformed message
   unknown,

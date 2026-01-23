@@ -93,6 +93,19 @@ class BleMessageModel extends BleMessage {
       );
     }
 
+    // For error, all fields are at top level (not in 'data')
+    // Format: {"type": "error", "cmd": "...", "reason": "..."}
+    if (type == BleMessageType.error) {
+      return BleMessageModel(
+        type: type,
+        data: {
+          'cmd': parsed['cmd'],
+          'reason': parsed['reason'],
+        },
+        receivedAt: DateTime.now(),
+      );
+    }
+
     final data = parsed['data'];
 
     // Extract selectedId based on message type:
@@ -140,6 +153,8 @@ class BleMessageModel extends BleMessage {
         return BleMessageType.logs;
       case 'item_delta':
         return BleMessageType.itemDelta;
+      case 'error':
+        return BleMessageType.error;
       default:
         return BleMessageType.unknown;
     }
@@ -170,6 +185,8 @@ class BleMessageModel extends BleMessage {
         return 'logs';
       case BleMessageType.itemDelta:
         return 'item_delta';
+      case BleMessageType.error:
+        return 'error';
       case BleMessageType.unknown:
         return 'unknown';
     }

@@ -152,6 +152,25 @@ void notifyPrefsToApp() {
   Serial.println("✅ Finished sending prefs via notification.");
 }
 
+// Send error notification to app via NOTIFY characteristic
+// Used to report command failures, parse errors, etc. for better debugging
+void notifyError(const char* cmd, const char* reason) {
+  if (!isConnected || NotifyChar == nullptr) return;
+
+  StaticJsonDocument<256> doc;
+  doc["type"] = "error";
+  doc["cmd"] = cmd;
+  doc["reason"] = reason;
+
+  String jsonOut;
+  serializeJson(doc, jsonOut);
+  jsonOut += "\n";
+
+  NotifyChar->setValue(jsonOut.c_str());
+  NotifyChar->notify();
+  Serial.printf("📤 Error notification: cmd=%s, reason=%s\n", cmd, reason);
+}
+
 // Send delta update for a single item (much smaller than full prefs)
 // Used after increment/reset to update just the changed item
 void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime, int resetNumber) {
@@ -308,6 +327,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       if (err) {
         Serial.print("JSON parse failed: ");
         Serial.println(err.c_str());
+        notifyError("set_items", err.c_str());
         incomingJsonBuffer = "";  // clear buffer on failure
         return;
       }
@@ -499,6 +519,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
     if (err) {
       Serial.print("❌ Command JSON parse error: ");
       Serial.println(err.c_str());
+      notifyError("parse", err.c_str());
       return;
     }
 
@@ -678,6 +699,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
     else {
       Serial.print("❓ Unknown command: ");
       Serial.println(cmd);
+      notifyError(cmd.c_str(), "Unknown command type");
     }
   }
 };
@@ -876,6 +898,7 @@ void handleCommand(char cmd) {
     // Increment current item count and update in prefs using indexed keys
     if (currentItemId == "none") {
       Serial.println("No Item Selected");
+      notifyError("increment", "No item selected");
       prefs.end();
       return;
     }
@@ -919,7 +942,8 @@ void handleCommand(char cmd) {
   } else if (cmd == 'r') {
     // Reset current item count and update in prefs using indexed keys
     if (currentItemId == "none") {
-      Serial.print("No Item Selected");
+      Serial.println("No Item Selected");
+      notifyError("reset", "No item selected");
       prefs.end();
       return;
     }

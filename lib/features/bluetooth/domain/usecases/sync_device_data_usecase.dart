@@ -53,6 +53,8 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
         return _syncLogsMessage(message, userId);
       case BleMessageType.itemDelta:
         return _syncItemDeltaMessage(message, userId);
+      case BleMessageType.error:
+        return _handleErrorMessage(message);
       case BleMessageType.unknown:
         return const Right(null);
     }
@@ -229,5 +231,23 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
         'resetNumber': resetNumber,
       }
     ]);
+  }
+
+  /// Handles error message from firmware - logs the error for debugging.
+  ///
+  /// Error messages indicate command failures on the device side.
+  /// Format: {"type": "error", "cmd": "<command>", "reason": "<reason>"}
+  Future<Either<Failure, void>> _handleErrorMessage(BleMessage message) async {
+    final data = message.data;
+    if (data == null || data is! Map<String, dynamic>) return const Right(null);
+
+    final cmd = data['cmd']?.toString() ?? 'unknown';
+    final reason = data['reason']?.toString() ?? 'unknown';
+
+    // Log the error for debugging visibility
+    debugPrint('BLE Error from device: cmd=$cmd, reason=$reason');
+
+    // Error messages don't require Firestore sync, just logging
+    return const Right(null);
   }
 }
