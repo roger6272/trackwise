@@ -94,6 +94,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   // Track last synced category items to prevent duplicate syncs
   String? _lastSyncedSignature;
+  DateTime? _lastSyncTime;
 
   @override
   void initState() {
@@ -394,17 +395,28 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           .map((i) => '${i.id}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
                                           .join(',');
 
-                                      // Only sync if signature changed (prevents duplicate syncs)
+                                      // Debounce: skip if synced recently (within 500ms)
+                                      final now = DateTime.now();
+                                      final recentlySynced = _lastSyncTime != null &&
+                                          now.difference(_lastSyncTime!).inMilliseconds < 500;
+
+                                      // Only sync if signature changed AND not recently synced
                                       if (currentSignature != _lastSyncedSignature) {
-                                        _lastSyncedSignature = currentSignature;
-                                        context.read<BluetoothBloc>().add(SendItemsToDevice(
-                                          currentCategoryItems,
-                                          categoryNames: _cachedCategoryNames,
-                                        ));
-                                        Future.delayed(const Duration(milliseconds: 100), () {
-                                          if (!mounted) return;
-                                          context.read<BluetoothBloc>().add(SendSelectedItem(selectedId));
-                                        });
+                                        if (!recentlySynced) {
+                                          _lastSyncedSignature = currentSignature;
+                                          _lastSyncTime = now;
+                                          context.read<BluetoothBloc>().add(SendItemsToDevice(
+                                            currentCategoryItems,
+                                            categoryNames: _cachedCategoryNames,
+                                          ));
+                                          Future.delayed(const Duration(milliseconds: 100), () {
+                                            if (!mounted) return;
+                                            context.read<BluetoothBloc>().add(SendSelectedItem(selectedId));
+                                          });
+                                        } else {
+                                          // Update signature but skip sync (debounced)
+                                          _lastSyncedSignature = currentSignature;
+                                        }
                                       }
                                     }
                                   }

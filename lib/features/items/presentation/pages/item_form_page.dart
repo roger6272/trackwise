@@ -9,10 +9,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
-import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
 import '../../../categories/presentation/bloc/categories_state.dart';
@@ -774,20 +771,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (createdItem) async {
           debugPrint('🟢 Item created with ID: ${createdItem.id}');
 
-          // Set the new item as active in app
+          // Set the new item as active in app UI (device selected item unchanged)
           if (mounted) {
             context.read<AppUiState>().activeItemId = createdItem.id;
           }
 
-          // Sync device with new item's category
-          await _syncWithDevice(
-            newItemId: createdItem.id,
-            newItem: createdItem,
-          );
-          debugPrint('🟢 _syncWithDevice completed');
-
+          // List sync handled by items_list_page buildWhen
           if (mounted) context.pop();
-          debugPrint('🟢 Popped');
         },
       );
     }
@@ -800,85 +790,6 @@ class _ItemFormPageState extends State<ItemFormPage> {
       return authState.user.id;
     }
     return '';
-  }
-
-  /// Syncs device when a new item is created.
-  /// Note: Update syncs are handled by items_list_page.dart's buildWhen callback.
-  Future<void> _syncWithDevice({
-    required String newItemId,
-    required Item newItem,
-  }) async {
-    try {
-      if (!mounted) return;
-
-      // Get device's selected item ID early to check if sync is needed
-      final bluetoothBloc = context.read<BluetoothBloc>();
-      final bluetoothState = bluetoothBloc.state;
-      final deviceSelectedId = bluetoothState.selectedItemId;
-
-      // If no device connection, skip sync
-      if (!bluetoothState.isConnected) return;
-
-      // Small delay to allow Firestore to propagate
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // Fetch fresh items from repository
-      final itemRepository = sl<ItemRepository>();
-      final itemsResult = await itemRepository.getItems(_getUserId());
-
-      final allItems = itemsResult.fold(
-        (failure) => <Item>[],
-        (items) => items,
-      );
-
-      if (!mounted || allItems.isEmpty) return;
-
-      // Find the category of the device's selected item
-      // For new items, use the new item's category if no device selection
-      String? selectedCategoryId;
-      if (deviceSelectedId != null && deviceSelectedId.isNotEmpty && deviceSelectedId != 'none') {
-        final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
-        selectedCategoryId = selectedItem?.categoryId;
-      } else {
-        selectedCategoryId = newItem.categoryId;
-      }
-
-      // Fetch categories from repository
-      final categoryRepository = sl<CategoryRepository>();
-      final categoriesResult = await categoryRepository.getCategories(_getUserId());
-      final categoryNames = categoriesResult.fold(
-        (failure) => <String, String>{},
-        (categories) => {for (final c in categories) c.id: c.name},
-      );
-
-      // Get items from the selected item's category
-      final categoryItems = allItems.where((i) {
-        final cat = i.categoryId;
-        final catEmpty = cat == null || cat.isEmpty;
-        final selectedEmpty = selectedCategoryId == null || selectedCategoryId.isEmpty;
-        if (catEmpty && selectedEmpty) return true;
-        if (catEmpty || selectedEmpty) return false;
-        return cat == selectedCategoryId;
-      }).toList();
-
-      // Sort by categoryOrder to match app's order
-      categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-      bluetoothBloc.add(SendItemsToDevice(
-        categoryItems,
-        categoryNames: categoryNames,
-      ));
-
-      // Wait for device to process items before sending selected item
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Send the new item as selected to device
-      if (newItemId.isNotEmpty) {
-        bluetoothBloc.add(SendSelectedItem(newItemId));
-      }
-    } catch (e) {
-      // Silently handle sync errors - device sync is best-effort
-    }
   }
 
   void _showErrorDialog(BuildContext context, String message) {
