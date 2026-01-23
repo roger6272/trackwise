@@ -269,7 +269,11 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
           .where((item) => item.id != event.itemId)
           .toList();
 
-      emit(ItemsLoaded(updatedItems, isWatching: currentState.isWatching));
+      emit(ItemsLoaded(
+        updatedItems,
+        isWatching: currentState.isWatching,
+        selectedCategoryId: currentState.selectedCategoryId,
+      ));
 
       // Perform actual delete
       final result = await deleteItemUseCase(DeleteItemParams(event.itemId));
@@ -284,7 +288,11 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
           // If watching, stream will update
           // If not, keep optimistic delete
           if (!currentState.isWatching) {
-            emit(ItemsLoaded(updatedItems, isWatching: false));
+            emit(ItemsLoaded(
+              updatedItems,
+              isWatching: false,
+              selectedCategoryId: currentState.selectedCategoryId,
+            ));
           }
         },
       );

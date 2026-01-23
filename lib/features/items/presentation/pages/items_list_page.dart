@@ -751,7 +751,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
     // Check if we're already viewing the active item's category
     final currentCategoryId = itemsState.selectedCategoryId;
     final activeCategoryId = activeItem.categoryId;
-    final isInCurrentCategory = currentCategoryId == null || // viewing "All"
+    // Show navigation arrow unless already viewing the exact category
+    final isInCurrentCategory =
         (currentCategoryId == '' && (activeCategoryId == null || activeCategoryId.isEmpty)) || // both uncategorized
         currentCategoryId == activeCategoryId;
 
@@ -1449,8 +1450,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
       categoryNames: _cachedCategoryNames,
     ));
 
-    // Update selected item if needed
-    if (deviceSelectedId != null && deviceSelectedId != 'none') {
+    // Update selected item on device (including 'none' to clear selection)
+    if (deviceSelectedId != null) {
       bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
     }
   }
