@@ -11,6 +11,7 @@ import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
 import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
@@ -731,9 +732,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (item) async {
           debugPrint('🟢 Item updated: ${item.id}');
 
-          // Sync with device after update (send items from the NEW category)
-          // Use selectedCategoryId, not item.categoryId (which may be stale)
-          await _syncWithDevice(itemCategoryId: selectedCategoryId);
+          // Sync with device if item moved to category containing selected item
+          await _syncWithDevice(
+            updatedItem: item,
+            targetCategoryId: selectedCategoryId,
+          );
 
           if (mounted) context.pop();
         },
@@ -783,8 +786,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
           // Sync with device after create (send items from the item's category)
           await _syncWithDevice(
+            updatedItem: createdItem,
+            targetCategoryId: createdItem.categoryId,
             newItemId: createdItem.id,
-            itemCategoryId: createdItem.categoryId,
           );
           debugPrint('🟢 _syncWithDevice completed');
 
@@ -804,74 +808,104 @@ class _ItemFormPageState extends State<ItemFormPage> {
     return '';
   }
 
-  Future<void> _syncWithDevice({String? newItemId, String? itemCategoryId}) async {
+  Future<void> _syncWithDevice({
+    required Item updatedItem,
+    required String? targetCategoryId,
+    String? newItemId,
+  }) async {
     try {
       debugPrint('🔄 _syncWithDevice started');
-      // Small delay to allow Firestore to propagate the write
-      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
 
-      // Fetch all items from repository
-      final itemRepository = sl<ItemRepository>();
-      final itemsResult = await itemRepository.getItems(_getUserId());
+      final bluetoothState = context.read<BluetoothBloc>().state;
 
-      final allItems = itemsResult.fold(
-        (failure) {
-          debugPrint('❌ Failed to fetch items: ${failure.message}');
-          return <Item>[];
-        },
-        (items) => items,
-      );
-
-      debugPrint('📦 Fetched ${allItems.length} items');
-
-      if (mounted) {
-        // Build category names map
-        final categoriesState = context.read<CategoriesBloc>().state;
-        final categoryNames = categoriesState is CategoriesLoaded
-            ? {for (final c in categoriesState.categories) c.id: c.name}
-            : <String, String>{};
-
-        // Filter items by the selected item's category (matching pin action behavior)
-        // This ensures device only loops through items in the same category
-        final targetCategoryId = itemCategoryId;
-        final categoryItems = allItems.where((i) {
-          final cat = i.categoryId;
-          if (targetCategoryId == null || targetCategoryId.isEmpty) {
-            // Item is uncategorized - get all uncategorized
-            return cat == null || cat.isEmpty;
-          }
-          return cat == targetCategoryId;
-        }).toList();
-
-        // Sort by categoryOrder for consistent device ordering
-        categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-        debugPrint('📤 Sending ${categoryItems.length} items (category: $targetCategoryId) to device');
-        context.read<BluetoothBloc>().add(SendItemsToDevice(
-          categoryItems,
-          categoryNames: categoryNames,
-        ));
-
-        // Wait for device to process items before sending selected item
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        // Send selected item to device (use newItemId if provided, otherwise current active)
-        final selectedItemId = newItemId ?? context.read<AppUiState>().activeItemId;
-        debugPrint('⭐ Selected item ID: $selectedItemId');
-        if (selectedItemId.isNotEmpty && selectedItemId != 'none') {
-          debugPrint('📤 Sending selected item: $selectedItemId');
-          context.read<BluetoothBloc>().add(SendSelectedItem(selectedItemId));
-        }
-
-        // NOTE: Don't request prefs from device here!
-        // Requesting prefs causes device to send back its stored counts,
-        // which may be stale and overwrite Firestore with old values.
-        // Device counts should only be fetched during initial connection sync.
+      // Only sync if connected
+      if (!bluetoothState.isConnected) {
+        debugPrint('⏭️ Not connected, skipping device sync');
+        return;
       }
+
+      // Get device's selected item ID
+      final deviceSelectedId = bluetoothState.selectedItemId;
+      debugPrint('📍 Device selected item: $deviceSelectedId');
+
+      // Get current items from app state
+      final itemsState = context.read<ItemsBloc>().state;
+      if (itemsState is! ItemsLoaded) {
+        debugPrint('⏭️ Items not loaded, skipping sync');
+        return;
+      }
+
+      final allItems = itemsState.items;
+
+      // Find the category of the device's selected item
+      String? selectedItemCategoryId;
+      if (deviceSelectedId != null && deviceSelectedId != 'none') {
+        final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
+        selectedItemCategoryId = selectedItem?.categoryId;
+        debugPrint('📍 Selected item category: $selectedItemCategoryId');
+      }
+
+      // Check if item is being moved TO the category containing the selected item
+      final bool isSameCategoryAsSelected = _isSameCategory(targetCategoryId, selectedItemCategoryId);
+
+      if (!isSameCategoryAsSelected && newItemId == null) {
+        debugPrint('⏭️ Item not in selected item category, skipping sync');
+        return;
+      }
+
+      // Build category names map
+      final categoriesState = context.read<CategoriesBloc>().state;
+      final categoryNames = categoriesState is CategoriesLoaded
+          ? {for (final c in categoriesState.categories) c.id: c.name}
+          : <String, String>{};
+
+      // Get items from target category, using app's current list
+      // Replace/add the updated item to ensure it's included with latest data
+      final categoryItems = allItems
+          .where((i) => _isSameCategory(i.categoryId, targetCategoryId))
+          .map((i) => i.id == updatedItem.id ? updatedItem : i)
+          .toList();
+
+      // Add item if it wasn't in the list (new item or moved from different category)
+      if (!categoryItems.any((i) => i.id == updatedItem.id)) {
+        categoryItems.add(updatedItem);
+      }
+
+      // Sort by categoryOrder to match app's order
+      categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+      debugPrint('📤 Sending ${categoryItems.length} items (category: $targetCategoryId) to device');
+      context.read<BluetoothBloc>().add(SendItemsToDevice(
+        categoryItems,
+        categoryNames: categoryNames,
+      ));
+
+      // Wait for device to process items before sending selected item
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Send selected item to device (use newItemId if provided, otherwise keep current)
+      final selectedItemId = newItemId ?? deviceSelectedId;
+      debugPrint('⭐ Selected item ID: $selectedItemId');
+      if (selectedItemId != null && selectedItemId.isNotEmpty && selectedItemId != 'none') {
+        debugPrint('📤 Sending selected item: $selectedItemId');
+        context.read<BluetoothBloc>().add(SendSelectedItem(selectedItemId));
+      }
+
       debugPrint('✅ _syncWithDevice completed');
     } catch (e) {
       debugPrint('❌ Error syncing with device: $e');
     }
+  }
+
+  /// Checks if two category IDs represent the same category.
+  /// Treats null and empty string as the same (uncategorized).
+  bool _isSameCategory(String? a, String? b) {
+    final aEmpty = a == null || a.isEmpty;
+    final bEmpty = b == null || b.isEmpty;
+    if (aEmpty && bEmpty) return true;
+    if (aEmpty || bEmpty) return false;
+    return a == b;
   }
 
   void _showErrorDialog(BuildContext context, String message) {
