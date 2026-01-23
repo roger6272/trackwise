@@ -1157,6 +1157,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       allItems: currentItems,
                       deviceSelectedId: newSelectedId,
                       excludeItemId: item.id,
+                      fallbackCategoryId: item.categoryId,
                     );
                   }
                 } else {
@@ -1400,12 +1401,18 @@ class _ItemsListContentState extends State<_ItemsListContent>
     required String? deviceSelectedId,
     String? excludeItemId,
     Item? includeItem,
+    String? fallbackCategoryId,
   }) {
     // Find the selected item and its category
+    // Fallback to provided category if no device selection
     String? selectedCategoryId;
     if (deviceSelectedId != null && deviceSelectedId != 'none') {
       final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
       selectedCategoryId = selectedItem?.categoryId;
+      debugPrint('📍 Selected item category: $selectedCategoryId');
+    } else if (fallbackCategoryId != null) {
+      selectedCategoryId = fallbackCategoryId;
+      debugPrint('📍 No device selection, using fallback category: $selectedCategoryId');
     }
 
     // Get items from the selected item's category

@@ -832,10 +832,16 @@ class _ItemFormPageState extends State<ItemFormPage> {
       final allItems = itemsState.items;
 
       // Find the category of the device's selected item
+      // Fallback to updated item's category if no device selection
       String? selectedCategoryId;
       if (deviceSelectedId != null && deviceSelectedId != 'none') {
         final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
         selectedCategoryId = selectedItem?.categoryId;
+        debugPrint('📍 Selected item category: $selectedCategoryId');
+      } else if (updatedItem != null) {
+        // No device selection - use the updated item's category
+        selectedCategoryId = updatedItem.categoryId;
+        debugPrint('📍 No device selection, using updated item category: $selectedCategoryId');
       }
 
       // Build category names map

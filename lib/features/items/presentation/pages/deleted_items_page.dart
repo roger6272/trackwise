@@ -458,12 +458,18 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       );
 
       // Find the category of the device's selected item
+      // Fallback to restored item's category if no device selection
       String? selectedCategoryId;
       if (deviceSelectedId != null && deviceSelectedId != 'none') {
         final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
         selectedCategoryId = selectedItem?.categoryId;
+        debugPrint('📍 Selected item category: $selectedCategoryId');
+      } else {
+        // No device selection - use the restored item's category
+        final restoredItem = allItems.where((i) => i.id == restoredItemId).firstOrNull;
+        selectedCategoryId = restoredItem?.categoryId;
+        debugPrint('📍 No device selection, using restored item category: $selectedCategoryId');
       }
-      debugPrint('📍 Selected item category: $selectedCategoryId');
 
       // Filter items to selected item's category
       final categoryItems = allItems.where((i) {
