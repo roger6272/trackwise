@@ -1144,11 +1144,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       appUiStateRef.activeItemId = 'none';
                     }
 
-                    // Remove deleted item from current list (same list device has)
-                    final updatedItems = currentItems
-                        .where((i) => i.id != item.id)
-                        .toList();
-
                     // Determine new selected item
                     final newSelectedId = (deviceSelectedId == item.id || deviceSelectedId == null)
                         ? 'none'
@@ -1156,12 +1151,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                     itemsBloc.add(DeleteItemEvent(item.id));
 
-                    // Sync same category list (minus deleted item) to device
-                    bluetoothBloc.add(SendItemsToDevice(
-                      updatedItems,
-                      categoryNames: _cachedCategoryNames,
-                    ));
-                    bluetoothBloc.add(SendSelectedItem(newSelectedId));
+                    // Sync device with selected item's category (minus deleted item)
+                    _syncDeviceWithSelectedCategory(
+                      bluetoothBloc: bluetoothBloc,
+                      allItems: currentItems,
+                      deviceSelectedId: newSelectedId,
+                      excludeItemId: item.id,
+                    );
                   }
                 } else {
                   await _showConnectDeviceDialog(context);
@@ -1394,6 +1390,62 @@ class _ItemsListContentState extends State<_ItemsListContent>
         });
       });
     });
+  }
+
+  /// Syncs the device with items from the selected item's category.
+  /// Used after create/update/delete/restore to keep device in sync with app.
+  void _syncDeviceWithSelectedCategory({
+    required BluetoothBloc bluetoothBloc,
+    required List<Item> allItems,
+    required String? deviceSelectedId,
+    String? excludeItemId,
+    Item? includeItem,
+  }) {
+    // Find the selected item and its category
+    String? selectedCategoryId;
+    if (deviceSelectedId != null && deviceSelectedId != 'none') {
+      final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
+      selectedCategoryId = selectedItem?.categoryId;
+    }
+
+    // Get items from the selected item's category
+    var categoryItems = allItems.where((i) {
+      final cat = i.categoryId;
+      final targetCat = selectedCategoryId;
+      // Match category (treat null and empty as same - uncategorized)
+      final catEmpty = cat == null || cat.isEmpty;
+      final targetEmpty = targetCat == null || targetCat.isEmpty;
+      if (catEmpty && targetEmpty) return true;
+      if (catEmpty || targetEmpty) return false;
+      return cat == targetCat;
+    }).toList();
+
+    // Exclude item if specified (for delete)
+    if (excludeItemId != null) {
+      categoryItems = categoryItems.where((i) => i.id != excludeItemId).toList();
+    }
+
+    // Include/update item if specified (for create/update/restore)
+    if (includeItem != null) {
+      categoryItems = categoryItems.map((i) => i.id == includeItem.id ? includeItem : i).toList();
+      if (!categoryItems.any((i) => i.id == includeItem.id)) {
+        categoryItems.add(includeItem);
+      }
+    }
+
+    // Sort by categoryOrder to match app's order
+    categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+    debugPrint('📤 Syncing ${categoryItems.length} items to device (category: $selectedCategoryId)');
+    bluetoothBloc.add(SendItemsToDevice(
+      categoryItems,
+      categoryNames: _cachedCategoryNames,
+    ));
+
+    // Update selected item if needed
+    if (deviceSelectedId != null && deviceSelectedId != 'none') {
+      bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
+    }
   }
 
   @override

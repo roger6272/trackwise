@@ -430,8 +430,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
     }
   }
 
-  /// Syncs the updated item list with the device after restoration.
-  /// Sets the restored item as the selected item on the device.
+  /// Syncs the device with items from the selected item's category after restore.
   Future<void> _syncWithDeviceAfterRestore({
     required BluetoothBloc bluetoothBloc,
     required String restoredItemId,
@@ -441,11 +440,16 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       // Wait for Firestore propagation
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // Fetch ALL active items from Firestore (not deleted ones)
+      // Get device's selected item
+      final bluetoothState = bluetoothBloc.state;
+      final deviceSelectedId = bluetoothState.selectedItemId;
+      debugPrint('📍 Device selected item: $deviceSelectedId');
+
+      // Fetch ALL active items from Firestore
       final itemRepository = sl<ItemRepository>();
       final itemsResult = await itemRepository.getItems(_getUserId());
 
-      final items = itemsResult.fold(
+      final allItems = itemsResult.fold(
         (failure) {
           debugPrint('❌ Failed to fetch items after restore: ${failure.message}');
           return <Item>[];
@@ -453,21 +457,40 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
         (items) => items,
       );
 
-      // Send updated items list to device
-      debugPrint('📤 Sending ${items.length} items to device after restore');
-      bluetoothBloc.add(SendItemsToDevice(items, categoryNames: categoryNames));
+      // Find the category of the device's selected item
+      String? selectedCategoryId;
+      if (deviceSelectedId != null && deviceSelectedId != 'none') {
+        final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
+        selectedCategoryId = selectedItem?.categoryId;
+      }
+      debugPrint('📍 Selected item category: $selectedCategoryId');
+
+      // Filter items to selected item's category
+      final categoryItems = allItems.where((i) {
+        final cat = i.categoryId;
+        // Match category (treat null and empty as same - uncategorized)
+        final catEmpty = cat == null || cat.isEmpty;
+        final selectedEmpty = selectedCategoryId == null || selectedCategoryId.isEmpty;
+        if (catEmpty && selectedEmpty) return true;
+        if (catEmpty || selectedEmpty) return false;
+        return cat == selectedCategoryId;
+      }).toList();
+
+      // Sort by categoryOrder to match app's order
+      categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+      // Send items from selected category to device
+      debugPrint('📤 Sending ${categoryItems.length} items to device after restore (category: $selectedCategoryId)');
+      bluetoothBloc.add(SendItemsToDevice(categoryItems, categoryNames: categoryNames));
 
       // Wait for device to process items before sending selected item
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Send restored item as selected item to device
-      debugPrint('📤 Sending restored item as selected: $restoredItemId');
-      bluetoothBloc.add(SendSelectedItem(restoredItemId));
-
-      // NOTE: Don't request prefs from device here!
-      // Requesting prefs causes a race condition - the device responds
-      // before it has finished processing the set_selected command.
-      // Device counts should only be fetched during initial connection sync.
+      // Keep current selected item (don't change to restored item)
+      if (deviceSelectedId != null && deviceSelectedId != 'none') {
+        debugPrint('📤 Keeping selected item: $deviceSelectedId');
+        bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
+      }
     } catch (e) {
       debugPrint('❌ Error syncing with device after restore: $e');
     }
