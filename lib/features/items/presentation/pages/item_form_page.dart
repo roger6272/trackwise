@@ -860,7 +860,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
         },
         (categories) => {for (final c in categories) c.id: c.name},
       );
-      debugPrint('📂 Category names: $categoryNames');
+      debugPrint('📂 Category names (${categoryNames.length}): $categoryNames');
+      debugPrint('🔍 Selected category "$selectedCategoryId" resolves to: "${categoryNames[selectedCategoryId] ?? "NOT FOUND"}"');
 
       // Get items from the selected item's category
       final categoryItems = allItems.where((i) {
