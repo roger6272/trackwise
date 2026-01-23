@@ -1197,10 +1197,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
     // Check if we're already viewing the active item's category
     final currentCategoryId = itemsState.selectedCategoryId;
     final activeCategoryId = activeItem.categoryId;
+    final isUncategorized = activeCategoryId == null || activeCategoryId.isEmpty;
     // Show navigation arrow unless already viewing the exact category
+    // In "All" view (null), always show arrow to navigate to the specific category
     final isInCurrentCategory =
-        (currentCategoryId == '' && (activeCategoryId == null || activeCategoryId.isEmpty)) || // both uncategorized
-        currentCategoryId == activeCategoryId;
+        (currentCategoryId == '' && isUncategorized) || // viewing uncategorized filter
+        (currentCategoryId != null && currentCategoryId == activeCategoryId); // viewing exact category
 
     // Get category name from cached map
     String categoryName = 'Uncategorized';
