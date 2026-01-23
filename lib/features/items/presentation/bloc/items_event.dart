@@ -255,3 +255,35 @@ class ReorderItemsInCategoryEvent extends ItemsEvent {
   @override
   List<Object?> get props => [oldIndex, newIndex];
 }
+
+/// Event to move an item to a different category.
+///
+/// Used for cross-category drag-and-drop in "All" view.
+/// Updates both the moved item's categoryId and categoryOrder,
+/// and recalculates categoryOrder for source and target categories.
+///
+/// Example:
+/// ```dart
+/// bloc.add(MoveItemToCategoryEvent(
+///   itemId: 'item_123',
+///   targetCategoryId: 'category_456', // null for uncategorized
+///   insertPosition: 0, // position within target category
+///   sourceCategoryId: 'category_789',
+/// ));
+/// ```
+class MoveItemToCategoryEvent extends ItemsEvent {
+  final String itemId;
+  final String? targetCategoryId;
+  final int insertPosition;
+  final String? sourceCategoryId;
+
+  const MoveItemToCategoryEvent({
+    required this.itemId,
+    required this.targetCategoryId,
+    required this.insertPosition,
+    required this.sourceCategoryId,
+  });
+
+  @override
+  List<Object?> get props => [itemId, targetCategoryId, insertPosition, sourceCategoryId];
+}

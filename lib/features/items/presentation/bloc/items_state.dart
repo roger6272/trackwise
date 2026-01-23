@@ -58,17 +58,35 @@ class ItemsLoaded extends ItemsState {
   });
 
   /// Returns filtered items based on selectedCategoryId.
-  List<Item> get filteredItems {
+  ///
+  /// For "All" view, use [getFilteredItemsWithCategoryOrder] instead to
+  /// properly sort categories by their user-defined order.
+  List<Item> get filteredItems => getFilteredItemsWithCategoryOrder(null);
+
+  /// Returns filtered items with proper category ordering.
+  ///
+  /// [categoryOrderMap] maps categoryId to its display order.
+  /// If null, categories are sorted alphabetically by ID (fallback).
+  /// Uncategorized items (null or empty categoryId) are always shown last.
+  List<Item> getFilteredItemsWithCategoryOrder(Map<String, int>? categoryOrderMap) {
     if (selectedCategoryId == null) {
       // All items, grouped by category, sorted by categoryOrder within each group
       final sorted = List<Item>.from(items);
       sorted.sort((a, b) {
-        // First sort by categoryId (null/empty categories go last)
+        // First sort by category order
         final catA = a.categoryId ?? '';
         final catB = b.categoryId ?? '';
         if (catA != catB) {
-          if (catA.isEmpty) return 1; // Uncategorized last
+          // Uncategorized always goes last
+          if (catA.isEmpty) return 1;
           if (catB.isEmpty) return -1;
+
+          // Use category order map if available, otherwise alphabetical
+          if (categoryOrderMap != null) {
+            final orderA = categoryOrderMap[catA] ?? 999999;
+            final orderB = categoryOrderMap[catB] ?? 999999;
+            if (orderA != orderB) return orderA.compareTo(orderB);
+          }
           return catA.compareTo(catB);
         }
         // Within same category, sort by categoryOrder
@@ -76,8 +94,9 @@ class ItemsLoaded extends ItemsState {
       });
       return sorted;
     } else if (selectedCategoryId == '') {
-      // Uncategorized items only, sorted by categoryOrder
-      return List<Item>.from(items.where((item) => item.categoryId == null))
+      // Uncategorized items only (null or empty string), sorted by categoryOrder
+      return List<Item>.from(items.where((item) =>
+          item.categoryId == null || item.categoryId!.isEmpty))
         ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
     } else {
       // Items in specific category, sorted by categoryOrder

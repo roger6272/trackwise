@@ -61,6 +61,7 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     on<ReorderItemsEvent>(_onReorderItems);
     on<FilterByCategoryEvent>(_onFilterByCategory);
     on<ReorderItemsInCategoryEvent>(_onReorderItemsInCategory);
+    on<MoveItemToCategoryEvent>(_onMoveItemToCategory);
   }
 
   /// Handle LoadItemsEvent - fetch items once.
@@ -500,6 +501,106 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
           // If not, keep optimistic reorder
           if (!currentState.isWatching) {
             emit(currentState.copyWith(items: updatedItems));
+          }
+        },
+      );
+    }
+  }
+
+  /// Handle MoveItemToCategoryEvent - move item to a different category.
+  ///
+  /// Uses optimistic update: Moves the item immediately in the UI
+  /// and reverts if the Firestore operation fails.
+  ///
+  /// Updates:
+  /// 1. Moved item's categoryId and categoryOrder
+  /// 2. Target category items' categoryOrder
+  /// 3. Source category items' categoryOrder (to close the gap)
+  Future<void> _onMoveItemToCategory(
+    MoveItemToCategoryEvent event,
+    Emitter<ItemsState> emit,
+  ) async {
+    final currentState = state;
+
+    if (currentState is ItemsLoaded) {
+      // Find the item to move
+      final movedItem = currentState.items.firstWhere(
+        (i) => i.id == event.itemId,
+        orElse: () => throw StateError('Item not found'),
+      );
+
+      // Get source and target category IDs (null = uncategorized)
+      final sourceCatId = event.sourceCategoryId;
+      final targetCatId = event.targetCategoryId;
+
+      // Helper to match category (treats null and empty as uncategorized)
+      bool matchesCategory(Item item, String? catId) {
+        final itemCat = item.categoryId;
+        if (catId == null || catId.isEmpty) {
+          return itemCat == null || itemCat.isEmpty;
+        }
+        return itemCat == catId;
+      }
+
+      // Get target category items (excluding moved item)
+      final targetCategoryItems = currentState.items
+          .where((i) => matchesCategory(i, targetCatId) && i.id != movedItem.id)
+          .toList()
+        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+      // Get source category items (excluding moved item)
+      final sourceCategoryItems = currentState.items
+          .where((i) => matchesCategory(i, sourceCatId) && i.id != movedItem.id)
+          .toList()
+        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+      // Build updated target list with moved item inserted
+      final updatedTargetList = List<Item>.from(targetCategoryItems);
+      final clampedPos = event.insertPosition.clamp(0, updatedTargetList.length);
+      final updatedMovedItem = movedItem.copyWith(
+        categoryId: targetCatId,
+        clearCategoryId: targetCatId == null || targetCatId.isEmpty,
+        categoryOrder: clampedPos,
+      );
+      updatedTargetList.insert(clampedPos, updatedMovedItem);
+
+      // Update categoryOrder for all target items
+      final updatedTargetItems = updatedTargetList.asMap().entries.map((e) {
+        return e.value.copyWith(categoryOrder: e.key);
+      }).toList();
+
+      // Update categoryOrder for source items (close the gap)
+      final updatedSourceItems = sourceCategoryItems.asMap().entries.map((e) {
+        return e.value.copyWith(categoryOrder: e.key);
+      }).toList();
+
+      // Build the full updated items list
+      final itemsToUpdate = {...updatedTargetItems, ...updatedSourceItems};
+      final updatedItemsMap = {for (var i in itemsToUpdate) i.id: i};
+      final optimisticItems = currentState.items.map((item) {
+        return updatedItemsMap[item.id] ?? item;
+      }).toList();
+
+      // Emit optimistic update immediately
+      emit(currentState.copyWith(items: optimisticItems));
+
+      // Persist to Firestore
+      final allUpdated = [...updatedTargetItems, ...updatedSourceItems];
+      final result = await itemRepository.reorderItemsInCategory(allUpdated);
+
+      result.fold(
+        (failure) {
+          // Revert on error
+          debugPrint('Failed to move item to category: ${failure.message}');
+          emit(currentState);
+          emit(ItemsError(failure.message));
+        },
+        (_) {
+          debugPrint('Item moved to category successfully');
+          // If watching, stream will confirm the update
+          // If not, keep optimistic update
+          if (!currentState.isWatching) {
+            emit(currentState.copyWith(items: optimisticItems));
           }
         },
       );
