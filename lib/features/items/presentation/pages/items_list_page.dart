@@ -1128,7 +1128,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 if (isConnected) {
                   // Capture references BEFORE the async dialog
                   final itemsBloc = context.read<ItemsBloc>();
+                  final bluetoothBloc = context.read<BluetoothBloc>();
                   final appUiStateRef = appUiState;
+                  final deviceSelectedId = selectedItemId;
+
+                  // Capture current items list BEFORE deletion
+                  final currentState = itemsBloc.state;
+                  final currentItems = currentState is ItemsLoaded
+                      ? currentState.items
+                      : <Item>[];
 
                   final confirmed = await _showDeleteConfirmation(context, item.name);
                   if (confirmed) {
@@ -1136,8 +1144,24 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       appUiStateRef.activeItemId = 'none';
                     }
 
+                    // Remove deleted item from current list (same list device has)
+                    final updatedItems = currentItems
+                        .where((i) => i.id != item.id)
+                        .toList();
+
+                    // Determine new selected item
+                    final newSelectedId = (deviceSelectedId == item.id || deviceSelectedId == null)
+                        ? 'none'
+                        : deviceSelectedId;
+
                     itemsBloc.add(DeleteItemEvent(item.id));
-                    // Device keeps its original list - sync will happen on next manual sync
+
+                    // Sync same category list (minus deleted item) to device
+                    bluetoothBloc.add(SendItemsToDevice(
+                      updatedItems,
+                      categoryNames: _cachedCategoryNames,
+                    ));
+                    bluetoothBloc.add(SendSelectedItem(newSelectedId));
                   }
                 } else {
                   await _showConnectDeviceDialog(context);
