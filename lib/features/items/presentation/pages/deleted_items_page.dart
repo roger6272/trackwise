@@ -12,8 +12,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
-import '../../../categories/presentation/bloc/categories_bloc.dart';
-import '../../../categories/presentation/bloc/categories_state.dart';
+import '../../../categories/domain/repositories/category_repository.dart';
 import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../bloc/deleted_items_bloc.dart';
@@ -123,16 +122,9 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
 
                       // Sync with device after restoration
                       if (isConnected) {
-                        // Build category names map
-                        final categoriesState = context.read<CategoriesBloc>().state;
-                        final categoryNames = categoriesState is CategoriesLoaded
-                            ? {for (final c in categoriesState.categories) c.id: c.name}
-                            : <String, String>{};
-
                         _syncWithDeviceAfterRestore(
                           bluetoothBloc: context.read<BluetoothBloc>(),
                           restoredItemId: state.itemId,
-                          categoryNames: categoryNames,
                         );
                       }
                     }
@@ -434,7 +426,6 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
   Future<void> _syncWithDeviceAfterRestore({
     required BluetoothBloc bluetoothBloc,
     required String restoredItemId,
-    Map<String, String> categoryNames = const {},
   }) async {
     try {
       // Wait for Firestore propagation
@@ -455,6 +446,17 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
           return <Item>[];
         },
         (items) => items,
+      );
+
+      // Fetch categories from repository
+      final categoryRepository = sl<CategoryRepository>();
+      final categoriesResult = await categoryRepository.getCategories(_getUserId());
+      final categoryNames = categoriesResult.fold(
+        (failure) {
+          debugPrint('❌ Failed to fetch categories: ${failure.message}');
+          return <String, String>{};
+        },
+        (categories) => {for (final c in categories) c.id: c.name},
       );
 
       // Find the category of the device's selected item
