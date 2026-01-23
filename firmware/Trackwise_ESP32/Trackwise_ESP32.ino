@@ -942,6 +942,11 @@ void handleCommand(char cmd) {
     delay(50);  // Brief gap between notifications
     if (isConnected) notifyEvent("increment");
 
+    // Debug: print category and item index
+    Serial.printf("📍 Category: %s | Item index: %d/%d\n",
+                  itemCategory.length() > 0 ? itemCategory.c_str() : "Uncategorized",
+                  currentItemIndex, total);
+
   } else if (cmd == 'r') {
     // Reset current item count and update in prefs using indexed keys
     if (currentItemId == "none") {
@@ -1039,6 +1044,10 @@ void handleCommand(char cmd) {
     if (isConnected) notifyEvent("switch");
 
     Serial.printf("Switch to: %s (index %d)\n", itemName.c_str(), currentItemIndex);
+    // Debug: print category and item index
+    Serial.printf("📍 Category: %s | Item index: %d/%d\n",
+                  itemCategory.length() > 0 ? itemCategory.c_str() : "Uncategorized",
+                  currentItemIndex, total);
     return;  // Already closed prefs, skip the final prefs.end()
   }
 

@@ -158,9 +158,32 @@ class _ItemsListContentState extends State<_ItemsListContent>
         listener: (context, state) {
           _updateCategoryCache(state);
         },
-        child: BlocBuilder<BluetoothBloc, BluetoothState>(
-          builder: (context, bluetoothState) {
-            final isConnected = bluetoothState.isConnected;
+        child: BlocListener<BluetoothBloc, BluetoothState>(
+          listenWhen: (previous, current) =>
+              !previous.isConnected && current.isConnected,
+          listener: (context, bluetoothState) {
+            // When device connects, navigate to selected item's category
+            final selectedItemId = bluetoothState.selectedItemId;
+            if (selectedItemId != null && selectedItemId.isNotEmpty && selectedItemId != 'none') {
+              final itemsState = context.read<ItemsBloc>().state;
+              if (itemsState is ItemsLoaded) {
+                final selectedItem = itemsState.items
+                    .where((i) => i.id == selectedItemId)
+                    .firstOrNull;
+                if (selectedItem != null) {
+                  final targetCategoryId =
+                      (selectedItem.categoryId == null || selectedItem.categoryId!.isEmpty)
+                          ? ''
+                          : selectedItem.categoryId!;
+                  context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
+                  context.read<AppUiState>().selectedCategoryId = targetCategoryId;
+                }
+              }
+            }
+          },
+          child: BlocBuilder<BluetoothBloc, BluetoothState>(
+            builder: (context, bluetoothState) {
+              final isConnected = bluetoothState.isConnected;
 
             return GestureDetector(
               onTap: () {
@@ -507,6 +530,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               ),
             );
           },
+        ),
         ),
       ),
     );
