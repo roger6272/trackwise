@@ -61,6 +61,11 @@ time_t lastResetTime = 0;
 int itemResetNumber = 0;  // Track reset count for current item
 Preferences prefs;  // Non-volatile storage instance
 unsigned long lastResetCheck = 0;
+
+// NVS write batching - reduce flash wear by writing every N increments
+static int incrementsSinceWrite = 0;
+static bool countsDirty = false;
+
 String incomingJsonBuffer = "";
 unsigned long lastChunkReceived = 0;  // Timestamp of last chunk for timeout detection
 const unsigned long CHUNK_TIMEOUT_MS = 5000;  // 5 second timeout for incomplete transfers
@@ -100,6 +105,23 @@ void updateVibration() {
   if (vibration.isActive && millis() >= vibration.endTime) {
     digitalWrite(VIBRATION_PIN, LOW);
     vibration.isActive = false;
+  }
+}
+
+// Flush pending NVS writes for current item (call on disconnect or before sleep)
+void flushPendingNvsWrites() {
+  if (countsDirty && currentItemId != "none") {
+    Serial.println("📝 Flushing pending NVS writes...");
+    prefs.begin("counter", false);
+    char key[16];
+    snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+    prefs.putInt(key, itemCount);
+    snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+    prefs.putInt(key, itemTodayCount);
+    prefs.end();
+    countsDirty = false;
+    incrementsSinceWrite = 0;
+    Serial.printf("✅ Flushed: count=%d, todayCount=%d\n", itemCount, itemTodayCount);
   }
 }
 
@@ -451,6 +473,10 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       prefs.end();
 
+      // Reset batching state when items are refreshed from app
+      countsDirty = false;
+      incrementsSinceWrite = 0;
+
       clearLogs();
       incomingJsonBuffer = "";
       Serial.println("✅ Finished writing to prefs with index-based keys.");
@@ -486,6 +512,9 @@ class WriteCallback : public BLECharacteristicCallbacks {
     } else if (cmd == "set_selected") {  ///////////////////////// set selected item
       String id = doc["id"] | "";
       id.trim();  // ⚠️ Important to match stored prefs key
+
+      // Flush pending writes for previous item before switching
+      flushPendingNvsWrites();
 
       prefs.begin("counter", false);
 
@@ -661,6 +690,9 @@ class ServerCallbacks : public BLEServerCallbacks {
     Serial.println("✅ Connected!");
   }
   void onDisconnect(BLEServer* p) override {
+    // Flush any pending NVS writes before disconnecting to prevent data loss
+    flushPendingNvsWrites();
+
     isConnected = false;
     Serial.println("🔌 Client disconnected — restarting advertising...");
     BLEDevice::startAdvertising();
@@ -844,11 +876,14 @@ void handleCommand(char cmd) {
     // Increment current item count and update in prefs using indexed keys
     if (currentItemId == "none") {
       Serial.println("No Item Selected");
+      prefs.end();
       return;
     }
     //update first
     itemCount += itemIncrement;
     itemTodayCount += itemIncrement;
+    incrementsSinceWrite++;
+    countsDirty = true;
 
     //extract from prefs
     snprintf(key, sizeof(key), "r_%d", currentItemIndex);
@@ -864,10 +899,16 @@ void handleCommand(char cmd) {
       // trigger vibration here
     }
 
-    snprintf(key, sizeof(key), "c_%d", currentItemIndex);
-    prefs.putInt(key, itemCount);
-    snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
-    prefs.putInt(key, itemTodayCount);
+    // Batch NVS writes - only write every 10 increments to reduce flash wear
+    if (incrementsSinceWrite >= 10) {
+      snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+      prefs.putInt(key, itemCount);
+      snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+      prefs.putInt(key, itemTodayCount);
+      incrementsSinceWrite = 0;
+      countsDirty = false;
+      Serial.println("📝 NVS batch write (10 increments)");
+    }
 
     logEvent("increment");
     // Send delta update instead of full prefs (much smaller payload)
@@ -879,6 +920,7 @@ void handleCommand(char cmd) {
     // Reset current item count and update in prefs using indexed keys
     if (currentItemId == "none") {
       Serial.print("No Item Selected");
+      prefs.end();
       return;
     }
 
@@ -891,6 +933,10 @@ void handleCommand(char cmd) {
     prefs.putInt(key, itemCount);
     snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
     prefs.putInt(key, itemTodayCount);
+
+    // Reset clears any pending batched writes since we just wrote
+    countsDirty = false;
+    incrementsSinceWrite = 0;
 
     lastResetTime = rtc.now().unixtime();
     snprintf(key, sizeof(key), "lr_%d", currentItemIndex);
@@ -919,6 +965,17 @@ void handleCommand(char cmd) {
     if (total == 0) {
       prefs.end();
       return;
+    }
+
+    // Flush pending writes for current item before switching
+    if (countsDirty) {
+      snprintf(key, sizeof(key), "c_%d", currentItemIndex);
+      prefs.putInt(key, itemCount);
+      snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
+      prefs.putInt(key, itemTodayCount);
+      countsDirty = false;
+      incrementsSinceWrite = 0;
+      Serial.println("📝 NVS flush before item switch");
     }
 
     // Cycle to the next item index
