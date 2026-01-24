@@ -678,45 +678,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           }
                                         }
 
-                                        if (targetCat == movedItemCat) {
-                                          // Same category reorder
-                                          final categoryItems = filteredItems
-                                              .where((i) => (i.categoryId ?? '') == movedItemCat)
-                                              .toList();
-                                          final oldCatIndex = categoryItems.indexWhere((i) => i.id == movedItem.id);
-
-                                          if (oldCatIndex >= 0) {
-                                            final reorderedItems = List<Item>.from(categoryItems);
-                                            final item = reorderedItems.removeAt(oldCatIndex);
-                                            final clampedPos = insertPos.clamp(0, reorderedItems.length);
-                                            reorderedItems.insert(clampedPos, item);
-
-                                            // Only persist if order changed
-                                            bool changed = false;
-                                            for (int i = 0; i < categoryItems.length; i++) {
-                                              if (categoryItems[i].id != reorderedItems[i].id) {
-                                                changed = true;
-                                                break;
-                                              }
-                                            }
-
-                                            if (changed) {
-                                              final updated = reorderedItems.asMap().entries.map((e) {
-                                                return e.value.copyWith(categoryOrder: e.key);
-                                              }).toList();
-                                              itemRepository.reorderItemsInCategory(updated);
-                                            }
-                                          }
-                                        } else {
-                                          // Cross-category move via BLoC (optimistic update)
-                                          // Device sync is handled by BlocListener when state changes
-                                          itemsBloc.add(MoveItemToCategoryEvent(
-                                            itemId: movedItem.id,
-                                            targetCategoryId: targetCat.isEmpty ? null : targetCat,
-                                            insertPosition: insertPos,
-                                            sourceCategoryId: movedItemCat.isEmpty ? null : movedItemCat,
-                                          ));
-                                        }
+                                        // Use BLoC for both same-category and cross-category moves
+                                        // MoveItemToCategoryEvent handles optimistic updates
+                                        itemsBloc.add(MoveItemToCategoryEvent(
+                                          itemId: movedItem.id,
+                                          targetCategoryId: targetCat.isEmpty ? null : targetCat,
+                                          insertPosition: insertPos,
+                                          sourceCategoryId: movedItemCat.isEmpty ? null : movedItemCat,
+                                        ));
                                         return;
                                       }
 
