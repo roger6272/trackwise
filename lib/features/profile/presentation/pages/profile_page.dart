@@ -682,11 +682,16 @@ class _ProfilePageState extends State<ProfilePage> {
     }
     final userId = authState.user.id;
 
+    // Capture references before showing dialog
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final bluetoothBloc = context.read<BluetoothBloc>();
+
     // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
+      builder: (_) => const Center(
         child: CircularProgressIndicator(),
       ),
     );
@@ -697,58 +702,49 @@ class _ProfilePageState extends State<ProfilePage> {
       final result = await itemRepository.resetAllItems(userId);
 
       // Close loading indicator
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
+      navigator.pop();
 
-      result.fold(
-        (failure) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to reset items: ${failure.message}'),
-                backgroundColor: _error,
-              ),
-            );
-          }
+      await result.fold(
+        (failure) async {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Failed to reset items: ${failure.message}'),
+              backgroundColor: _error,
+            ),
+          );
         },
         (resetItems) async {
-          if (context.mounted) {
-            // Sync to device
-            final bluetoothBloc = context.read<BluetoothBloc>();
-            if (bluetoothBloc.state.isConnected && resetItems.isNotEmpty) {
-              // Get category names for device sync
-              final categoryRepository = sl<CategoryRepository>();
-              final categoriesResult = await categoryRepository.getCategories(userId);
-              final categoryNames = categoriesResult.fold(
-                (_) => <String, String>{},
-                (categories) => {for (final c in categories) c.id: c.name},
-              );
-
-              // Send reset items to device
-              bluetoothBloc.add(SendItemsToDevice(resetItems, categoryNames: categoryNames));
-            }
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Started new cycle for ${resetItems.length} items'),
-                backgroundColor: Colors.green,
-              ),
+          // Sync to device
+          if (bluetoothBloc.state.isConnected && resetItems.isNotEmpty) {
+            // Get category names for device sync
+            final categoryRepository = sl<CategoryRepository>();
+            final categoriesResult = await categoryRepository.getCategories(userId);
+            final categoryNames = categoriesResult.fold(
+              (_) => <String, String>{},
+              (categories) => {for (final c in categories) c.id: c.name},
             );
+
+            // Send reset items to device
+            bluetoothBloc.add(SendItemsToDevice(resetItems, categoryNames: categoryNames));
           }
+
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Started new cycle for ${resetItems.length} items'),
+              backgroundColor: Colors.green,
+            ),
+          );
         },
       );
     } catch (e) {
       // Close loading indicator
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: _error,
-          ),
-        );
-      }
+      navigator.pop();
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: _error,
+        ),
+      );
     }
   }
 
