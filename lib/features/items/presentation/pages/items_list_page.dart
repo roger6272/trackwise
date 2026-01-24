@@ -1481,6 +1481,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       categoryItems,
                       categoryNames: _cachedCategoryNames,
                     ));
+
+                    // Update sync tracking so buildWhen doesn't duplicate the sync
+                    final catId = activatedCategoryId ?? '';
+                    _lastSyncedCategoryId = catId;
+                    _lastSyncedSignature = categoryItems
+                        .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
+                        .join(',');
+                    _lastSyncTime = DateTime.now();
                   }
                   // Then send selected item to device
                   context.read<BluetoothBloc>().add(SendSelectedItem(
