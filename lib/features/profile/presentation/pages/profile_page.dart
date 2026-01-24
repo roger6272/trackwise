@@ -796,7 +796,7 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('Device cleanup error during account deletion: $e');
     }
 
-    // Navigate to login screen and clear stack
-    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    // Navigate to login screen using go_router (replaces entire stack)
+    context.go('/login');
   }
 }

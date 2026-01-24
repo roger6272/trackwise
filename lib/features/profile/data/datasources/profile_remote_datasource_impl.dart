@@ -163,6 +163,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
     try {
       final batch = _firestore.batch();
+      final userRef = _firestore.collection('users').doc(user.uid);
 
       // Delete all items
       final itemsSnapshot = await _firestore
@@ -182,8 +183,17 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         batch.delete(doc.reference);
       }
 
+      // Delete all categories (uses DocumentReference for uid)
+      final categoriesSnapshot = await _firestore
+          .collection('Category')
+          .where('uid', isEqualTo: userRef)
+          .get();
+      for (final doc in categoriesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
       // Delete profile document
-      batch.delete(_firestore.collection('users').doc(user.uid));
+      batch.delete(userRef);
 
       // Commit batch delete
       await batch.commit();

@@ -738,6 +738,21 @@ class _ItemFormPageState extends State<ItemFormPage> {
       final userId = _getUserId();
       debugPrint('🟡 Creating item: name=$name, initialValue=$initialValue, userId=$userId');
 
+      // Guard against empty userId
+      if (userId.isEmpty) {
+        debugPrint('❌ Cannot create item: userId is empty (not authenticated)');
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please sign in again to create items'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
       final itemRepository = sl<ItemRepository>();
       final now = DateTime.now();
       final newItem = Item(
