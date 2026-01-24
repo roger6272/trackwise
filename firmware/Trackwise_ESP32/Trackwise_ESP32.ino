@@ -8,6 +8,22 @@
 #include <ArduinoJson.h>  // For encoding/decoding JSON
 #include <RTClib.h>
 #include <esp_gap_ble_api.h>  // For connection parameter logging
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <esp_task_wdt.h>
+
+// Mutex for NVS access synchronization (prevents corruption from concurrent access)
+static SemaphoreHandle_t nvsMutex = NULL;
+
+// Watchdog timeout in seconds
+#define WDT_TIMEOUT_SEC 30
+
+// Watchdog configuration (ESP-IDF v5.x API)
+static const esp_task_wdt_config_t wdtConfig = {
+  .timeout_ms = WDT_TIMEOUT_SEC * 1000,
+  .idle_core_mask = 0,  // Don't watch idle tasks
+  .trigger_panic = true
+};
 
 // BLE UUID definitions
 #define SERVICE_UUID "12345678-1234-1234-1234-123456789000"
@@ -112,17 +128,172 @@ void updateVibration() {
   }
 }
 
+// ============== NVS MUTEX HELPERS ==============
+// Safe NVS access with mutex protection to prevent corruption from concurrent access
+bool nvsBeginSafe(const char* name, bool readOnly, TickType_t timeout_ms = 1000) {
+  if (nvsMutex == NULL) {
+    // Mutex not initialized yet (early boot) - proceed without lock
+    prefs.begin(name, readOnly);
+    return true;
+  }
+  if (xSemaphoreTake(nvsMutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+    prefs.begin(name, readOnly);
+    return true;
+  }
+  Serial.println("⚠️ Warning: NVS mutex timeout");
+  return false;
+}
+
+void nvsEndSafe() {
+  prefs.end();
+  if (nvsMutex != NULL) {
+    xSemaphoreGive(nvsMutex);
+  }
+}
+
+// ============== INPUT VALIDATION HELPERS ==============
+// Clamp integer to valid range
+inline int clampInt(int value, int minVal, int maxVal) {
+  return (value < minVal) ? minVal : (value > maxVal) ? maxVal : value;
+}
+
+// Validate device item ID (0-99)
+inline bool isValidDeviceItemId(int id) {
+  return id >= 0 && id < maxPrefsSlots;
+}
+
+// Validate reminder type
+inline bool isValidReminder(int r) {
+  return r >= REMINDER_NONE && r <= REMINDER_INTERVAL;
+}
+
+// Safe string extraction with length limit
+String safeString(const char* str, size_t maxLen = 32) {
+  if (!str) return "";
+  String s(str);
+  return (s.length() > maxLen) ? s.substring(0, maxLen) : s;
+}
+
+// ============== NON-BLOCKING BLE TRANSMISSION ==============
+// State machine for chunk-based BLE transmission without blocking
+struct BleTransmitState {
+  String buffer;
+  int offset = 0;
+  unsigned long lastChunkTime = 0;
+  bool inProgress = false;
+  const int mtu = 180;
+} bleTransmit;
+
+void startBleTransmit(const String& data) {
+  if (bleTransmit.inProgress) return;  // Already transmitting
+  bleTransmit.buffer = data;
+  bleTransmit.offset = 0;
+  bleTransmit.lastChunkTime = 0;
+  bleTransmit.inProgress = true;
+}
+
+// Process one chunk of BLE transmission (call from loop)
+// Returns true when transmission is complete
+bool processBleTransmit() {
+  if (!bleTransmit.inProgress || !isConnected) {
+    bleTransmit.inProgress = false;
+    return false;
+  }
+
+  // Enforce 20ms delay between chunks
+  if (bleTransmit.lastChunkTime > 0 &&
+      (millis() - bleTransmit.lastChunkTime) < 20) {
+    return false;
+  }
+
+  int remaining = bleTransmit.buffer.length() - bleTransmit.offset;
+  if (remaining <= 0) {
+    bleTransmit.inProgress = false;
+    bleTransmit.buffer = "";
+    return true;  // Transmission complete
+  }
+
+  int chunkSize = min(remaining, bleTransmit.mtu);
+  String chunk = bleTransmit.buffer.substring(
+    bleTransmit.offset, bleTransmit.offset + chunkSize);
+
+  NotifyChar->setValue(chunk.c_str());
+  NotifyChar->notify();
+
+  bleTransmit.offset += chunkSize;
+  bleTransmit.lastChunkTime = millis();
+  return false;
+}
+
+// ============== POWER MANAGEMENT ==============
+// CPU frequency scaling and BLE advertising interval adjustment for power savings
+#define IDLE_TIMEOUT_MS 30000
+#define BLE_ADV_INTERVAL_IDLE 0x320   // 500ms (in 0.625ms units)
+#define BLE_ADV_INTERVAL_ACTIVE 0x40  // 40ms (in 0.625ms units)
+
+struct PowerState {
+  unsigned long lastActivity = 0;
+  bool isLowPower = false;
+} powerState;
+
+// Forward declarations for power management
+void exitLowPowerMode();
+void flushPendingNvsWrites();
+
+void recordActivity() {
+  powerState.lastActivity = millis();
+  if (powerState.isLowPower) {
+    // Will exit low power mode
+    exitLowPowerMode();
+  }
+}
+
+void enterLowPowerMode() {
+  if (powerState.isLowPower) return;
+
+  // Slow down BLE advertising to save power
+  BLEDevice::getAdvertising()->stop();
+  BLEDevice::getAdvertising()->setMinInterval(BLE_ADV_INTERVAL_IDLE);
+  BLEDevice::getAdvertising()->setMaxInterval(BLE_ADV_INTERVAL_IDLE);
+  BLEDevice::getAdvertising()->start();
+
+  // Reduce CPU frequency (240MHz -> 80MHz)
+  setCpuFrequencyMhz(80);
+
+  // Flush any pending NVS writes before going to low power
+  flushPendingNvsWrites();
+
+  powerState.isLowPower = true;
+  Serial.println("🔋 Entered low power mode (80MHz, slow advertising)");
+}
+
+void exitLowPowerMode() {
+  if (!powerState.isLowPower) return;
+
+  // Restore full CPU frequency
+  setCpuFrequencyMhz(240);
+
+  // Restore fast BLE advertising
+  BLEDevice::getAdvertising()->stop();
+  BLEDevice::getAdvertising()->setMinInterval(BLE_ADV_INTERVAL_ACTIVE);
+  BLEDevice::getAdvertising()->setMaxInterval(BLE_ADV_INTERVAL_ACTIVE);
+  BLEDevice::getAdvertising()->start();
+
+  powerState.isLowPower = false;
+  Serial.println("⚡ Exited low power mode (240MHz, fast advertising)");
+}
+
 // Flush pending NVS writes for current item (call on disconnect or before sleep)
 void flushPendingNvsWrites() {
   if (countsDirty && currentDeviceItemId >= 0) {
     Serial.println("📝 Flushing pending NVS writes...");
-    prefs.begin("counter", false);
+    if (!nvsBeginSafe("counter", false)) return;
     char key[16];
     snprintf(key, sizeof(key), "c_%d", currentItemIndex);
     prefs.putInt(key, itemCount);
     snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
     prefs.putInt(key, itemTodayCount);
-    prefs.end();
+    nvsEndSafe();
     countsDirty = false;
     incrementsSinceWrite = 0;
     Serial.printf("✅ Flushed: count=%d, todayCount=%d\n", itemCount, itemTodayCount);
@@ -147,15 +318,9 @@ void notifyPrefsToApp() {
   String jsonOut = getPrefsJson();
   jsonOut += "\n";  // For Flutter end-of-message detection
 
-  // Use larger MTU for faster transfers (app negotiates 512, we use 180 for safety margin)
-  const int mtu = 180;
-  for (int i = 0; i < jsonOut.length(); i += mtu) {
-    String chunk = jsonOut.substring(i, min(i + mtu, (int)jsonOut.length()));
-    NotifyChar->setValue(chunk.c_str());
-    NotifyChar->notify();
-    delay(20);  // Unified 20ms delay for reliable BLE chunk transmission
-  }
-  Serial.println("✅ Finished sending prefs via notification.");
+  // Use non-blocking transmission (processed in loop)
+  startBleTransmit(jsonOut);
+  Serial.println("📤 Started sending prefs via notification (non-blocking)...");
 }
 
 // Send error notification to app via NOTIFY characteristic
@@ -207,21 +372,10 @@ void notifyLogsToApp(int page) {
   String jsonOut = getLogsAsString(page);
   jsonOut += "\n";  // For Flutter end-of-message detection
 
-  Serial.printf("📤 Sending logs page %d (%d bytes, %d chunks)\n", page, jsonOut.length(), (jsonOut.length() + 179) / 180);
+  Serial.printf("📤 Starting logs page %d (%d bytes, %d chunks) (non-blocking)\n", page, jsonOut.length(), (jsonOut.length() + 179) / 180);
 
-  const int mtu = 180;
-  for (int i = 0; i < jsonOut.length(); i += mtu) {
-    // Check connection before each chunk
-    if (!isConnected) {
-      Serial.println("⚠️ Connection lost during log transmission");
-      return;
-    }
-    String chunk = jsonOut.substring(i, min(i + mtu, (int)jsonOut.length()));
-    NotifyChar->setValue(chunk.c_str());
-    NotifyChar->notify();
-    delay(20);  // Increased from 10ms for more reliable transmission
-  }
-  Serial.printf("✅ Finished sending logs page %d via notification.\n", page);
+  // Use non-blocking transmission (processed in loop)
+  startBleTransmit(jsonOut);
 }
 
 // Convert ALL prefs into a JSON string to send to the app
@@ -236,7 +390,12 @@ String getPrefsJson() {
   // Add the array as a nested field called "data"
   JsonArray arr = root.createNestedArray("data");
 
-  prefs.begin("counter", false);
+  if (!nvsBeginSafe("counter", false)) {
+    root["error"] = "NVS timeout";
+    String out;
+    serializeJson(root, out);
+    return out;
+  }
   int total = prefs.getInt("item_total", 0);
   char key[16];  // Buffer for preference keys
   for (int i = 0; i < total; i++) {
@@ -259,7 +418,7 @@ String getPrefsJson() {
   // Add selected_id as numeric deviceItemId (-1 for none)
   int8_t selectedId = prefs.getChar("selected_did", -1);
   root["selected_id"] = (int)selectedId;
-  prefs.end();
+  nvsEndSafe();
 
   String out;
   serializeJson(root, out);
@@ -330,6 +489,14 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
     incomingJsonBuffer.trim();
     incomingJsonBuffer += chunk;
 
+    // Input validation: check payload size before parsing
+    if (incomingJsonBuffer.length() > 32000) {
+      Serial.println("❌ Payload too large (>32KB)");
+      notifyError("set_items", "Payload too large");
+      incomingJsonBuffer = "";
+      return;
+    }
+
     // Check if buffer ends with ']' (simple heuristic for end of JSON array)
     if (incomingJsonBuffer.endsWith("]")) {
       StaticJsonDocument<32768> doc;  // Increased for 100 items
@@ -342,13 +509,19 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         return;
       }
 
-      prefs.begin("counter", false);
+      if (!nvsBeginSafe("counter", false)) {
+        notifyError("set_items", "NVS mutex timeout");
+        incomingJsonBuffer = "";
+        return;
+      }
 
       // Save existing counts by deviceItemId before deletion (device is source of truth)
       int existingTotal = prefs.getInt("item_total", 0);
       uint8_t existingDeviceIds[maxPrefsSlots];
       int existingCounts[maxPrefsSlots];
       int existingTodayCounts[maxPrefsSlots];
+      int existingResetNumbers[maxPrefsSlots];
+      unsigned long existingLastResetTimes[maxPrefsSlots];
       char key[16];  // Buffer for preference keys
       for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
         snprintf(key, sizeof(key), "did_%d", i);
@@ -357,9 +530,14 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         existingCounts[i] = prefs.getInt(key, 0);
         snprintf(key, sizeof(key), "tc_%d", i);
         existingTodayCounts[i] = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "rn_%d", i);
+        existingResetNumbers[i] = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "lr_%d", i);
+        existingLastResetTimes[i] = prefs.getULong(key, 0);
       }
 
       // Clear all slots
+      // Note: BLE callbacks run on a separate task, so we can't reset the main loop's watchdog here
       for (int i = 0; i < maxPrefsSlots; i++) {
         snprintf(key, sizeof(key), "n_%d", i);
         prefs.remove(key);
@@ -386,34 +564,53 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       int index = 0;
       for (JsonObject item : doc.as<JsonArray>()) {
         if (index >= maxPrefsSlots) break;
-        // id is now numeric deviceItemId (0-99) from app
-        int deviceItemId = item["id"] | index;  // Default to index if not provided
-        String name = item["name"].as<String>();
-        String category = item.containsKey("category") ? item["category"].as<String>() : "";
-        int increment = item["increment"];
-        int reminder = item["reminder"];
-        int reminderValue = item["reminder_value"];
-        unsigned long lastResetTime = item.containsKey("lastResetTime") ? item["lastResetTime"] : 0;
-        int resetNumber = item.containsKey("reset_number") ? item["reset_number"].as<int>() : 0;
 
-        // Find existing counts for this deviceItemId (device is source of truth)
+        // Input validation: validate and sanitize all incoming data
+        int deviceItemId = item["id"] | index;
+        if (!isValidDeviceItemId(deviceItemId)) deviceItemId = index;  // Clamp to valid range
+
+        String name = safeString(item["name"] | "", 32);  // Max 32 chars
+        String category = safeString(item["category"] | "", 32);  // Max 32 chars
+
+        int increment = clampInt(item["increment"] | 1, 1, 1000);  // 1-1000
+        int reminder = item["reminder"] | REMINDER_NONE;
+        if (!isValidReminder(reminder)) reminder = REMINDER_NONE;
+        int reminderValue = clampInt(item["reminder_value"] | 0, 0, 1000000);  // 0-1M
+
+        // Find existing data for this deviceItemId (device is source of truth)
         int count = 0;
         int todaycount = 0;
+        int resetNumber = 0;
+        unsigned long lastResetTime = 0;
+        bool isExistingItem = false;
         for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
           if (existingDeviceIds[i] == deviceItemId) {
             count = existingCounts[i];
             todaycount = existingTodayCounts[i];
-            Serial.printf("🔄 Preserving counts for deviceItemId=%d: count=%d, todaycount=%d\n", deviceItemId, count, todaycount);
+            resetNumber = existingResetNumbers[i];
+            lastResetTime = existingLastResetTimes[i];
+            isExistingItem = true;
+            Serial.printf("🔄 Preserving data for deviceItemId=%d: count=%d, todaycount=%d, resetNumber=%d\n",
+                          deviceItemId, count, todaycount, resetNumber);
             break;
           }
         }
 
-        // Override with JSON values if provided (for new items with initial values)
-        if (item.containsKey("count")) {
-          count = item["count"].as<int>();
-        }
-        if (item.containsKey("todaycount")) {
-          todaycount = item["todaycount"].as<int>();
+        // Override with JSON values ONLY for new items (not existing ones)
+        // This ensures device remains source of truth for count data
+        if (!isExistingItem) {
+          if (item.containsKey("count")) {
+            count = item["count"].as<int>();
+          }
+          if (item.containsKey("todaycount")) {
+            todaycount = item["todaycount"].as<int>();
+          }
+          if (item.containsKey("reset_number")) {
+            resetNumber = clampInt(item["reset_number"].as<int>(), 0, 100000);
+          }
+          if (item.containsKey("lastResetTime")) {
+            lastResetTime = item["lastResetTime"];
+          }
         }
 
         // Store deviceItemId (replaces string id)
@@ -503,7 +700,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
                       itemName.c_str(), itemCategory.c_str(), itemIncrement, reminder, itemResetNumber);
       }
 
-      prefs.end();
+      nvsEndSafe();
 
       // Reset batching state when items are refreshed from app
       countsDirty = false;
@@ -549,7 +746,10 @@ class WriteCallback : public BLECharacteristicCallbacks {
       // Flush pending writes for previous item before switching
       flushPendingNvsWrites();
 
-      prefs.begin("counter", false);
+      if (!nvsBeginSafe("counter", false)) {
+        notifyError("set_selected", "NVS mutex timeout");
+        return;
+      }
 
       int total = prefs.getInt("item_total", 0);
       if (total == 0 || targetDeviceId < 0) {
@@ -557,7 +757,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
         currentDeviceItemId = -1;
         prefs.putChar("selected_did", -1);
         prefs.putInt("selected_index", 0);
-        prefs.end();
+        nvsEndSafe();
         return;
       }
 
@@ -599,7 +799,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
       if (!found) {
         Serial.printf("⚠️ DeviceItemId %d not found in stored items\n", targetDeviceId);
       }
-      prefs.end();
+      nvsEndSafe();
 
     } else if (cmd == "set_time") {
       String utc_time = doc["utc_time"] | "";
@@ -629,10 +829,11 @@ class WriteCallback : public BLECharacteristicCallbacks {
         if (parsedTime > 1000000000) {              // Rough sanity check (post-2001)
           rtc.adjust(utcDt);                        // ✅ Set the RTC to UTC time
 
-          prefs.begin("counter", false);
-          // ✅ Store timezone offset in Preferences
-          prefs.putInt("timezone_offset", offsetMin);
-          prefs.end();
+          if (nvsBeginSafe("counter", false)) {
+            // ✅ Store timezone offset in Preferences
+            prefs.putInt("timezone_offset", offsetMin);
+            nvsEndSafe();
+          }
 
           localTimestamp = parsedTime + offsetMin * 60;
           localTime = DateTime(localTimestamp);  // ✅ Assign to global
@@ -673,7 +874,10 @@ class WriteCallback : public BLECharacteristicCallbacks {
       // Use UTC timestamp for lastResetTime (consistent with event timestamps)
       time_t utcTimestamp = rtc.now().unixtime();
 
-      prefs.begin("counter", false);
+      if (!nvsBeginSafe("counter", false)) {
+        notifyError("force_reset_today", "NVS mutex timeout");
+        return;
+      }
       int total = prefs.getInt("item_total", 0);
 
       char key[16];  // Buffer for preference keys
@@ -700,7 +904,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
         lastResetTime = utcTimestamp;
       }
 
-      prefs.end();
+      nvsEndSafe();
       Serial.println("✅ Force reset complete.");
     }
 
@@ -717,6 +921,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* p) override {
     isConnected = true;
+    recordActivity();  // Wake from low power mode on connection
     Serial.println("✅ Connected!");
   }
   void onDisconnect(BLEServer* p) override {
@@ -901,7 +1106,12 @@ void syncAllLogsToApp() {
 
 // Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
 void handleCommand(char cmd) {
-  prefs.begin("counter", false);
+  recordActivity();  // Wake from low power mode on button press
+
+  if (!nvsBeginSafe("counter", false)) {
+    Serial.println("⚠️ NVS mutex timeout in handleCommand");
+    return;
+  }
 
   int total = prefs.getInt("item_total", 0);
   char key[16];  // Buffer for preference keys
@@ -910,7 +1120,7 @@ void handleCommand(char cmd) {
     if (currentDeviceItemId < 0) {
       Serial.println("No Item Selected");
       notifyError("increment", "No item selected");
-      prefs.end();
+      nvsEndSafe();
       return;
     }
     //update first
@@ -961,7 +1171,7 @@ void handleCommand(char cmd) {
     if (currentDeviceItemId < 0) {
       Serial.println("No Item Selected");
       notifyError("reset", "No item selected");
-      prefs.end();
+      nvsEndSafe();
       return;
     }
 
@@ -993,18 +1203,18 @@ void handleCommand(char cmd) {
 
     Serial.printf("🔄 Reset: period %d ended, now in period %d\n", oldResetNumber, itemResetNumber);
 
-    prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
+    nvsEndSafe();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
     // Send delta update with NEW resetNumber (app needs current state)
     if (isConnected) notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
     delay(50);  // Brief gap between notifications
     // Send event notification with OLD resetNumber (the reset that ended period N)
     if (isConnected) notifyEvent("reset", oldResetNumber);
-    return;  // Already closed prefs, skip the final prefs.end()
+    return;  // Already closed prefs, skip the final nvsEndSafe()
 
   } else if (cmd == 's') {
     if (total == 0) {
-      prefs.end();
+      nvsEndSafe();
       return;
     }
 
@@ -1046,7 +1256,7 @@ void handleCommand(char cmd) {
     snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
     itemResetNumber = prefs.getInt(key, 0);
 
-    prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
+    nvsEndSafe();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
     //logEvent("switch");
     if (isConnected) notifyEvent("switch");
@@ -1056,10 +1266,10 @@ void handleCommand(char cmd) {
     Serial.printf("📍 Category: %s | Item index: %d/%d\n",
                   itemCategory.length() > 0 ? itemCategory.c_str() : "Uncategorized",
                   currentItemIndex, total);
-    return;  // Already closed prefs, skip the final prefs.end()
+    return;  // Already closed prefs, skip the final nvsEndSafe()
   }
 
-  prefs.end();
+  nvsEndSafe();
 
 
   //DateTime now = rtc.now();
@@ -1085,9 +1295,11 @@ void handleCommand(char cmd) {
 void updateLocalTime() {
   DateTime nowUtc = rtc.now();
 
-  prefs.begin("counter", false);
-  int offsetMin = prefs.getInt("timezone_offset", 0);
-  prefs.end();
+  int offsetMin = 0;
+  if (nvsBeginSafe("counter", true)) {  // Read-only
+    offsetMin = prefs.getInt("timezone_offset", 0);
+    nvsEndSafe();
+  }
 
   localTimestamp = nowUtc.unixtime() + offsetMin * 60;
   localTime = DateTime(localTimestamp);
@@ -1101,7 +1313,7 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
   char todayStr[11]; // "YYYY-MM-DD" + null
   snprintf(todayStr, sizeof(todayStr), "%04d-%02d-%02d", localTime.year(), localTime.month(), localTime.day());
 
-  prefs.begin("counter", false);
+  if (!nvsBeginSafe("counter", false)) return;
   String last_reset_date = prefs.getString("last_reset_date", "");
 
   if (last_reset_date != String(todayStr)) {
@@ -1137,7 +1349,7 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
    // Serial.println(todayStr);
   //}
 
-  prefs.end();
+  nvsEndSafe();
 }
 
 
@@ -1146,6 +1358,11 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
 // Device boot initialization
 void setup() {
   Serial.begin(115200);
+
+  // Initialize NVS mutex for thread-safe access
+  nvsMutex = xSemaphoreCreateMutex();
+  Serial.println("🔒 NVS mutex initialized");
+
   if (!rtc.begin()) {
     Serial.println("❌ RTC not found!");
   } else {
@@ -1156,7 +1373,12 @@ void setup() {
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 
-  prefs.begin("counter", false);
+  // Note: Using raw prefs.begin here since mutex is now initialized
+  // nvsBeginSafe handles the mutex properly
+  if (!nvsBeginSafe("counter", false)) {
+    Serial.println("❌ Failed to open NVS in setup");
+    return;
+  }
   // ✅ Verify and store item_total
   int verifiedTotal = 0;
   char key[16];  // Buffer for preference keys
@@ -1209,7 +1431,7 @@ void setup() {
   }
 
 
-  prefs.end();
+  nvsEndSafe();
   delay(100);
 
 
@@ -1221,28 +1443,42 @@ void setup() {
   digitalWrite(VIBRATION_PIN, LOW);
 
   setupBLE();
+
+  // Initialize watchdog timer (30 second timeout, panic on timeout)
+  esp_task_wdt_init(&wdtConfig);
+  esp_task_wdt_add(NULL);  // Add current task (loop task) to watchdog
+  Serial.println("🐕 Watchdog initialized (30s timeout)");
+
+  // Initialize power management
+  powerState.lastActivity = millis();
+  Serial.println("⚡ Power management initialized");
 }
 
 
 
 // Main loop waits for user commands from serial input
 void loop() {
+  // Reset watchdog timer at start of each loop iteration
+  esp_task_wdt_reset();
 
   // Update non-blocking vibration state
   updateVibration();
 
-    if (millis() - lastResetCheck > 60000) {  // every 60 seconds. Might need to update this for battery life
-      resetTodayCountsIfNeeded();
-      lastResetCheck = millis();
-    }
+  // Process non-blocking BLE transmission (one chunk per iteration)
+  processBleTransmit();
 
-    // Periodic NVS flush - ensure dirty data is written every 5 minutes
-    // Uses subtraction to handle millis() overflow correctly
-    static unsigned long lastNvsFlush = 0;
-    if (countsDirty && (millis() - lastNvsFlush > 300000)) {  // 5 minutes
-      flushPendingNvsWrites();
-      lastNvsFlush = millis();
-    }
+  if (millis() - lastResetCheck > 60000) {  // every 60 seconds. Might need to update this for battery life
+    resetTodayCountsIfNeeded();
+    lastResetCheck = millis();
+  }
+
+  // Periodic NVS flush - ensure dirty data is written every 5 minutes
+  // Uses subtraction to handle millis() overflow correctly
+  static unsigned long lastNvsFlush = 0;
+  if (countsDirty && (millis() - lastNvsFlush > 300000)) {  // 5 minutes
+    flushPendingNvsWrites();
+    lastNvsFlush = millis();
+  }
 
   // Check for stale incoming JSON buffer (incomplete transfer from app)
   if (incomingJsonBuffer.length() > 0 && lastChunkReceived > 0) {
@@ -1256,11 +1492,11 @@ void loop() {
   // Handle prepare_read requests by sending data via notification
   // (deferred from BLE callback to avoid NVS access issues)
   if (currentReadMode == READ_PREFS) {
-    notifyPrefsToApp();  // Send prefs via notification (chunked)
+    notifyPrefsToApp();  // Send prefs via notification (non-blocking)
     updateReadChar();    // Also update READ char for compatibility
     currentReadMode = READ_NONE;  // Reset after handling
   } else if (currentReadMode == READ_LOGS) {
-    notifyLogsToApp(currentPage);  // Send logs via notification (chunked)
+    notifyLogsToApp(currentPage);  // Send logs via notification (non-blocking)
     updateReadChar();              // Also update READ char for compatibility
     currentReadMode = READ_NONE;  // Reset after handling
   }
@@ -1271,5 +1507,14 @@ void loop() {
       handleCommand(cmd);
     }
   }
-  delay(10);
+
+  // Power management: enter low power mode when idle and not connected
+  if (!powerState.isLowPower && !isConnected) {
+    if (millis() - powerState.lastActivity > IDLE_TIMEOUT_MS) {
+      enterLowPowerMode();
+    }
+  }
+
+  // Adjust loop delay based on power state
+  delay(powerState.isLowPower ? 100 : 10);
 }

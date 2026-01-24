@@ -702,6 +702,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       ));
 
       // Update selectedItemId if sync returned a mapped Firestore ID
+      // or clear it if device explicitly says no selection
       result.fold(
         (failure) {
           // Log sync failure but don't fail the message handling
@@ -710,6 +711,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         (syncResult) {
           if (syncResult.selectedFirestoreId != null) {
             emit(state.copyWith(selectedItemId: syncResult.selectedFirestoreId));
+          } else if (syncResult.clearSelection) {
+            // Device explicitly said no item selected - clear app's selection
+            emit(state.copyWith(clearSelectedItemId: true));
           }
         },
       );

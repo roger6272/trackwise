@@ -12,6 +12,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../bluetooth/domain/entities/ble_message.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -199,6 +200,27 @@ class _ItemsListContentState extends State<_ItemsListContent>
               }
             }
           },
+          // Listen for prefs message with no selection (selected_id: -1)
+          child: BlocListener<BluetoothBloc, BluetoothState>(
+            listenWhen: (previous, current) {
+              // Fire when lastMessage changes to a prefs message
+              final prevMsg = previous.lastMessage;
+              final currMsg = current.lastMessage;
+              return currMsg != null &&
+                  currMsg != prevMsg &&
+                  currMsg.type == BleMessageType.prefs;
+            },
+            listener: (context, bluetoothState) {
+              // Prefs received - check if device says no selection
+              final selectedItemId = bluetoothState.selectedItemId;
+              if (selectedItemId == null || selectedItemId.isEmpty) {
+                // Device has no selection - clear app's persisted selection
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  context.read<AppUiState>().clearActiveItem();
+                });
+              }
+            },
           child: BlocBuilder<BluetoothBloc, BluetoothState>(
             builder: (context, bluetoothState) {
               final isConnected = bluetoothState.isConnected;
@@ -876,7 +898,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
             );
           },
         ),
-        ),
+        ),  // closes new BlocListener (clear selection)
+        ),  // closes first BlocListener (connect)
       ),
     );
   }

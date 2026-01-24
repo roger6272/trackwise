@@ -30,10 +30,17 @@ class SyncDeviceDataResult extends Equatable {
   /// Null if no selection change or if the deviceItemId couldn't be mapped.
   final String? selectedFirestoreId;
 
-  const SyncDeviceDataResult({this.selectedFirestoreId});
+  /// True if device explicitly reported no item selected (selected_id: -1).
+  /// Used to clear app's selection state when device has no selection.
+  final bool clearSelection;
+
+  const SyncDeviceDataResult({
+    this.selectedFirestoreId,
+    this.clearSelection = false,
+  });
 
   @override
-  List<Object?> get props => [selectedFirestoreId];
+  List<Object?> get props => [selectedFirestoreId, clearSelection];
 }
 
 /// Use case for syncing ESP32 device messages to Firestore.
@@ -144,8 +151,13 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
 
     if (items == null || items.isEmpty) {
       // No items, but may still have a selected item to report
+      // If device explicitly says no selection (-1), signal to clear app's selection
       final selectedFirestoreId = _getFirestoreId(selectedDeviceItemId);
-      return Right(SyncDeviceDataResult(selectedFirestoreId: selectedFirestoreId));
+      final clearSelection = selectedDeviceItemId == -1;
+      return Right(SyncDeviceDataResult(
+        selectedFirestoreId: selectedFirestoreId,
+        clearSelection: clearSelection,
+      ));
     }
 
     // Map deviceItemIds to Firestore IDs for batch update
@@ -177,8 +189,13 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
     }
 
     // Return the selected Firestore ID for the BLoC to update its state
+    // If device explicitly says no selection (-1), signal to clear app's selection
     final selectedFirestoreId = _getFirestoreId(selectedDeviceItemId);
-    return Right(SyncDeviceDataResult(selectedFirestoreId: selectedFirestoreId));
+    final clearSelection = selectedDeviceItemId == -1;
+    return Right(SyncDeviceDataResult(
+      selectedFirestoreId: selectedFirestoreId,
+      clearSelection: clearSelection,
+    ));
   }
 
   /// Syncs event message - inserts EventLog records.
