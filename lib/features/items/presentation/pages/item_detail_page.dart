@@ -65,6 +65,9 @@ class ItemDetailPage extends StatefulWidget {
   /// Current reset number for this item.
   final int? resetNumber;
 
+  /// Timestamp when the item was last updated (used as creation time fallback).
+  final DateTime? lastUpdated;
+
   const ItemDetailPage({
     super.key,
     required this.itemId,
@@ -77,6 +80,7 @@ class ItemDetailPage extends StatefulWidget {
     this.reminderType,
     this.reminderValue,
     this.resetNumber,
+    this.lastUpdated,
   });
 
   @override
@@ -227,11 +231,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           .fold<int>(-1, (max, n) => n > max ? n : max);
 
       if (_resetNumber > maxEventResetNumber) {
+        // Fallback start time: lastResetTime (if reset), or lastUpdated (creation time), or now
+        final fallbackStart = widget.lastResetTime ?? widget.lastUpdated ?? DateTime.now();
+
         // Create a virtual current interval for the new period (no events yet)
         final virtualCurrentInterval = IntervalData(
           intervalNumber: _resetNumber,
           count: 0,
-          startTime: widget.lastResetTime ?? DateTime.now(),
+          startTime: fallbackStart,
           endTime: null, // Current period
         );
 
@@ -247,7 +254,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           final allTimeInterval = IntervalData(
             intervalNumber: -1,
             count: 0,
-            startTime: widget.lastResetTime ?? DateTime.now(),
+            startTime: fallbackStart,
             endTime: null,
           );
           newIntervals = [allTimeInterval, virtualCurrentInterval];

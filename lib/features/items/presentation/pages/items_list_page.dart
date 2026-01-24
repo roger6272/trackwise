@@ -1365,6 +1365,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   'reminderValue': item.reminderValue.toString(),
                   if (item.goal != null) 'goal': item.goal.toString(),
                   'resetNumber': item.resetNumber.toString(),
+                  'lastUpdated': item.lastUpdated.toIso8601String(),
                 },
               );
             },
