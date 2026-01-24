@@ -622,25 +622,47 @@ class _ItemFormPageState extends State<ItemFormPage> {
   /// Returns true if duplicate exists, false otherwise.
   Future<bool> _checkDuplicateName(String name) async {
     final userId = _getUserId();
+    debugPrint('🔍 _checkDuplicateName: userId=$userId, name=$name');
+
+    if (userId.isEmpty) {
+      debugPrint('🔍 _checkDuplicateName: userId is empty, skipping check');
+      return false;
+    }
+
     final itemRepository = sl<ItemRepository>();
     final normalizedName = name.toLowerCase();
 
     // Fetch active items
+    debugPrint('🔍 _checkDuplicateName: fetching active items...');
     final activeResult = await itemRepository.getItems(userId);
     final activeItems = activeResult.fold(
-      (failure) => <Item>[],
-      (items) => items,
+      (failure) {
+        debugPrint('🔍 _checkDuplicateName: failed to fetch active items: ${failure.message}');
+        return <Item>[];
+      },
+      (items) {
+        debugPrint('🔍 _checkDuplicateName: got ${items.length} active items');
+        return items;
+      },
     );
 
     // Fetch deleted items
+    debugPrint('🔍 _checkDuplicateName: fetching deleted items...');
     final deletedResult = await itemRepository.getDeletedItems(userId);
     final deletedItems = deletedResult.fold(
-      (failure) => <Item>[],
-      (items) => items,
+      (failure) {
+        debugPrint('🔍 _checkDuplicateName: failed to fetch deleted items: ${failure.message}');
+        return <Item>[];
+      },
+      (items) {
+        debugPrint('🔍 _checkDuplicateName: got ${items.length} deleted items');
+        return items;
+      },
     );
 
     // Combine all items
     final allItems = [...activeItems, ...deletedItems];
+    debugPrint('🔍 _checkDuplicateName: checking ${allItems.length} total items');
 
     // Check for duplicate (excluding current item if editing)
     for (final item in allItems) {
@@ -648,6 +670,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
       if (isEditMode && item.id == widget.item!.id) continue;
 
       if (item.name.toLowerCase() == normalizedName) {
+        debugPrint('🔍 _checkDuplicateName: DUPLICATE FOUND - ${item.name}');
         return true; // Duplicate found
       }
     }
@@ -674,9 +697,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
     setState(() => _isLoading = true);
 
     final name = nameController.text.trim();
+    debugPrint('🟡 Checking for duplicate name: $name');
 
     // Check for duplicate item name
     final duplicateExists = await _checkDuplicateName(name);
+    debugPrint('🟡 Duplicate check result: $duplicateExists');
     if (duplicateExists) {
       setState(() => _isLoading = false);
       if (mounted) {
