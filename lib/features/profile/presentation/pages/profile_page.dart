@@ -424,59 +424,70 @@ class _ProfilePageState extends State<ProfilePage> {
     final secondaryBackground = AppColors.secondaryBackground(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
-    return InkWell(
-      onTap: () => _showDeleteConfirmation(context),
-      borderRadius: BorderRadius.circular(12.0),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: secondaryBackground,
+    return BlocBuilder<BluetoothBloc, BluetoothState>(
+      builder: (context, bluetoothState) {
+        final isConnected = bluetoothState.isConnected;
+
+        return InkWell(
+          onTap: isConnected ? () => _showDeleteConfirmation(context) : null,
           borderRadius: BorderRadius.circular(12.0),
-          border: Border.all(
-            color: _error.withValues(alpha: 0.3),
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: _error,
-              size: 24.0,
-            ),
-            const SizedBox(width: 12.0),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          child: Opacity(
+            opacity: isConnected ? 1.0 : 0.5,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: secondaryBackground,
+                borderRadius: BorderRadius.circular(12.0),
+                border: Border.all(
+                  color: _error.withValues(alpha: 0.3),
+                  width: 1.0,
+                ),
+              ),
+              child: Row(
                 children: [
-                  Text(
-                    'Delete Account',
-                    style: GoogleFonts.inter(
-                      color: _error,
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.w500,
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: _error,
+                    size: 24.0,
+                  ),
+                  const SizedBox(width: 12.0),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Delete Account',
+                          style: GoogleFonts.inter(
+                            color: _error,
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2.0),
+                        Text(
+                          isConnected
+                              ? 'Permanently delete your account and all data'
+                              : 'Device connection required',
+                          style: GoogleFonts.inter(
+                            color: secondaryText,
+                            fontSize: 12.0,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2.0),
-                  Text(
-                    'Permanently delete your account and all data',
-                    style: GoogleFonts.inter(
-                      color: secondaryText,
-                      fontSize: 12.0,
-                    ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: secondaryText,
+                    size: 20.0,
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: secondaryText,
-              size: 20.0,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
