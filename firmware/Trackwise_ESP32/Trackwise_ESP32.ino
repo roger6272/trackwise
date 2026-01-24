@@ -438,7 +438,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         snprintf(key, sizeof(key), "rn_%d", index);
         prefs.putInt(key, resetNumber);
 
-        Serial.printf("[%d] DeviceID=%d Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
+        Serial.printf("[%d] DeviceItemID=%d Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
               index, deviceItemId, name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
         index++;
       }
