@@ -278,4 +278,15 @@ class ItemRepositoryImpl implements ItemRepository {
       return Left(ServerFailure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, List<Item>>> resetAllItems(String userId) async {
+    try {
+      final models = await remoteDataSource.resetAllItems(userId);
+      final items = models.map((model) => model.toEntity()).toList();
+      return Right(items);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
 }

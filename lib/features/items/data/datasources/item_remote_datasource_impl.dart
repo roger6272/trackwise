@@ -3,8 +3,18 @@ import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/exceptions.dart';
+import '../../domain/entities/item.dart' show ReminderType;
 import '../models/item_model.dart';
 import 'item_remote_datasource.dart';
+
+/// Helper to parse ReminderType from string.
+ReminderType _parseReminderType(String? value) {
+  if (value == null) return ReminderType.none;
+  return ReminderType.values.firstWhere(
+    (e) => e.name == value,
+    orElse: () => ReminderType.none,
+  );
+}
 
 /// Concrete implementation of ItemRemoteDataSource using Firestore.
 ///
@@ -415,7 +425,17 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       for (int i = 0; i < items.length; i++) {
         final item = items[i];
         final itemRef = firestore.collection('Item').doc(item.id);
-        batch.update(itemRef, {'category_order': i});
+        // Update both category_order and category_id (for cross-category moves)
+        final updateData = <String, dynamic>{
+          'category_order': i,
+          'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+        };
+        if (item.categoryId != null && item.categoryId!.isNotEmpty) {
+          updateData['category_id'] = item.categoryId;
+        } else {
+          updateData['category_id'] = FieldValue.delete();
+        }
+        batch.update(itemRef, updateData);
       }
 
       await batch.commit();
@@ -502,6 +522,98 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       throw ServerException('Failed to get max category order: ${e.message}');
     } catch (e) {
       throw ServerException('Unexpected error getting max category order: $e');
+    }
+  }
+
+  @override
+  Future<List<ItemModel>> resetAllItems(String userId) async {
+    try {
+      final now = DateTime.now();
+      final nowMillis = now.millisecondsSinceEpoch;
+
+      // Get all active items for the user
+      final userRef = firestore.collection('users').doc(userId);
+      final snapshot = await firestore
+          .collection('Item')
+          .where('uid', isEqualTo: userRef)
+          .get();
+
+      final activeItems = snapshot.docs
+          .where((doc) => doc.data()['deletedAt'] == null)
+          .toList();
+
+      if (activeItems.isEmpty) {
+        return [];
+      }
+
+      // Use batch for atomic updates
+      final batch = firestore.batch();
+      final resetItems = <ItemModel>[];
+
+      for (final doc in activeItems) {
+        final data = doc.data();
+        final currentResetNumber = data['resetNumber'] as int? ?? 0;
+        final newResetNumber = currentResetNumber + 1;
+
+        // Extract item's userId from DocumentReference
+        String itemUserId = '';
+        final uidField = data['uid'];
+        if (uidField is DocumentReference) {
+          itemUserId = uidField.id;
+        } else if (uidField is String) {
+          itemUserId = uidField;
+        }
+
+        // Update item document
+        final itemRef = firestore.collection('Item').doc(doc.id);
+        batch.update(itemRef, {
+          'count': 0,
+          'todayCount': 0,
+          'resetNumber': newResetNumber,
+          'lastResetTime': nowMillis,
+          'lastUpdated': nowMillis,
+        });
+
+        // Create reset event log
+        final eventRef = firestore.collection('EventLog').doc();
+        batch.set(eventRef, {
+          'created_time': Timestamp.fromDate(now),
+          'item_id': doc.id,
+          'eventName': 'reset',
+          'increment': 0,
+          'currentCount': 0,
+          'resetNumber': newResetNumber,
+          'user_id': itemUserId,
+        });
+
+        // Build updated ItemModel for return
+        resetItems.add(ItemModel(
+          id: doc.id,
+          name: data['item_name'] as String? ?? '',
+          count: 0,
+          todayCount: 0,
+          incrementBy: data['increment_by'] as int? ?? 1,
+          reminder: _parseReminderType(data['reminder'] as String?),
+          reminderValue: data['reminder_value'] as int? ?? 0,
+          lastResetTime: now,
+          resetNumber: newResetNumber,
+          lastUpdated: now,
+          userId: itemUserId,
+          deletedAt: null,
+          order: data['order'] as int? ?? 0,
+          initialCount: data['initial_count'] as int? ?? 0,
+          goal: data['goal'] as int?,
+          categoryId: data['category_id'] as String?,
+          categoryOrder: data['category_order'] as int? ?? 0,
+        ));
+      }
+
+      await batch.commit();
+      return resetItems;
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to reset all items: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error resetting all items: $e');
     }
   }
 }

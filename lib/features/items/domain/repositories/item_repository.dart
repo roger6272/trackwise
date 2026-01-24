@@ -188,4 +188,23 @@ abstract class ItemRepository {
     String userId,
     String? categoryId,
   );
+
+  /// Resets all items to start a new cycle.
+  ///
+  /// For each item:
+  /// - count is set to 0
+  /// - todayCount is set to 0
+  /// - resetNumber is incremented by 1
+  /// - lastResetTime is set to current time
+  /// - lastUpdated is set to current time
+  ///
+  /// Also creates a 'reset' event log for each item.
+  ///
+  /// Parameters:
+  /// - [userId]: The user whose items to reset
+  ///
+  /// Returns:
+  /// - Right(List<Item>): List of reset items
+  /// - Left(ServerFailure): Firestore batch update failed
+  Future<Either<Failure, List<Item>>> resetAllItems(String userId);
 }

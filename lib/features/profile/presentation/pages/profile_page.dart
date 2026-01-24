@@ -4,9 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../auth/presentation/bloc/auth_state.dart' as auth;
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
+import '../../../categories/domain/repositories/category_repository.dart';
+import '../../../items/domain/repositories/item_repository.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
@@ -146,28 +153,44 @@ class _ProfilePageState extends State<ProfilePage> {
                       // Data Management
                       _buildSectionTitle(context, 'Data Management'),
                       const SizedBox(height: 16.0),
-                      _buildSettingsCard(context, [
-                        _buildSettingItem(
-                          context,
-                          icon: Icons.category_outlined,
-                          title: 'Manage Categories',
-                          onTap: () => context.push('/profile/categories'),
-                        ),
-                        _buildDivider(context),
-                        _buildSettingItem(
-                          context,
-                          icon: Icons.download_outlined,
-                          title: 'Export My Data',
-                          onTap: () => context.push('/profile/export'),
-                        ),
-                        _buildDivider(context),
-                        _buildSettingItem(
-                          context,
-                          icon: Icons.delete_outline,
-                          title: 'Recently Deleted',
-                          onTap: () => context.push('/profile/deleted-items'),
-                        ),
-                      ]),
+                      BlocBuilder<BluetoothBloc, BluetoothState>(
+                        builder: (context, bluetoothState) {
+                          final isConnected = bluetoothState.isConnected;
+                          return _buildSettingsCard(context, [
+                            _buildSettingItem(
+                              context,
+                              icon: Icons.category_outlined,
+                              title: 'Manage Categories',
+                              onTap: () => context.push('/profile/categories'),
+                            ),
+                            _buildDivider(context),
+                            _buildSettingItem(
+                              context,
+                              icon: Icons.restart_alt_outlined,
+                              title: 'Start New Cycle',
+                              subtitle: isConnected ? null : 'Requires device connection',
+                              enabled: isConnected,
+                              onTap: isConnected
+                                  ? () => _showStartNewCycleDialog(context)
+                                  : null,
+                            ),
+                            _buildDivider(context),
+                            _buildSettingItem(
+                              context,
+                              icon: Icons.download_outlined,
+                              title: 'Export My Data',
+                              onTap: () => context.push('/profile/export'),
+                            ),
+                            _buildDivider(context),
+                            _buildSettingItem(
+                              context,
+                              icon: Icons.delete_outline,
+                              title: 'Recently Deleted',
+                              onTap: () => context.push('/profile/deleted-items'),
+                            ),
+                          ]);
+                        },
+                      ),
                       const SizedBox(height: 24.0),
                       // Support
                       _buildSectionTitle(context, 'Support'),
@@ -282,51 +305,75 @@ class _ProfilePageState extends State<ProfilePage> {
     BuildContext context, {
     required IconData icon,
     required String title,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
+    String? subtitle,
     bool isPrimary = false,
+    bool enabled = true,
   }) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final primaryColor = AppColors.primaryAdaptive(brightness);
+    final disabledColor = secondaryText.withValues(alpha: 0.5);
+
+    final effectiveColor = enabled
+        ? (isPrimary ? primaryColor : primaryText)
+        : disabledColor;
 
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Container(
         width: double.infinity,
-        height: 56.0,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12.0),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
                 children: [
                   Icon(
                     icon,
-                    color: isPrimary ? primaryColor : primaryText,
+                    color: effectiveColor,
                     size: 24.0,
                   ),
                   const SizedBox(width: 12.0),
-                  Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      color: isPrimary ? primaryColor : primaryText,
-                      fontSize: 16.0,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.inter(
+                            color: effectiveColor,
+                            fontSize: 16.0,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2.0),
+                          Text(
+                            subtitle,
+                            style: GoogleFonts.inter(
+                              color: disabledColor,
+                              fontSize: 12.0,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
-              Icon(
-                Icons.chevron_right,
-                color: secondaryText,
-                size: 20.0,
-              ),
-            ],
-          ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: enabled ? secondaryText : disabledColor,
+              size: 20.0,
+            ),
+          ],
         ),
       ),
     );
@@ -537,6 +584,172 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+  }
+
+  void _showStartNewCycleDialog(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: primaryBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        title: Text(
+          'Start New Cycle',
+          style: GoogleFonts.interTight(
+            color: primaryText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will reset all items to start a new cycle:',
+              style: GoogleFonts.inter(
+                color: primaryText,
+                fontSize: 14.0,
+              ),
+            ),
+            const SizedBox(height: 12.0),
+            Text(
+              '• All counts will be set to 0\n'
+              '• A new cycle will begin for each item\n'
+              '• Historical data will be preserved',
+              style: GoogleFonts.inter(
+                color: secondaryText,
+                fontSize: 13.0,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12.0),
+            Text(
+              'This action cannot be undone.',
+              style: GoogleFonts.inter(
+                color: _error,
+                fontSize: 13.0,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: secondaryText,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _executeStartNewCycle(context);
+            },
+            child: Text(
+              'Start New Cycle',
+              style: GoogleFonts.inter(
+                color: _primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _executeStartNewCycle(BuildContext context) async {
+    // Get user ID
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! auth.Authenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to continue'),
+          backgroundColor: _error,
+        ),
+      );
+      return;
+    }
+    final userId = authState.user.id;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      // Reset all items
+      final itemRepository = sl<ItemRepository>();
+      final result = await itemRepository.resetAllItems(userId);
+
+      // Close loading indicator
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      result.fold(
+        (failure) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to reset items: ${failure.message}'),
+                backgroundColor: _error,
+              ),
+            );
+          }
+        },
+        (resetItems) async {
+          if (context.mounted) {
+            // Sync to device
+            final bluetoothBloc = context.read<BluetoothBloc>();
+            if (bluetoothBloc.state.isConnected && resetItems.isNotEmpty) {
+              // Get category names for device sync
+              final categoryRepository = sl<CategoryRepository>();
+              final categoriesResult = await categoryRepository.getCategories(userId);
+              final categoryNames = categoriesResult.fold(
+                (_) => <String, String>{},
+                (categories) => {for (final c in categories) c.id: c.name},
+              );
+
+              // Send reset items to device
+              bluetoothBloc.add(SendItemsToDevice(resetItems, categoryNames: categoryNames));
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Started new cycle for ${resetItems.length} items'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      // Close loading indicator
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: _error,
+          ),
+        );
+      }
+    }
   }
 
   void _showPrivacyPolicy(BuildContext context) {

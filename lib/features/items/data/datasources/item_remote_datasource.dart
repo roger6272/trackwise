@@ -184,4 +184,23 @@ abstract class ItemRemoteDataSource {
   ///
   /// Throws [ServerException] if the Firestore query fails.
   Future<int> getMaxCategoryOrder(String userId, String? categoryId);
+
+  /// Resets all items to start a new cycle.
+  ///
+  /// For each item:
+  /// - count is set to 0
+  /// - todayCount is set to 0
+  /// - resetNumber is incremented by 1
+  /// - lastResetTime is set to current time
+  /// - lastUpdated is set to current time
+  ///
+  /// Also creates a 'reset' event log for each item.
+  ///
+  /// Parameters:
+  /// - [userId]: The user whose items to reset
+  ///
+  /// Returns the list of reset ItemModel objects.
+  ///
+  /// Throws [ServerException] if the Firestore batch operation fails.
+  Future<List<ItemModel>> resetAllItems(String userId);
 }
