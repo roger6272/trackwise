@@ -203,6 +203,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () {
+        if (!mounted) return;
         setState(() {
           selectedIndex = null;
           tooltipPosition = null;
@@ -343,7 +344,9 @@ class _BarChartWidgetState extends State<BarChartWidget> {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapUp: (details) {
-              final RenderBox box = context.findRenderObject() as RenderBox;
+              if (!mounted) return;
+              final RenderBox? box = context.findRenderObject() as RenderBox?;
+              if (box == null) return;
               final localPosition = box.globalToLocal(details.globalPosition);
               setState(() {
                 selectedIndex = isSelected ? null : i;
@@ -369,6 +372,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
   void didUpdateWidget(covariant BarChartWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.range != widget.range || oldWidget.selectedDate != widget.selectedDate) {
+      if (!mounted) return;
       setState(() {
         selectedIndex = null;
         tooltipPosition = null;
