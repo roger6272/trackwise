@@ -66,3 +66,6 @@ GoogleService-Info.plist
 # CCPM local settings
 .claude/ccpm/settings.local.json
 firebase/extensions/*.env
+
+# Flutter DevTools
+devtools_options.yaml
