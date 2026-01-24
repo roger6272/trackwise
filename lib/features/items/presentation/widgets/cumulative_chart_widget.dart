@@ -184,19 +184,11 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     // Map data to buckets
     final timeToCount = _mapDataToBuckets(timeBuckets, state);
 
-    // Get base values in order
-    final baseValues = timeBuckets.map((t) {
+    // Get values in order (already cumulative from use case)
+    final values = timeBuckets.map((t) {
       final k = DateFormat(keyFormat).format(t);
       return timeToCount[k] ?? 0;
     }).toList();
-
-    // Calculate cumulative values (running total)
-    final values = <int>[];
-    int runningTotal = 0;
-    for (final v in baseValues) {
-      runningTotal += v;
-      values.add(runningTotal);
-    }
 
     final labels = timeBuckets.map((t) => DateFormat(labelFormat).format(t)).toList();
 

@@ -89,10 +89,28 @@ class _ProfilePageState extends State<ProfilePage> {
         body: SafeArea(
           top: true,
           child: BlocConsumer<ProfileBloc, ProfileState>(
-            listener: (context, state) {
+            listener: (context, state) async {
               if (state is AccountDeleted) {
-                _handleAccountDeleted(context);
+                await _handleAccountDeleted(context);
               } else if (state is ProfileError) {
+                // If deletion failed due to re-auth required, sign out and go to login
+                // The user's Firestore data may already be deleted at this point,
+                // so they need to re-authenticate and try again
+                if (state.message.toLowerCase().contains('sign in') ||
+                    state.message.toLowerCase().contains('log in')) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          'Session expired. Please log in again to complete account deletion.'),
+                      backgroundColor: _error,
+                    ),
+                  );
+                  // Clean up device before signing out
+                  await _cleanupDevice(context);
+                  // Sign out and navigate to login
+                  context.read<AuthBloc>().add(const SignOutEvent());
+                  return;
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.message),
@@ -788,8 +806,17 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _handleAccountDeleted(BuildContext context) {
+  Future<void> _handleAccountDeleted(BuildContext context) async {
     // Clean up device if connected
+    await _cleanupDevice(context);
+
+    // Navigate to login screen using go_router (replaces entire stack)
+    context.go('/login');
+  }
+
+  /// Cleans up the Bluetooth device by clearing items, logs, and disconnecting.
+  /// Waits for commands to be sent before returning.
+  Future<void> _cleanupDevice(BuildContext context) async {
     try {
       final bluetoothBloc = context.read<BluetoothBloc>();
       if (bluetoothBloc.state.isConnected) {
@@ -799,15 +826,19 @@ class _ProfilePageState extends State<ProfilePage> {
         bluetoothBloc.add(const SendSelectedItem('none'));
         // Clear device logs
         bluetoothBloc.add(const ClearDeviceLogs());
+
+        // Wait for BLE commands to be sent before disconnecting
+        await Future.delayed(const Duration(milliseconds: 500));
+
         // Disconnect from device (forget connection)
         bluetoothBloc.add(const DisconnectFromDevice());
+
+        // Wait for disconnect to complete
+        await Future.delayed(const Duration(milliseconds: 200));
       }
     } catch (e) {
       // Ignore errors during cleanup - account deletion should proceed
       debugPrint('Device cleanup error during account deletion: $e');
     }
-
-    // Navigate to login screen using go_router (replaces entire stack)
-    context.go('/login');
   }
 }
