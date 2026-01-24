@@ -13,6 +13,7 @@ import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../categories/domain/repositories/category_repository.dart';
+import '../../../items/domain/entities/item.dart';
 import '../../../items/domain/repositories/item_repository.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
@@ -683,66 +684,78 @@ class _ProfilePageState extends State<ProfilePage> {
     final userId = authState.user.id;
 
     // Capture references before showing dialog
-    final navigator = Navigator.of(context);
+    final navigator = Navigator.of(context, rootNavigator: true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final bluetoothBloc = context.read<BluetoothBloc>();
 
-    // Show loading indicator
+    // Show loading indicator using root navigator
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(),
+      useRootNavigator: true,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
       ),
     );
+
+    String? errorMessage;
+    List<Item>? resetItems;
 
     try {
       // Reset all items
       final itemRepository = sl<ItemRepository>();
       final result = await itemRepository.resetAllItems(userId);
 
-      // Close loading indicator
-      navigator.pop();
-
-      await result.fold(
-        (failure) async {
-          scaffoldMessenger.showSnackBar(
-            SnackBar(
-              content: Text('Failed to reset items: ${failure.message}'),
-              backgroundColor: _error,
-            ),
-          );
+      result.fold(
+        (failure) {
+          errorMessage = 'Failed to reset items: ${failure.message}';
         },
-        (resetItems) async {
-          // Sync to device
-          if (bluetoothBloc.state.isConnected && resetItems.isNotEmpty) {
-            // Get category names for device sync
-            final categoryRepository = sl<CategoryRepository>();
-            final categoriesResult = await categoryRepository.getCategories(userId);
-            final categoryNames = categoriesResult.fold(
-              (_) => <String, String>{},
-              (categories) => {for (final c in categories) c.id: c.name},
-            );
-
-            // Send reset items to device
-            bluetoothBloc.add(SendItemsToDevice(resetItems, categoryNames: categoryNames));
-          }
-
-          scaffoldMessenger.showSnackBar(
-            SnackBar(
-              content: Text('Started new cycle for ${resetItems.length} items'),
-              backgroundColor: Colors.green,
-            ),
-          );
+        (items) {
+          resetItems = items;
         },
       );
     } catch (e) {
-      // Close loading indicator
+      errorMessage = 'Error: $e';
+    }
+
+    // Close loading indicator safely
+    if (navigator.canPop()) {
       navigator.pop();
+    }
+
+    // Handle result after dialog is closed
+    if (errorMessage != null) {
       scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text(errorMessage!),
           backgroundColor: _error,
+        ),
+      );
+      return;
+    }
+
+    if (resetItems != null && resetItems!.isNotEmpty) {
+      // Sync to device
+      if (bluetoothBloc.state.isConnected) {
+        // Get category names for device sync
+        final categoryRepository = sl<CategoryRepository>();
+        final categoriesResult = await categoryRepository.getCategories(userId);
+        final categoryNames = categoriesResult.fold(
+          (_) => <String, String>{},
+          (categories) => {for (final c in categories) c.id: c.name},
+        );
+
+        // Send reset items to device
+        bluetoothBloc.add(SendItemsToDevice(resetItems!, categoryNames: categoryNames));
+      }
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Started new cycle for ${resetItems!.length} items'),
+          backgroundColor: Colors.green,
         ),
       );
     }
