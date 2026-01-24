@@ -788,6 +788,8 @@ class _ProfilePageState extends State<ProfilePage> {
         bluetoothBloc.add(const SendSelectedItem('none'));
         // Clear device logs
         bluetoothBloc.add(const ClearDeviceLogs());
+        // Disconnect from device (forget connection)
+        bluetoothBloc.add(const DisconnectFromDevice());
       }
     } catch (e) {
       // Ignore errors during cleanup - account deletion should proceed
