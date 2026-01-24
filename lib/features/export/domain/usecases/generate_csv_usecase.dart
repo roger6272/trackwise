@@ -64,7 +64,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     }
 
     if (filteredEvents.isEmpty) {
-      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}));
+      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}, {}));
     }
 
     // Get userId from first event to fetch items and categories
@@ -79,14 +79,16 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return const Left(ValidationFailure('Events contain mixed user data'));
     }
 
-    // Build itemId -> categoryId mapping
+    // Build itemId -> categoryId and itemId -> itemName mappings
     final itemsResult = await itemRepository.getItems(userId);
     final Map<String, String?> itemCategoryMap = {};
+    final Map<String, String> itemNameMap = {};
     itemsResult.fold(
       (_) {},
       (items) {
         for (final item in items) {
           itemCategoryMap[item.id] = item.categoryId;
+          itemNameMap[item.id] = item.name;
         }
       },
     );
@@ -103,7 +105,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       },
     );
 
-    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap);
+    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap);
     return Right(csv);
   }
 
@@ -113,6 +115,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     ExportAggregationLevel aggregationLevel,
     Map<String, String?> itemCategoryMap,
     Map<String, String> categoryNameMap,
+    Map<String, String> itemNameMap,
   ) {
     final buffer = StringBuffer();
 
@@ -123,9 +126,14 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return categoryNameMap[categoryId] ?? 'Uncategorized';
     }
 
+    // Helper to get item name from itemId
+    String getItemName(String itemId) {
+      return itemNameMap[itemId] ?? 'Unknown Item';
+    }
+
     // Header row - use Timestamp for raw, Date for aggregated
     if (aggregationLevel == ExportAggregationLevel.raw) {
-      buffer.writeln('Item Name,Category,Cycle,Timestamp,Event Count');
+      buffer.writeln('Item Name,Category,Event Type,Cycle,Timestamp,Event Count');
     } else {
       buffer.writeln('Item Name,Category,Date,Event Count');
     }
@@ -137,14 +145,15 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     if (aggregationLevel == ExportAggregationLevel.raw) {
       // Raw events - one row per event with full timestamp
       for (final event in events) {
+        final itemName = getItemName(event.itemId);
         final category = getCategoryName(event.itemId);
         buffer.writeln(
-          '${_escapeCSV(event.eventName)},${_escapeCSV(category)},${event.resetNumber},${_formatDateTime(event.createdTime)},${event.increment}',
+          '${_escapeCSV(itemName)},${_escapeCSV(category)},${_escapeCSV(event.eventName)},${event.resetNumber},${_formatDateTime(event.createdTime)},${event.increment}',
         );
       }
     } else {
       // Aggregated events - group by item, category, and date
-      final aggregated = _aggregateEvents(events, aggregationLevel, itemCategoryMap, categoryNameMap);
+      final aggregated = _aggregateEvents(events, aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap);
 
       // Sort by item name, then by date
       final sortedKeys = aggregated.keys.toList()
@@ -170,6 +179,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     ExportAggregationLevel level,
     Map<String, String?> itemCategoryMap,
     Map<String, String> categoryNameMap,
+    Map<String, String> itemNameMap,
   ) {
     final Map<AggregationKey, int> aggregated = {};
 
@@ -180,9 +190,14 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return categoryNameMap[categoryId] ?? 'Uncategorized';
     }
 
+    // Helper to get item name from itemId
+    String getItemName(String itemId) {
+      return itemNameMap[itemId] ?? 'Unknown Item';
+    }
+
     for (final event in events) {
       final key = AggregationKey(
-        itemName: event.eventName,
+        itemName: getItemName(event.itemId),
         category: getCategoryName(event.itemId),
         date: _getAggregationDate(event.createdTime, level),
       );
