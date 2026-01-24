@@ -56,6 +56,10 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       if (credential.user == null) {
         throw AuthException('Sign in failed: No user returned');
       }
+
+      // Ensure user document exists (for backwards compatibility with old accounts)
+      await _ensureUserDocument(credential.user!);
+
       return UserModel.fromFirebaseUser(credential.user!);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
