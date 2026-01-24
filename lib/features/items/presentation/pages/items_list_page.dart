@@ -468,26 +468,35 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                                   // Build mixed list with labels and items for "All" view
                                   // Labels act as drop zone separators between categories
+                                  // Show ALL categories (including empty ones) to allow drag-drop into them
                                   final List<_ListEntry> listEntries = [];
                                   if (!state.isFilteredByCategory) {
-                                    String? lastCat;
-                                    bool hasUncategorized = false;
+                                    // Group items by category for efficient lookup
+                                    final itemsByCategory = <String, List<Item>>{};
                                     for (final item in filteredItems) {
-                                      final currentCat = item.categoryId ?? '';
-                                      if (lastCat == null || currentCat != lastCat) {
-                                        // Add category label
-                                        final labelText = currentCat.isEmpty
-                                            ? 'Uncategorized'
-                                            : _cachedCategoryNames[currentCat] ?? 'Unknown';
-                                        listEntries.add(_ListEntry.label(currentCat, labelText));
-                                        lastCat = currentCat;
-                                        if (currentCat.isEmpty) hasUncategorized = true;
-                                      }
-                                      listEntries.add(_ListEntry.item(item));
+                                      final catId = item.categoryId ?? '';
+                                      itemsByCategory.putIfAbsent(catId, () => []).add(item);
                                     }
-                                    // Always add Uncategorized at the end as a drop target if not present
-                                    if (!hasUncategorized && filteredItems.isNotEmpty) {
-                                      listEntries.add(_ListEntry.label('', 'Uncategorized'));
+
+                                    // Get all categories sorted by order
+                                    final sortedCategoryIds = _cachedCategoryOrder.keys.toList()
+                                      ..sort((a, b) => (_cachedCategoryOrder[a] ?? 0).compareTo(_cachedCategoryOrder[b] ?? 0));
+
+                                    // Add each category (even if empty) with its items
+                                    for (final catId in sortedCategoryIds) {
+                                      final labelText = _cachedCategoryNames[catId] ?? 'Unknown';
+                                      listEntries.add(_ListEntry.label(catId, labelText));
+                                      final catItems = itemsByCategory[catId] ?? [];
+                                      for (final item in catItems) {
+                                        listEntries.add(_ListEntry.item(item));
+                                      }
+                                    }
+
+                                    // Always add Uncategorized at the end
+                                    listEntries.add(_ListEntry.label('', 'Uncategorized'));
+                                    final uncategorizedItems = itemsByCategory[''] ?? [];
+                                    for (final item in uncategorizedItems) {
+                                      listEntries.add(_ListEntry.item(item));
                                     }
                                   } else {
                                     // Single category view - just items
@@ -605,8 +614,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                                   .toList();
                                               insertPos = categoryItems.length;
                                             } else {
-                                              // Edge case: list ends with orphaned label (dragged only item from category)
-                                              // Insert at end of the label's category
+                                              // Edge case: list ends with orphaned label (empty category at end)
+                                              // Insert into this empty category
                                               targetCat = insertAfter.categoryId!;
                                               insertPos = 0;
                                             }
@@ -623,8 +632,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                                 .where((i) => (i.categoryId ?? '') == targetCat && i.id != movedItem.id)
                                                 .toList();
                                             insertPos = categoryItems.length;
+                                          } else if (insertAfter != null && insertAfter.isLabel) {
+                                            // Between two labels → insert into the category of insertAfter (the empty one)
+                                            targetCat = insertAfter.categoryId!;
+                                            insertPos = 0;
                                           } else {
-                                            // No item before label → start of label's category
+                                            // No item before label (at start) → start of label's category
                                             targetCat = insertBefore.categoryId!;
                                             insertPos = 0;
                                           }
@@ -1504,34 +1517,23 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   final itemsBloc = context.read<ItemsBloc>();
                   final itemsState = itemsBloc.state;
                   if (itemsState is ItemsLoaded) {
-                    final isInCategory = itemsState.isFilteredByCategory;
-                    if (isInCategory) {
-                      // Move to top within category
-                      // Device sync handled by buildWhen if selected category is affected
-                      final filteredIndex = itemsState.filteredItems.indexWhere((i) => i.id == item.id);
-                      if (filteredIndex > 0) {
-                        itemsBloc.add(ReorderItemsInCategoryEvent(oldIndex: filteredIndex, newIndex: 0));
-                      }
-                    } else {
-                      // In "All" view - move to top within item's category
-                      final itemCategoryId = item.categoryId ?? '';
-                      final categoryItems = itemsState.items
-                          .where((i) => (i.categoryId ?? '') == itemCategoryId)
-                          .toList()
-                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-                      final categoryIndex = categoryItems.indexWhere((i) => i.id == item.id);
-                      if (categoryIndex > 0) {
-                        // Switch to category, reorder, switch back
-                        itemsBloc.add(FilterByCategoryEvent(itemCategoryId));
-                        Future.delayed(const Duration(milliseconds: 50), () {
-                          if (!mounted) return;
-                          itemsBloc.add(ReorderItemsInCategoryEvent(oldIndex: categoryIndex, newIndex: 0));
-                          Future.delayed(const Duration(milliseconds: 50), () {
-                            if (!mounted) return;
-                            itemsBloc.add(const FilterByCategoryEvent(null));
-                          });
-                        });
-                      }
+                    // Get item's category and find its position within that category
+                    final itemCategoryId = item.categoryId ?? '';
+                    final categoryItems = itemsState.items
+                        .where((i) => (i.categoryId ?? '') == itemCategoryId)
+                        .toList()
+                      ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+                    final categoryIndex = categoryItems.indexWhere((i) => i.id == item.id);
+
+                    if (categoryIndex > 0) {
+                      // Move item to top of its category using cross-category move event
+                      // This works for both "All" view and category view without filter switching
+                      itemsBloc.add(MoveItemToCategoryEvent(
+                        itemId: item.id,
+                        targetCategoryId: itemCategoryId.isEmpty ? null : itemCategoryId,
+                        insertPosition: 0,
+                        sourceCategoryId: itemCategoryId.isEmpty ? null : itemCategoryId,
+                      ));
                     }
                   }
                   // Clear search to show item at top
