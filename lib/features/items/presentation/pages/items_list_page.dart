@@ -89,9 +89,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
   final _scrollController = ScrollController();
   String? _stickyCategory;
 
-  // Track dragged item index for label visibility
-  int? _draggingIndex;
-
   // Track last synced category items to prevent duplicate syncs
   String? _lastSyncedSignature;
   String? _lastSyncedCategoryId;
@@ -536,14 +533,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                     buildDefaultDragHandles: false,
                                     itemCount: listEntries.length,
                                     onReorderStart: (index) {
-                                      // Only trigger for items, not labels
+                                      // Only trigger haptic for items, not labels
                                       if (!listEntries[index].isLabel) {
                                         HapticFeedback.mediumImpact();
-                                        setState(() => _draggingIndex = index);
                                       }
-                                    },
-                                    onReorderEnd: (_) {
-                                      setState(() => _draggingIndex = null);
                                     },
                                     proxyDecorator: (child, index, animation) {
                                       final entry = listEntries[index];
