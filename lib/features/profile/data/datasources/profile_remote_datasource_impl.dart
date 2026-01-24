@@ -165,16 +165,16 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       final batch = _firestore.batch();
       final userRef = _firestore.collection('users').doc(user.uid);
 
-      // Delete all items
+      // Delete all items (uses DocumentReference for uid)
       final itemsSnapshot = await _firestore
           .collection('Item')
-          .where('user_id', isEqualTo: user.uid)
+          .where('uid', isEqualTo: userRef)
           .get();
       for (final doc in itemsSnapshot.docs) {
         batch.delete(doc.reference);
       }
 
-      // Delete all event logs
+      // Delete all event logs (uses string user_id)
       final eventsSnapshot = await _firestore
           .collection('EventLog')
           .where('user_id', isEqualTo: user.uid)
