@@ -1,9 +1,12 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
+import '../../../events/domain/entities/event_log.dart';
+import '../../../events/domain/repositories/event_log_repository.dart';
 import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../datasources/item_remote_datasource.dart';
@@ -25,8 +28,9 @@ import '../models/item_model.dart';
 @LazySingleton(as: ItemRepository)
 class ItemRepositoryImpl implements ItemRepository {
   final ItemRemoteDataSource remoteDataSource;
+  final EventLogRepository eventLogRepository;
 
-  ItemRepositoryImpl(this.remoteDataSource);
+  ItemRepositoryImpl(this.remoteDataSource, this.eventLogRepository);
 
   @override
   Future<Either<Failure, List<Item>>> getItems(String userId) async {
@@ -83,6 +87,28 @@ class ItemRepositoryImpl implements ItemRepository {
         categoryOrder: item.categoryOrder,
       );
       final created = await remoteDataSource.createItem(itemModel);
+
+      // Insert 'created' event to mark the start of the first interval
+      final now = DateTime.now();
+      final timestamp = now.millisecondsSinceEpoch ~/ 1000;
+      final createdEvent = EventLog(
+        id: '${created.id}-created-$timestamp',
+        createdTime: now,
+        itemId: created.id,
+        eventName: 'created',
+        increment: 0,
+        currentCount: item.count,
+        resetNumber: 0,
+        userId: item.userId,
+      );
+
+      debugPrint('📝 ItemRepository: Inserting created event for ${created.id}');
+      final insertResult = await eventLogRepository.insertEvents([createdEvent]);
+      insertResult.fold(
+        (failure) => debugPrint('❌ Failed to insert created event: ${failure.message}'),
+        (_) => debugPrint('✅ Created event inserted successfully'),
+      );
+
       return Right(created);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));

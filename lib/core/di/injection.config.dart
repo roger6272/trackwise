@@ -210,8 +210,12 @@ extension GetItInjectableX on _i174.GetIt {
         _i307.CategoryRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i949.EventLogRemoteDataSource>(() =>
         _i419.EventLogRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
-    gh.lazySingleton<_i319.ItemRepository>(
-        () => _i835.ItemRepositoryImpl(gh<_i41.ItemRemoteDataSource>()));
+    gh.lazySingleton<_i647.AuthFirebaseDataSource>(
+        () => _i459.AuthFirebaseDataSourceImpl(
+              firebaseAuth: gh<_i59.FirebaseAuth>(),
+              firestore: gh<_i974.FirebaseFirestore>(),
+              googleSignIn: gh<_i116.GoogleSignIn>(),
+            ));
     gh.lazySingleton<_i676.FirestoreMailDataSource>(() =>
         _i588.FirestoreMailDataSourceImpl(
             firestore: gh<_i974.FirebaseFirestore>()));
@@ -251,11 +255,6 @@ extension GetItInjectableX on _i174.GetIt {
         _i385.WatchConnectionStateUseCase(gh<_i862.BluetoothRepository>()));
     gh.lazySingleton<_i508.WatchDeviceMessagesUseCase>(() =>
         _i508.WatchDeviceMessagesUseCase(gh<_i862.BluetoothRepository>()));
-    gh.lazySingleton<_i647.AuthFirebaseDataSource>(
-        () => _i459.AuthFirebaseDataSourceImpl(
-              firebaseAuth: gh<_i59.FirebaseAuth>(),
-              googleSignIn: gh<_i116.GoogleSignIn>(),
-            ));
     gh.lazySingleton<_i578.AuthRepository>(() => _i663.AuthRepositoryImpl(
         dataSource: gh<_i647.AuthFirebaseDataSource>()));
     gh.lazySingleton<_i978.EventLogRepository>(
@@ -263,6 +262,10 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i949.EventLogRemoteDataSource>(),
               gh<_i59.FirebaseAuth>(),
             ));
+    gh.lazySingleton<_i319.ItemRepository>(() => _i835.ItemRepositoryImpl(
+          gh<_i41.ItemRemoteDataSource>(),
+          gh<_i978.EventLogRepository>(),
+        ));
     gh.lazySingleton<_i939.ProfileRepository>(() => _i950.ProfileRepositoryImpl(
         dataSource: gh<_i772.ProfileRemoteDataSource>()));
     gh.lazySingleton<_i833.SyncDeviceDataUseCase>(
