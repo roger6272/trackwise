@@ -370,7 +370,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
             // Only include resetNumber if provided
             if (resetNumber != null) {
-              updateData['reset_number'] = resetNumber;
+              updateData['reset_number'] = resetNumber;  // snake_case to match ItemModel.fromFirestore
             }
 
             batch.update(itemRef, updateData);
@@ -613,7 +613,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
       for (final doc in activeItems) {
         final data = doc.data();
-        final currentResetNumber = data['resetNumber'] as int? ?? 0;
+        final currentResetNumber = data['reset_number'] as int? ?? 0;
         final newResetNumber = currentResetNumber + 1;
 
         // Extract item's userId from DocumentReference
@@ -630,12 +630,15 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         batch.update(itemRef, {
           'count': 0,
           'todayCount': 0,
-          'resetNumber': newResetNumber,
+          'reset_number': newResetNumber,  // snake_case to match ItemModel.fromFirestore
           'lastResetTime': nowMillis,
           'lastUpdated': nowMillis,
         });
 
         // Create reset event log
+        // Reset event marks the END of the previous interval (currentResetNumber),
+        // not the start of the new one. This allows IntervalCalculator to correctly
+        // determine when the old cycle ended and the new cycle began.
         final eventRef = firestore.collection('EventLog').doc();
         batch.set(eventRef, {
           'created_time': Timestamp.fromDate(now),
@@ -643,7 +646,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           'eventName': 'reset',
           'increment': 0,
           'currentCount': 0,
-          'resetNumber': newResetNumber,
+          'reset_number': currentResetNumber,  // snake_case to match EventLogModel.fromFirestore
           'user_id': itemUserId,
         });
 

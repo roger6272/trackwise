@@ -26,13 +26,27 @@ class BluetoothSearchPage extends StatefulWidget {
 }
 
 class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
+  bool _hasAutoStartedScan = false;
+
   @override
   void initState() {
     super.initState();
-    // Check permissions and start scan on page load
+    // Check permissions on page load
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<BluetoothBloc>().add(const CheckBluetoothPermissions());
     });
+  }
+
+  /// Auto-start scan if no prior search was done and permissions are ready.
+  void _tryAutoStartScan(BluetoothState state) {
+    if (_hasAutoStartedScan) return;
+    if (state.discoveredDevices.isEmpty &&
+        !state.isScanning &&
+        state.permissionsGranted &&
+        state.bluetoothEnabled) {
+      _hasAutoStartedScan = true;
+      context.read<BluetoothBloc>().add(const StartScan());
+    }
   }
 
   @override
@@ -60,6 +74,9 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
       ),
       body: BlocConsumer<BluetoothBloc, BluetoothState>(
         listener: (context, state) {
+          // Auto-start scan if ready and no prior search was done
+          _tryAutoStartScan(state);
+
           // Navigate to items list when connected
           if (state.isConnected) {
             context.go('/');

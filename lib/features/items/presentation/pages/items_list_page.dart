@@ -1755,20 +1755,27 @@ class _ItemsListContentState extends State<_ItemsListContent>
           ),
           const SizedBox(height: 24.0),
           FilledButton.icon(
-            onPressed: () async {
-              if (isConnected) {
-                context.pushNamed(ItemFormPage.routeName);
-              } else {
-                await _showConnectDeviceDialog(context);
-              }
-            },
+            onPressed: isConnected
+                ? () => context.pushNamed(ItemFormPage.routeName)
+                : null,
             style: FilledButton.styleFrom(
               backgroundColor: _primary,
+              disabledBackgroundColor: _primary.withValues(alpha: 0.3),
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
             ),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Create Item'),
           ),
+          if (!isConnected) ...[
+            const SizedBox(height: 8.0),
+            Text(
+              'Connect device to create items',
+              style: GoogleFonts.inter(
+                color: secondaryText.withValues(alpha: 0.7),
+                fontSize: 12.0,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -12,6 +13,8 @@ import 'package:trackwise/features/charts/presentation/bloc/charts_state.dart';
 import 'package:trackwise/features/events/presentation/bloc/events_bloc.dart';
 import 'package:trackwise/features/events/presentation/bloc/events_event.dart';
 import 'package:trackwise/features/events/presentation/bloc/events_state.dart';
+import 'package:trackwise/features/items/domain/entities/item.dart';
+import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
 import 'package:trackwise/features/items/presentation/pages/item_detail_page.dart';
 
 class MockEventsBloc extends MockBloc<EventsEvent, EventsState>
@@ -20,9 +23,12 @@ class MockEventsBloc extends MockBloc<EventsEvent, EventsState>
 class MockChartsBloc extends MockBloc<ChartsEvent, ChartsState>
     implements ChartsBloc {}
 
+class MockItemRepository extends Mock implements ItemRepository {}
+
 void main() {
   late MockEventsBloc mockEventsBloc;
   late MockChartsBloc mockChartsBloc;
+  late MockItemRepository mockItemRepository;
 
   setUpAll(() {
     registerFallbackValue(const LoadEvents());
@@ -36,6 +42,7 @@ void main() {
   setUp(() {
     mockEventsBloc = MockEventsBloc();
     mockChartsBloc = MockChartsBloc();
+    mockItemRepository = MockItemRepository();
 
     // Register mocks in service locator
     final sl = GetIt.instance;
@@ -45,11 +52,34 @@ void main() {
     if (sl.isRegistered<ChartsBloc>()) {
       sl.unregister<ChartsBloc>();
     }
+    if (sl.isRegistered<ItemRepository>()) {
+      sl.unregister<ItemRepository>();
+    }
     sl.registerFactory<EventsBloc>(() => mockEventsBloc);
     sl.registerFactory<ChartsBloc>(() => mockChartsBloc);
+    sl.registerLazySingleton<ItemRepository>(() => mockItemRepository);
 
     when(() => mockEventsBloc.state).thenReturn(const EventsInitial());
     when(() => mockChartsBloc.state).thenReturn(const ChartsInitial());
+
+    // Default mock for getItem - returns the same data as widget params
+    when(() => mockItemRepository.getItem(any())).thenAnswer((_) async {
+      return Right(Item(
+        id: 'test_item',
+        name: 'Test Item',
+        count: 10,
+        todayCount: 0,
+        incrementBy: 1,
+        reminder: ReminderType.none,
+        reminderValue: 0,
+        lastResetTime: DateTime.now(),
+        resetNumber: 0,
+        lastUpdated: DateTime.now(),
+        userId: 'user_123',
+        order: 0,
+        initialCount: 0,
+      ));
+    });
   });
 
   tearDown(() {
@@ -59,6 +89,9 @@ void main() {
     }
     if (sl.isRegistered<ChartsBloc>()) {
       sl.unregister<ChartsBloc>();
+    }
+    if (sl.isRegistered<ItemRepository>()) {
+      sl.unregister<ItemRepository>();
     }
   });
 
