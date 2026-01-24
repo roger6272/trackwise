@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -11,11 +12,29 @@ class PrivacyPolicyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryBackground,
-        title: const Text('Privacy Policy'),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: primaryText,
+            size: 30.0,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Privacy Policy',
+          style: GoogleFonts.interTight(
+            color: primaryText,
+            fontSize: 20.0,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
         elevation: 0.0,
       ),
       body: FutureBuilder<String>(
