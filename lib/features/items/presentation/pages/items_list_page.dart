@@ -392,8 +392,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
                                       // Create signature from current category items (config fields only, not counts)
+                                      // Include categoryId so category changes trigger sync
                                       final currentSignature = currentCategoryItems
-                                          .map((i) => '${i.id}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
+                                          .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
                                           .join(',');
 
                                       // First time seeing items - just initialize signature, don't sync
@@ -405,24 +406,21 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         return true;
                                       }
 
-                                      // Category changed - just update signature, don't sync
-                                      // (Category switch already sent items to device via other code paths)
-                                      if (_lastSyncedCategoryId != selectedCatId) {
-                                        _lastSyncedSignature = currentSignature;
-                                        _lastSyncedCategoryId = selectedCatId;
-                                        _lastSyncTime = DateTime.now();
-                                        return true;
-                                      }
-
                                       // Debounce: skip if synced recently (within 500ms)
                                       final now = DateTime.now();
                                       final recentlySynced = _lastSyncTime != null &&
                                           now.difference(_lastSyncTime!).inMilliseconds < 500;
 
-                                      // Only sync if signature changed within SAME category (user made a config change)
-                                      if (currentSignature != _lastSyncedSignature) {
+                                      // Check if category changed (selected item moved to different category)
+                                      final categoryChanged = _lastSyncedCategoryId != selectedCatId;
+                                      final signatureChanged = currentSignature != _lastSyncedSignature;
+
+                                      // Sync if signature changed OR if selected item's category changed
+                                      // Category change means item was edited to be in a different category
+                                      if (signatureChanged || categoryChanged) {
                                         if (!recentlySynced) {
                                           _lastSyncedSignature = currentSignature;
+                                          _lastSyncedCategoryId = selectedCatId;
                                           _lastSyncTime = now;
                                           context.read<BluetoothBloc>().add(SendItemsToDevice(
                                             currentCategoryItems,
@@ -433,8 +431,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                             context.read<BluetoothBloc>().add(SendSelectedItem(selectedId));
                                           });
                                         } else {
-                                          // Update signature but skip sync (debounced)
+                                          // Update signature/category but skip sync (debounced)
                                           _lastSyncedSignature = currentSignature;
+                                          _lastSyncedCategoryId = selectedCatId;
                                         }
                                       }
                                     }
