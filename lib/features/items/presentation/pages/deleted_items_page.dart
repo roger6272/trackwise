@@ -489,7 +489,10 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Keep current selected item
-      bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
+      bluetoothBloc.add(SendSelectedItem(
+        deviceSelectedId,
+        selectedItem.deviceItemId ?? 0,
+      ));
     } catch (e) {
       // Silently handle sync errors - device sync is best-effort
     }

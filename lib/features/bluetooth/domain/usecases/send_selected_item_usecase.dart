@@ -11,13 +11,17 @@ class SendSelectedItemParams extends Equatable {
   final String deviceId;
   final String itemId;
 
+  /// Device-side ID (0-99) for BLE communication
+  final int deviceItemId;
+
   const SendSelectedItemParams({
     required this.deviceId,
     required this.itemId,
+    required this.deviceItemId,
   });
 
   @override
-  List<Object> get props => [deviceId, itemId];
+  List<Object> get props => [deviceId, itemId, deviceItemId];
 }
 
 /// Use case for sending selected item command to ESP32.
@@ -36,6 +40,9 @@ class SendSelectedItemUseCase extends UseCase<void, SendSelectedItemParams> {
       return const Left(ValidationFailure('Item ID cannot be empty'));
     }
 
-    return await repository.sendSelectedItem(params.deviceId, params.itemId);
+    return await repository.sendSelectedItem(
+      params.deviceId,
+      params.deviceItemId,
+    );
   }
 }

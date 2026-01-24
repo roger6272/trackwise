@@ -113,7 +113,8 @@ abstract class BluetoothRepository {
 
   /// Sends selected item command to ESP32.
   ///
-  /// Sends JSON: {"cmd": "set_selected", "id": itemId}
+  /// Sends JSON: {"cmd": "set_selected", "id": deviceItemId}
+  /// The deviceItemId is a numeric ID (0-99) used for BLE communication.
   /// Writes to WRITE characteristic (12345678-1234-1234-1234-123456789010).
   ///
   /// Returns:
@@ -121,7 +122,7 @@ abstract class BluetoothRepository {
   /// - Left(BluetoothFailure): Send failed
   Future<Either<Failure, void>> sendSelectedItem(
     String deviceId,
-    String itemId,
+    int deviceItemId,
   );
 
   /// Syncs device clock with current time.

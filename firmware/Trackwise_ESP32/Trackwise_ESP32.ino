@@ -28,8 +28,9 @@
 #define VIBRATION_PIN 5
 
 // Event struct to store count logs
+// Uses uint8_t deviceItemId (0-99) instead of String for memory optimization
 struct CountLog {
-  String itemId;
+  uint8_t deviceItemId;  // 0-99, was: String itemId (saves ~17 bytes per entry)
   String itemName;
   String event;
   uint32_t timestamp;
@@ -46,7 +47,7 @@ int logCount = 0;                //number of valid entries in the log
 
 // Current device state for selected item
 int currentItemIndex = 0;
-String currentItemId = "none";
+int8_t currentDeviceItemId = -1;  // -1 = none, 0-99 = valid device item ID
 int itemCount = 0;
 int itemTodayCount = 0;
 int itemIncrement = 1;
@@ -113,7 +114,7 @@ void updateVibration() {
 
 // Flush pending NVS writes for current item (call on disconnect or before sleep)
 void flushPendingNvsWrites() {
-  if (countsDirty && currentItemId != "none") {
+  if (countsDirty && currentDeviceItemId >= 0) {
     Serial.println("📝 Flushing pending NVS writes...");
     prefs.begin("counter", false);
     char key[16];
@@ -133,7 +134,7 @@ void flushPendingNvsWrites() {
 void logEvent(String event, int resetNum = -1) {
   int logResetNumber = (resetNum >= 0) ? resetNum : itemResetNumber;
   logs[logWriteIndex] = {
-    currentItemId, itemName, event, rtc.now().unixtime(), itemIncrement, itemCount, reminder, reminderValue, logResetNumber
+    (uint8_t)(currentDeviceItemId >= 0 ? currentDeviceItemId : 0), itemName, event, rtc.now().unixtime(), itemIncrement, itemCount, reminder, reminderValue, logResetNumber
   };
   logWriteIndex = (logWriteIndex + 1) % MAX_LOG_ENTRIES;
   if (logCount < MAX_LOG_ENTRIES) logCount++;
@@ -178,12 +179,13 @@ void notifyError(const char* cmd, const char* reason) {
 
 // Send delta update for a single item (much smaller than full prefs)
 // Used after increment/reset to update just the changed item
-void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime, int resetNumber) {
+// Uses numeric deviceItemId (0-99) for memory optimization
+void notifyItemDelta(int8_t deviceItemId, int count, int todayCount, time_t resetTime, int resetNumber) {
   if (!isConnected || NotifyChar == nullptr) return;
 
   StaticJsonDocument<256> doc;
   doc["type"] = "item_delta";
-  doc["id"] = itemId;
+  doc["id"] = (int)deviceItemId;  // Numeric deviceItemId instead of string
   doc["count"] = count;
   doc["todaycount"] = todayCount;
   doc["lastResetTime"] = (long)resetTime;
@@ -196,7 +198,7 @@ void notifyItemDelta(String itemId, int count, int todayCount, time_t resetTime,
   // Delta is small enough to send in one chunk typically
   NotifyChar->setValue(jsonOut.c_str());
   NotifyChar->notify();
-  Serial.printf("📤 Delta update: %s count=%d today=%d resetNumber=%d\n", itemId.c_str(), count, todayCount, resetNumber);
+  Serial.printf("📤 Delta update: deviceItemId=%d count=%d today=%d resetNumber=%d\n", deviceItemId, count, todayCount, resetNumber);
 }
 
 // Send logs to app via notification (chunked for large payloads)
@@ -223,6 +225,7 @@ void notifyLogsToApp(int page) {
 }
 
 // Convert ALL prefs into a JSON string to send to the app
+// Uses numeric deviceItemId (0-99) instead of string IDs for memory optimization
 String getPrefsJson() {
   StaticJsonDocument<16384> doc;  // Increased for 100 items
 
@@ -238,8 +241,9 @@ String getPrefsJson() {
   char key[16];  // Buffer for preference keys
   for (int i = 0; i < total; i++) {
     JsonObject item = arr.createNestedObject();
-    snprintf(key, sizeof(key), "id_%d", i);
-    item["id"] = prefs.getString(key, "");
+    // Use deviceItemId from storage (not index)
+    snprintf(key, sizeof(key), "did_%d", i);
+    item["id"] = prefs.getUChar(key, i);  // Default to index if not stored
     snprintf(key, sizeof(key), "n_%d", i);
     item["name"] = prefs.getString(key, "");
     snprintf(key, sizeof(key), "c_%d", i);
@@ -252,9 +256,9 @@ String getPrefsJson() {
     item["resetNumber"] = prefs.getInt(key, 0);
   }
 
-  //Add selected_id to update the appstate
-  String selectedId = prefs.getString("selected_id", "");
-  root["selected_id"] = selectedId;
+  // Add selected_id as numeric deviceItemId (-1 for none)
+  int8_t selectedId = prefs.getChar("selected_did", -1);
+  root["selected_id"] = (int)selectedId;
   prefs.end();
 
   String out;
@@ -263,6 +267,7 @@ String getPrefsJson() {
 }
 
 // Convert ALL pts into a JSON string to send to the app
+// Uses numeric deviceItemId (0-99) instead of string IDs
 String getLogsAsString(int page) {
   StaticJsonDocument<4096> doc;
 
@@ -288,7 +293,7 @@ String getLogsAsString(int page) {
     }
     JsonObject o = arr.createNestedObject();
     o["timestamp"] = logs[i].timestamp;
-    o["itemId"] = logs[i].itemId;
+    o["itemId"] = (int)logs[i].deviceItemId;  // Numeric deviceItemId
     o["itemName"] = logs[i].itemName;
     o["event"] = logs[i].event;
     o["increment"] = logs[i].increment;
@@ -339,15 +344,15 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       prefs.begin("counter", false);
 
-      // Save existing counts by item ID before deletion (device is source of truth)
+      // Save existing counts by deviceItemId before deletion (device is source of truth)
       int existingTotal = prefs.getInt("item_total", 0);
-      String existingIds[maxPrefsSlots];
+      uint8_t existingDeviceIds[maxPrefsSlots];
       int existingCounts[maxPrefsSlots];
       int existingTodayCounts[maxPrefsSlots];
       char key[16];  // Buffer for preference keys
       for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
-        snprintf(key, sizeof(key), "id_%d", i);
-        existingIds[i] = prefs.getString(key, "");
+        snprintf(key, sizeof(key), "did_%d", i);
+        existingDeviceIds[i] = prefs.getUChar(key, 255);  // 255 = invalid
         snprintf(key, sizeof(key), "c_%d", i);
         existingCounts[i] = prefs.getInt(key, 0);
         snprintf(key, sizeof(key), "tc_%d", i);
@@ -366,7 +371,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         prefs.remove(key);
         snprintf(key, sizeof(key), "i_%d", i);
         prefs.remove(key);
-        snprintf(key, sizeof(key), "id_%d", i);
+        snprintf(key, sizeof(key), "did_%d", i);  // deviceItemId (was id_)
         prefs.remove(key);
         snprintf(key, sizeof(key), "r_%d", i);
         prefs.remove(key);
@@ -381,7 +386,8 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       int index = 0;
       for (JsonObject item : doc.as<JsonArray>()) {
         if (index >= maxPrefsSlots) break;
-        String id = item["id"].as<String>();
+        // id is now numeric deviceItemId (0-99) from app
+        int deviceItemId = item["id"] | index;  // Default to index if not provided
         String name = item["name"].as<String>();
         String category = item.containsKey("category") ? item["category"].as<String>() : "";
         int increment = item["increment"];
@@ -390,14 +396,14 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         unsigned long lastResetTime = item.containsKey("lastResetTime") ? item["lastResetTime"] : 0;
         int resetNumber = item.containsKey("reset_number") ? item["reset_number"].as<int>() : 0;
 
-        // Find existing counts for this item ID (device is source of truth)
+        // Find existing counts for this deviceItemId (device is source of truth)
         int count = 0;
         int todaycount = 0;
         for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
-          if (existingIds[i] == id) {
+          if (existingDeviceIds[i] == deviceItemId) {
             count = existingCounts[i];
             todaycount = existingTodayCounts[i];
-            Serial.printf("🔄 Preserving counts for %s: count=%d, todaycount=%d\n", id.c_str(), count, todaycount);
+            Serial.printf("🔄 Preserving counts for deviceItemId=%d: count=%d, todaycount=%d\n", deviceItemId, count, todaycount);
             break;
           }
         }
@@ -410,8 +416,9 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
           todaycount = item["todaycount"].as<int>();
         }
 
-        snprintf(key, sizeof(key), "id_%d", index);
-        prefs.putString(key, id);
+        // Store deviceItemId (replaces string id)
+        snprintf(key, sizeof(key), "did_%d", index);
+        prefs.putUChar(key, (uint8_t)deviceItemId);
         snprintf(key, sizeof(key), "n_%d", index);
         prefs.putString(key, name);
         snprintf(key, sizeof(key), "cat_%d", index);
@@ -431,8 +438,8 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         snprintf(key, sizeof(key), "rn_%d", index);
         prefs.putInt(key, resetNumber);
 
-        Serial.printf("[%d] ID=%s Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
-              index, id.c_str(), name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
+        Serial.printf("[%d] DeviceID=%d Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
+              index, deviceItemId, name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
         index++;
       }
 
@@ -440,16 +447,16 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       // Re-lookup selected item index after reordering
       // (items may have moved to different positions)
-      if (currentItemId != "none") {
+      if (currentDeviceItemId >= 0) {
         bool found = false;
         for (int i = 0; i < index; i++) {
-          snprintf(key, sizeof(key), "id_%d", i);
-          String testId = prefs.getString(key, "");
-          if (testId == currentItemId) {
+          snprintf(key, sizeof(key), "did_%d", i);
+          uint8_t testId = prefs.getUChar(key, 255);
+          if (testId == currentDeviceItemId) {
             currentItemIndex = i;
             prefs.putInt("selected_index", i);
             found = true;
-            Serial.printf("🔄 Updated selected index to %d for ID %s\n", i, currentItemId.c_str());
+            Serial.printf("🔄 Updated selected index to %d for deviceItemId %d\n", i, currentDeviceItemId);
             break;
           }
         }
@@ -459,13 +466,13 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
             // Items exist but selected not found - DON'T reset to none/first item
             // Keep current selection and let incoming set_selected command fix it
             // This prevents brief "none" state during reorder operations
-            Serial.printf("⚠️ Selected item '%s' not found after reorder, keeping current selection (set_selected will fix)\n", currentItemId.c_str());
+            Serial.printf("⚠️ Selected item deviceItemId=%d not found after reorder, keeping current selection (set_selected will fix)\n", currentDeviceItemId);
           } else {
             // No items at all - must reset to none
             currentItemIndex = 0;
-            currentItemId = "none";
+            currentDeviceItemId = -1;
             prefs.putInt("selected_index", 0);
-            prefs.putString("selected_id", "none");
+            prefs.putChar("selected_did", -1);
             Serial.println("⚠️ No items left, selected = none");
           }
         }
@@ -473,7 +480,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       // Refresh runtime variables for currently selected item
       // This ensures updated incrementBy, reminder, etc. take effect immediately
-      if (currentItemId != "none" && currentItemIndex < index) {
+      if (currentDeviceItemId >= 0 && currentItemIndex < index) {
         snprintf(key, sizeof(key), "c_%d", currentItemIndex);
         itemCount = prefs.getInt(key, 0);
         snprintf(key, sizeof(key), "tc_%d", currentItemIndex);
@@ -536,8 +543,8 @@ class WriteCallback : public BLECharacteristicCallbacks {
       Serial.println("✅ Logs cleared.");
 
     } else if (cmd == "set_selected") {  ///////////////////////// set selected item
-      String id = doc["id"] | "";
-      id.trim();  // ⚠️ Important to match stored prefs key
+      // id is now numeric deviceItemId (0-99), -1 means no selection
+      int targetDeviceId = doc["id"] | -1;
 
       // Flush pending writes for previous item before switching
       flushPendingNvsWrites();
@@ -545,10 +552,10 @@ class WriteCallback : public BLECharacteristicCallbacks {
       prefs.begin("counter", false);
 
       int total = prefs.getInt("item_total", 0);
-      if (total == 0 || id == "none") {
+      if (total == 0 || targetDeviceId < 0) {
         Serial.println("⚠️ No items available to select.");
-        currentItemId = "none";
-        prefs.putString("selected_id", "none");
+        currentDeviceItemId = -1;
+        prefs.putChar("selected_did", -1);
         prefs.putInt("selected_index", 0);
         prefs.end();
         return;
@@ -557,12 +564,12 @@ class WriteCallback : public BLECharacteristicCallbacks {
       bool found = false;
       char key[16];  // Buffer for preference keys
       for (int i = 0; i < total; i++) {
-        snprintf(key, sizeof(key), "id_%d", i);
-        String testId = prefs.getString(key, "");  //loop through all index with each id compared with the target id
-        if (testId == id) {
-          currentItemId = id;
+        snprintf(key, sizeof(key), "did_%d", i);
+        uint8_t testId = prefs.getUChar(key, 255);
+        if (testId == targetDeviceId) {
+          currentDeviceItemId = targetDeviceId;
           currentItemIndex = i;
-          prefs.putString("selected_id", id);
+          prefs.putChar("selected_did", targetDeviceId);
           prefs.putInt("selected_index", i);
           snprintf(key, sizeof(key), "c_%d", i);
           itemCount = prefs.getInt(key, 0);
@@ -583,18 +590,14 @@ class WriteCallback : public BLECharacteristicCallbacks {
           snprintf(key, sizeof(key), "rn_%d", i);
           itemResetNumber = prefs.getInt(key, 0);
 
-          Serial.printf("✅ Selected item [%d]: %s (%s) category=%s resetNumber=%d\n", i, id.c_str(), itemName.c_str(), itemCategory.c_str(), itemResetNumber);
+          Serial.printf("✅ Selected item [%d]: deviceItemId=%d (%s) category=%s resetNumber=%d\n", i, targetDeviceId, itemName.c_str(), itemCategory.c_str(), itemResetNumber);
           found = true;
           break;
         }
       }
 
       if (!found) {
-        Serial.println("Selected ItemId unchanged:");
-        for (int i = 0; i < total; i++) {
-          snprintf(key, sizeof(key), "id_%d", i);
-          Serial.println(prefs.getString(key, ""));
-        }
+        Serial.printf("⚠️ DeviceItemId %d not found in stored items\n", targetDeviceId);
       }
       prefs.end();
 
@@ -692,7 +695,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
       prefs.putString("last_reset_date", todayStr);
 
       // Reset runtime variable if item is selected
-      if (currentItemId != "none") {
+      if (currentDeviceItemId >= 0) {
         itemTodayCount = 0;
         lastResetTime = utcTimestamp;
       }
@@ -824,6 +827,7 @@ void updateReadChar() {
 
 // Send event to app via notification. This will be called everytime a button is pressed
 // For reset events, pass the OLD resetNumber before incrementing
+// Uses numeric deviceItemId (0-99) for memory optimization
 void notifyEvent(String event, int resetNum = -1) {
   if (!isConnected || NotifyChar == nullptr) return;
 
@@ -838,7 +842,7 @@ void notifyEvent(String event, int resetNum = -1) {
   // Create the data object with event details
   JsonObject data = root.createNestedObject("data");
   data["timestamp"] = rtc.now().unixtime();
-  data["itemId"] = currentItemId;
+  data["itemId"] = (int)currentDeviceItemId;  // Numeric deviceItemId instead of string
   data["itemName"] = itemName;
   data["event"] = event;
   data["increment"] = itemIncrement;
@@ -903,7 +907,7 @@ void handleCommand(char cmd) {
   char key[16];  // Buffer for preference keys
   if (cmd == 'u') {
     // Increment current item count and update in prefs using indexed keys
-    if (currentItemId == "none") {
+    if (currentDeviceItemId < 0) {
       Serial.println("No Item Selected");
       notifyError("increment", "No item selected");
       prefs.end();
@@ -943,7 +947,7 @@ void handleCommand(char cmd) {
     // Only log when disconnected - when connected, real-time events are synced directly
     if (!isConnected) logEvent("increment");
     // Send delta update instead of full prefs (much smaller payload)
-    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
+    if (isConnected) notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
     delay(50);  // Brief gap between notifications
     if (isConnected) notifyEvent("increment");
 
@@ -954,7 +958,7 @@ void handleCommand(char cmd) {
 
   } else if (cmd == 'r') {
     // Reset current item count and update in prefs using indexed keys
-    if (currentItemId == "none") {
+    if (currentDeviceItemId < 0) {
       Serial.println("No Item Selected");
       notifyError("reset", "No item selected");
       prefs.end();
@@ -979,8 +983,8 @@ void handleCommand(char cmd) {
     snprintf(key, sizeof(key), "lr_%d", currentItemIndex);
     prefs.putULong(key, lastResetTime);
 
-    // Only log when disconnected - when connected, real-time events are synced directly
-    if (!isConnected) logEvent("reset", oldResetNumber);
+    // Log the reset event with OLD resetNumber (this reset ends period N)
+    logEvent("reset", oldResetNumber);
 
     // Now increment resetNumber for the new period
     itemResetNumber++;
@@ -992,7 +996,7 @@ void handleCommand(char cmd) {
     prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
     // Send delta update with NEW resetNumber (app needs current state)
-    if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
+    if (isConnected) notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
     delay(50);  // Brief gap between notifications
     // Send event notification with OLD resetNumber (the reset that ended period N)
     if (isConnected) notifyEvent("reset", oldResetNumber);
@@ -1017,11 +1021,11 @@ void handleCommand(char cmd) {
 
     // Cycle to the next item index
     currentItemIndex = (currentItemIndex + 1) % total;
-    snprintf(key, sizeof(key), "id_%d", currentItemIndex);
-    currentItemId = prefs.getString(key, "none");
+    snprintf(key, sizeof(key), "did_%d", currentItemIndex);
+    currentDeviceItemId = prefs.getUChar(key, currentItemIndex);  // Default to index
 
     // Update state with new selection
-    prefs.putString("selected_id", currentItemId);
+    prefs.putChar("selected_did", currentDeviceItemId);
     prefs.putInt("selected_index", currentItemIndex);
     snprintf(key, sizeof(key), "c_%d", currentItemIndex);
     itemCount = prefs.getInt(key, 0);
@@ -1042,7 +1046,6 @@ void handleCommand(char cmd) {
     snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
     itemResetNumber = prefs.getInt(key, 0);
 
-    currentItemId = prefs.getString("selected_id", "none");
     prefs.end();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
     //logEvent("switch");
@@ -1061,21 +1064,14 @@ void handleCommand(char cmd) {
 
   //DateTime now = rtc.now();
   // 📢 Display current item status after any command
-  //  Serial.print("Time: ");
-  //Serial.print(now.month(), DEC);
-  //Serial.print('/');
-  //Serial.print(now.day(), DEC);
-  //Serial.print(" ");
- // Serial.print(now.hour(), DEC);
- // Serial.print(" ");
   Serial.print(itemName);
   if (itemCategory.length() > 0) {
     Serial.print(" (");
     Serial.print(itemCategory);
     Serial.print(")");
   }
-  Serial.print(" [ID: ");
-  Serial.print(currentItemId);
+  Serial.print(" [DeviceID: ");
+  Serial.print(currentDeviceItemId);
   Serial.print("] Count: ");
   Serial.print(itemCount);
   Serial.print(", TodayCount: ");
@@ -1130,7 +1126,7 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
       Serial.printf("Reset: %s, lastResetTime: %lu (UTC)\n", key, utcTimestamp);
     }
 
-    if (currentItemId != "none") {
+    if (currentDeviceItemId >= 0) {
       itemTodayCount = 0;  // Also reset runtime variable
       lastResetTime = utcTimestamp;
     }
@@ -1165,9 +1161,12 @@ void setup() {
   int verifiedTotal = 0;
   char key[16];  // Buffer for preference keys
   for (int i = 0; i < maxPrefsSlots; i++) {
-    snprintf(key, sizeof(key), "id_%d", i);
-    String id = prefs.getString(key, "");
-    if (id.length() > 0) {
+    // Check if deviceItemId exists for this slot (or name as fallback)
+    snprintf(key, sizeof(key), "did_%d", i);
+    uint8_t did = prefs.getUChar(key, 255);
+    snprintf(key, sizeof(key), "n_%d", i);
+    String name = prefs.getString(key, "");
+    if (did != 255 || name.length() > 0) {
       verifiedTotal++;
     } else {
       break;
@@ -1177,9 +1176,9 @@ void setup() {
   Serial.printf("✅ Verified item_total on boot: %d\n", verifiedTotal);
 
 
-  currentItemId = prefs.getString("selected_id", "none");
-  Serial.print("CurrentItemid:");
-  Serial.print(currentItemId);
+  currentDeviceItemId = prefs.getChar("selected_did", -1);
+  Serial.print("CurrentDeviceItemId:");
+  Serial.print(currentDeviceItemId);
   currentItemIndex = prefs.getInt("selected_index", 0);
   snprintf(key, sizeof(key), "c_%d", currentItemIndex);
   itemCount = prefs.getInt(key, 0);
@@ -1203,8 +1202,9 @@ void setup() {
   if (currentItemIndex >= verifiedTotal) {
     currentItemIndex = 0;
     prefs.putInt("selected_index", 0);
-    currentItemId = prefs.getString("id_0", "none");
-    prefs.putString("selected_id", currentItemId);
+    snprintf(key, sizeof(key), "did_%d", 0);
+    currentDeviceItemId = prefs.getChar(key, -1);
+    prefs.putChar("selected_did", currentDeviceItemId);
     Serial.println("⚠️ selected_index out of bounds. Resetting to 0.");
   }
 

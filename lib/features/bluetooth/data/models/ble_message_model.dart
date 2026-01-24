@@ -25,7 +25,7 @@ class BleMessageModel extends BleMessage {
   /// {
   ///   "type": "prefs",
   ///   "data": [...],
-  ///   "selected_id": "item_id"
+  ///   "selected_id": 0  // deviceItemId (0-99), -1 for none
   /// }
   /// ```
   ///
@@ -35,7 +35,7 @@ class BleMessageModel extends BleMessage {
   ///   "type": "event",
   ///   "data": {
   ///     "event": "increment",
-  ///     "itemId": "...",
+  ///     "itemId": 0,  // deviceItemId (0-99)
   ///     "itemName": "...",
   ///     "timestamp": 1234567890,
   ///     "count": 100,
@@ -52,6 +52,9 @@ class BleMessageModel extends BleMessage {
   ///   "hasMore": true
   /// }
   /// ```
+  ///
+  /// Note: IDs are now numeric deviceItemIds (0-99) for memory optimization.
+  /// The sync usecase maps these to Firestore IDs.
   ///
   /// Throws [FormatException] if JSON is invalid.
   factory BleMessageModel.fromJson(String jsonString) {
@@ -78,12 +81,13 @@ class BleMessageModel extends BleMessage {
     final type = _parseType(typeStr);
 
     // For item_delta, all fields are at top level (not in 'data')
-    // Format: {"type": "item_delta", "id": "...", "count": N, "todaycount": N, "lastResetTime": N, "resetNumber": N}
+    // Format: {"type": "item_delta", "id": 0, "count": N, "todaycount": N, "lastResetTime": N, "resetNumber": N}
+    // Note: id is now numeric deviceItemId (0-99)
     if (type == BleMessageType.itemDelta) {
       return BleMessageModel(
         type: type,
         data: {
-          'id': parsed['id'],
+          'deviceItemId': parsed['id'] as int?, // Store as deviceItemId
           'count': parsed['count'],
           'todaycount': parsed['todaycount'],
           'lastResetTime': parsed['lastResetTime'],
@@ -106,22 +110,52 @@ class BleMessageModel extends BleMessage {
       );
     }
 
-    final data = parsed['data'];
+    dynamic data = parsed['data'];
 
-    // Extract selectedId based on message type:
-    // - For 'prefs': selected_id is at top level
-    // - For 'event' with 'switch': itemId is inside data object
-    String? selectedId = parsed['selected_id'] as String?;
-    if (selectedId == null && type == BleMessageType.event && data is Map<String, dynamic>) {
+    // Extract selectedDeviceItemId based on message type:
+    // - For 'prefs': selected_id is at top level (now numeric, -1 for none)
+    // - For 'event' with 'switch': itemId is inside data object (now numeric)
+    // Note: selectedId in BleMessage is kept for backward compatibility but
+    // the sync usecase uses selectedDeviceItemId to look up the Firestore ID.
+    int? selectedDeviceItemId;
+
+    // For prefs, extract the selected_id (now numeric)
+    if (type == BleMessageType.prefs) {
+      final rawSelectedId = parsed['selected_id'];
+      if (rawSelectedId is int) {
+        selectedDeviceItemId = rawSelectedId;
+      }
+      // Wrap data with selectedDeviceItemId for sync usecase
+      data = {
+        'items': data,
+        'selectedDeviceItemId': selectedDeviceItemId,
+      };
+    }
+
+    // For event with 'switch': itemId is inside data object (now numeric)
+    if (type == BleMessageType.event && data is Map<String, dynamic>) {
       if (data['event'] == 'switch') {
-        selectedId = data['itemId'] as String?;
+        final rawItemId = data['itemId'];
+        if (rawItemId is int) {
+          selectedDeviceItemId = rawItemId;
+        }
+      }
+      // For all events, itemId is now numeric deviceItemId
+      // Store as deviceItemId for clarity
+      final rawItemId = data['itemId'];
+      if (rawItemId is int) {
+        data = Map<String, dynamic>.from(data);
+        data['deviceItemId'] = rawItemId;
       }
     }
+
+    // For logs, itemId in each entry is now numeric deviceItemId
+    // The sync usecase will handle mapping when processing
 
     return BleMessageModel(
       type: type,
       data: data,
-      selectedId: selectedId,
+      selectedId: null, // No longer used, sync usecase handles mapping
       hasMore: parsed['hasMore'] == true,
       page: parsed['page'] as int?,
       receivedAt: DateTime.now(),

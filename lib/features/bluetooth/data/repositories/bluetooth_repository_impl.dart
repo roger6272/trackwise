@@ -109,12 +109,13 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   /// Formats items list for ESP32 consumption.
   ///
   /// Converts domain Item entities to JSON format expected by ESP32.
+  /// Uses deviceItemId (0-99) instead of Firestore ID to reduce memory.
   /// Count and todaycount are sent for new/restored items - device preserves
   /// its own counts for existing items but uses these values for new items.
   /// ```json
   /// [
   ///   {
-  ///     "id": "item_id",
+  ///     "id": 0,  // deviceItemId (0-99) instead of Firestore string ID
   ///     "name": "Item Name",
   ///     "increment": 1,
   ///     "reminder": 0,
@@ -132,7 +133,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     Map<String, String> categoryNames,
   ) {
     final itemList = items.map((item) => {
-      'id': item.id,
+      'id': item.deviceItemId ?? 0, // Use numeric deviceItemId for BLE
       'name': item.name,
       'increment': item.incrementBy,
       'reminder': _reminderTypeToInt(item.reminder),
@@ -164,14 +165,14 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   @override
   Future<Either<Failure, void>> sendSelectedItem(
     String deviceId,
-    String itemId,
+    int deviceItemId,
   ) async {
     try {
-      // Format must match FlutterFlow's send_selected_item_to_device.dart:
-      // {"cmd": "set_selected", "id": selectedId}
+      // Send deviceItemId (0-99) instead of Firestore string ID
+      // to reduce ESP32 memory usage
       final jsonData = jsonEncode({
         'cmd': 'set_selected',
-        'id': itemId,
+        'id': deviceItemId,
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);

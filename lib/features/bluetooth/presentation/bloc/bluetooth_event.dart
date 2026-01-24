@@ -107,12 +107,16 @@ class SendItemsToDevice extends BluetoothEvent {
 
 /// Send selected item change to the ESP32 device.
 class SendSelectedItem extends BluetoothEvent {
+  /// Firestore ID for app-side tracking
   final String itemId;
 
-  const SendSelectedItem(this.itemId);
+  /// Device-side ID (0-99) for BLE communication
+  final int deviceItemId;
+
+  const SendSelectedItem(this.itemId, this.deviceItemId);
 
   @override
-  List<Object?> get props => [itemId];
+  List<Object?> get props => [itemId, deviceItemId];
 }
 
 /// Send time sync to the ESP32 device.

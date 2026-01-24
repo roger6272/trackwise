@@ -85,6 +85,7 @@ class ItemRepositoryImpl implements ItemRepository {
         goal: item.goal,
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
+        deviceItemId: item.deviceItemId, // Will be assigned by datasource
       );
       final created = await remoteDataSource.createItem(itemModel);
 
@@ -134,6 +135,7 @@ class ItemRepositoryImpl implements ItemRepository {
         goal: item.goal,
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
+        deviceItemId: item.deviceItemId,
       );
       final updated = await remoteDataSource.updateItem(itemModel);
       return Right(updated);
@@ -227,6 +229,7 @@ class ItemRepositoryImpl implements ItemRepository {
         goal: item.goal,
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
+        deviceItemId: item.deviceItemId,
       )).toList();
       await remoteDataSource.reorderItems(itemModels);
       return const Right(null);
@@ -255,6 +258,7 @@ class ItemRepositoryImpl implements ItemRepository {
         goal: item.goal,
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
+        deviceItemId: item.deviceItemId,
       )).toList();
       await remoteDataSource.reorderItemsInCategory(itemModels);
       return const Right(null);

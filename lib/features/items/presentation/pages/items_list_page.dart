@@ -428,7 +428,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           ));
                                           Future.delayed(const Duration(milliseconds: 100), () {
                                             if (!mounted) return;
-                                            context.read<BluetoothBloc>().add(SendSelectedItem(selectedId));
+                                            context.read<BluetoothBloc>().add(SendSelectedItem(
+                                              selectedId,
+                                              selectedItem.deviceItemId ?? 0,
+                                            ));
                                           });
                                         } else {
                                           // Update signature/category but skip sync (debounced)
@@ -1518,7 +1521,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                     ));
                   }
                   // Then send selected item to device
-                  context.read<BluetoothBloc>().add(SendSelectedItem(item.id));
+                  context.read<BluetoothBloc>().add(SendSelectedItem(
+                    item.id,
+                    item.deviceItemId ?? 0,
+                  ));
                 } else {
                   await _showConnectDeviceDialog(context);
                 }
@@ -1903,8 +1909,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
     // Find the selected item and its category
     // Fallback to provided category if no device selection
     String? selectedCategoryId;
+    Item? selectedItem;
     if (deviceSelectedId != null && deviceSelectedId != 'none') {
-      final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
+      selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
       selectedCategoryId = selectedItem?.categoryId;
     } else if (fallbackCategoryId != null) {
       selectedCategoryId = fallbackCategoryId;
@@ -1945,7 +1952,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     // Update selected item on device (including 'none' to clear selection)
     if (deviceSelectedId != null) {
-      bluetoothBloc.add(SendSelectedItem(deviceSelectedId));
+      final deviceItemId = (deviceSelectedId == 'none' || selectedItem == null)
+          ? -1
+          : selectedItem.deviceItemId ?? 0;
+      bluetoothBloc.add(SendSelectedItem(deviceSelectedId, deviceItemId));
     }
   }
 

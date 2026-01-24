@@ -599,7 +599,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     emit(state.copyWith(selectedItemId: event.itemId));
 
     final result = await _sendSelectedItem.call(
-      SendSelectedItemParams(deviceId: deviceId, itemId: event.itemId),
+      SendSelectedItemParams(
+        deviceId: deviceId,
+        itemId: event.itemId,
+        deviceItemId: event.deviceItemId,
+      ),
     );
 
     result.fold(
@@ -683,19 +687,32 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) async {
     final message = event.message;
 
+    // Initial state update (selectedItemId will be updated after sync)
     emit(state.copyWith(
       lastMessage: message,
-      selectedItemId: message.selectedId ?? state.selectedItemId,
       hasMoreLogs: message.hasMore,
     ));
 
     // Sync device data to Firestore
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (userId.isNotEmpty) {
-      await _syncDeviceData.call(SyncDeviceDataParams(
+      final result = await _syncDeviceData.call(SyncDeviceDataParams(
         message: message,
         userId: userId,
       ));
+
+      // Update selectedItemId if sync returned a mapped Firestore ID
+      result.fold(
+        (failure) {
+          // Log sync failure but don't fail the message handling
+          debugPrint('Sync failed: ${failure.message}');
+        },
+        (syncResult) {
+          if (syncResult.selectedFirestoreId != null) {
+            emit(state.copyWith(selectedItemId: syncResult.selectedFirestoreId));
+          }
+        },
+      );
     }
 
     // Handle log pagination - if more pages available, request them

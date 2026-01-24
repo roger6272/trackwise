@@ -24,25 +24,79 @@ class SyncDeviceDataParams extends Equatable {
   List<Object> get props => [message, userId];
 }
 
+/// Result of sync operation, optionally including the selected item's Firestore ID.
+class SyncDeviceDataResult extends Equatable {
+  /// The Firestore ID of the selected item (from prefs or switch event).
+  /// Null if no selection change or if the deviceItemId couldn't be mapped.
+  final String? selectedFirestoreId;
+
+  const SyncDeviceDataResult({this.selectedFirestoreId});
+
+  @override
+  List<Object?> get props => [selectedFirestoreId];
+}
+
 /// Use case for syncing ESP32 device messages to Firestore.
 ///
-/// Handles two message types:
+/// Handles message types:
 /// - 'prefs': Updates item counts (count, todaycount, lastResetTime)
 /// - 'event': Inserts EventLog records for increment/decrement/switch events
+/// - 'logs': Inserts historical EventLog records
+/// - 'item_delta': Updates a single item's counts
 ///
 /// This bridges the Bluetooth layer with Firestore persistence,
 /// ensuring device data is synchronized with the database.
+///
+/// Returns SyncDeviceDataResult which includes:
+/// - selectedFirestoreId: The Firestore ID of the currently selected item
+///   (mapped from deviceItemId in the message)
 @lazySingleton
-class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
+class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceDataParams> {
   final ItemRepository itemRepository;
   final EventLogRepository eventLogRepository;
 
+  /// Cache of deviceItemId -> Firestore ID mapping.
+  /// Built from items on first use, refreshed when items change.
+  Map<int, String> _deviceItemIdMap = {};
+
   SyncDeviceDataUseCase(this.itemRepository, this.eventLogRepository);
 
+  /// Builds/updates the deviceItemId to Firestore ID mapping.
+  Future<void> _buildMapping(String userId) async {
+    final itemsResult = await itemRepository.getItems(userId);
+    itemsResult.fold(
+      (failure) {
+        debugPrint('Failed to build deviceItemId mapping: ${failure.message}');
+      },
+      (items) {
+        _deviceItemIdMap = {
+          for (final item in items)
+            if (item.deviceItemId != null) item.deviceItemId!: item.id
+        };
+        debugPrint('Built deviceItemId mapping: ${_deviceItemIdMap.length} items');
+      },
+    );
+  }
+
+  /// Looks up Firestore ID from deviceItemId.
+  /// Returns null if not found or if deviceItemId is -1 (no selection).
+  String? _getFirestoreId(int? deviceItemId) {
+    if (deviceItemId == null || deviceItemId < 0) return null;
+    return _deviceItemIdMap[deviceItemId];
+  }
+
   @override
-  Future<Either<Failure, void>> call(SyncDeviceDataParams params) async {
+  Future<Either<Failure, SyncDeviceDataResult>> call(SyncDeviceDataParams params) async {
     final message = params.message;
     final userId = params.userId;
+
+    // Build/refresh mapping for messages that need ID translation
+    if (message.type == BleMessageType.prefs ||
+        message.type == BleMessageType.event ||
+        message.type == BleMessageType.logs ||
+        message.type == BleMessageType.itemDelta) {
+      await _buildMapping(userId);
+    }
 
     switch (message.type) {
       case BleMessageType.prefs:
@@ -56,36 +110,87 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       case BleMessageType.error:
         return _handleErrorMessage(message);
       case BleMessageType.unknown:
-        return const Right(null);
+        return const Right(SyncDeviceDataResult());
     }
   }
 
   /// Syncs prefs message - updates item counts in Firestore.
-  Future<Either<Failure, void>> _syncPrefsMessage(
+  ///
+  /// Data format (from ble_message_model):
+  /// {
+  ///   'items': [...],  // List of items with {id (deviceItemId), count, todaycount, lastResetTime}
+  ///   'selectedDeviceItemId': int?  // The currently selected item's deviceItemId
+  /// }
+  Future<Either<Failure, SyncDeviceDataResult>> _syncPrefsMessage(
     BleMessage message,
     String userId,
   ) async {
     final data = message.data;
-    if (data == null) return const Right(null);
+    if (data == null) return const Right(SyncDeviceDataResult());
 
-    // Data should be a list of items with {id, count, todaycount, lastResetTime}
-    final List<Map<String, dynamic>> itemData;
-    if (data is List) {
-      itemData = data.cast<Map<String, dynamic>>();
+    // Extract items and selectedDeviceItemId from wrapped data
+    final List<dynamic>? items;
+    int? selectedDeviceItemId;
+
+    if (data is Map<String, dynamic>) {
+      items = data['items'] as List<dynamic>?;
+      selectedDeviceItemId = data['selectedDeviceItemId'] as int?;
+    } else if (data is List) {
+      // Backward compatibility: data is just the list of items
+      items = data;
     } else {
-      return const Right(null);
+      return const Right(SyncDeviceDataResult());
     }
 
-    return await itemRepository.batchUpdateCounts(userId, itemData);
+    if (items == null || items.isEmpty) {
+      // No items, but may still have a selected item to report
+      final selectedFirestoreId = _getFirestoreId(selectedDeviceItemId);
+      return Right(SyncDeviceDataResult(selectedFirestoreId: selectedFirestoreId));
+    }
+
+    // Map deviceItemIds to Firestore IDs for batch update
+    final List<Map<String, dynamic>> itemData = [];
+    for (final item in items) {
+      if (item is! Map<String, dynamic>) continue;
+
+      final deviceItemId = item['id'] as int?;
+      final firestoreId = _getFirestoreId(deviceItemId);
+      if (firestoreId == null) continue;
+
+      itemData.add({
+        'id': firestoreId, // Use Firestore ID for update
+        'count': item['count'],
+        'todaycount': item['todaycount'],
+        'lastResetTime': item['lastResetTime'],
+        'resetNumber': item['resetNumber'],
+      });
+    }
+
+    if (itemData.isNotEmpty) {
+      final result = await itemRepository.batchUpdateCounts(userId, itemData);
+      if (result.isLeft()) {
+        return result.fold(
+          (failure) => Left(failure),
+          (_) => const Right(SyncDeviceDataResult()),
+        );
+      }
+    }
+
+    // Return the selected Firestore ID for the BLoC to update its state
+    final selectedFirestoreId = _getFirestoreId(selectedDeviceItemId);
+    return Right(SyncDeviceDataResult(selectedFirestoreId: selectedFirestoreId));
   }
 
   /// Syncs event message - inserts EventLog records.
-  Future<Either<Failure, void>> _syncEventMessage(
+  ///
+  /// For 'switch' events, returns the selected Firestore ID.
+  /// For other events, inserts the event log.
+  Future<Either<Failure, SyncDeviceDataResult>> _syncEventMessage(
     BleMessage message,
     String userId,
   ) async {
     final data = message.data;
-    if (data == null) return const Right(null);
+    if (data == null) return const Right(SyncDeviceDataResult());
 
     // Convert single event or list of events
     final List<dynamic> eventsList;
@@ -94,20 +199,29 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
     } else if (data is Map) {
       eventsList = [data];
     } else {
-      return const Right(null);
+      return const Right(SyncDeviceDataResult());
     }
 
+    String? selectedFirestoreId;
     final events = <EventLog>[];
+
     for (final eventData in eventsList) {
       if (eventData is! Map<String, dynamic>) continue;
 
       final eventName = eventData['event']?.toString() ?? 'unknown';
-      final itemId = eventData['itemId']?.toString();
-      if (itemId == null) continue;
 
-      // Skip switch events - they don't create EventLog entries
-      // (handled by the InsertEventsUseCase, but we filter here too)
-      if (eventName == 'switch') continue;
+      // Get deviceItemId - may be in 'deviceItemId' (new) or 'itemId' (as int)
+      final deviceItemId = eventData['deviceItemId'] as int? ??
+          (eventData['itemId'] is int ? eventData['itemId'] as int : null);
+      final firestoreId = _getFirestoreId(deviceItemId);
+
+      // For switch events, extract the selected item but don't create EventLog
+      if (eventName == 'switch') {
+        selectedFirestoreId = firestoreId;
+        continue;
+      }
+
+      if (firestoreId == null) continue;
 
       // ESP32 sends timestamp in seconds
       final timestampSeconds = eventData['timestamp'] as int? ?? 0;
@@ -118,12 +232,12 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
 
       // Generate unique ID including resetNumber to avoid collisions
-      final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
+      final id = '$firestoreId-$eventName-$timestampSeconds-$count-$resetNumber';
 
       events.add(EventLog(
         id: id,
         createdTime: createdTime,
-        itemId: itemId,
+        itemId: firestoreId, // Use Firestore ID
         eventName: eventName,
         increment: increment,
         currentCount: count,
@@ -132,28 +246,37 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       ));
     }
 
-    if (events.isEmpty) return const Right(null);
+    if (events.isNotEmpty) {
+      final result = await eventLogRepository.insertEvents(events);
+      if (result.isLeft()) {
+        return result.fold(
+          (failure) => Left(failure),
+          (_) => const Right(SyncDeviceDataResult()),
+        );
+      }
+    }
 
-    return await eventLogRepository.insertEvents(events);
+    return Right(SyncDeviceDataResult(selectedFirestoreId: selectedFirestoreId));
   }
 
   /// Syncs logs message - inserts historical EventLog records from device.
   ///
   /// Similar to _syncEventMessage but handles the 'logs' format which is
   /// used for bulk historical data from the device's log storage.
-  Future<Either<Failure, void>> _syncLogsMessage(
+  /// itemId in each entry is now a numeric deviceItemId.
+  Future<Either<Failure, SyncDeviceDataResult>> _syncLogsMessage(
     BleMessage message,
     String userId,
   ) async {
     final data = message.data;
-    if (data == null) return const Right(null);
+    if (data == null) return const Right(SyncDeviceDataResult());
 
     // Data should be a list of log entries
     final List<dynamic> logsList;
     if (data is List) {
       logsList = data;
     } else {
-      return const Right(null);
+      return const Right(SyncDeviceDataResult());
     }
 
     final events = <EventLog>[];
@@ -161,8 +284,11 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       if (logData is! Map<String, dynamic>) continue;
 
       final eventName = logData['event']?.toString() ?? 'unknown';
-      final itemId = logData['itemId']?.toString();
-      if (itemId == null) continue;
+
+      // Get deviceItemId - now numeric
+      final deviceItemId = logData['itemId'] as int?;
+      final firestoreId = _getFirestoreId(deviceItemId);
+      if (firestoreId == null) continue;
 
       // Skip switch events - they don't create EventLog entries
       if (eventName == 'switch') continue;
@@ -176,12 +302,12 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
 
       // Generate unique ID including resetNumber to avoid collisions
-      final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
+      final id = '$firestoreId-$eventName-$timestampSeconds-$count-$resetNumber';
 
       events.add(EventLog(
         id: id,
         createdTime: createdTime,
-        itemId: itemId,
+        itemId: firestoreId, // Use Firestore ID
         eventName: eventName,
         increment: increment,
         currentCount: count,
@@ -190,24 +316,33 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       ));
     }
 
-    if (events.isEmpty) return const Right(null);
+    if (events.isEmpty) return const Right(SyncDeviceDataResult());
 
-    return await eventLogRepository.insertEvents(events);
+    final result = await eventLogRepository.insertEvents(events);
+    return result.fold(
+      (failure) => Left(failure),
+      (_) => const Right(SyncDeviceDataResult()),
+    );
   }
 
   /// Syncs item delta message - updates a single item's counts in Firestore.
   ///
   /// This is more efficient than prefs for real-time updates (increment/reset)
   /// as it only updates one item instead of all items.
-  Future<Either<Failure, void>> _syncItemDeltaMessage(
+  /// The 'id' field is now a numeric deviceItemId.
+  Future<Either<Failure, SyncDeviceDataResult>> _syncItemDeltaMessage(
     BleMessage message,
     String userId,
   ) async {
     final data = message.data;
-    if (data == null || data is! Map<String, dynamic>) return const Right(null);
+    if (data == null || data is! Map<String, dynamic>) {
+      return const Right(SyncDeviceDataResult());
+    }
 
-    final itemId = data['id']?.toString();
-    if (itemId == null) return const Right(null);
+    // Get deviceItemId - stored as 'deviceItemId' by ble_message_model
+    final deviceItemId = data['deviceItemId'] as int?;
+    final firestoreId = _getFirestoreId(deviceItemId);
+    if (firestoreId == null) return const Right(SyncDeviceDataResult());
 
     final count = data['count'] as int? ?? 0;
     final todayCount = data['todaycount'] as int? ?? 0;
@@ -215,24 +350,33 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
     final resetNumber = data['resetNumber'] as int? ?? 0;
 
     // Use batchUpdateCounts with a single item - it handles the logic
-    return await itemRepository.batchUpdateCounts(userId, [
+    final result = await itemRepository.batchUpdateCounts(userId, [
       {
-        'id': itemId,
+        'id': firestoreId, // Use Firestore ID
         'count': count,
         'todaycount': todayCount,
         'lastResetTime': lastResetTimeSeconds,
         'resetNumber': resetNumber,
       }
     ]);
+
+    return result.fold(
+      (failure) => Left(failure),
+      (_) => const Right(SyncDeviceDataResult()),
+    );
   }
 
   /// Handles error message from firmware - logs the error for debugging.
   ///
   /// Error messages indicate command failures on the device side.
   /// Format: {"type": "error", "cmd": "<command>", "reason": "<reason>"}
-  Future<Either<Failure, void>> _handleErrorMessage(BleMessage message) async {
+  Future<Either<Failure, SyncDeviceDataResult>> _handleErrorMessage(
+    BleMessage message,
+  ) async {
     final data = message.data;
-    if (data == null || data is! Map<String, dynamic>) return const Right(null);
+    if (data == null || data is! Map<String, dynamic>) {
+      return const Right(SyncDeviceDataResult());
+    }
 
     final cmd = data['cmd']?.toString() ?? 'unknown';
     final reason = data['reason']?.toString() ?? 'unknown';
@@ -241,6 +385,6 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
     debugPrint('BLE Error from device: cmd=$cmd, reason=$reason');
 
     // Error messages don't require Firestore sync, just logging
-    return const Right(null);
+    return const Right(SyncDeviceDataResult());
   }
 }

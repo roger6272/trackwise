@@ -822,8 +822,8 @@ class _ProfilePageState extends State<ProfilePage> {
       if (bluetoothBloc.state.isConnected) {
         // Clear all items from device (send empty list)
         bluetoothBloc.add(const SendItemsToDevice([]));
-        // Deselect current item
-        bluetoothBloc.add(const SendSelectedItem('none'));
+        // Deselect current item (-1 means no selection)
+        bluetoothBloc.add(const SendSelectedItem('none', -1));
         // Clear device logs
         bluetoothBloc.add(const ClearDeviceLogs());
 

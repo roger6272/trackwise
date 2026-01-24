@@ -26,6 +26,7 @@ class ItemModel extends Item {
     super.goal,
     super.categoryId,
     super.categoryOrder,
+    super.deviceItemId,
   });
 
   /// Creates an ItemModel from a Firestore DocumentSnapshot.
@@ -78,6 +79,7 @@ class ItemModel extends Item {
       goal: data['goal'] as int?,
       categoryId: data['category_id'] as String?,
       categoryOrder: data['category_order'] as int? ?? 0,
+      deviceItemId: data['device_item_id'] as int?,
     );
   }
 
@@ -137,6 +139,9 @@ class ItemModel extends Item {
     }
     if (this.categoryId != null) {
       map['category_id'] = this.categoryId!;
+    }
+    if (this.deviceItemId != null) {
+      map['device_item_id'] = this.deviceItemId!;
     }
     return map;
   }

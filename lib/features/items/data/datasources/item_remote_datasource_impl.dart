@@ -143,6 +143,28 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
     }
   }
 
+  /// Finds the next available deviceItemId (0-99) for a user.
+  ///
+  /// Scans all non-deleted items and finds the first unused ID.
+  /// Throws [ServerException] if all 100 IDs are in use.
+  Future<int> _getNextDeviceItemId(DocumentReference userRef) async {
+    final snapshot = await firestore
+        .collection('Item')
+        .where('uid', isEqualTo: userRef)
+        .get();
+
+    final usedIds = snapshot.docs
+        .where((doc) => doc.data()['deletedAt'] == null) // Only active items
+        .map((doc) => doc.data()['device_item_id'] as int?)
+        .whereType<int>()
+        .toSet();
+
+    for (int i = 0; i < 100; i++) {
+      if (!usedIds.contains(i)) return i;
+    }
+    throw ServerException('Maximum 100 items reached');
+  }
+
   @override
   Future<ItemModel> createItem(ItemModel item) async {
     try {
@@ -157,7 +179,10 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           : item.id;
 
       final userRef = firestore.collection('users').doc(item.userId);
-      debugPrint('💾 createItem: id=$id, userRef=${userRef.path}');
+
+      // Generate deviceItemId for BLE communication (0-99)
+      final deviceItemId = await _getNextDeviceItemId(userRef);
+      debugPrint('💾 createItem: id=$id, deviceItemId=$deviceItemId, userRef=${userRef.path}');
 
       // Get existing items to shift their order
       final existingItems = await firestore
@@ -194,6 +219,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         goal: item.goal,
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
+        deviceItemId: deviceItemId, // Assigned deviceItemId for BLE
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -428,6 +454,10 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       final itemData = itemDoc.data()!;
       final userRef = itemData['uid'] as DocumentReference;
 
+      // Get a new deviceItemId for the restored item (old one may be recycled)
+      final newDeviceItemId = await _getNextDeviceItemId(userRef);
+      debugPrint('🔄 restoreItem: $itemId, new deviceItemId=$newDeviceItemId');
+
       // Get existing non-deleted items to shift their order
       final existingItems = await firestore
           .collection('Item')
@@ -445,10 +475,11 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         }
       }
 
-      // Restore item with order 0 (top of list)
+      // Restore item with order 0 (top of list) and new deviceItemId
       batch.update(firestore.collection('Item').doc(itemId), {
         'deletedAt': FieldValue.delete(),
         'order': 0,
+        'device_item_id': newDeviceItemId,
       });
 
       await batch.commit();

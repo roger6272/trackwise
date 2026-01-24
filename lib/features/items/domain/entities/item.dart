@@ -87,6 +87,11 @@ class Item extends Equatable {
   /// Used for ordering items when viewing a specific category.
   final int categoryOrder;
 
+  /// Device-side item identifier (0-99).
+  /// Used for BLE communication to reduce memory on ESP32.
+  /// Assigned on item creation, never changes (except on restore).
+  final int? deviceItemId;
+
   const Item({
     required this.id,
     required this.name,
@@ -105,6 +110,7 @@ class Item extends Equatable {
     this.goal,
     this.categoryId,
     this.categoryOrder = 0,
+    this.deviceItemId,
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -131,6 +137,7 @@ class Item extends Equatable {
     String? categoryId,
     bool clearCategoryId = false,
     int? categoryOrder,
+    int? deviceItemId,
   }) {
     return Item(
       id: id ?? this.id,
@@ -150,6 +157,7 @@ class Item extends Equatable {
       goal: clearGoal ? null : (goal ?? this.goal),
       categoryId: clearCategoryId ? null : (categoryId ?? this.categoryId),
       categoryOrder: categoryOrder ?? this.categoryOrder,
+      deviceItemId: deviceItemId ?? this.deviceItemId,
     );
   }
 
@@ -172,6 +180,7 @@ class Item extends Equatable {
         goal,
         categoryId,
         categoryOrder,
+        deviceItemId,
       ];
 
   @override
@@ -180,6 +189,7 @@ class Item extends Equatable {
         'incrementBy: $incrementBy, reminder: $reminder, reminderValue: $reminderValue, '
         'lastResetTime: $lastResetTime, resetNumber: $resetNumber, lastUpdated: $lastUpdated, '
         'userId: $userId, deletedAt: $deletedAt, order: $order, initialCount: $initialCount, '
-        'goal: $goal, categoryId: $categoryId, categoryOrder: $categoryOrder)';
+        'goal: $goal, categoryId: $categoryId, categoryOrder: $categoryOrder, '
+        'deviceItemId: $deviceItemId)';
   }
 }
