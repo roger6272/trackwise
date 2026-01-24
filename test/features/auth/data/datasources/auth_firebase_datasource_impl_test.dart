@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase;
@@ -20,16 +21,44 @@ class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 class MockGoogleSignInAuthentication extends Mock
     implements GoogleSignInAuthentication {}
 
+class MockFirebaseFirestore extends Mock implements FirebaseFirestore {}
+
+class MockCollectionReference extends Mock
+    implements CollectionReference<Map<String, dynamic>> {}
+
+class MockDocumentReference extends Mock
+    implements DocumentReference<Map<String, dynamic>> {}
+
+class MockDocumentSnapshot extends Mock
+    implements DocumentSnapshot<Map<String, dynamic>> {}
+
 void main() {
   late AuthFirebaseDataSourceImpl dataSource;
   late MockFirebaseAuth mockFirebaseAuth;
   late MockGoogleSignIn mockGoogleSignIn;
+  late MockFirebaseFirestore mockFirestore;
+  late MockCollectionReference mockUsersCollection;
+  late MockDocumentReference mockUserDoc;
+  late MockDocumentSnapshot mockDocSnapshot;
 
   setUp(() {
     mockFirebaseAuth = MockFirebaseAuth();
     mockGoogleSignIn = MockGoogleSignIn();
+    mockFirestore = MockFirebaseFirestore();
+    mockUsersCollection = MockCollectionReference();
+    mockUserDoc = MockDocumentReference();
+    mockDocSnapshot = MockDocumentSnapshot();
+
+    // Setup Firestore mock chain for _ensureUserDocument
+    when(() => mockFirestore.collection('users')).thenReturn(mockUsersCollection);
+    when(() => mockUsersCollection.doc(any())).thenReturn(mockUserDoc);
+    when(() => mockUserDoc.get()).thenAnswer((_) async => mockDocSnapshot);
+    when(() => mockDocSnapshot.exists).thenReturn(true); // User doc exists by default
+    when(() => mockUserDoc.set(any())).thenAnswer((_) async {});
+
     dataSource = AuthFirebaseDataSourceImpl(
       firebaseAuth: mockFirebaseAuth,
+      firestore: mockFirestore,
       googleSignIn: mockGoogleSignIn,
     );
   });

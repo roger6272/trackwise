@@ -40,8 +40,16 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
     if (!docSnapshot.exists) {
       debugPrint('📦 _ensureUserDocument: document MISSING, creating...');
-      // Get current user from Firebase Auth to populate the document
-      final currentUser = FirebaseAuth.instance.currentUser;
+      // Try to get current user from Firebase Auth to populate the document
+      // Wrapped in try-catch for test environments where Firebase may not be initialized
+      User? currentUser;
+      try {
+        currentUser = FirebaseAuth.instance.currentUser;
+      } catch (_) {
+        // Firebase not initialized (e.g., in tests), fall back to minimal document
+        currentUser = null;
+      }
+
       if (currentUser != null && currentUser.uid == userId) {
         await userDoc.set({
           'uid': userId,

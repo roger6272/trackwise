@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:trackwise/core/error/exceptions.dart';
 import 'package:trackwise/core/error/failures.dart';
+import 'package:trackwise/features/events/domain/entities/event_log.dart';
 import 'package:trackwise/features/items/data/models/item_model.dart';
 import 'package:trackwise/features/items/data/repositories/item_repository_impl.dart';
 
@@ -13,14 +14,21 @@ import '../../helpers/test_fixtures.dart';
 void main() {
   late ItemRepositoryImpl repository;
   late MockItemRemoteDataSource mockDataSource;
+  late MockEventLogRepository mockEventLogRepository;
 
   setUpAll(() {
     registerFallbackValue(testItemModel);
+    registerFallbackValue(<EventLog>[]);
   });
 
   setUp(() {
     mockDataSource = MockItemRemoteDataSource();
-    repository = ItemRepositoryImpl(mockDataSource);
+    mockEventLogRepository = MockEventLogRepository();
+    repository = ItemRepositoryImpl(mockDataSource, mockEventLogRepository);
+
+    // Default mock for insertEvents (used by createItem)
+    when(() => mockEventLogRepository.insertEvents(any()))
+        .thenAnswer((_) async => const Right(null));
   });
 
   group('getItems', () {

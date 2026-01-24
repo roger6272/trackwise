@@ -67,9 +67,9 @@ class IntegrationTestHelper {
     eventLogDataSource = EventLogRemoteDataSourceImpl(fakeFirestore);
 
     // Create repositories with real data sources
-    repository = ItemRepositoryImpl(dataSource);
     eventLogRepository =
         EventLogRepositoryImpl(eventLogDataSource, mockFirebaseAuth);
+    repository = ItemRepositoryImpl(dataSource, eventLogRepository);
 
     // Create use cases with real repositories
     getItemsUseCase = GetItemsUseCase(repository);

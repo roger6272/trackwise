@@ -36,6 +36,9 @@ void main() {
     mockDocSnapshot = MockDocumentSnapshot<Map<String, dynamic>>();
     mockBatch = MockWriteBatch();
 
+    // Mock userRef.path for debugPrint statements
+    when(() => mockUserRef.path).thenReturn('users/user_123');
+
     dataSource = ItemRemoteDataSourceImpl(mockFirestore);
   });
 
@@ -185,9 +188,11 @@ void main() {
 
   group('createItem', () {
     test('should call Firestore set with correct data', () async {
-      // Arrange - mock users collection for userRef creation
+      // Arrange - mock users collection for userRef creation and _ensureUserDocument
       when(() => mockFirestore.collection('users')).thenReturn(mockUsersCollection);
       when(() => mockUsersCollection.doc(testItemModel.userId)).thenReturn(mockUserRef);
+      when(() => mockUserRef.get()).thenAnswer((_) async => mockDocSnapshot);
+      when(() => mockDocSnapshot.exists).thenReturn(true); // User doc exists
 
       // Arrange - mock Item collection
       when(() => mockFirestore.collection('Item')).thenReturn(mockCollection);
