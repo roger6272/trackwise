@@ -778,6 +778,22 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _handleAccountDeleted(BuildContext context) {
+    // Clean up device if connected
+    try {
+      final bluetoothBloc = context.read<BluetoothBloc>();
+      if (bluetoothBloc.state.isConnected) {
+        // Clear all items from device (send empty list)
+        bluetoothBloc.add(const SendItemsToDevice([]));
+        // Deselect current item
+        bluetoothBloc.add(const SendSelectedItem('none'));
+        // Clear device logs
+        bluetoothBloc.add(const ClearDeviceLogs());
+      }
+    } catch (e) {
+      // Ignore errors during cleanup - account deletion should proceed
+      debugPrint('Device cleanup error during account deletion: $e');
+    }
+
     // Navigate to login screen and clear stack
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
