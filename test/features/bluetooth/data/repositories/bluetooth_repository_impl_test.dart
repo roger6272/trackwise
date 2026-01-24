@@ -218,7 +218,7 @@ void main() {
 
   group('sendSelectedItem', () {
     const tDeviceId = 'test-device-id';
-    const tItemId = 'item-1';
+    const tDeviceItemId = 5;
 
     test('should call writeCommand with correct JSON', () async {
       // arrange
@@ -226,13 +226,13 @@ void main() {
           .thenAnswer((_) async {});
 
       // act
-      final result = await repository.sendSelectedItem(tDeviceId, tItemId);
+      final result = await repository.sendSelectedItem(tDeviceId, tDeviceItemId);
 
       // assert
       expect(result, const Right(null));
       verify(() => mockDataSource.writeCommand(
         tDeviceId,
-        any(that: allOf(contains('"cmd":"set_selected"'), contains('"id":"$tItemId"'))),
+        any(that: allOf(contains('"cmd":"set_selected"'), contains('"id":$tDeviceItemId'))),
       )).called(1);
     });
   });
