@@ -703,7 +703,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       final deviceId = state.connectedDevice?.id;
       if (deviceId != null) {
         final currentPage = message.page ?? 0;
-        if (kDebugMode) print('📖 More logs available, requesting page ${currentPage + 1}');
         await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
         add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1));
       }
@@ -711,7 +710,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     // Clear logs on device when all pages received
     if (message.type == BleMessageType.logs && !message.hasMore) {
-      if (kDebugMode) print('🧹 All logs received, clearing logs on device');
       add(const ClearDeviceLogs());
     }
   }

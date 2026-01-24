@@ -70,9 +70,9 @@ class _ItemsListContent extends StatefulWidget {
 class _ItemsListContentState extends State<_ItemsListContent>
     with TickerProviderStateMixin {
   final scaffoldKey = GlobalKey<ScaffoldState>();
-  late final SlidableController _firstItemController;
-  late final AnimationController _reorderHintController;
-  late final Animation<double> _liftAnimation;
+  SlidableController? _firstItemController;
+  AnimationController? _reorderHintController;
+  Animation<double>? _liftAnimation;
   bool _swipeHintTriggered = false;
   bool _reorderHintTriggered = false;
 
@@ -94,6 +94,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   // Track last synced category items to prevent duplicate syncs
   String? _lastSyncedSignature;
+  String? _lastSyncedCategoryId;
   DateTime? _lastSyncTime;
 
   @override
@@ -107,7 +108,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
       vsync: this,
     );
     _liftAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _reorderHintController, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _reorderHintController!, curve: Curves.easeOutCubic),
     );
   }
 
@@ -192,7 +193,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           ? ''
                           : selectedItem.categoryId!;
                   context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
-                  context.read<AppUiState>().selectedCategoryId = targetCategoryId;
+                  // Defer AppUiState update to next frame to avoid rebuild during callback
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    context.read<AppUiState>().selectedCategoryId = targetCategoryId;
+                  });
                 }
               }
             }
@@ -380,11 +385,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                     if (selectedItem != null) {
                                       final selectedCatId = selectedItem.categoryId ?? '';
 
-                                      // Get items in selected category from both states, sorted by categoryOrder
-                                      final prevCategoryItems = previous.items
-                                          .where((i) => (i.categoryId ?? '') == selectedCatId)
-                                          .toList()
-                                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+                                      // Get items in selected category, sorted by categoryOrder
                                       final currentCategoryItems = current.items
                                           .where((i) => (i.categoryId ?? '') == selectedCatId)
                                           .toList()
@@ -395,12 +396,30 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           .map((i) => '${i.id}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
                                           .join(',');
 
+                                      // First time seeing items - just initialize signature, don't sync
+                                      // (App can't configure anything while disconnected, so nothing to sync)
+                                      if (_lastSyncedSignature == null) {
+                                        _lastSyncedSignature = currentSignature;
+                                        _lastSyncedCategoryId = selectedCatId;
+                                        _lastSyncTime = DateTime.now();
+                                        return true;
+                                      }
+
+                                      // Category changed - just update signature, don't sync
+                                      // (Category switch already sent items to device via other code paths)
+                                      if (_lastSyncedCategoryId != selectedCatId) {
+                                        _lastSyncedSignature = currentSignature;
+                                        _lastSyncedCategoryId = selectedCatId;
+                                        _lastSyncTime = DateTime.now();
+                                        return true;
+                                      }
+
                                       // Debounce: skip if synced recently (within 500ms)
                                       final now = DateTime.now();
                                       final recentlySynced = _lastSyncTime != null &&
                                           now.difference(_lastSyncTime!).inMilliseconds < 500;
 
-                                      // Only sync if signature changed AND not recently synced
+                                      // Only sync if signature changed within SAME category (user made a config change)
                                       if (currentSignature != _lastSyncedSignature) {
                                         if (!recentlySynced) {
                                           _lastSyncedSignature = currentSignature;
@@ -1822,12 +1841,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
     // Delay to let the list render first
     Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
-      _firstItemController.openEndActionPane();
+      _firstItemController?.openEndActionPane();
 
       // Close after showing the actions briefly
       Future.delayed(const Duration(milliseconds: 1200), () {
         if (!mounted) return;
-        _firstItemController.close();
+        _firstItemController?.close();
         appUiState.markSwipeHintShown();
       });
     });
@@ -1850,13 +1869,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
       if (!mounted) return;
 
       // Lift up
-      _reorderHintController.forward().then((_) {
+      _reorderHintController?.forward().then((_) {
         if (!mounted) return;
 
         // Hold briefly, then lower
         Future.delayed(const Duration(milliseconds: 600), () {
           if (!mounted) return;
-          _reorderHintController.reverse().then((_) {
+          _reorderHintController?.reverse().then((_) {
             if (!mounted) return;
             appUiState.markReorderHintShown();
           });
@@ -1926,8 +1945,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   @override
   void dispose() {
-    _firstItemController.dispose();
-    _reorderHintController.dispose();
+    _firstItemController?.dispose();
+    _reorderHintController?.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();

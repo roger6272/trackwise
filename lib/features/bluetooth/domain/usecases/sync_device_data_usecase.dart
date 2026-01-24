@@ -120,8 +120,6 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       // Generate unique ID including resetNumber to avoid collisions
       final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
 
-      debugPrint('🔴 REAL-TIME EVENT: $eventName count=$count increment=$increment id=$id');
-
       events.add(EventLog(
         id: id,
         createdTime: createdTime,
@@ -180,8 +178,6 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       // Generate unique ID including resetNumber to avoid collisions
       final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
 
-      debugPrint('🟡 LOG SYNC EVENT: $eventName count=$count increment=$increment id=$id');
-
       events.add(EventLog(
         id: id,
         createdTime: createdTime,
@@ -196,7 +192,6 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
 
     if (events.isEmpty) return const Right(null);
 
-    debugPrint('🟡 LOG SYNC: Syncing ${events.length} historical log entries');
     return await eventLogRepository.insertEvents(events);
   }
 
@@ -218,8 +213,6 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
     final todayCount = data['todaycount'] as int? ?? 0;
     final lastResetTimeSeconds = data['lastResetTime'] as int? ?? 0;
     final resetNumber = data['resetNumber'] as int? ?? 0;
-
-    debugPrint('📤 Delta update: $itemId count=$count today=$todayCount resetNumber=$resetNumber');
 
     // Use batchUpdateCounts with a single item - it handles the logic
     return await itemRepository.batchUpdateCounts(userId, [
