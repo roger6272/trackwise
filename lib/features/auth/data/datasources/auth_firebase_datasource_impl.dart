@@ -30,10 +30,12 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
 
   /// Creates or updates user document in Firestore.
   Future<void> _ensureUserDocument(firebase.User user) async {
+    debugPrint('🔐 _ensureUserDocument: checking for ${user.uid}');
     final userDoc = _firestore.collection('users').doc(user.uid);
     final docSnapshot = await userDoc.get();
 
     if (!docSnapshot.exists) {
+      debugPrint('🔐 _ensureUserDocument: document MISSING, creating...');
       // Create new user document
       await userDoc.set({
         'uid': user.uid,
@@ -43,6 +45,8 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
         'created_time': FieldValue.serverTimestamp(),
       });
       debugPrint('✅ Created user document for ${user.uid}');
+    } else {
+      debugPrint('🔐 _ensureUserDocument: document EXISTS');
     }
   }
 
