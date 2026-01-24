@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
@@ -28,6 +29,40 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   final FirebaseFirestore firestore;
 
   ItemRemoteDataSourceImpl(this.firestore);
+
+  /// Ensures user document exists in Firestore.
+  /// This handles the case where a user was authenticated via cached session
+  /// and the user document was never created.
+  Future<void> _ensureUserDocument(String userId) async {
+    debugPrint('📦 _ensureUserDocument: checking for $userId');
+    final userDoc = firestore.collection('users').doc(userId);
+    final docSnapshot = await userDoc.get();
+
+    if (!docSnapshot.exists) {
+      debugPrint('📦 _ensureUserDocument: document MISSING, creating...');
+      // Get current user from Firebase Auth to populate the document
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null && currentUser.uid == userId) {
+        await userDoc.set({
+          'uid': userId,
+          'email': currentUser.email,
+          'display_name': currentUser.displayName,
+          'photo_url': currentUser.photoURL,
+          'created_time': FieldValue.serverTimestamp(),
+        });
+        debugPrint('✅ Created user document for $userId from items datasource');
+      } else {
+        // Fallback: create minimal document
+        await userDoc.set({
+          'uid': userId,
+          'created_time': FieldValue.serverTimestamp(),
+        });
+        debugPrint('✅ Created minimal user document for $userId');
+      }
+    } else {
+      debugPrint('📦 _ensureUserDocument: document EXISTS');
+    }
+  }
 
   @override
   Future<List<ItemModel>> getItems(String userId) async {
@@ -104,6 +139,9 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   Future<ItemModel> createItem(ItemModel item) async {
     try {
       debugPrint('💾 createItem: userId=${item.userId}, name=${item.name}');
+
+      // Ensure user document exists before creating item
+      await _ensureUserDocument(item.userId);
 
       // Generate ID if empty
       final id = item.id.isEmpty
