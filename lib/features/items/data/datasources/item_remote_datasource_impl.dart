@@ -75,19 +75,27 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
     try {
       // FlutterFlow stores uid as DocumentReference to users collection
       final userRef = firestore.collection('users').doc(userId);
+      debugPrint('📡 watchItems: userId=$userId, userRef=${userRef.path}');
       return firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .orderBy('order')
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => ItemModel.fromFirestore(doc))
-              .where((item) => item.deletedAt == null) // Filter out soft-deleted
-              .toList())
+          .map((snapshot) {
+            debugPrint('📡 watchItems snapshot: ${snapshot.docs.length} docs');
+            final items = snapshot.docs
+                .map((doc) => ItemModel.fromFirestore(doc))
+                .where((item) => item.deletedAt == null)
+                .toList();
+            debugPrint('📡 watchItems filtered: ${items.length} items');
+            return items;
+          })
           .handleError((error) {
+        debugPrint('📡 watchItems error: $error');
         throw ServerException('Failed to watch items: $error');
       });
     } catch (e) {
+      debugPrint('📡 watchItems setup error: $e');
       throw ServerException('Failed to setup items stream: $e');
     }
   }
@@ -95,18 +103,22 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Future<ItemModel> createItem(ItemModel item) async {
     try {
+      debugPrint('💾 createItem: userId=${item.userId}, name=${item.name}');
+
       // Generate ID if empty
       final id = item.id.isEmpty
           ? firestore.collection('Item').doc().id
           : item.id;
 
       final userRef = firestore.collection('users').doc(item.userId);
+      debugPrint('💾 createItem: id=$id, userRef=${userRef.path}');
 
       // Get existing items to shift their order
       final existingItems = await firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
+      debugPrint('💾 createItem: ${existingItems.docs.length} existing items');
 
       // Use batch to atomically create new item and shift existing items
       final batch = firestore.batch();
@@ -145,11 +157,14 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
       batch.set(firestore.collection('Item').doc(id), data);
       await batch.commit();
+      debugPrint('💾 createItem: SUCCESS - item $id created');
 
       return newItem;
     } on FirebaseException catch (e) {
+      debugPrint('💾 createItem: FIREBASE ERROR - ${e.message}');
       throw ServerException('Failed to create item: ${e.message}');
     } catch (e) {
+      debugPrint('💾 createItem: ERROR - $e');
       throw ServerException('Unexpected error creating item: $e');
     }
   }
