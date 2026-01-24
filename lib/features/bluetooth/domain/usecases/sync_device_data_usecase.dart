@@ -115,12 +115,12 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       final increment = eventData['increment'] as int? ?? 0;
       final resetNumber = eventData['resetNumber'] as int? ?? 0;
 
-      // Debug: show what timestamp the device sent
       final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
-      debugPrint('📅 Event timestamp: $timestampSeconds sec -> $createdTime (local: ${createdTime.toLocal()})');
 
       // Generate unique ID including resetNumber to avoid collisions
       final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
+
+      debugPrint('🔴 REAL-TIME EVENT: $eventName count=$count increment=$increment id=$id');
 
       events.add(EventLog(
         id: id,
@@ -175,12 +175,12 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
       final increment = logData['increment'] as int? ?? 0;
       final resetNumber = logData['resetNumber'] as int? ?? 0;
 
-      // Debug: show what timestamp the device sent
       final createdTime = DateTime.fromMillisecondsSinceEpoch(timestampSeconds * 1000);
-      debugPrint('📅 Log timestamp: $timestampSeconds sec -> $createdTime (local: ${createdTime.toLocal()})');
 
       // Generate unique ID including resetNumber to avoid collisions
       final id = '$itemId-$eventName-$timestampSeconds-$count-$resetNumber';
+
+      debugPrint('🟡 LOG SYNC EVENT: $eventName count=$count increment=$increment id=$id');
 
       events.add(EventLog(
         id: id,
@@ -196,7 +196,7 @@ class SyncDeviceDataUseCase extends UseCase<void, SyncDeviceDataParams> {
 
     if (events.isEmpty) return const Right(null);
 
-    debugPrint('✅ Syncing ${events.length} historical log entries');
+    debugPrint('🟡 LOG SYNC: Syncing ${events.length} historical log entries');
     return await eventLogRepository.insertEvents(events);
   }
 
