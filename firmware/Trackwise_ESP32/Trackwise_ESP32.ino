@@ -141,6 +141,8 @@ void logEvent(String event, int resetNum = -1) {
 
 void notifyPrefsToApp() {
   if (!isConnected || NotifyChar == nullptr) return;
+  // Flush any pending NVS writes so prefs reflect current RAM values
+  flushPendingNvsWrites();
   String jsonOut = getPrefsJson();
   jsonOut += "\n";  // For Flutter end-of-message detection
 
@@ -795,6 +797,8 @@ void setupBLE() {
 void updateReadChar() {
   String jsonOut;
   if (currentReadMode == READ_PREFS) {
+    // Flush any pending NVS writes so prefs reflect current RAM values
+    flushPendingNvsWrites();
     jsonOut = getPrefsJson();
     //Serial.println("PrefsSent - Details skipped");
     Serial.printf("PrefsSent (%u bytes)\n", jsonOut.length());
@@ -936,7 +940,8 @@ void handleCommand(char cmd) {
       Serial.println("📝 NVS batch write (10 increments)");
     }
 
-    logEvent("increment");
+    // Only log when disconnected - when connected, real-time events are synced directly
+    if (!isConnected) logEvent("increment");
     // Send delta update instead of full prefs (much smaller payload)
     if (isConnected) notifyItemDelta(currentItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
     delay(50);  // Brief gap between notifications
@@ -974,8 +979,8 @@ void handleCommand(char cmd) {
     snprintf(key, sizeof(key), "lr_%d", currentItemIndex);
     prefs.putULong(key, lastResetTime);
 
-    // Log the reset event with OLD resetNumber (this reset ends period N)
-    logEvent("reset", oldResetNumber);
+    // Only log when disconnected - when connected, real-time events are synced directly
+    if (!isConnected) logEvent("reset", oldResetNumber);
 
     // Now increment resetNumber for the new period
     itemResetNumber++;
