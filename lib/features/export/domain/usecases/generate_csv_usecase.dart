@@ -135,7 +135,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     if (aggregationLevel == ExportAggregationLevel.raw) {
       buffer.writeln('Item Name,Category,Event Type,Cycle,Timestamp,Event Count');
     } else {
-      buffer.writeln('Item Name,Category,Date,Event Count');
+      buffer.writeln('Item Name,Category,Event Type,Date,Event Count');
     }
 
     if (events.isEmpty) {
@@ -165,7 +165,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
       for (final key in sortedKeys) {
         buffer.writeln(
-          '${_escapeCSV(key.itemName)},${_escapeCSV(key.category)},${_formatDate(key.date)},${aggregated[key]}',
+          '${_escapeCSV(key.itemName)},${_escapeCSV(key.category)},${_escapeCSV(key.eventType)},${_formatDate(key.date)},${aggregated[key]}',
         );
       }
     }
@@ -199,6 +199,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       final key = AggregationKey(
         itemName: getItemName(event.itemId),
         category: getCategoryName(event.itemId),
+        eventType: event.eventName,
         date: _getAggregationDate(event.createdTime, level),
       );
       aggregated[key] = (aggregated[key] ?? 0) + event.increment;
