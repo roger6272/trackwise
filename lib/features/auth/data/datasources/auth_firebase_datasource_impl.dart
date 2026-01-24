@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase;
 import 'package:flutter/foundation.dart';
@@ -16,13 +17,34 @@ import 'auth_firebase_datasource.dart';
 @LazySingleton(as: AuthFirebaseDataSource)
 class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
   final firebase.FirebaseAuth _firebaseAuth;
+  final FirebaseFirestore _firestore;
   final GoogleSignIn _googleSignIn;
 
   AuthFirebaseDataSourceImpl({
     firebase.FirebaseAuth? firebaseAuth,
+    FirebaseFirestore? firestore,
     GoogleSignIn? googleSignIn,
   })  : _firebaseAuth = firebaseAuth ?? firebase.FirebaseAuth.instance,
+        _firestore = firestore ?? FirebaseFirestore.instance,
         _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['profile', 'email']);
+
+  /// Creates or updates user document in Firestore.
+  Future<void> _ensureUserDocument(firebase.User user) async {
+    final userDoc = _firestore.collection('users').doc(user.uid);
+    final docSnapshot = await userDoc.get();
+
+    if (!docSnapshot.exists) {
+      // Create new user document
+      await userDoc.set({
+        'uid': user.uid,
+        'email': user.email,
+        'display_name': user.displayName,
+        'photo_url': user.photoURL,
+        'created_time': FieldValue.serverTimestamp(),
+      });
+      debugPrint('✅ Created user document for ${user.uid}');
+    }
+  }
 
   @override
   Future<UserModel> signInWithEmail(String email, String password) async {
@@ -70,6 +92,10 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       if (credential.user == null) {
         throw AuthException('Google sign-in failed: No user returned');
       }
+
+      // Ensure user document exists in Firestore
+      await _ensureUserDocument(credential.user!);
+
       return UserModel.fromFirebaseUser(credential.user!);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
@@ -120,6 +146,10 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       if (credential.user == null) {
         throw AuthException('Apple sign-in failed: No user returned');
       }
+
+      // Ensure user document exists in Firestore
+      await _ensureUserDocument(credential.user!);
+
       return UserModel.fromFirebaseUser(credential.user!);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
@@ -138,6 +168,10 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       if (credential.user == null) {
         throw AuthException('Sign up failed: No user returned');
       }
+
+      // Create user document in Firestore
+      await _ensureUserDocument(credential.user!);
+
       return UserModel.fromFirebaseUser(credential.user!);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
