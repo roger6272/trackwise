@@ -400,7 +400,7 @@ class PairedDevice {
 
 ```dart
 // lib/features/bluetooth/domain/entities/sync_state.dart
-enum SyncStatus { inSync, conflict }
+enum SyncStatus { inSync, conflict, wrongAccount }
 
 class HandshakeResult {
   final SyncStatus status;
@@ -450,6 +450,13 @@ Future<Either<Failure, SyncResult>> performSync() async {
   }
 
   // Step 4: Handle sync based on status
+  if (handshake.status == SyncStatus.wrongAccount) {
+    // Device is paired to different account - can't sync
+    return Left(WrongAccountFailure(
+      'This device is paired to another account. Factory reset required.',
+    ));
+  }
+
   if (handshake.status == SyncStatus.inSync) {
     return _performNormalSync(appSyncSeq);
   } else {
@@ -699,10 +706,20 @@ Future<HandshakeResult> sendHandshake({
     'sync_seq': syncSeq,
   });
 
+  SyncStatus status;
+  switch (response['status']) {
+    case 'in_sync':
+      status = SyncStatus.inSync;
+      break;
+    case 'wrong_account':
+      status = SyncStatus.wrongAccount;
+      break;
+    default:  // 'conflict'
+      status = SyncStatus.conflict;
+  }
+
   return HandshakeResult(
-    status: response['status'] == 'in_sync'
-      ? SyncStatus.inSync
-      : SyncStatus.conflict,
+    status: status,
     deviceInstanceId: response['device_instance_id'],
     deviceSyncSeq: response['device_seq'],
   );
@@ -780,6 +797,7 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 | 12 | sync_complete not acknowledged | Retry or fail gracefully, don't update Firestore |
 | 13 | Try to create item while disconnected | UI prevents item creation (disabled or error message) |
 | 14 | Try to sync >100 items | Error shown before sync attempt |
+| 15 | Connect to device paired to different account | `wrong_account` response, error message shown, BLE disconnects |
 
 ---
 
