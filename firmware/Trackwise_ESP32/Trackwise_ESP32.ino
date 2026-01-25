@@ -34,7 +34,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 
 
 // RAM-based log buffer setup
-#define MAX_LOG_ENTRIES 500
+#define MAX_LOG_ENTRIES 1000  // Doubled from 500 with memory-optimized struct
 #define maxPrefsSlots 100  // Max item slots supported (increased for inventory use)
 
 #define REMINDER_NONE 0
@@ -43,19 +43,37 @@ static const esp_task_wdt_config_t wdtConfig = {
 
 #define VIBRATION_PIN 5
 
+// Event types for log entries (replaces String to save ~21 bytes per entry)
+#define EVENT_INCREMENT 0
+#define EVENT_RESET 1
+#define EVENT_SWITCH 2
+
+// Convert event type to string for JSON serialization
+const char* eventTypeToString(uint8_t eventType) {
+  switch (eventType) {
+    case EVENT_INCREMENT: return "increment";
+    case EVENT_RESET: return "reset";
+    case EVENT_SWITCH: return "switch";
+    default: return "unknown";
+  }
+}
+
 // Event struct to store count logs
-// Uses uint8_t deviceItemId (0-99) instead of String for memory optimization
+// Memory-optimized: ~52 bytes per entry (was ~91 bytes)
+// - Removed String objects to eliminate heap fragmentation
+// - Used smallest int types that fit the data
+// - Ordered fields for optimal alignment
 struct CountLog {
-  uint8_t deviceItemId;  // 0-99, was: String itemId (saves ~17 bytes per entry)
-  String itemName;
-  String event;
-  uint32_t timestamp;
-  int increment;
-  int count;
-  int reminder;
-  int reminderValue;
-  int resetNumber;
-};
+  uint32_t timestamp;       // 4 bytes
+  int32_t count;            // 4 bytes
+  int32_t reminderValue;    // 4 bytes
+  char itemName[33];        // 33 bytes (32 chars + null terminator)
+  uint8_t deviceItemId;     // 1 byte (0-99)
+  uint8_t eventType;        // 1 byte (EVENT_INCREMENT, EVENT_RESET, EVENT_SWITCH)
+  uint8_t reminder;         // 1 byte (0-2)
+  int16_t increment;        // 2 bytes (max 1000)
+  uint16_t resetNumber;     // 2 bytes
+};  // Total: ~52 bytes (was ~91 bytes with String objects)
 
 CountLog logs[MAX_LOG_ENTRIES];  //Create an array named logs that can hold up to MAX_LOG_ENTRIES items, where each item is a CountLog struct. This is the RAM!!!!!!!!!!!!!!!!!!!!!!
 int logWriteIndex = 0;           //keep track of which slot in log should a new event be stored in
@@ -302,11 +320,24 @@ void flushPendingNvsWrites() {
 
 // Store a new log event in RAM
 // For reset events, pass the OLD resetNumber before incrementing
-void logEvent(String event, int resetNum = -1) {
-  int logResetNumber = (resetNum >= 0) ? resetNum : itemResetNumber;
-  logs[logWriteIndex] = {
-    (uint8_t)(currentDeviceItemId >= 0 ? currentDeviceItemId : 0), itemName, event, rtc.now().unixtime(), itemIncrement, itemCount, reminder, reminderValue, logResetNumber
-  };
+void logEvent(uint8_t eventType, int resetNum = -1) {
+  uint16_t logResetNumber = (resetNum >= 0) ? (uint16_t)resetNum : (uint16_t)itemResetNumber;
+
+  CountLog& log = logs[logWriteIndex];
+  log.timestamp = rtc.now().unixtime();
+  log.count = itemCount;
+  log.reminderValue = reminderValue;
+
+  // Safely copy itemName with null termination
+  strncpy(log.itemName, itemName.c_str(), 32);
+  log.itemName[32] = '\0';
+
+  log.deviceItemId = (uint8_t)(currentDeviceItemId >= 0 ? currentDeviceItemId : 0);
+  log.eventType = eventType;
+  log.reminder = (uint8_t)reminder;
+  log.increment = (int16_t)itemIncrement;
+  log.resetNumber = logResetNumber;
+
   logWriteIndex = (logWriteIndex + 1) % MAX_LOG_ENTRIES;
   if (logCount < MAX_LOG_ENTRIES) logCount++;
 }
@@ -454,10 +485,10 @@ String getLogsAsString(int page) {
     o["timestamp"] = logs[i].timestamp;
     o["itemId"] = (int)logs[i].deviceItemId;  // Numeric deviceItemId
     o["itemName"] = logs[i].itemName;
-    o["event"] = logs[i].event;
-    o["increment"] = logs[i].increment;
+    o["event"] = eventTypeToString(logs[i].eventType);  // Convert enum to string
+    o["increment"] = (int)logs[i].increment;
     o["count"] = logs[i].count;
-    o["resetNumber"] = logs[i].resetNumber;
+    o["resetNumber"] = (int)logs[i].resetNumber;
   }
 
   // Check if we overflowed
@@ -508,6 +539,10 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         incomingJsonBuffer = "";  // clear buffer on failure
         return;
       }
+
+      // CRITICAL: Flush any pending count writes BEFORE reading existing data
+      // Without this, batched increments (not yet written to NVS) would be lost
+      flushPendingNvsWrites();
 
       if (!nvsBeginSafe("counter", false)) {
         notifyError("set_items", "NVS mutex timeout");
@@ -1070,40 +1105,6 @@ void notifyEvent(String event, int resetNum = -1) {
   //Serial.println(s);
 }
 
-/*
-void syncAllLogsToApp() {
-  if (!isConnected || NotifyChar == nullptr) return;
-
-  StaticJsonDocument<512> doc;
-
-  for (int i = 0; i < logCount; i++) {
-    doc.clear();
-    doc["type"] = "log";
-    doc["timestamp"] = logs[i].timestamp;
-    doc["itemID"] = logs[i].itemId;
-    doc["itemName"] = logs[i].itemName;
-    doc["event"] = logs[i].event;
-    doc["increment"] = logs[i].increment;
-    doc["count"] = logs[i].count;
-
-    String jsonOut;
-    serializeJson(doc, jsonOut);
-    jsonOut += "\n";  // 🧩 flutter side uses newline as delimiter
-
-    const int mtu = 20;  // max payload for default MTU (23)
-    for (int j = 0; j < jsonOut.length(); j += mtu) {
-      String chunk = jsonOut.substring(j, j + mtu);
-      NotifyChar->setValue(chunk.c_str());
-      NotifyChar->notify();
-      delay(30);  // avoid BLE flooding
-    }
-  }
-
-  Serial.println("✅ Sent all offline logs to app.");
-  clearLogs();  // Optional: clear after sync
-}
-*/
-
 // Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
 void handleCommand(char cmd) {
   recordActivity();  // Wake from low power mode on button press
@@ -1155,7 +1156,7 @@ void handleCommand(char cmd) {
     }
 
     // Only log when disconnected - when connected, real-time events are synced directly
-    if (!isConnected) logEvent("increment");
+    if (!isConnected) logEvent(EVENT_INCREMENT);
     // Send delta update instead of full prefs (much smaller payload)
     if (isConnected) notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
     delay(50);  // Brief gap between notifications
@@ -1194,7 +1195,7 @@ void handleCommand(char cmd) {
     prefs.putULong(key, lastResetTime);
 
     // Log the reset event with OLD resetNumber (this reset ends period N)
-    logEvent("reset", oldResetNumber);
+    logEvent(EVENT_RESET, oldResetNumber);
 
     // Now increment resetNumber for the new period
     itemResetNumber++;
@@ -1258,7 +1259,7 @@ void handleCommand(char cmd) {
 
     nvsEndSafe();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
-    //logEvent("switch");
+    //logEvent(EVENT_SWITCH);
     if (isConnected) notifyEvent("switch");
 
     Serial.printf("Switch to: %s (index %d)\n", itemName.c_str(), currentItemIndex);

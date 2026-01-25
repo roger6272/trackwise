@@ -542,15 +542,14 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
         return itemCat == catId;
       }
 
+      // Check if this is a same-category reorder
+      final isSameCategory = (sourceCatId == targetCatId) ||
+          ((sourceCatId == null || sourceCatId.isEmpty) &&
+              (targetCatId == null || targetCatId.isEmpty));
+
       // Get target category items (excluding moved item)
       final targetCategoryItems = currentState.items
           .where((i) => matchesCategory(i, targetCatId) && i.id != movedItem.id)
-          .toList()
-        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-      // Get source category items (excluding moved item)
-      final sourceCategoryItems = currentState.items
-          .where((i) => matchesCategory(i, sourceCatId) && i.id != movedItem.id)
           .toList()
         ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
@@ -569,14 +568,28 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
         return e.value.copyWith(categoryOrder: e.key);
       }).toList();
 
-      // Update categoryOrder for source items (close the gap)
-      final updatedSourceItems = sourceCategoryItems.asMap().entries.map((e) {
-        return e.value.copyWith(categoryOrder: e.key);
-      }).toList();
+      // For cross-category moves, also update source category to close the gap
+      // For same-category moves, updatedTargetItems already has everything
+      List<Item> allUpdated;
+      if (isSameCategory) {
+        // Same category: only target items need updating (they include the moved item)
+        allUpdated = updatedTargetItems;
+      } else {
+        // Cross-category: also renumber source items to close the gap
+        final sourceCategoryItems = currentState.items
+            .where((i) => matchesCategory(i, sourceCatId) && i.id != movedItem.id)
+            .toList()
+          ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+        final updatedSourceItems = sourceCategoryItems.asMap().entries.map((e) {
+          return e.value.copyWith(categoryOrder: e.key);
+        }).toList();
+
+        allUpdated = [...updatedTargetItems, ...updatedSourceItems];
+      }
 
       // Build the full updated items list
-      final itemsToUpdate = {...updatedTargetItems, ...updatedSourceItems};
-      final updatedItemsMap = {for (var i in itemsToUpdate) i.id: i};
+      final updatedItemsMap = {for (var i in allUpdated) i.id: i};
       final optimisticItems = currentState.items.map((item) {
         return updatedItemsMap[item.id] ?? item;
       }).toList();
@@ -585,7 +598,6 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       emit(currentState.copyWith(items: optimisticItems));
 
       // Persist to Firestore
-      final allUpdated = [...updatedTargetItems, ...updatedSourceItems];
       final result = await itemRepository.reorderItemsInCategory(allUpdated);
 
       result.fold(
