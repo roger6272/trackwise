@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:trackwise/features/auth/domain/repositories/auth_repository.dart';
+import 'package:trackwise/features/auth/domain/repositories/user_repository.dart';
 import 'package:trackwise/features/auth/domain/usecases/sign_in_with_email_usecase.dart';
 import 'package:trackwise/features/auth/domain/usecases/sign_in_with_google_usecase.dart';
 import 'package:trackwise/features/auth/domain/usecases/sign_in_with_apple_usecase.dart';
@@ -14,6 +15,8 @@ import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasourc
 
 // Domain mocks
 class MockAuthRepository extends Mock implements AuthRepository {}
+
+class MockUserRepository extends Mock implements UserRepository {}
 
 class MockSignInWithEmailUseCase extends Mock implements SignInWithEmailUseCase {}
 
