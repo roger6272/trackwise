@@ -279,7 +279,11 @@ Override messages are chunked to fit within BLE MTU limits.
 | `lastResetTime` | long | Last reset timestamp (UTC) |
 | `reset_number` | int | Reset counter |
 
-**Note:** `selected_id` fallback - if the specified `selected_id` doesn't exist in the overridden items, device falls back to first item (index 0) or none if empty.
+**`selected_id` behavior:**
+- App sends `selected_id` from last successful sync with ANY device (stored in Firestore)
+- If unavailable, send `-1` and device will select nothing
+- If `selected_id` doesn't exist in overridden items, device falls back to first item (index 0)
+- If no items at all, device selects nothing
 
 ```cpp
 int overrideSyncSeq;
@@ -332,6 +336,7 @@ users/{uid}:
 
   // New fields for multi-device:
   sync_sequence_no: int (default: 0)
+  last_selected_device_item_id: int (default: -1, updated after each sync)
   paired_devices: [
     {
       device_instance_id: String,
