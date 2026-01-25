@@ -506,20 +506,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   final deviceSelectedId = context.read<BluetoothBloc>().state.selectedItemId;
                                   final hasNoDeviceSelection = deviceSelectedId == null || deviceSelectedId.isEmpty;
 
-                                  // Debug logging for hints
-                                  debugPrint('🔔 Hint check: items=${filteredItems.length}, noSelection=$hasNoDeviceSelection, '
-                                      'activationShown=${appUiState.hasShownActivationHint}, reorderShown=${appUiState.hasShownReorderHint}, '
-                                      'activationTriggered=$_activationHintTriggered, reorderTriggered=$_reorderHintTriggered');
-
                                   if (hasNoDeviceSelection && !appUiState.hasShownActivationHint && !_activationHintTriggered && filteredItems.isNotEmpty) {
-                                    debugPrint('🔔 Triggering ACTIVATION hint');
                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                       _showActivationHint(appUiState, context);
                                     });
                                   }
                                   // Trigger reorder hint when 2+ items (independent of activation hint)
                                   else if (filteredItems.length >= 2 && !appUiState.hasShownReorderHint && !_reorderHintTriggered) {
-                                    debugPrint('🔔 Triggering REORDER hint');
                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                       _showReorderHint(appUiState, isConnected, context);
                                     });
@@ -1875,7 +1868,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
   /// Shows a reorder hint animation on the first item (lift effect) with tooltip.
   /// Only triggers when connected (reordering requires device connection).
   void _showReorderHint(AppUiState appUiState, bool isConnected, BuildContext context) {
-    debugPrint('🔔 _showReorderHint called: triggered=$_reorderHintTriggered, shown=${appUiState.hasShownReorderHint}, connected=$isConnected');
     // Only show when connected and if not already shown
     if (_reorderHintTriggered ||
         appUiState.hasShownReorderHint ||
@@ -1883,15 +1875,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
       return;
     }
     _reorderHintTriggered = true;
-    debugPrint('🔔 _showReorderHint proceeding...');
 
     // Delay to let the list render
     Future.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) {
-        debugPrint('🔔 _showReorderHint: not mounted, aborting');
-        return;
-      }
-      debugPrint('🔔 _showReorderHint: showing overlay');
+      if (!mounted) return;
 
       // Show tooltip overlay
       final overlay = Overlay.of(context);
@@ -1971,18 +1958,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
   /// Shows an activation hint for new users who just created their first item.
   /// Opens the swipe pane and shows a tooltip explaining how to activate.
   void _showActivationHint(AppUiState appUiState, BuildContext context) {
-    debugPrint('🔔 _showActivationHint called: triggered=$_activationHintTriggered, shown=${appUiState.hasShownActivationHint}');
     if (_activationHintTriggered || appUiState.hasShownActivationHint) return;
     _activationHintTriggered = true;
-    debugPrint('🔔 _showActivationHint proceeding...');
 
     // Delay to let the list render first
     Future.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) {
-        debugPrint('🔔 _showActivationHint: not mounted, aborting');
-        return;
-      }
-      debugPrint('🔔 _showActivationHint: showing overlay');
+      if (!mounted) return;
 
       // Open the swipe action pane
       _firstItemController?.openEndActionPane();
