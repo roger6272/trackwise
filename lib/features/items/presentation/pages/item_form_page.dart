@@ -374,7 +374,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                           ),
                         ),
                         _buildFieldSection(
-                          label: 'Increment By',
+                          label: 'Count Per Press',
                           labelColor: primaryText,
                           child: TextFormField(
                             controller: incrementByController,
@@ -385,7 +385,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: _buildInputDecoration(
-                              hint: 'Enter increment value...',
+                              hint: 'e.g. 1, 5, 10...',
                               alternate: alternate,
                               secondaryText: secondaryText,
                             ),
@@ -396,7 +396,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Increment value is required';
+                                return 'Count per press is required';
                               }
                               final intValue = int.tryParse(value);
                               if (intValue == null || intValue < 1 || intValue > 100) {
