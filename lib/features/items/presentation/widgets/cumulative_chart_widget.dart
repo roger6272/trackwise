@@ -91,7 +91,9 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     }
   }
 
-  /// Map chart data to time buckets, filling 0 for missing data.
+  /// Map cumulative chart data to time buckets.
+  /// For cumulative charts, values are running totals - missing buckets
+  /// carry forward the last known value (not 0).
   Map<String, int> _mapDataToBuckets(
     List<DateTime> timeBuckets,
     ChartsLoaded state,
@@ -99,22 +101,26 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
     final String keyFormat = config['keyFormat'];
 
-    // Initialize all buckets with 0
-    final Map<String, int> timeToCount = {
-      for (var t in timeBuckets) DateFormat(keyFormat).format(t): 0
-    };
-
-    // Fill in actual data from chart state
+    // Build a map of available cumulative values from the usecase
+    // These are already running totals, not increments
+    final Map<String, int> dataPointMap = {};
     for (var dataPoint in state.chartData.dataPoints) {
-      String key;
-      if (widget.range == '1D') {
-        key = DateFormat(keyFormat).format(dataPoint.date);
-      } else {
-        key = DateFormat(keyFormat).format(dataPoint.date);
+      final key = DateFormat(keyFormat).format(dataPoint.date);
+      // For cumulative data, just assign the value (it's already the running total)
+      dataPointMap[key] = dataPoint.value;
+    }
+
+    // Map to buckets, carrying forward the last cumulative value
+    // for buckets with no data
+    final Map<String, int> timeToCount = {};
+    int lastCumulativeValue = 0;
+
+    for (var t in timeBuckets) {
+      final key = DateFormat(keyFormat).format(t);
+      if (dataPointMap.containsKey(key)) {
+        lastCumulativeValue = dataPointMap[key]!;
       }
-      if (timeToCount.containsKey(key)) {
-        timeToCount[key] = (timeToCount[key] ?? 0) + dataPoint.value;
-      }
+      timeToCount[key] = lastCumulativeValue;
     }
 
     return timeToCount;
