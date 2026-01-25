@@ -648,6 +648,27 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
           }
         }
 
+        // For existing items: accept resetNumber from app if higher (monotonically increasing)
+        // This handles app-side "Reset All" which increments resetNumber
+        if (isExistingItem && item.containsKey("reset_number")) {
+          int appResetNumber = clampInt(item["reset_number"].as<int>(), 0, 100000);
+          if (appResetNumber > resetNumber) {
+            resetNumber = appResetNumber;
+            // Also accept count/todaycount/lastResetTime when reset detected
+            if (item.containsKey("count")) {
+              count = item["count"].as<int>();
+            }
+            if (item.containsKey("todaycount")) {
+              todaycount = item["todaycount"].as<int>();
+            }
+            if (item.containsKey("lastResetTime")) {
+              lastResetTime = item["lastResetTime"];
+            }
+            Serial.printf("🔄 App reset detected for deviceItemId=%d: accepting resetNumber=%d from app\n",
+                          deviceItemId, resetNumber);
+          }
+        }
+
         // Store deviceItemId (replaces string id)
         snprintf(key, sizeof(key), "did_%d", index);
         prefs.putUChar(key, (uint8_t)deviceItemId);

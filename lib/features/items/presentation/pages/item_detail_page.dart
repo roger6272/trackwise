@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -150,18 +149,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Subscribe to real-time updates for this item from Firestore.
   void _subscribeToItemUpdates() {
     final itemRepository = sl<ItemRepository>();
-    debugPrint('📡 ItemDetailPage: subscribing to item ${widget.itemId}');
     _itemSubscription = itemRepository.watchItem(widget.itemId).listen(
       (either) {
         either.fold(
           (failure) {
-            debugPrint('📡 ItemDetailPage: watchItem error - ${failure.message}');
+            // Silently handle errors
           },
           (item) {
-            debugPrint('📡 ItemDetailPage: received item update - resetNumber=${item.resetNumber}, local=$_resetNumber');
             // Check if resetNumber or lastResetTime changed
             if (item.resetNumber != _resetNumber || item.lastResetTime != _lastResetTime) {
-              debugPrint('📡 ItemDetailPage: reset detected! Updating state and reloading events');
               if (mounted) {
                 setState(() {
                   _currentCount = item.count;
@@ -284,7 +280,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Update intervals when events are loaded.
   void _updateIntervalsFromEvents(EventsState eventsState) {
     if (eventsState is EventsLoaded) {
-      debugPrint('📊 events=${eventsState.events.length}, itemReset=$_resetNumber');
       var newIntervals = IntervalCalculator.calculate(
         events: eventsState.events,
         maxIntervals: 100, // Get all for dropdown
@@ -297,11 +292,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           .map((i) => i.intervalNumber)
           .fold<int>(-1, (max, n) => n > max ? n : max);
 
-      debugPrint('📊 maxEvt=$maxEventResetNumber, item=$_resetNumber');
-      debugPrint('📊 intervals before: ${newIntervals.map((i) => i.intervalNumber).toList()}');
-
       if (_resetNumber > maxEventResetNumber) {
-        debugPrint('📊 CREATING virtual interval for cycle $_resetNumber');
         // Fallback start time: lastResetTime (if reset), or lastUpdated (creation time), or now
         final fallbackStart = _lastResetTime ?? widget.lastUpdated ?? DateTime.now();
 
@@ -330,9 +321,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           );
           newIntervals = [allTimeInterval, virtualCurrentInterval];
         }
-        debugPrint('📊 intervals after: ${newIntervals.map((i) => i.intervalNumber).toList()}');
-      } else {
-        debugPrint('📊 NO virtual needed: $_resetNumber <= $maxEventResetNumber');
       }
 
       // Get the current interval number (most recent, after "All Time")
@@ -345,8 +333,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ? _intervals[1].intervalNumber
           : null;
 
-      debugPrint('📊 current=$currentIntervalNumber, oldCurrent=$oldCurrentIntervalNumber, selected=$_selectedInterval');
-
       setState(() {
         _intervals = newIntervals;
 
@@ -354,13 +340,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         // 1. Not set yet
         if (_selectedInterval == null) {
           _selectedInterval = currentIntervalNumber;
-          debugPrint('📊 selected set to current: $_selectedInterval');
         }
         // 2. Selected interval no longer exists in new intervals
         else if (_selectedInterval != -1 &&
             !newIntervals.any((i) => i.intervalNumber == _selectedInterval)) {
           _selectedInterval = currentIntervalNumber;
-          debugPrint('📊 selected reset (not found): $_selectedInterval');
         }
         // 3. A new current interval appeared (reset happened) and we were viewing current
         else if (_selectedInterval != -1 &&
@@ -370,9 +354,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             _selectedInterval == oldCurrentIntervalNumber) {
           // We were viewing the current interval and a reset created a new one
           _selectedInterval = currentIntervalNumber;
-          debugPrint('📊 selected advanced to new current: $_selectedInterval');
-        } else {
-          debugPrint('📊 selected unchanged: $_selectedInterval');
         }
       });
     }

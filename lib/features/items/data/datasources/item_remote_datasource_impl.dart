@@ -116,26 +116,20 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Stream<ItemModel> watchItem(String itemId) {
     try {
-      debugPrint('📡 watchItem: setting up stream for $itemId');
       return firestore
           .collection('Item')
           .doc(itemId)
           .snapshots()
           .map((snapshot) {
             if (!snapshot.exists) {
-              debugPrint('📡 watchItem: document not found $itemId');
               throw ServerException('Item not found: $itemId');
             }
-            final item = ItemModel.fromFirestore(snapshot);
-            debugPrint('📡 watchItem: emitting item $itemId, resetNumber=${item.resetNumber}');
-            return item;
+            return ItemModel.fromFirestore(snapshot);
           })
           .handleError((error) {
-        debugPrint('📡 watchItem: error - $error');
         throw ServerException('Failed to watch item: $error');
       });
     } catch (e) {
-      debugPrint('📡 watchItem: setup error - $e');
       throw ServerException('Failed to setup item stream: $e');
     }
   }
@@ -145,27 +139,21 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
     try {
       // FlutterFlow stores uid as DocumentReference to users collection
       final userRef = firestore.collection('users').doc(userId);
-      debugPrint('📡 watchItems: userId=$userId, userRef=${userRef.path}');
       return firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .orderBy('order')
           .snapshots()
           .map((snapshot) {
-            debugPrint('📡 watchItems snapshot: ${snapshot.docs.length} docs');
-            final items = snapshot.docs
+            return snapshot.docs
                 .map((doc) => ItemModel.fromFirestore(doc))
                 .where((item) => item.deletedAt == null)
                 .toList();
-            debugPrint('📡 watchItems filtered: ${items.length} items');
-            return items;
           })
           .handleError((error) {
-        debugPrint('📡 watchItems error: $error');
         throw ServerException('Failed to watch items: $error');
       });
     } catch (e) {
-      debugPrint('📡 watchItems setup error: $e');
       throw ServerException('Failed to setup items stream: $e');
     }
   }
