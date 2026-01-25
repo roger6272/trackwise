@@ -116,20 +116,26 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Stream<ItemModel> watchItem(String itemId) {
     try {
+      debugPrint('📡 watchItem: setting up stream for $itemId');
       return firestore
           .collection('Item')
           .doc(itemId)
           .snapshots()
           .map((snapshot) {
             if (!snapshot.exists) {
+              debugPrint('📡 watchItem: document not found $itemId');
               throw ServerException('Item not found: $itemId');
             }
-            return ItemModel.fromFirestore(snapshot);
+            final item = ItemModel.fromFirestore(snapshot);
+            debugPrint('📡 watchItem: emitting item $itemId, resetNumber=${item.resetNumber}');
+            return item;
           })
           .handleError((error) {
+        debugPrint('📡 watchItem: error - $error');
         throw ServerException('Failed to watch item: $error');
       });
     } catch (e) {
+      debugPrint('📡 watchItem: setup error - $e');
       throw ServerException('Failed to setup item stream: $e');
     }
   }
