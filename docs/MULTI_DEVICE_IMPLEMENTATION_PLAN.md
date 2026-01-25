@@ -262,6 +262,7 @@ All BLE commands should have a 10-second timeout. On timeout:
 | App → Device | `{"cmd":"override_chunk","index":0,"items":[...]}` | Send items chunk |
 | App → Device | `{"cmd":"override_end","selected_id":2}` | Complete override |
 | Device → App | `{"status":"override_complete"}` | Confirm override done |
+| Device → App | `{"status":"error","message":"missing_chunks"}` | Override failed - chunks were lost |
 | App → Device | `{"cmd":"sync_complete","sync_seq":43}` | After normal sync, update device seq |
 | Device → App | `{"status":"seq_updated"}` | Confirm sync_seq stored |
 
@@ -376,6 +377,7 @@ Maximum 10 paired devices per account.
 | **Maximum 100 items per account** | Device has 100 item slots (0-99). Both app and device enforce this limit. |
 | **Maximum 10 paired devices** | Prevents excessive device registry growth. |
 | **One BLE connection at a time** | BLE hardware limitation + simplifies sync logic. |
+| **Sync requires internet connection** | App must fetch fresh sync_seq from Firestore. Show error: "Internet connection required to sync." |
 
 ---
 
@@ -419,6 +421,12 @@ class HandshakeResult {
 
 ```dart
 Future<Either<Failure, SyncResult>> performSync() async {
+  // Step 0: Check internet connectivity FIRST
+  final hasInternet = await connectivityService.hasInternetConnection();
+  if (!hasInternet) {
+    return Left(NoInternetFailure('Internet connection required to sync.'));
+  }
+
   // Step 1: Get current user's sync state
   // CRITICAL: Fetch FRESH from Firestore, not cached!
   // This prevents stale data issues with multiple app instances (phone + tablet)
@@ -490,11 +498,35 @@ Future<Either<Failure, SyncResult>> _performNormalSync(int currentSeq) async {
 
   // Step 4: ONLY NOW update Firestore (after device confirmed)
   // This prevents false conflicts if BLE disconnects
-  await itemRepository.batchUpdateCounts(userId, prefs.items);
-  await userRepository.updateSyncState(
-    syncSequenceNo: newSyncSeq,
-    lastSelectedDeviceItemId: prefs.selectedDeviceItemId,  // Save for future override
-  );
+  // CRITICAL: Retry on failure to prevent sync_seq desync
+  try {
+    await itemRepository.batchUpdateCounts(userId, prefs.items);
+    await userRepository.updateSyncState(
+      syncSequenceNo: newSyncSeq,
+      lastSelectedDeviceItemId: prefs.selectedDeviceItemId,  // Save for future override
+    );
+  } catch (e) {
+    // Firestore update failed after device already stored new sync_seq
+    // Retry up to 3 times to prevent desync
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await Future.delayed(Duration(seconds: attempt));  // Backoff
+        await itemRepository.batchUpdateCounts(userId, prefs.items);
+        await userRepository.updateSyncState(
+          syncSequenceNo: newSyncSeq,
+          lastSelectedDeviceItemId: prefs.selectedDeviceItemId,
+        );
+        return Right(SyncResult.success);
+      } catch (_) {
+        if (attempt == 3) {
+          // All retries failed - warn user
+          return Left(FirestoreUpdateFailure(
+            'Sync incomplete. Please ensure internet connection and try again.',
+          ));
+        }
+      }
+    }
+  }
 
   return Right(SyncResult.success);
 }
@@ -505,10 +537,22 @@ Future<Either<Failure, SyncResult>> _performNormalSync(int currentSeq) async {
 - On reconnect, handshake will succeed again (sync_seq still matches)
 - Sync restarts cleanly
 
+**Firestore Update Failure:** If Firestore update fails after device ack:
+- App retries up to 3 times with backoff
+- If all retries fail, show error and prompt user to retry
+- Device has new sync_seq, so reconnect will show conflict
+- User must resolve conflict (override) to resync
+
 ### 3.4 Override Flow (After User Confirms)
 
 ```dart
 Future<Either<Failure, SyncResult>> performOverride() async {
+  // Re-check internet (user may have lost connection while viewing conflict dialog)
+  final hasInternet = await connectivityService.hasInternetConnection();
+  if (!hasInternet) {
+    return Left(NoInternetFailure('Internet connection required to sync.'));
+  }
+
   final user = await userRepository.getCurrentUser();
   final items = await itemRepository.getItems(user.uid);
 
@@ -536,7 +580,24 @@ Future<Either<Failure, SyncResult>> performOverride() async {
   }
 
   // Update Firestore only after device confirms
-  await userRepository.updateSyncSequence(newSyncSeq);
+  // Retry on failure to prevent sync_seq desync
+  try {
+    await userRepository.updateSyncSequence(newSyncSeq);
+  } catch (e) {
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await Future.delayed(Duration(seconds: attempt));
+        await userRepository.updateSyncSequence(newSyncSeq);
+        return Right(SyncResult.overrideComplete);
+      } catch (_) {
+        if (attempt == 3) {
+          return Left(FirestoreUpdateFailure(
+            'Sync incomplete. Please ensure internet connection and try again.',
+          ));
+        }
+      }
+    }
+  }
 
   return Right(SyncResult.overrideComplete);
 }
@@ -746,6 +807,8 @@ Future<OverrideResult> sendOverrideChunked({
   });
 
   // Send each chunk
+  // Note: Chunks don't have individual responses - device validates at override_end
+  // If a chunk fails (BLE error), sendCommand will throw and abort the override
   for (var i = 0; i < chunks.length; i++) {
     await sendCommand({
       'cmd': 'override_chunk',
@@ -755,6 +818,7 @@ Future<OverrideResult> sendOverrideChunked({
   }
 
   // Send override_end and wait for response
+  // Device validates all chunks received before responding
   final response = await sendCommand({
     'cmd': 'override_end',
     'selected_id': selectedId,
@@ -799,6 +863,9 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 | 13 | Try to create item while disconnected | UI prevents item creation (disabled or error message) |
 | 14 | Try to sync >100 items | Error shown before sync attempt |
 | 15 | Connect to device paired to different account | `wrong_account` response, error message shown, BLE disconnects |
+| 16 | Override when app has 0 items | Device clears all items successfully, sync_seq increments |
+| 17 | Try to sync without internet | Error: "Internet connection required to sync." |
+| 18 | Firestore update fails after device ack | Retry up to 3 times, then show error prompting user to retry |
 
 ---
 
@@ -828,6 +895,8 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 3. Updated sync flow with handshake
 4. Override BLE command
 5. Sync complete BLE command
+6. Internet connectivity check before sync/override
+7. Firestore update retry logic (3 attempts with backoff)
 
 ### Sprint 5: App UI
 1. Conflict resolution dialog
@@ -843,16 +912,18 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 **The key insight:** `sync_seq` alone determines if a device is in sync or needs override. No need to track which device was last used - if the numbers match, it was this device.
 
 **Flow summary:**
-1. App fetches FRESH sync_seq from Firestore (not cached - supports multi-instance)
-2. App sends handshake with uid + sync_seq
-3. Device compares sync_seq (defaults to 0 if never synced)
-4. Match → normal sync (device → app), then sync_complete with acknowledgment
-5. Mismatch → conflict → user confirms → override (app → device, chunked)
-6. Either way, sync_seq increments and both sides store it
-7. Firestore only updated AFTER device acknowledgment (prevents false conflicts)
-8. All BLE commands have 10-second timeout
+1. App checks internet connectivity (required for Firestore)
+2. App fetches FRESH sync_seq from Firestore (not cached - supports multi-instance)
+3. App sends handshake with uid + sync_seq
+4. Device compares sync_seq (defaults to 0 if never synced)
+5. Match → normal sync (device → app), then sync_complete with acknowledgment
+6. Mismatch → conflict → user confirms → override (app → device, chunked)
+7. Either way, sync_seq increments and both sides store it
+8. Firestore only updated AFTER device acknowledgment (with retry on failure)
+9. All BLE commands have 10-second timeout
 
 **Key constraints:**
+- Sync requires internet connection (for Firestore access)
 - Items can only be created while BLE connected
 - Maximum 100 items per account (device slot limit)
 - Maximum 10 paired devices per account
