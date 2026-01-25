@@ -32,6 +32,19 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
    - **Check this FIRST** when debugging BLE issues before reading firmware code
    - **IMPORTANT:** Also review this doc for whole-project reviews, architecture analysis, or when asked to understand how the system works - it documents the critical app↔device interface
 
+5. **User Guide**
+   - Location: `docs/USER_GUIDE.md`
+   - **Non-technical user documentation** - how end users interact with the product
+   - Contains: Feature explanations, user flows, troubleshooting, quick reference
+   - **Consult when:** Making UI/UX changes, adding features, writing user-facing text, or creating other documentation
+   - Ensures code changes align with documented user expectations
+
+6. **Product Overview**
+   - Location: `docs/PRODUCT_OVERVIEW.md`
+   - **Business/product context** - what the product is and why it exists
+   - Contains: Problem/solution, key features, differentiators, use cases
+   - **Consult when:** Making architectural decisions or prioritizing features
+
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication
 - Verify BLE command/response formats match between app and firmware
