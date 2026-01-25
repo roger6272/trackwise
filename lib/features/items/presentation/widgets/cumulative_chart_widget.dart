@@ -139,7 +139,8 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
       }
 
       if (dataPointMap.containsKey(key)) {
-        lastCumulativeValue = dataPointMap[key]!;
+        // dataPoint.value is cumulative of increments only, add initialCount
+        lastCumulativeValue = initialCount + dataPointMap[key]!;
       }
       timeToCount[key] = lastCumulativeValue;
     }
