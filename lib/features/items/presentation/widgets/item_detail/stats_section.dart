@@ -539,29 +539,28 @@ class ChartSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6.0),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'increments',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.w500,
-                          color: secondaryText,
-                        ),
-                      ),
-                      // Show "from X" when initial count > 0
-                      if (initialCount > 0)
-                        Text(
-                          'from $initialCount',
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'increments',
                           style: GoogleFonts.inter(
-                            fontSize: 11.0,
-                            fontWeight: FontWeight.w400,
-                            color: secondaryText.withOpacity(0.7),
+                            fontSize: 14.0,
+                            fontWeight: FontWeight.w500,
+                            color: secondaryText,
                           ),
                         ),
-                    ],
+                        if (initialCount > 0)
+                          TextSpan(
+                            text: ' (from $initialCount)',
+                            style: GoogleFonts.inter(
+                              fontSize: 12.0,
+                              fontWeight: FontWeight.w400,
+                              color: secondaryText.withOpacity(0.7),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
