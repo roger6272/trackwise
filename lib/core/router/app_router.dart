@@ -19,6 +19,7 @@ import '../../features/bluetooth/presentation/pages/bluetooth_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_search_page.dart';
 import '../../features/bluetooth/presentation/pages/device_management_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_test_page.dart';
+import '../../features/bluetooth/presentation/pages/paired_devices_page.dart';
 import '../../features/items/domain/entities/item.dart';
 import '../../features/categories/presentation/pages/manage_categories_page.dart';
 
@@ -213,6 +214,11 @@ class AppRouter {
                   name: ManageCategoriesPage.routeName,
                   path: 'categories',
                   builder: (context, state) => const ManageCategoriesPage(),
+                ),
+                GoRoute(
+                  name: PairedDevicesPage.routeName,
+                  path: PairedDevicesPage.routePath,
+                  builder: (context, state) => const PairedDevicesPage(),
                 ),
               ],
             ),

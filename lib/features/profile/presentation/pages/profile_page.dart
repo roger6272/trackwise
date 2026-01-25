@@ -185,6 +185,13 @@ class _ProfilePageState extends State<ProfilePage> {
                             _buildDivider(context),
                             _buildSettingItem(
                               context,
+                              icon: Icons.watch_outlined,
+                              title: 'Paired Devices',
+                              onTap: () => context.push('/profile/paired-devices'),
+                            ),
+                            _buildDivider(context),
+                            _buildSettingItem(
+                              context,
                               icon: Icons.restart_alt_outlined,
                               title: 'Start New Cycle',
                               subtitle: isConnected ? null : 'Requires device connection',

@@ -177,3 +177,78 @@ class UpdateSelectedItemFromDevice extends BluetoothEvent {
   @override
   List<Object?> get props => [itemId];
 }
+
+// ========== Paired Device Events ==========
+
+/// Load paired devices from user's Firestore document.
+class LoadPairedDevices extends BluetoothEvent {
+  const LoadPairedDevices();
+}
+
+/// Internal event when paired devices list is updated.
+class PairedDevicesUpdated extends BluetoothEvent {
+  final List<BleDevice> devices;
+
+  const PairedDevicesUpdated(this.devices);
+
+  @override
+  List<Object?> get props => [devices];
+}
+
+/// Rename a paired device.
+class UpdateDeviceName extends BluetoothEvent {
+  final String deviceInstanceId;
+  final String newName;
+
+  const UpdateDeviceName({
+    required this.deviceInstanceId,
+    required this.newName,
+  });
+
+  @override
+  List<Object?> get props => [deviceInstanceId, newName];
+}
+
+/// Remove a paired device from the user's list.
+class RemovePairedDevice extends BluetoothEvent {
+  final String deviceInstanceId;
+
+  const RemovePairedDevice(this.deviceInstanceId);
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
+}
+
+// ========== Sync Conflict Events ==========
+
+/// Internal event when a sync conflict is detected.
+/// UI should show the conflict dialog.
+class SyncConflictDetected extends BluetoothEvent {
+  final int? deviceSyncSeq;
+  final int appSyncSeq;
+
+  const SyncConflictDetected({
+    this.deviceSyncSeq,
+    required this.appSyncSeq,
+  });
+
+  @override
+  List<Object?> get props => [deviceSyncSeq, appSyncSeq];
+}
+
+/// User confirmed override in conflict dialog.
+/// Triggers PerformOverrideUseCase.
+class ConfirmSyncOverride extends BluetoothEvent {
+  const ConfirmSyncOverride();
+}
+
+/// User cancelled conflict dialog.
+/// Disconnects from device.
+class CancelSyncConflict extends BluetoothEvent {
+  const CancelSyncConflict();
+}
+
+/// Clear conflict state after it's been handled.
+class ClearConflictState extends BluetoothEvent {
+  const ClearConflictState();
+}

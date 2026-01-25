@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
+import '../../../auth/domain/repositories/user_repository.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
@@ -23,8 +24,10 @@ import '../../domain/usecases/send_selected_item_usecase.dart';
 import '../../domain/usecases/send_time_sync_usecase.dart';
 import '../../domain/usecases/stop_scan_usecase.dart';
 import '../../domain/usecases/sync_device_data_usecase.dart';
+import '../../domain/usecases/sync_usecase.dart';
 import '../../domain/usecases/watch_connection_state_usecase.dart';
 import '../../domain/usecases/watch_device_messages_usecase.dart';
+import '../../domain/repositories/bluetooth_repository.dart';
 import 'bluetooth_event.dart';
 import 'bluetooth_state.dart';
 
@@ -36,6 +39,7 @@ import 'bluetooth_state.dart';
 /// - Connection management with auto-reconnect
 /// - Data sending/receiving with ESP32
 /// - Message stream processing
+/// - Multi-device sync and conflict resolution
 @lazySingleton
 class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final ScanDevicesUseCase _scanDevices;
@@ -52,6 +56,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final CheckBluetoothEnabledUseCase _checkBluetoothEnabled;
   final RequestBluetoothPermissionsUseCase _requestPermissions;
   final SyncDeviceDataUseCase _syncDeviceData;
+  final PerformOverrideUseCase _performOverride;
+  final UserRepository _userRepository;
+  final BluetoothRepository _bluetoothRepository;
 
   // Stream subscriptions
   StreamSubscription<dynamic>? _scanSubscription;
@@ -94,6 +101,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._checkBluetoothEnabled,
     this._requestPermissions,
     this._syncDeviceData,
+    this._performOverride,
+    this._userRepository,
+    this._bluetoothRepository,
   ) : super(const BluetoothState()) {
     // Register event handlers
     on<CheckBluetoothPermissions>(_onCheckPermissions);
@@ -116,6 +126,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<MessageReceived>(_onMessageReceived);
     on<ScanResultsUpdated>(_onScanResultsUpdated);
     on<UpdateSelectedItemFromDevice>(_onUpdateSelectedItemFromDevice);
+
+    // Multi-device events
+    on<LoadPairedDevices>(_onLoadPairedDevices);
+    on<UpdateDeviceName>(_onUpdateDeviceName);
+    on<RemovePairedDevice>(_onRemovePairedDevice);
+    on<SyncConflictDetected>(_onSyncConflictDetected);
+    on<ConfirmSyncOverride>(_onConfirmSyncOverride);
+    on<CancelSyncConflict>(_onCancelSyncConflict);
+    on<ClearConflictState>(_onClearConflictState);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -741,6 +760,157 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     emit(state.copyWith(selectedItemId: event.itemId));
+  }
+
+  // ========== Paired Device Handlers ==========
+
+  /// Loads paired devices from the user repository.
+  Future<void> _onLoadPairedDevices(
+    LoadPairedDevices event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final result = await _userRepository.getCurrentUser();
+    result.fold(
+      (failure) {
+        if (kDebugMode) print('Failed to load paired devices: ${failure.message}');
+      },
+      (user) {
+        emit(state.copyWith(pairedDevices: user.pairedDevices));
+      },
+    );
+  }
+
+  /// Updates a paired device's name.
+  Future<void> _onUpdateDeviceName(
+    UpdateDeviceName event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final result = await _userRepository.updateDeviceName(
+      event.deviceInstanceId,
+      event.newName,
+    );
+
+    result.fold(
+      (failure) {
+        if (kDebugMode) print('Failed to update device name: ${failure.message}');
+      },
+      (_) {
+        // Update local state
+        final updatedDevices = state.pairedDevices.map((device) {
+          if (device.deviceInstanceId == event.deviceInstanceId) {
+            return device.copyWith(deviceName: event.newName);
+          }
+          return device;
+        }).toList();
+
+        emit(state.copyWith(pairedDevices: updatedDevices));
+      },
+    );
+  }
+
+  /// Removes a paired device from the user's list.
+  Future<void> _onRemovePairedDevice(
+    RemovePairedDevice event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final result = await _userRepository.removePairedDevice(event.deviceInstanceId);
+
+    result.fold(
+      (failure) {
+        if (kDebugMode) print('Failed to remove paired device: ${failure.message}');
+      },
+      (_) {
+        // Update local state
+        final updatedDevices = state.pairedDevices
+            .where((d) => d.deviceInstanceId != event.deviceInstanceId)
+            .toList();
+
+        emit(state.copyWith(pairedDevices: updatedDevices));
+      },
+    );
+  }
+
+  // ========== Sync Conflict Handlers ==========
+
+  /// Handles sync conflict detection - UI should show the dialog.
+  Future<void> _onSyncConflictDetected(
+    SyncConflictDetected event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(
+      hasConflict: true,
+      conflictAppSyncSeq: event.appSyncSeq,
+      conflictDeviceSyncSeq: event.deviceSyncSeq,
+    ));
+  }
+
+  /// User confirmed override - perform the override sync.
+  Future<void> _onConfirmSyncOverride(
+    ConfirmSyncOverride event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final deviceId = state.connectedDevice?.id;
+    if (deviceId == null) {
+      emit(state.copyWith(
+        clearConflict: true,
+        errorMessage: 'No device connected',
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      isOverriding: true,
+      clearConflict: true,
+    ));
+
+    final result = await _performOverride.call(
+      PerformOverrideParams(deviceId: deviceId),
+    );
+
+    result.fold(
+      (failure) {
+        emit(state.copyWith(
+          isOverriding: false,
+          errorMessage: failure.message,
+        ));
+      },
+      (syncResult) {
+        emit(state.copyWith(
+          isOverriding: false,
+          selectedItemId: syncResult.selectedFirestoreId,
+        ));
+
+        if (kDebugMode) print('Override completed successfully');
+      },
+    );
+  }
+
+  /// User cancelled conflict dialog - disconnect from device.
+  Future<void> _onCancelSyncConflict(
+    CancelSyncConflict event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(clearConflict: true));
+
+    // Disconnect from device
+    final deviceId = state.connectedDevice?.id;
+    if (deviceId != null) {
+      _isManualDisconnect = true;
+      await _bluetoothRepository.disconnect(deviceId);
+      emit(state.copyWith(
+        status: BluetoothStatus.ready,
+        clearConnectedDevice: true,
+        clearConnectedDeviceInstanceId: true,
+      ));
+    }
+  }
+
+  /// Clears conflict state after it's been handled.
+  Future<void> _onClearConflictState(
+    ClearConflictState event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(clearConflict: true));
   }
 
   // ========== Cleanup ==========
