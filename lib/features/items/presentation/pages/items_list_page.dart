@@ -511,10 +511,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       _showActivationHint(appUiState, context);
                                     });
                                   }
-                                  // Trigger reorder hint when 2+ items and activation hint already shown
-                                  else if (filteredItems.length >= 2 &&
-                                      !appUiState.hasShownReorderHint &&
-                                      appUiState.hasShownActivationHint) {
+                                  // Trigger reorder hint when 2+ items (independent of activation hint)
+                                  else if (filteredItems.length >= 2 && !appUiState.hasShownReorderHint) {
                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                       _showReorderHint(appUiState, isConnected, context);
                                     });
