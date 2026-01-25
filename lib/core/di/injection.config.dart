@@ -10,12 +10,14 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:cloud_firestore/cloud_firestore.dart' as _i974;
+import 'package:connectivity_plus/connectivity_plus.dart' as _i895;
 import 'package:firebase_auth/firebase_auth.dart' as _i59;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:google_sign_in/google_sign_in.dart' as _i116;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:trackwise/core/di/register_module.dart' as _i510;
 import 'package:trackwise/core/services/analytics_service.dart' as _i590;
+import 'package:trackwise/core/services/connectivity_service.dart' as _i40;
 import 'package:trackwise/core/services/crashlytics_service.dart' as _i813;
 import 'package:trackwise/core/services/performance_service.dart' as _i1004;
 import 'package:trackwise/core/state/app_ui_state.dart' as _i237;
@@ -25,8 +27,12 @@ import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasourc
     as _i459;
 import 'package:trackwise/features/auth/data/repositories/auth_repository_impl.dart'
     as _i663;
+import 'package:trackwise/features/auth/data/repositories/user_repository_impl.dart'
+    as _i960;
 import 'package:trackwise/features/auth/domain/repositories/auth_repository.dart'
     as _i578;
+import 'package:trackwise/features/auth/domain/repositories/user_repository.dart'
+    as _i881;
 import 'package:trackwise/features/auth/domain/usecases/reset_password_usecase.dart'
     as _i517;
 import 'package:trackwise/features/auth/domain/usecases/sign_in_with_apple_usecase.dart'
@@ -75,6 +81,8 @@ import 'package:trackwise/features/bluetooth/domain/usecases/stop_scan_usecase.d
     as _i907;
 import 'package:trackwise/features/bluetooth/domain/usecases/sync_device_data_usecase.dart'
     as _i833;
+import 'package:trackwise/features/bluetooth/domain/usecases/sync_usecase.dart'
+    as _i844;
 import 'package:trackwise/features/bluetooth/domain/usecases/watch_connection_state_usecase.dart'
     as _i385;
 import 'package:trackwise/features/bluetooth/domain/usecases/watch_device_messages_usecase.dart'
@@ -206,6 +214,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i1046.ItemRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i1001.BluetoothDataSource>(
         () => _i420.BluetoothDataSourceImpl());
+    gh.lazySingleton<_i40.ConnectivityService>(() =>
+        _i40.ConnectivityServiceImpl(connectivity: gh<_i895.Connectivity>()));
     gh.lazySingleton<_i558.CategoryRemoteDataSource>(() =>
         _i307.CategoryRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i949.EventLogRemoteDataSource>(() =>
@@ -228,6 +238,10 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.lazySingleton<_i349.CategoryRepository>(() =>
         _i671.CategoryRepositoryImpl(gh<_i558.CategoryRemoteDataSource>()));
+    gh.lazySingleton<_i881.UserRepository>(() => _i960.UserRepositoryImpl(
+          firebaseAuth: gh<_i59.FirebaseAuth>(),
+          firestore: gh<_i974.FirebaseFirestore>(),
+        ));
     gh.lazySingleton<_i769.CheckBluetoothEnabledUseCase>(() =>
         _i769.CheckBluetoothEnabledUseCase(gh<_i862.BluetoothRepository>()));
     gh.lazySingleton<_i733.ClearDeviceLogsUseCase>(
@@ -330,6 +344,21 @@ extension GetItInjectableX on _i174.GetIt {
           getCumulativeChartDataUseCase:
               gh<_i1067.GetCumulativeChartDataUseCase>(),
         ));
+    gh.lazySingleton<_i844.PerformSyncUseCase>(() => _i844.PerformSyncUseCase(
+          gh<_i862.BluetoothRepository>(),
+          gh<_i881.UserRepository>(),
+          gh<_i319.ItemRepository>(),
+          gh<_i349.CategoryRepository>(),
+          gh<_i40.ConnectivityService>(),
+        ));
+    gh.lazySingleton<_i844.PerformOverrideUseCase>(
+        () => _i844.PerformOverrideUseCase(
+              gh<_i862.BluetoothRepository>(),
+              gh<_i881.UserRepository>(),
+              gh<_i319.ItemRepository>(),
+              gh<_i349.CategoryRepository>(),
+              gh<_i40.ConnectivityService>(),
+            ));
     gh.lazySingleton<_i311.CreateItemUseCase>(() => _i311.CreateItemUseCase(
           gh<_i319.ItemRepository>(),
           gh<_i978.EventLogRepository>(),
