@@ -134,9 +134,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Item Name'), findsOneWidget);
-      expect(find.text('Increment By'), findsOneWidget);
-      expect(find.text('Reminder Type'), findsOneWidget);
-      // Reminder Value is hidden when No Reminder is selected (default)
+      expect(find.text('Count Per Press'), findsOneWidget);
+      expect(find.text('Reminder (Vibration)'), findsOneWidget);
+      // Reminder Value is hidden when None is selected (default)
       expect(find.text('Reminder Value'), findsNothing);
     });
 
@@ -187,11 +187,11 @@ void main() {
       expect(fieldsWithZero, findsWidgets); // Should find at least one
     });
 
-    testWidgets('displays No Reminder as default reminder type', (tester) async {
+    testWidgets('displays None as default reminder type', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('No Reminder'), findsOneWidget);
+      expect(find.text('None'), findsOneWidget);
     });
   });
 
@@ -253,7 +253,7 @@ void main() {
         'Test Item',
       );
 
-      // Form field order when No Reminder: 0=name, 1=initialValue, 2=goal, 3=incrementBy
+      // Form field order when None: 0=name, 1=initialValue, 2=goal, 3=incrementBy
       // Find and clear the increment field (index 3), enter invalid value
       final incrementField = find.byType(TextFormField).at(3);
       await tester.enterText(incrementField, '0');
@@ -280,7 +280,7 @@ void main() {
       );
 
       // First select a reminder type to show the reminder value field
-      await tester.tap(find.text('No Reminder'));
+      await tester.tap(find.text('None'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Target Count').last);
       await tester.pumpAndSettle();
@@ -304,7 +304,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap on the dropdown
-      await tester.tap(find.text('No Reminder'));
+      await tester.tap(find.text('None'));
       await tester.pumpAndSettle();
 
       // Select Target Count
