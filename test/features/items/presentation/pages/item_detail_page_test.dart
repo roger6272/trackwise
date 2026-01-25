@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:trackwise/core/error/failures.dart';
 import 'package:trackwise/features/charts/domain/entities/chart_data.dart';
 import 'package:trackwise/features/charts/domain/entities/chart_data_point.dart';
 import 'package:trackwise/features/charts/presentation/bloc/charts_bloc.dart';
@@ -79,6 +80,25 @@ void main() {
         order: 0,
         initialCount: 0,
       ));
+    });
+
+    // Default mock for watchItem - returns a stream with the item
+    when(() => mockItemRepository.watchItem(any())).thenAnswer((_) {
+      return Stream.value(Right<Failure, Item>(Item(
+        id: 'test_item',
+        name: 'Test Item',
+        count: 10,
+        todayCount: 0,
+        incrementBy: 1,
+        reminder: ReminderType.none,
+        reminderValue: 0,
+        lastResetTime: DateTime.now(),
+        resetNumber: 0,
+        lastUpdated: DateTime.now(),
+        userId: 'user_123',
+        order: 0,
+        initialCount: 0,
+      )));
     });
   });
 

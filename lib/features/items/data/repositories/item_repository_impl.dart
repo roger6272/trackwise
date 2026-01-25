@@ -53,6 +53,20 @@ class ItemRepositoryImpl implements ItemRepository {
   }
 
   @override
+  Stream<Either<Failure, Item>> watchItem(String itemId) {
+    return remoteDataSource.watchItem(itemId)
+        .map<Either<Failure, Item>>((item) => Right<Failure, Item>(item))
+        .onErrorResume((error, stackTrace) {
+      if (error is ServerException) {
+        return Stream<Either<Failure, Item>>.value(
+            Left(ServerFailure(error.message)));
+      }
+      return Stream<Either<Failure, Item>>.value(
+          Left(ServerFailure('Unexpected error: $error')));
+    });
+  }
+
+  @override
   Stream<Either<Failure, List<Item>>> watchItems(String userId) {
     return remoteDataSource.watchItems(userId)
         .map<Either<Failure, List<Item>>>((items) => Right<Failure, List<Item>>(items))

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,8 +17,6 @@ import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
-import '../bloc/items_bloc.dart';
-import '../bloc/items_state.dart';
 import '../widgets/item_detail/filter_section.dart';
 import '../widgets/item_detail/period_stats_section.dart';
 import '../widgets/item_detail/periods_table.dart';
@@ -118,6 +118,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Flag to trigger data reload after widget update.
   bool _needsDataReload = false;
 
+  /// Stream subscription for real-time item updates from Firestore.
+  StreamSubscription? _itemSubscription;
+
+  /// Blocs created in initState for access from stream subscription.
+  late final EventsBloc _eventsBloc;
+  late final ChartsBloc _chartsBloc;
+
   @override
   void initState() {
     super.initState();
@@ -130,6 +137,54 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _reminderValue = widget.reminderValue ?? 0;
     _resetNumber = widget.resetNumber ?? 0;
     _lastResetTime = widget.lastResetTime;
+
+    // Create blocs
+    _eventsBloc = sl<EventsBloc>()..add(LoadEvents(itemId: widget.itemId));
+    _chartsBloc = sl<ChartsBloc>()..add(_createChartEvent());
+
+    // Subscribe to item updates from Firestore
+    _subscribeToItemUpdates();
+  }
+
+  /// Subscribe to real-time updates for this item from Firestore.
+  void _subscribeToItemUpdates() {
+    final itemRepository = sl<ItemRepository>();
+    _itemSubscription = itemRepository.watchItem(widget.itemId).listen(
+      (either) {
+        either.fold(
+          (failure) {
+            // Silently ignore errors - item might be deleted
+          },
+          (item) {
+            // Check if resetNumber or lastResetTime changed
+            if (item.resetNumber != _resetNumber || item.lastResetTime != _lastResetTime) {
+              if (mounted) {
+                setState(() {
+                  _currentCount = item.count;
+                  _initialCount = item.initialCount;
+                  _goal = item.goal;
+                  _incrementBy = item.incrementBy;
+                  _reminderType = item.reminder;
+                  _reminderValue = item.reminderValue;
+                  _resetNumber = item.resetNumber;
+                  _lastResetTime = item.lastResetTime;
+                });
+                // Reload events to reflect new cycle
+                _eventsBloc.add(LoadEvents(itemId: widget.itemId));
+              }
+            }
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _itemSubscription?.cancel();
+    _eventsBloc.close();
+    _chartsBloc.close();
+    super.dispose();
   }
 
   @override
@@ -355,58 +410,30 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) => sl<EventsBloc>()..add(LoadEvents(itemId: widget.itemId)),
-        ),
-        BlocProvider(
-          create: (_) => sl<ChartsBloc>()..add(_createChartEvent()),
-        ),
+        BlocProvider.value(value: _eventsBloc),
+        BlocProvider.value(value: _chartsBloc),
       ],
-      child: Builder(
-        builder: (context) {
-          // Try to listen to ItemsBloc for BLE sync updates (optional - may not be in tree during tests)
-          try {
-            final itemsState = context.watch<ItemsBloc>().state;
-            if (itemsState is ItemsLoaded) {
-              final item = itemsState.items.where((i) => i.id == widget.itemId).firstOrNull;
-              if (item != null && (item.resetNumber != _resetNumber || item.lastResetTime != _lastResetTime)) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() {
-                      _currentCount = item.count;
-                      _resetNumber = item.resetNumber;
-                      _lastResetTime = item.lastResetTime;
-                    });
-                    // Reload events to reflect new cycle
-                    context.read<EventsBloc>().add(LoadEvents(itemId: widget.itemId));
-                  }
-                });
-              }
-            }
-          } catch (_) {
-            // ItemsBloc not in tree (e.g., during tests) - skip sync detection
+      child: BlocListener<EventsBloc, EventsState>(
+        listener: (context, state) {
+          _updateIntervalsFromEvents(state);
+          if (state is EventsLoaded) {
+            // Always reload chart when events are loaded to ensure sync
+            _reloadChart(context);
           }
-          return BlocListener<EventsBloc, EventsState>(
-            listener: (context, state) {
-              _updateIntervalsFromEvents(state);
-              if (state is EventsLoaded) {
-                // Always reload chart when events are loaded to ensure sync
-                _reloadChart(context);
-              }
-            },
-            child: Builder(
-              builder: (context) {
-                // Handle deferred data reload after widget update (e.g., BLE sync)
-                if (_needsDataReload) {
-                  _needsDataReload = false;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      // Reload events - chart will be reloaded by BlocListener
-                      context.read<EventsBloc>().add(LoadEvents(itemId: widget.itemId));
-                    }
-                  });
+        },
+        child: Builder(
+          builder: (context) {
+            // Handle deferred data reload after widget update (e.g., BLE sync)
+            if (_needsDataReload) {
+              _needsDataReload = false;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  // Reload events - chart will be reloaded by BlocListener
+                  _eventsBloc.add(LoadEvents(itemId: widget.itemId));
                 }
-                return GestureDetector(
+              });
+            }
+            return GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus();
             FocusManager.instance.primaryFocus?.unfocus();
@@ -644,11 +671,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               ),
             ),
           ),
-                );
-              },
-            ),
-          );
-        },
+        );
+          },
+        ),
       ),
     );
   }

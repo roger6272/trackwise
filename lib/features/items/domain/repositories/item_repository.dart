@@ -30,6 +30,15 @@ abstract class ItemRepository {
   /// - Left(ServerFailure): Firestore query failed or item not found
   Future<Either<Failure, Item>> getItem(String itemId);
 
+  /// Watches a single item for real-time updates.
+  ///
+  /// Returns a stream that emits Either for each Firestore snapshot:
+  /// - Right(Item): Updated item
+  /// - Left(ServerFailure): Firestore stream error or item not found
+  ///
+  /// Use this for real-time UI updates on item detail screens.
+  Stream<Either<Failure, Item>> watchItem(String itemId);
+
   /// Watches items for a user with real-time updates.
   ///
   /// Returns a stream that emits Either for each Firestore snapshot:

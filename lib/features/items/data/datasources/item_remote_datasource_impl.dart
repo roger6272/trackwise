@@ -114,6 +114,27 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   }
 
   @override
+  Stream<ItemModel> watchItem(String itemId) {
+    try {
+      return firestore
+          .collection('Item')
+          .doc(itemId)
+          .snapshots()
+          .map((snapshot) {
+            if (!snapshot.exists) {
+              throw ServerException('Item not found: $itemId');
+            }
+            return ItemModel.fromFirestore(snapshot);
+          })
+          .handleError((error) {
+        throw ServerException('Failed to watch item: $error');
+      });
+    } catch (e) {
+      throw ServerException('Failed to setup item stream: $e');
+    }
+  }
+
+  @override
   Stream<List<ItemModel>> watchItems(String userId) {
     try {
       // FlutterFlow stores uid as DocumentReference to users collection

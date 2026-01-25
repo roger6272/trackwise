@@ -29,6 +29,15 @@ abstract class ItemRemoteDataSource {
   /// - The item document doesn't exist
   Future<ItemModel> getItem(String itemId);
 
+  /// Watches a single item for real-time updates.
+  ///
+  /// Returns a Stream that emits the item whenever the Firestore
+  /// document changes.
+  ///
+  /// The stream will emit errors as [ServerException] if the document
+  /// doesn't exist or if Firestore operations fail.
+  Stream<ItemModel> watchItem(String itemId);
+
   /// Watches items for a user with real-time updates.
   ///
   /// Returns a Stream that emits a list of items whenever the Firestore
