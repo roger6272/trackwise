@@ -61,7 +61,7 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
   String _generateSubject(SendEmailParams params) {
     final startStr = _formatDate(params.startDate);
     final endStr = _formatDate(params.endDate);
-    return 'Trackwise Export: $startStr to $endStr';
+    return 'Traxogic Export: $startStr to $endStr';
   }
 
   /// Generate email body based on export parameters.
@@ -71,14 +71,14 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
     final aggregation = params.aggregationLevel.name;
 
     return '''
-Your Trackwise data export is attached.
+Your Traxogic data export is attached.
 
 Export Details:
 - Date Range: $startStr to $endStr
 - Aggregation: ${_capitalizeFirst(aggregation)}
 ${params.itemId != null ? '- Item: Filtered by specific item' : '- Items: All items'}
 
-Thank you for using Trackwise!
+Thank you for using Traxogic!
 ''';
   }
 

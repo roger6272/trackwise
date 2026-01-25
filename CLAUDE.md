@@ -4,7 +4,7 @@
 
 ## Project-Specific Instructions
 
-This is a Flutter app (Trackwise) being migrated from FlutterFlow to clean architecture.
+This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean architecture.
 
 ## Cross-Codebase Awareness
 
@@ -24,6 +24,12 @@ This is a Flutter app (Trackwise) being migrated from FlutterFlow to clean archi
    - Location: `firmware/Trackwise_ESP32/`
    - BLE protocol, commands, and device behavior
    - **Essential for BLE-related issues** - always check firmware to understand expected data formats, command sequences, and timing
+
+4. **BLE Protocol Specification**
+   - Location: `docs/BLE_PROTOCOL.md`
+   - **Source of truth** for app-device communication
+   - Contains: UUIDs, commands, notifications, timing, sync sequences
+   - **Check this FIRST** when debugging BLE issues before reading firmware code
 
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication

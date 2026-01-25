@@ -6,7 +6,7 @@ class AppConstants {
   AppConstants._();
 
   // App Info
-  static const String appName = 'Trackwise';
+  static const String appName = 'Traxogic';
   static const String appVersion = '1.0.0';
 
   // Item Constraints

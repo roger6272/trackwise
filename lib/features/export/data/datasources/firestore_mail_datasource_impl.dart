@@ -72,11 +72,11 @@ class FirestoreMailDataSourceImpl implements FirestoreMailDataSource {
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #2c3e50;">Trackwise Data Export</h2>
+    <h2 style="color: #2c3e50;">Traxogic Data Export</h2>
     <p>$escapedText</p>
     <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
     <p style="font-size: 12px; color: #888;">
-      This email was sent from Trackwise. The requested data export is attached as a CSV file.
+      This email was sent from Traxogic. The requested data export is attached as a CSV file.
     </p>
   </div>
 </body>

@@ -1,4 +1,4 @@
-# Trackwise
+# Traxogic
 
 Habit tracking app with ESP32 Bluetooth integration for physical button counters.
 

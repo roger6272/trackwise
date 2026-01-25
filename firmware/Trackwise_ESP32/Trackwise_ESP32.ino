@@ -995,7 +995,7 @@ static void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 
 // BLE peripheral and characteristic setup
 void setupBLE() {
-  BLEDevice::init("TallyCounter");
+  BLEDevice::init("Traxogic_device");
 
   // Set maximum MTU to allow larger packets (default is 23, max is 517)
   // This allows the app to negotiate larger MTU for faster transfers
