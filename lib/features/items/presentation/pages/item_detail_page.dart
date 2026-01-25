@@ -15,6 +15,8 @@ import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
+import '../bloc/items_bloc.dart';
+import '../bloc/items_state.dart';
 import '../widgets/item_detail/filter_section.dart';
 import '../widgets/item_detail/period_stats_section.dart';
 import '../widgets/item_detail/periods_table.dart';
@@ -111,6 +113,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   late ReminderType _reminderType;
   late int _reminderValue;
   late int _resetNumber;
+  DateTime? _lastResetTime;
 
   /// Flag to trigger data reload after widget update.
   bool _needsDataReload = false;
@@ -126,6 +129,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _reminderType = widget.reminderType ?? ReminderType.none;
     _reminderValue = widget.reminderValue ?? 0;
     _resetNumber = widget.resetNumber ?? 0;
+    _lastResetTime = widget.lastResetTime;
   }
 
   @override
@@ -134,6 +138,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     // Detect if any item data changed (e.g., from BLE sync or after editing)
     final dataChanged = oldWidget.currentCount != widget.currentCount ||
         oldWidget.resetNumber != widget.resetNumber ||
+        oldWidget.lastResetTime != widget.lastResetTime ||
         oldWidget.itemName != widget.itemName ||
         oldWidget.goal != widget.goal ||
         oldWidget.incrementBy != widget.incrementBy ||
@@ -148,6 +153,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       _reminderType = widget.reminderType ?? ReminderType.none;
       _reminderValue = widget.reminderValue ?? 0;
       _resetNumber = widget.resetNumber ?? 0;
+      _lastResetTime = widget.lastResetTime;
       // Flag for reload (will be handled in build via post-frame callback)
       _needsDataReload = true;
     }
@@ -178,6 +184,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _reminderType = item.reminder;
           _reminderValue = item.reminderValue;
           _resetNumber = item.resetNumber;
+          _lastResetTime = item.lastResetTime;
         });
       },
     );
@@ -232,7 +239,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
       if (_resetNumber > maxEventResetNumber) {
         // Fallback start time: lastResetTime (if reset), or lastUpdated (creation time), or now
-        final fallbackStart = widget.lastResetTime ?? widget.lastUpdated ?? DateTime.now();
+        final fallbackStart = _lastResetTime ?? widget.lastUpdated ?? DateTime.now();
 
         // Create a virtual current interval for the new period (no events yet)
         final virtualCurrentInterval = IntervalData(
@@ -526,7 +533,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 final fallbackInterval = IntervalData(
                                   intervalNumber: -1,
                                   count: 0,
-                                  startTime: widget.lastResetTime ?? DateTime.now(),
+                                  startTime: _lastResetTime ?? DateTime.now(),
                                   endTime: null,
                                 );
                                 final selectedIntervalData = _intervals.isNotEmpty
