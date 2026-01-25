@@ -700,9 +700,10 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         // not the start of the new one. This allows IntervalCalculator to correctly
         // determine when the old cycle ended and the new cycle began.
         final eventRef = firestore.collection('EventLog').doc();
+        final itemDocRef = firestore.collection('Item').doc(doc.id);
         batch.set(eventRef, {
           'created_time': Timestamp.fromDate(now),
-          'item_id': doc.id,
+          'item': itemDocRef,  // DocumentReference, not string - must match EventLog query
           'eventName': 'reset',
           'increment': 0,
           'currentCount': 0,
