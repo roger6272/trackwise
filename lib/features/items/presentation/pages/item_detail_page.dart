@@ -587,6 +587,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         percentChange: stats.percentChange,
                                         priorPeriodCount: stats.priorPeriodCount,
                                         periodLabel: stats.periodLabel,
+                                        initialCount: widget.initialCount ?? 0,
                                       ),
                                     ),
                                     // Periods comparison table

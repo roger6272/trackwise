@@ -37,6 +37,8 @@ class _BarChartWidgetState extends State<BarChartWidget> {
   int? selectedIndex;
   Offset? tooltipPosition;
   int? tooltipValue;
+  int? tooltipInitialCount;
+  bool tooltipIsInitialBar = false;
   DateTime? tooltipDate;
 
   // Layout constants
@@ -193,8 +195,33 @@ class _BarChartWidgetState extends State<BarChartWidget> {
 
     final labels = timeBuckets.map((t) => DateFormat(labelFormat).format(t)).toList();
 
+    // Get initial count and creation time from chart data
+    final initialCount = state.chartData.initialCount;
+    final createdAt = state.chartData.createdAt;
+
+    // Find which bucket index the creation time falls into
+    int? initialCountBucketIndex;
+    if (initialCount > 0 && createdAt != null) {
+      final createdKey = DateFormat(keyFormat).format(createdAt);
+      for (int i = 0; i < timeBuckets.length; i++) {
+        final bucketKey = DateFormat(keyFormat).format(timeBuckets[i]);
+        if (bucketKey == createdKey) {
+          initialCountBucketIndex = i;
+          break;
+        }
+      }
+    }
+
     final totalBars = values.length;
-    final maxY = values.isEmpty ? 0 : values.reduce((a, b) => a > b ? a : b);
+    // Max Y needs to account for the bucket with initial count stacked
+    int maxY;
+    if (initialCountBucketIndex != null) {
+      final initialBarTotal = values[initialCountBucketIndex] + initialCount;
+      final maxActivity = values.isEmpty ? 0 : values.reduce((a, b) => a > b ? a : b);
+      maxY = max(maxActivity, initialBarTotal);
+    } else {
+      maxY = values.isEmpty ? 0 : values.reduce((a, b) => a > b ? a : b);
+    }
     final stepSize = ((maxY / divisions).ceil()).clamp(1, double.infinity).toInt();
     final adjustedMaxY = stepSize * divisions;
 
@@ -208,6 +235,8 @@ class _BarChartWidgetState extends State<BarChartWidget> {
           selectedIndex = null;
           tooltipPosition = null;
           tooltipValue = null;
+          tooltipInitialCount = null;
+          tooltipIsInitialBar = false;
           tooltipDate = null;
         });
       },
@@ -249,6 +278,8 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                             values: values,
                             timeBuckets: timeBuckets,
                             adjustedMaxY: adjustedMaxY,
+                            initialCount: initialCount,
+                            initialCountBucketIndex: initialCountBucketIndex,
                           ),
                         ),
                       ),
@@ -291,18 +322,19 @@ class _BarChartWidgetState extends State<BarChartWidget> {
             // Tooltip
             if (selectedIndex != null && tooltipPosition != null)
               Positioned(
-                left: (tooltipPosition!.dx - 30).clamp(0, usableWidth - 80),
-                top: (tooltipPosition!.dy - 60).clamp(0, usableHeight - 50),
+                left: (tooltipPosition!.dx - 40).clamp(0, usableWidth - 100),
+                top: (tooltipPosition!.dy - 80).clamp(0, usableHeight - 70),
                 child: Material(
                   color: Colors.transparent,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.85),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           tooltipDate != null
@@ -310,10 +342,26 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                               : '',
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
-                        Text(
-                          'Count: ${tooltipValue ?? ''}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
+                        const SizedBox(height: 4),
+                        // Show total, start, add for initial bar; just activity for others
+                        if (tooltipIsInitialBar && tooltipInitialCount != null && tooltipInitialCount! > 0) ...[
+                          Text(
+                            'Total: ${(tooltipValue ?? 0) + tooltipInitialCount!}',
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            'Start: $tooltipInitialCount',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                          Text(
+                            'Add: ${tooltipValue ?? 0}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ] else
+                          Text(
+                            'Activity: ${tooltipValue ?? 0}',
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
                       ],
                     ),
                   ),
@@ -331,12 +379,47 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     required List<int> values,
     required List<DateTime> timeBuckets,
     required int adjustedMaxY,
+    required int initialCount,
+    required int? initialCountBucketIndex,
   }) {
+    // Colors for the stacked bars
+    const Color initialColor = Color(0xFF9E9E9E); // Gray for initial count
+    const Color activityColor = Colors.purple; // Purple for activity
+    const Color selectedColor = Color(0xFF757575); // Darker gray when selected
+
     return List.generate(totalBars, (i) {
       final isSelected = selectedIndex == i;
-      final barHeight = adjustedMaxY > 0
-          ? max((values[i] / adjustedMaxY) * barAreaHeight, minBarHeight)
-          : minBarHeight;
+      final isInitialBar = initialCountBucketIndex != null && i == initialCountBucketIndex;
+      final activityValue = values[i];
+
+      // Show initial count section only at the creation time bucket
+      final showInitialSection = isInitialBar && initialCount > 0;
+
+      // Calculate total height including initial count for first bar
+      final totalValue = showInitialSection ? activityValue + initialCount : activityValue;
+
+      double totalBarHeight = minBarHeight;
+      double initialBarHeight = 0;
+      double activityBarHeight = 0;
+
+      if (adjustedMaxY > 0 && totalValue > 0) {
+        totalBarHeight = max((totalValue / adjustedMaxY) * barAreaHeight, minBarHeight);
+
+        if (showInitialSection) {
+          // Proportionally divide the bar height
+          final initialRatio = initialCount / totalValue;
+          initialBarHeight = totalBarHeight * initialRatio;
+          activityBarHeight = totalBarHeight - initialBarHeight;
+        } else {
+          activityBarHeight = totalBarHeight;
+        }
+      } else if (adjustedMaxY > 0) {
+        // Zero activity but might have initial count on first bar
+        if (showInitialSection) {
+          totalBarHeight = max((initialCount / adjustedMaxY) * barAreaHeight, minBarHeight);
+          initialBarHeight = totalBarHeight;
+        }
+      }
 
       return Expanded(
         child: Padding(
@@ -350,7 +433,9 @@ class _BarChartWidgetState extends State<BarChartWidget> {
               final localPosition = box.globalToLocal(details.globalPosition);
               setState(() {
                 selectedIndex = isSelected ? null : i;
-                tooltipValue = values[i];
+                tooltipValue = activityValue;
+                tooltipInitialCount = initialCount;
+                tooltipIsInitialBar = isInitialBar;
                 tooltipDate = timeBuckets[i];
                 tooltipPosition = localPosition;
               });
@@ -359,8 +444,32 @@ class _BarChartWidgetState extends State<BarChartWidget> {
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut,
               width: double.infinity,
-              height: barHeight,
-              color: isSelected ? Colors.grey : Colors.purple,
+              height: totalBarHeight,
+              child: showInitialSection
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // Activity portion (top) - purple
+                        if (activityBarHeight > 0)
+                          Container(
+                            width: double.infinity,
+                            height: activityBarHeight,
+                            color: isSelected ? selectedColor : activityColor,
+                          ),
+                        // Initial portion (bottom) - gray
+                        if (initialBarHeight > 0)
+                          Container(
+                            width: double.infinity,
+                            height: initialBarHeight,
+                            color: isSelected
+                                ? selectedColor.withOpacity(0.7)
+                                : initialColor,
+                          ),
+                      ],
+                    )
+                  : Container(
+                      color: isSelected ? Colors.grey : activityColor,
+                    ),
             ),
           ),
         ),
@@ -377,6 +486,8 @@ class _BarChartWidgetState extends State<BarChartWidget> {
         selectedIndex = null;
         tooltipPosition = null;
         tooltipValue = null;
+        tooltipInitialCount = null;
+        tooltipIsInitialBar = false;
         tooltipDate = null;
       });
     }

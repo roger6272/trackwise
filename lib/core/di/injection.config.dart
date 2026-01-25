@@ -268,6 +268,15 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.lazySingleton<_i939.ProfileRepository>(() => _i950.ProfileRepositoryImpl(
         dataSource: gh<_i772.ProfileRemoteDataSource>()));
+    gh.lazySingleton<_i23.GetChartDataUseCase>(() => _i23.GetChartDataUseCase(
+          gh<_i978.EventLogRepository>(),
+          gh<_i319.ItemRepository>(),
+        ));
+    gh.lazySingleton<_i1067.GetCumulativeChartDataUseCase>(
+        () => _i1067.GetCumulativeChartDataUseCase(
+              gh<_i978.EventLogRepository>(),
+              gh<_i319.ItemRepository>(),
+            ));
     gh.lazySingleton<_i833.SyncDeviceDataUseCase>(
         () => _i833.SyncDeviceDataUseCase(
               gh<_i319.ItemRepository>(),
@@ -316,6 +325,11 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i41.UpdateCategoryUseCase(gh<_i349.CategoryRepository>()));
     gh.lazySingleton<_i269.WatchCategoriesUseCase>(
         () => _i269.WatchCategoriesUseCase(gh<_i349.CategoryRepository>()));
+    gh.factory<_i802.ChartsBloc>(() => _i802.ChartsBloc(
+          getChartDataUseCase: gh<_i23.GetChartDataUseCase>(),
+          getCumulativeChartDataUseCase:
+              gh<_i1067.GetCumulativeChartDataUseCase>(),
+        ));
     gh.lazySingleton<_i311.CreateItemUseCase>(() => _i311.CreateItemUseCase(
           gh<_i319.ItemRepository>(),
           gh<_i978.EventLogRepository>(),
@@ -350,10 +364,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i635.SignUpUseCase(gh<_i578.AuthRepository>()));
     gh.factory<_i28.WatchAuthStateUseCase>(
         () => _i28.WatchAuthStateUseCase(gh<_i578.AuthRepository>()));
-    gh.lazySingleton<_i23.GetChartDataUseCase>(
-        () => _i23.GetChartDataUseCase(gh<_i978.EventLogRepository>()));
-    gh.lazySingleton<_i1067.GetCumulativeChartDataUseCase>(() =>
-        _i1067.GetCumulativeChartDataUseCase(gh<_i978.EventLogRepository>()));
     gh.lazySingleton<_i1046.DeleteEventsForItemUseCase>(() =>
         _i1046.DeleteEventsForItemUseCase(gh<_i978.EventLogRepository>()));
     gh.lazySingleton<_i549.GetEventsByDateRangeUseCase>(() =>
@@ -393,11 +403,6 @@ extension GetItInjectableX on _i174.GetIt {
           deleteItemUseCase: gh<_i64.DeleteItemUseCase>(),
           incrementItemUseCase: gh<_i154.IncrementItemUseCase>(),
           itemRepository: gh<_i319.ItemRepository>(),
-        ));
-    gh.factory<_i802.ChartsBloc>(() => _i802.ChartsBloc(
-          getChartDataUseCase: gh<_i23.GetChartDataUseCase>(),
-          getCumulativeChartDataUseCase:
-              gh<_i1067.GetCumulativeChartDataUseCase>(),
         ));
     gh.factory<_i1055.EventsBloc>(() => _i1055.EventsBloc(
           getEventsByDateRangeUseCase: gh<_i549.GetEventsByDateRangeUseCase>(),

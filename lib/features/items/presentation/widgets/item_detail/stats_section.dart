@@ -49,6 +49,9 @@ class ChartSection extends StatelessWidget {
   /// Period label for comparison (e.g., "DoD", "WoW").
   final String periodLabel;
 
+  /// Initial count when the item was created.
+  final int initialCount;
+
   const ChartSection({
     super.key,
     required this.showCumulative,
@@ -61,6 +64,7 @@ class ChartSection extends StatelessWidget {
     this.percentChange,
     this.priorPeriodCount = 0,
     this.periodLabel = '',
+    this.initialCount = 0,
   });
 
   // Trend colors
@@ -535,13 +539,29 @@ class ChartSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6.0),
-                  Text(
-                    'increments',
-                    style: GoogleFonts.inter(
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.w500,
-                      color: secondaryText,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'increments',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w500,
+                          color: secondaryText,
+                        ),
+                      ),
+                      // Show "from X" when initial count > 0
+                      if (initialCount > 0)
+                        Text(
+                          'from $initialCount',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.0,
+                            fontWeight: FontWeight.w400,
+                            color: secondaryText.withOpacity(0.7),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

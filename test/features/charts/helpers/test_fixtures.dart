@@ -1,6 +1,7 @@
 import 'package:trackwise/features/charts/domain/entities/chart_data.dart';
 import 'package:trackwise/features/charts/domain/entities/chart_data_point.dart';
 import 'package:trackwise/features/events/domain/entities/event_log.dart';
+import 'package:trackwise/features/items/domain/entities/item.dart';
 
 /// Test fixtures for Charts tests.
 
@@ -103,3 +104,30 @@ final testEventsForAggregation = [
 final testStartDate = DateTime(2024, 1, 1);
 final testEndDate = DateTime(2024, 1, 31);
 const testItemId = 'item_1';
+
+// Test Item for cumulative chart tests
+final testItem = Item(
+  id: testItemId,
+  name: 'Test Item',
+  count: 18,
+  todayCount: 3,
+  incrementBy: 1,
+  reminder: ReminderType.none,
+  reminderValue: 0,
+  lastUpdated: DateTime(2024, 1, 17),
+  userId: 'user_1',
+  initialCount: 10, // Initial count for chart tests
+);
+
+final testItemNoInitialCount = Item(
+  id: testItemId,
+  name: 'Test Item',
+  count: 18,
+  todayCount: 3,
+  incrementBy: 1,
+  reminder: ReminderType.none,
+  reminderValue: 0,
+  lastUpdated: DateTime(2024, 1, 17),
+  userId: 'user_1',
+  initialCount: 0,
+);

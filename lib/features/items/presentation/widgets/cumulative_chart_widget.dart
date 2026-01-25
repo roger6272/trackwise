@@ -38,6 +38,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
   int? selectedIndex;
   Offset? tooltipPosition;
   int? tooltipValue;
+  int? tooltipInitialCount;
   DateTime? tooltipDate;
 
   // Layout constants
@@ -101,6 +102,11 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
     final String keyFormat = config['keyFormat'];
 
+    // Get initial count and creation time
+    final initialCount = state.chartData.initialCount;
+    final createdAt = state.chartData.createdAt;
+    final createdKey = createdAt != null ? DateFormat(keyFormat).format(createdAt) : null;
+
     // Build a map of available cumulative values from the usecase
     // These are already running totals, not increments
     final Map<String, int> dataPointMap = {};
@@ -111,12 +117,27 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     }
 
     // Map to buckets, carrying forward the last cumulative value
-    // for buckets with no data
+    // for buckets with no data. Start with initialCount from creation bucket.
     final Map<String, int> timeToCount = {};
     int lastCumulativeValue = 0;
+    bool hasReachedCreation = false;
 
     for (var t in timeBuckets) {
       final key = DateFormat(keyFormat).format(t);
+
+      // Check if we've reached or passed the creation bucket
+      if (!hasReachedCreation && createdKey != null) {
+        if (key == createdKey || (createdAt != null && !t.isBefore(createdAt))) {
+          hasReachedCreation = true;
+          // Start with initial count from creation
+          lastCumulativeValue = initialCount;
+        }
+      } else if (createdKey == null && initialCount > 0) {
+        // No createdAt but has initialCount - show it from start
+        hasReachedCreation = true;
+        lastCumulativeValue = initialCount;
+      }
+
       if (dataPointMap.containsKey(key)) {
         lastCumulativeValue = dataPointMap[key]!;
       }
@@ -205,6 +226,9 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
 
     final barAreaHeight = usableHeight - barAreaVerticalPadding - 20;
 
+    // Get initial count from chart data
+    final initialCount = state.chartData.initialCount;
+
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () {
@@ -213,6 +237,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
           selectedIndex = null;
           tooltipPosition = null;
           tooltipValue = null;
+          tooltipInitialCount = null;
           tooltipDate = null;
         });
       },
@@ -254,6 +279,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                             values: values,
                             timeBuckets: timeBuckets,
                             adjustedMaxY: adjustedMaxY,
+                            initialCount: initialCount,
                           ),
                         ),
                       ),
@@ -296,18 +322,19 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
             // Tooltip
             if (selectedIndex != null && tooltipPosition != null)
               Positioned(
-                left: (tooltipPosition!.dx - 30).clamp(0, usableWidth - 80),
-                top: (tooltipPosition!.dy - 60).clamp(0, usableHeight - 50),
+                left: (tooltipPosition!.dx - 40).clamp(0, usableWidth - 100),
+                top: (tooltipPosition!.dy - 80).clamp(0, usableHeight - 70),
                 child: Material(
                   color: Colors.transparent,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.85),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           tooltipDate != null
@@ -315,10 +342,21 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                               : '',
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
+                        const SizedBox(height: 4),
                         Text(
-                          'Count: ${tooltipValue ?? ''}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          'Total: ${tooltipValue ?? 0}',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                         ),
+                        if (tooltipInitialCount != null && tooltipInitialCount! > 0) ...[
+                          Text(
+                            'Start: $tooltipInitialCount',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                          Text(
+                            'Add: ${(tooltipValue ?? 0) - tooltipInitialCount!}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -336,12 +374,40 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     required List<int> values,
     required List<DateTime> timeBuckets,
     required int adjustedMaxY,
+    required int initialCount,
   }) {
+    // Colors for the stacked bars
+    const Color initialColor = Color(0xFF9E9E9E); // Gray for initial count
+    const Color earnedColor = Colors.purple; // Purple for earned
+    const Color selectedColor = Color(0xFF757575); // Darker gray when selected
+
     return List.generate(totalBars, (i) {
       final isSelected = selectedIndex == i;
-      final barHeight = adjustedMaxY > 0
-          ? max((values[i] / adjustedMaxY) * barAreaHeight, minBarHeight)
-          : minBarHeight;
+      final totalValue = values[i];
+
+      // Calculate heights for stacked bar
+      // Initial count is the base, earned is on top
+      final earnedValue = max(0, totalValue - initialCount);
+      final initialDisplayValue = min(initialCount, totalValue);
+
+      // Calculate pixel heights
+      double totalBarHeight = minBarHeight;
+      double initialBarHeight = 0;
+      double earnedBarHeight = 0;
+
+      if (adjustedMaxY > 0 && totalValue > 0) {
+        totalBarHeight = max((totalValue / adjustedMaxY) * barAreaHeight, minBarHeight);
+
+        if (initialCount > 0) {
+          // Proportionally divide the bar height
+          final initialRatio = initialDisplayValue / totalValue;
+          initialBarHeight = totalBarHeight * initialRatio;
+          earnedBarHeight = totalBarHeight - initialBarHeight;
+        } else {
+          // No initial count - entire bar is earned
+          earnedBarHeight = totalBarHeight;
+        }
+      }
 
       return Expanded(
         child: Padding(
@@ -355,7 +421,8 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
               final localPosition = box.globalToLocal(details.globalPosition);
               setState(() {
                 selectedIndex = isSelected ? null : i;
-                tooltipValue = values[i];
+                tooltipValue = totalValue;
+                tooltipInitialCount = initialCount;
                 tooltipDate = timeBuckets[i];
                 tooltipPosition = localPosition;
               });
@@ -364,8 +431,28 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut,
               width: double.infinity,
-              height: barHeight,
-              color: isSelected ? Colors.grey : Colors.purple,
+              height: totalBarHeight,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Earned portion (top) - purple
+                  if (earnedBarHeight > 0)
+                    Container(
+                      width: double.infinity,
+                      height: earnedBarHeight,
+                      color: isSelected ? selectedColor : earnedColor,
+                    ),
+                  // Initial portion (bottom) - gray
+                  if (initialBarHeight > 0)
+                    Container(
+                      width: double.infinity,
+                      height: initialBarHeight,
+                      color: isSelected
+                          ? selectedColor.withOpacity(0.7)
+                          : initialColor,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -382,6 +469,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
         selectedIndex = null;
         tooltipPosition = null;
         tooltipValue = null;
+        tooltipInitialCount = null;
         tooltipDate = null;
       });
     }

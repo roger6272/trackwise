@@ -12,10 +12,12 @@ import '../../helpers/test_fixtures.dart';
 void main() {
   late GetChartDataUseCase useCase;
   late MockEventLogRepository mockRepository;
+  late MockItemRepository mockItemRepository;
 
   setUp(() {
     mockRepository = MockEventLogRepository();
-    useCase = GetChartDataUseCase(mockRepository);
+    mockItemRepository = MockItemRepository();
+    useCase = GetChartDataUseCase(mockRepository, mockItemRepository);
   });
 
   group('GetChartDataUseCase', () {
@@ -87,6 +89,8 @@ void main() {
 
     test('should use getEventsByItemAndDateRange when itemId is provided', () async {
       // Arrange
+      when(() => mockItemRepository.getItem(any()))
+          .thenAnswer((_) async => Right(testItem));
       when(() => mockRepository.getEventsByItemAndDateRange(any(), any(), any()))
           .thenAnswer((_) async => Right(testEventsForAggregation));
 
@@ -104,6 +108,49 @@ void main() {
         testEndDate,
       )).called(1);
       verifyNever(() => mockRepository.getEventsByDateRange(any(), any()));
+    });
+
+    test('should include initialCount in chart data when itemId is provided', () async {
+      // Arrange
+      when(() => mockItemRepository.getItem(any()))
+          .thenAnswer((_) async => Right(testItem));
+      when(() => mockRepository.getEventsByItemAndDateRange(any(), any(), any()))
+          .thenAnswer((_) async => Right(testEventsForAggregation));
+
+      // Act
+      final result = await useCase(GetChartDataParams(
+        startDate: testStartDate,
+        endDate: testEndDate,
+        itemId: testItemId,
+      ));
+
+      // Assert
+      result.fold(
+        (failure) => fail('Should not fail'),
+        (chartData) {
+          expect(chartData.initialCount, testItem.initialCount);
+        },
+      );
+    });
+
+    test('should have initialCount 0 when no itemId is provided', () async {
+      // Arrange
+      when(() => mockRepository.getEventsByDateRange(any(), any()))
+          .thenAnswer((_) async => Right(testEventsForAggregation));
+
+      // Act
+      final result = await useCase(GetChartDataParams(
+        startDate: testStartDate,
+        endDate: testEndDate,
+      ));
+
+      // Assert
+      result.fold(
+        (failure) => fail('Should not fail'),
+        (chartData) {
+          expect(chartData.initialCount, 0);
+        },
+      );
     });
 
     test('should sort data points by date ascending', () async {

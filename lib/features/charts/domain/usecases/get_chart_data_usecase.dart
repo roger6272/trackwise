@@ -6,6 +6,7 @@ import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../events/domain/entities/event_log.dart';
 import '../../../events/domain/repositories/event_log_repository.dart';
+import '../../../items/domain/repositories/item_repository.dart';
 import '../entities/chart_data.dart';
 import '../entities/chart_data_point.dart';
 
@@ -61,11 +62,29 @@ class GetChartDataParams extends Equatable {
 @lazySingleton
 class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
   final EventLogRepository repository;
+  final ItemRepository itemRepository;
 
-  GetChartDataUseCase(this.repository);
+  GetChartDataUseCase(this.repository, this.itemRepository);
 
   @override
   Future<Either<Failure, ChartData>> call(GetChartDataParams params) async {
+    // Fetch item's initialCount and creation date if itemId is provided
+    int initialCount = 0;
+    DateTime? createdAt;
+    if (params.itemId != null) {
+      final itemResult = await itemRepository.getItem(params.itemId!);
+      itemResult.fold(
+        (failure) {
+          // Silently use 0 if item fetch fails
+        },
+        (item) {
+          initialCount = item.initialCount;
+          // Use lastUpdated as fallback for creation date
+          createdAt = item.lastUpdated;
+        },
+      );
+    }
+
     // Fetch events based on filters
     final Either<Failure, List<EventLog>> eventsResult;
 
@@ -86,6 +105,12 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
     return eventsResult.fold(
       (failure) => Left(failure),
       (events) {
+        // Try to get more accurate createdAt from "created" event
+        final createdEvent = events.where((e) => e.eventName == 'created').firstOrNull;
+        if (createdEvent != null) {
+          createdAt = createdEvent.createdTime;
+        }
+
         // Filter events by interval boundaries [start, end) - inclusive start, exclusive end
         var filteredEvents = events;
         if (params.sinceResetTime != null) {
@@ -103,6 +128,8 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
         return Right(ChartData(
           dataPoints: aggregated,
           aggregationLevel: params.aggregationLevel,
+          initialCount: initialCount,
+          createdAt: createdAt,
         ));
       },
     );

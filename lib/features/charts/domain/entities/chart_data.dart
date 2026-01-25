@@ -73,13 +73,25 @@ class ChartData extends Equatable {
   /// The aggregation level used (daily, weekly, monthly).
   final AggregationLevel aggregationLevel;
 
+  /// Initial count when the item was created.
+  /// Used by cumulative charts to show the starting point.
+  /// Always 0 for bar charts or when no item filter is applied.
+  final int initialCount;
+
+  /// When the item was created.
+  /// Used to position the initial count at the correct time bucket.
+  /// Null when no item filter is applied.
+  final DateTime? createdAt;
+
   const ChartData({
     required this.dataPoints,
     required this.aggregationLevel,
+    this.initialCount = 0,
+    this.createdAt,
   });
 
   @override
-  List<Object?> get props => [dataPoints, aggregationLevel];
+  List<Object?> get props => [dataPoints, aggregationLevel, initialCount, createdAt];
 
   /// Total value across all data points.
   int get totalValue => dataPoints.fold(0, (sum, point) => sum + point.value);
