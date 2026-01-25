@@ -143,6 +143,9 @@ class AppUiState extends ChangeNotifier {
     _hasShownReorderHint = _prefs.getBool(_reorderHintShownKey) ?? false;
     _hasShownActivationHint = _prefs.getBool(_activationHintShownKey) ?? false;
     _initialized = true;
+
+    debugPrint('🔔 AppUiState.initialize(): swipe=$_hasShownSwipeHint, reorder=$_hasShownReorderHint, activation=$_hasShownActivationHint');
+
     notifyListeners();
   }
 

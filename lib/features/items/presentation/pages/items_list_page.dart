@@ -1946,7 +1946,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
         if (!mounted) return;
 
         // Hold briefly, then lower
-        Future.delayed(const Duration(milliseconds: 1200), () {
+        Future.delayed(const Duration(milliseconds: 4000), () {
           if (!mounted) return;
           _reorderHintController?.reverse().then((_) {
             if (!mounted) return;
@@ -2028,7 +2028,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
       overlay.insert(_activationHintOverlay!);
 
       // Close after showing
-      Future.delayed(const Duration(milliseconds: 3500), () {
+      Future.delayed(const Duration(milliseconds: 5000), () {
         if (!mounted) return;
         _activationHintOverlay?.remove();
         _activationHintOverlay = null;
