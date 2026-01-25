@@ -225,7 +225,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     final stepSize = ((maxY / divisions).ceil()).clamp(1, double.infinity).toInt();
     final adjustedMaxY = stepSize * divisions;
 
-    final barAreaHeight = usableHeight - barAreaVerticalPadding - 20;
+    final barAreaHeight = usableHeight - barAreaVerticalPadding - 32;
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
@@ -288,30 +288,50 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                 ),
                 // X-axis labels
                 SizedBox(
-                  height: 20,
-                  child: Row(
+                  height: 32,
+                  child: Column(
                     children: [
-                      // Spacer matching y-axis label width
-                      SizedBox(width: yAxisLabelWidth),
-                      // Labels matching bar area width
                       SizedBox(
-                        width: chartContentWidth,
+                        height: 16,
                         child: Row(
-                          children: List.generate(totalBars, (i) {
-                            // Show fewer labels for 30D to avoid crowding
-                            final showLabel = widget.range == '30D'
-                                ? (totalBars - 1 - i) % 5 == 0
-                                : true;
-                            return Expanded(
-                              child: Container(
-                                alignment: Alignment.topCenter,
-                                child: Text(
-                                  showLabel ? labels[i] : '',
-                                  style: TextStyle(fontSize: 7 * fontScale),
-                                ),
+                          children: [
+                            // Spacer matching y-axis label width
+                            SizedBox(width: yAxisLabelWidth),
+                            // Labels matching bar area width
+                            SizedBox(
+                              width: chartContentWidth,
+                              child: Row(
+                                children: List.generate(totalBars, (i) {
+                                  // Show fewer labels for 30D to avoid crowding
+                                  final showLabel = widget.range == '30D'
+                                      ? (totalBars - 1 - i) % 5 == 0
+                                      : true;
+                                  return Expanded(
+                                    child: Container(
+                                      alignment: Alignment.topCenter,
+                                      child: Text(
+                                        showLabel ? labels[i] : '',
+                                        style: TextStyle(fontSize: 7 * fontScale),
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
-                            );
-                          }),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // X-axis label (Hour/Day)
+                      SizedBox(
+                        height: 16,
+                        child: Center(
+                          child: Text(
+                            widget.range == '1D' ? 'Hour' : 'Day',
+                            style: TextStyle(
+                              fontSize: 9 * fontScale,
+                              color: Colors.grey[600],
+                            ),
+                          ),
                         ),
                       ),
                     ],
