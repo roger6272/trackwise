@@ -257,12 +257,12 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                     value: '__manage__',
                                     child: Row(
                                       children: [
-                                        Icon(Icons.settings_outlined, color: AppColors.primary, size: 20),
+                                        Icon(Icons.settings_outlined, color: AppColors.primaryAdaptive(brightness), size: 20),
                                         const SizedBox(width: 12),
                                         Text(
                                           'Manage Categories',
                                           style: GoogleFonts.inter(
-                                            color: AppColors.primary,
+                                            color: AppColors.primaryAdaptive(brightness),
                                             fontSize: 16.0,
                                             fontWeight: FontWeight.w500,
                                           ),
