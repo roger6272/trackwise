@@ -662,7 +662,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         final itemRef = firestore.collection('Item').doc(doc.id);
         batch.update(itemRef, {
           'count': 0,
-          'todayCount': 0,
+          'todaycount': 0,  // lowercase to match ItemModel.fromFirestore
           'reset_number': newResetNumber,  // snake_case to match ItemModel.fromFirestore
           'lastResetTime': nowMillis,
           'lastUpdated': nowMillis,
