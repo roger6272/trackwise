@@ -191,7 +191,9 @@ class _ManageCategoriesContent extends StatelessWidget {
 
   Widget _buildEmptyState(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
+    final primary = AppColors.primaryAdaptive(brightness);
 
     return Center(
       child: Column(
@@ -205,19 +207,29 @@ class _ManageCategoriesContent extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'No categories yet',
-            style: GoogleFonts.inter(
-              color: secondaryText,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
+            style: GoogleFonts.interTight(
+              color: primaryText,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Tap + to create your first category',
+            'Create categories to organize your items',
             style: GoogleFonts.inter(
               color: secondaryText.withValues(alpha: 0.7),
               fontSize: 14,
             ),
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () => _showCreateDialog(context),
+            style: FilledButton.styleFrom(
+              backgroundColor: primary,
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+            ),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Create Category'),
           ),
         ],
       ),
