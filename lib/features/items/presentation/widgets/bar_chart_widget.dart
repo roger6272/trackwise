@@ -350,11 +350,11 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                             style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                           Text(
-                            'Start: $tooltipInitialCount',
+                            'Earned: ${tooltipValue ?? 0}',
                             style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                           Text(
-                            'Add: ${tooltipValue ?? 0}',
+                            'Initial: $tooltipInitialCount',
                             style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                         ] else

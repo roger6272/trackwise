@@ -350,11 +350,11 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                         ),
                         if (tooltipInitialCount != null && tooltipInitialCount! > 0) ...[
                           Text(
-                            'Start: $tooltipInitialCount',
+                            'Earned: ${(tooltipValue ?? 0) - tooltipInitialCount!}',
                             style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                           Text(
-                            'Add: ${(tooltipValue ?? 0) - tooltipInitialCount!}',
+                            'Initial: $tooltipInitialCount',
                             style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                         ],
