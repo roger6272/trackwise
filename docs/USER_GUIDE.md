@@ -275,7 +275,29 @@ Tap any item to see detailed analytics:
 - **Goal Progress** - Visual progress bar (if goal set)
 - **Charts** - Visual trends over time
 - **Statistics** - Average, min, max values
-- **Reset History** - All your tracking periods
+- **Reset History** - All your tracking periods (cycles)
+
+### Understanding Reset Cycles
+
+Every time you reset an item's count, a new **cycle** begins. This lets you track progress in separate periods.
+
+**Example:** If you track push-ups and reset weekly, you'll have:
+- Cycle 1: Week 1 counts
+- Cycle 2: Week 2 counts
+- Current Cycle: This week's counts
+
+### Filtering by Reset Cycle
+
+Use the **"Filter by Reset Cycle"** dropdown to view specific periods:
+
+| Option | What It Shows |
+|--------|---------------|
+| **All Time** | Complete history across all cycles |
+| **Current Cycle** | Only counts since your last reset |
+| **Previous Cycle** | The cycle before current |
+| **Cycle #** | A specific numbered cycle |
+
+The charts and statistics update based on your selected cycle.
 
 ### Understanding the Charts
 
@@ -286,18 +308,16 @@ Tap any item to see detailed analytics:
 
 **Cumulative Chart** (Running Total)
 - Shows your total count growing over time
-- Line goes up as you count more
+- Bars grow taller as you count more
 - Good for seeing overall progress
 
-### Changing the View
+### Changing the Time Range
 
-Use the controls to customize:
-
-| Control | Options |
-|---------|---------|
-| **Time Range** | 1D, 7D, 30D |
-| **Chart Type** | Bar Chart, Cumulative |
-| **Filter** | View by reset cycle or interval |
+| Time Range | What It Shows |
+|------------|---------------|
+| **1D** | Hourly breakdown for one day |
+| **7D** | Daily breakdown for one week |
+| **30D** | Daily breakdown for one month |
 
 ### Refreshing Data
 
