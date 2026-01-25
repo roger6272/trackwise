@@ -79,6 +79,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
   bool _activationHintTriggered = false;
   OverlayEntry? _activationHintOverlay;
   OverlayEntry? _reorderHintOverlay;
+  AppUiState? _activationHintAppUiState; // For swipe listener callback
+  VoidCallback? _swipeListener; // Listener to detect user swipe
 
   // Search state
   bool _isSearching = false;
@@ -1956,74 +1958,70 @@ class _ItemsListContentState extends State<_ItemsListContent>
   }
 
   /// Shows an activation hint for new users who just created their first item.
-  /// Opens the swipe pane and shows a tooltip explaining how to activate.
+  /// Displays a tooltip and waits for user to swipe left to dismiss.
   void _showActivationHint(AppUiState appUiState, BuildContext context) {
     if (_activationHintTriggered || appUiState.hasShownActivationHint) return;
     _activationHintTriggered = true;
+
+    // Store reference for listener callback
+    _activationHintAppUiState = appUiState;
 
     // Delay to let the list render first
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
 
-      // Open the swipe action pane
-      _firstItemController?.openEndActionPane();
+      // Add listener to detect when user swipes left (opens end action pane)
+      _swipeListener = () {
+        // ratio > 0 means the end action pane is opening/open
+        if (_firstItemController != null && _firstItemController!.ratio > 0.1) {
+          _dismissActivationHint(_activationHintAppUiState!);
+        }
+      };
+      _firstItemController?.animation.addListener(_swipeListener!);
 
-      // Show tooltip overlay
+      // Show tooltip overlay (no tap to dismiss - wait for swipe)
       final overlay = Overlay.of(context);
       _activationHintOverlay = OverlayEntry(
-        builder: (context) => GestureDetector(
-          onTap: () => _dismissActivationHint(appUiState),
-          behavior: HitTestBehavior.translucent,
-          child: Stack(
-            children: [
-              // Invisible full-screen tap target
-              Positioned.fill(
-                child: Container(color: Colors.transparent),
+        builder: (context) => Positioned(
+          bottom: 120,
+          left: 20,
+          right: 20,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              // Tooltip at bottom
-              Positioned(
-                bottom: 120,
-                left: 20,
-                right: 20,
-                child: Material(
-                  color: Colors.transparent,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.swipe_left_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Swipe left and tap the pin icon to activate this item on your device',
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.swipe_left_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Swipe left and tap the pin icon to activate this item on your device',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -2034,9 +2032,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
   /// Dismisses the activation hint overlay
   void _dismissActivationHint(AppUiState appUiState) {
     if (_activationHintOverlay == null) return;
+    // Remove swipe listener
+    if (_swipeListener != null) {
+      _firstItemController?.animation.removeListener(_swipeListener!);
+      _swipeListener = null;
+    }
+    _activationHintAppUiState = null;
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
-    _firstItemController?.close();
     appUiState.markActivationHintShown();
     appUiState.markSwipeHintShown();
   }
@@ -2106,6 +2109,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   @override
   void dispose() {
+    // Clean up swipe listener
+    if (_swipeListener != null) {
+      _firstItemController?.animation.removeListener(_swipeListener!);
+      _swipeListener = null;
+    }
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
     _reorderHintOverlay?.remove();
