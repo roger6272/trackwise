@@ -78,6 +78,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   bool _reorderHintTriggered = false;
   bool _activationHintTriggered = false;
   OverlayEntry? _activationHintOverlay;
+  OverlayEntry? _reorderHintOverlay;
 
   // Search state
   bool _isSearching = false;
@@ -501,10 +502,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 // Use ReorderableListView when connected and not searching
                                 // During search, use ListView with "Move to Top" action instead
                                 if (isConnected && _searchQuery.isEmpty) {
-                                  // Trigger reorder hint when connected and swipe hint already shown
-                                  if (appUiState.hasShownSwipeHint && !appUiState.hasShownReorderHint && _searchQuery.isEmpty) {
+                                  // Trigger reorder hint when connected, 2+ items, and hint not yet shown
+                                  if (filteredItems.length >= 2 &&
+                                      !appUiState.hasShownReorderHint &&
+                                      _searchQuery.isEmpty) {
                                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      _showReorderHint(appUiState, isConnected);
+                                      _showReorderHint(appUiState, isConnected, context);
                                     });
                                   }
 
@@ -1870,31 +1873,81 @@ class _ItemsListContentState extends State<_ItemsListContent>
     });
   }
 
-  /// Shows a reorder hint animation on the first item (lift effect)
-  /// Only triggers when connected (reordering requires device connection)
-  void _showReorderHint(AppUiState appUiState, bool isConnected) {
-    // Only show after swipe hint, when connected, and if not already shown
-    if (!appUiState.hasShownSwipeHint ||
-        _reorderHintTriggered ||
+  /// Shows a reorder hint animation on the first item (lift effect) with tooltip.
+  /// Only triggers when connected (reordering requires device connection).
+  void _showReorderHint(AppUiState appUiState, bool isConnected, BuildContext context) {
+    // Only show when connected and if not already shown
+    if (_reorderHintTriggered ||
         appUiState.hasShownReorderHint ||
         !isConnected) {
       return;
     }
     _reorderHintTriggered = true;
 
-    // Delay after swipe hint completes
-    Future.delayed(const Duration(milliseconds: 800), () {
+    // Delay to let the list render
+    Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
 
-      // Lift up
+      // Show tooltip overlay
+      final overlay = Overlay.of(context);
+      _reorderHintOverlay = OverlayEntry(
+        builder: (context) => Positioned(
+          bottom: 120,
+          left: 20,
+          right: 20,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.drag_indicator_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Long press and drag to reorder items',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      overlay.insert(_reorderHintOverlay!);
+
+      // Lift up animation
       _reorderHintController?.forward().then((_) {
         if (!mounted) return;
 
         // Hold briefly, then lower
-        Future.delayed(const Duration(milliseconds: 600), () {
+        Future.delayed(const Duration(milliseconds: 1200), () {
           if (!mounted) return;
           _reorderHintController?.reverse().then((_) {
             if (!mounted) return;
+            // Remove overlay and mark hint as shown
+            _reorderHintOverlay?.remove();
+            _reorderHintOverlay = null;
             appUiState.markReorderHintShown();
           });
         });
@@ -2043,6 +2096,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
   void dispose() {
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
+    _reorderHintOverlay?.remove();
+    _reorderHintOverlay = null;
     _firstItemController?.dispose();
     _reorderHintController?.dispose();
     _searchController.dispose();
