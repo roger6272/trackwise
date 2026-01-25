@@ -431,7 +431,15 @@ Future<Either<Failure, SyncResult>> performSync() async {
     syncSeq: appSyncSeq,
   );
 
-  // Step 3: Check if this is a new device
+  // Step 3: Check for wrong account FIRST (before adding to paired_devices)
+  if (handshake.status == SyncStatus.wrongAccount) {
+    // Device is paired to different account - can't sync, don't add to our list
+    return Left(WrongAccountFailure(
+      'This device is paired to another account. Factory reset required.',
+    ));
+  }
+
+  // Step 4: Add to paired devices if new (only after confirming it's our device)
   final isNewDevice = !user.pairedDevices.any(
     (d) => d.deviceInstanceId == handshake.deviceInstanceId
   );
@@ -449,14 +457,7 @@ Future<Either<Failure, SyncResult>> performSync() async {
     ));
   }
 
-  // Step 4: Handle sync based on status
-  if (handshake.status == SyncStatus.wrongAccount) {
-    // Device is paired to different account - can't sync
-    return Left(WrongAccountFailure(
-      'This device is paired to another account. Factory reset required.',
-    ));
-  }
-
+  // Step 5: Handle sync based on status
   if (handshake.status == SyncStatus.inSync) {
     return _performNormalSync(appSyncSeq);
   } else {
