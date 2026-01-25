@@ -8,7 +8,7 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
 
 ## Cross-Codebase Awareness
 
-**CRITICAL: Always consider ALL THREE codebases when making enhancements or troubleshooting:**
+**CRITICAL: Always consider ALL codebases AND documentation when making enhancements, troubleshooting, or doing project reviews/analysis:**
 
 1. **New App Code** (clean architecture)
    - Location: `lib/features/`, `lib/core/`, `lib/backend/`
@@ -28,8 +28,9 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
 4. **BLE Protocol Specification**
    - Location: `docs/BLE_PROTOCOL.md`
    - **Source of truth** for app-device communication
-   - Contains: UUIDs, commands, notifications, timing, sync sequences
+   - Contains: UUIDs, commands, notifications, timing, sync sequences, edge cases
    - **Check this FIRST** when debugging BLE issues before reading firmware code
+   - **IMPORTANT:** Also review this doc for whole-project reviews, architecture analysis, or when asked to understand how the system works - it documents the critical app↔device interface
 
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication
