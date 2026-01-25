@@ -407,13 +407,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
                           ),
                         ),
                         _buildFieldSection(
-                          label: 'Reminder Type',
+                          label: 'Reminder (Vibration)',
                           labelColor: primaryText,
                           child: DropdownButtonFormField<ReminderType>(
                             value: selectedReminder,
                             items: const [
-                              DropdownMenuItem(value: ReminderType.none, child: Text('No Reminder')),
-                              DropdownMenuItem(value: ReminderType.target, child: Text('Target Count')),
+                              DropdownMenuItem(value: ReminderType.none, child: Text('None')),
+                              DropdownMenuItem(value: ReminderType.target, child: Text('At Target Count')),
                               DropdownMenuItem(value: ReminderType.interval, child: Text('Every X Increments')),
                             ],
                             onChanged: (val) {
