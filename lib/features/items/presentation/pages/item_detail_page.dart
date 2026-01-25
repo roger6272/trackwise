@@ -284,7 +284,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Update intervals when events are loaded.
   void _updateIntervalsFromEvents(EventsState eventsState) {
     if (eventsState is EventsLoaded) {
-      debugPrint('📊 _updateIntervalsFromEvents: ${eventsState.events.length} events, _resetNumber=$_resetNumber');
+      debugPrint('📊 events=${eventsState.events.length}, itemReset=$_resetNumber');
       var newIntervals = IntervalCalculator.calculate(
         events: eventsState.events,
         maxIntervals: 100, // Get all for dropdown
@@ -297,10 +297,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           .map((i) => i.intervalNumber)
           .fold<int>(-1, (max, n) => n > max ? n : max);
 
-      debugPrint('📊 _updateIntervalsFromEvents: maxEventResetNumber=$maxEventResetNumber, _resetNumber=$_resetNumber');
+      debugPrint('📊 maxEvt=$maxEventResetNumber, item=$_resetNumber');
+      debugPrint('📊 intervals before: ${newIntervals.map((i) => i.intervalNumber).toList()}');
 
       if (_resetNumber > maxEventResetNumber) {
-        debugPrint('📊 _updateIntervalsFromEvents: creating virtual interval for cycle $_resetNumber');
+        debugPrint('📊 CREATING virtual interval for cycle $_resetNumber');
         // Fallback start time: lastResetTime (if reset), or lastUpdated (creation time), or now
         final fallbackStart = _lastResetTime ?? widget.lastUpdated ?? DateTime.now();
 
@@ -329,7 +330,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           );
           newIntervals = [allTimeInterval, virtualCurrentInterval];
         }
-        debugPrint('📊 _updateIntervalsFromEvents: intervals now has ${newIntervals.length} entries');
+        debugPrint('📊 intervals after: ${newIntervals.map((i) => i.intervalNumber).toList()}');
+      } else {
+        debugPrint('📊 NO virtual needed: $_resetNumber <= $maxEventResetNumber');
       }
 
       // Get the current interval number (most recent, after "All Time")
@@ -342,6 +345,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ? _intervals[1].intervalNumber
           : null;
 
+      debugPrint('📊 current=$currentIntervalNumber, oldCurrent=$oldCurrentIntervalNumber, selected=$_selectedInterval');
+
       setState(() {
         _intervals = newIntervals;
 
@@ -349,11 +354,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         // 1. Not set yet
         if (_selectedInterval == null) {
           _selectedInterval = currentIntervalNumber;
+          debugPrint('📊 selected set to current: $_selectedInterval');
         }
         // 2. Selected interval no longer exists in new intervals
         else if (_selectedInterval != -1 &&
             !newIntervals.any((i) => i.intervalNumber == _selectedInterval)) {
           _selectedInterval = currentIntervalNumber;
+          debugPrint('📊 selected reset (not found): $_selectedInterval');
         }
         // 3. A new current interval appeared (reset happened) and we were viewing current
         else if (_selectedInterval != -1 &&
@@ -363,6 +370,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             _selectedInterval == oldCurrentIntervalNumber) {
           // We were viewing the current interval and a reset created a new one
           _selectedInterval = currentIntervalNumber;
+          debugPrint('📊 selected advanced to new current: $_selectedInterval');
+        } else {
+          debugPrint('📊 selected unchanged: $_selectedInterval');
         }
       });
     }
