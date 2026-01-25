@@ -475,11 +475,13 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         }
       }
 
-      // Restore item with order 0 (top of list) and new deviceItemId
+      // Restore item with order 0 (top of list), new deviceItemId, and uncategorized
       batch.update(firestore.collection('Item').doc(itemId), {
         'deletedAt': FieldValue.delete(),
         'order': 0,
         'device_item_id': newDeviceItemId,
+        'category_id': FieldValue.delete(),  // Uncategorized
+        'category_order': 0,
       });
 
       await batch.commit();
