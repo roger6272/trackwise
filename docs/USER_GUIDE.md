@@ -295,9 +295,9 @@ Use the controls to customize:
 
 | Control | Options |
 |---------|---------|
-| **Time Range** | 1 Day, 7 Days, 30 Days |
-| **Aggregation** | Hourly, Daily, Weekly, Monthly |
+| **Time Range** | 1D, 7D, 30D |
 | **Chart Type** | Bar Chart, Cumulative |
+| **Filter** | View by reset cycle or interval |
 
 ### Refreshing Data
 
@@ -316,7 +316,7 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 3. Configure your export:
    - **Date Range** - Select start and end dates
    - **Aggregation** - Raw, Daily, Weekly, or Monthly
-   - **Data Scope** - All data or current cycle only
+   - **Data Scope** - Total (all data) or Latest Cycle only
 4. Enter your **email address**
 5. Tap **"Send Export"**
 
@@ -473,7 +473,7 @@ Try:
 2. Review the FAQ section
 3. Tap **"Email Support"** to contact us
 
-**Support Email:** support@traxogic.com
+**Support Email:** support@digi1st.com
 
 ---
 
