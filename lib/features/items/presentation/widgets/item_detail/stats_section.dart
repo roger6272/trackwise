@@ -511,6 +511,27 @@ class ChartSection extends StatelessWidget {
     );
   }
 
+  /// Check if createdAt falls within the visible chart range.
+  bool _isCreatedAtInRange(DateTime? createdAt) {
+    if (createdAt == null) return false;
+
+    // Calculate start date based on range
+    DateTime startDate;
+    if (range == '1D') {
+      // For 1D, the range is the selected day
+      startDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    } else {
+      // For 7D/30D, the range ends on selectedDate
+      final days = range == '7D' ? 7 : 30;
+      startDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day)
+          .subtract(Duration(days: days - 1));
+    }
+
+    final endDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 23, 59, 59);
+
+    return !createdAt.isBefore(startDate) && !createdAt.isAfter(endDate);
+  }
+
   /// Builds the chart header with hero stat, trend, and toggle.
   Widget _buildChartHeader(BuildContext context, Color primary, Color alternate) {
     final brightness = Theme.of(context).brightness;
@@ -518,63 +539,78 @@ class ChartSection extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Hero stat: +X increments with trend
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+      child: BlocBuilder<ChartsBloc, ChartsState>(
+        buildWhen: (previous, current) {
+          // Only rebuild when createdAt changes
+          if (previous is ChartsLoaded && current is ChartsLoaded) {
+            return previous.chartData.createdAt != current.chartData.createdAt;
+          }
+          return true;
+        },
+        builder: (context, state) {
+          // Check if createdAt is in the visible range
+          final createdAt = state is ChartsLoaded ? state.chartData.createdAt : null;
+          final showInitialCount = initialCount > 0 && _isCreatedAtInRange(createdAt);
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+              // Hero stat: +X increments with trend
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '+$periodTotal',
-                    style: GoogleFonts.interTight(
-                      fontSize: 28.0,
-                      fontWeight: FontWeight.w700,
-                      color: primary,
-                    ),
-                  ),
-                  const SizedBox(width: 6.0),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'increments',
-                          style: GoogleFonts.inter(
-                            fontSize: 14.0,
-                            fontWeight: FontWeight.w500,
-                            color: secondaryText,
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        '+$periodTotal',
+                        style: GoogleFonts.interTight(
+                          fontSize: 28.0,
+                          fontWeight: FontWeight.w700,
+                          color: primary,
                         ),
-                        if (initialCount > 0)
-                          TextSpan(
-                            text: ' (from $initialCount)',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.0,
-                              fontWeight: FontWeight.w400,
-                              color: secondaryText.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 6.0),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'increments',
+                              style: GoogleFonts.inter(
+                                fontSize: 14.0,
+                                fontWeight: FontWeight.w500,
+                                color: secondaryText,
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
+                            if (showInitialCount)
+                              TextSpan(
+                                text: ' (from $initialCount)',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.0,
+                                  fontWeight: FontWeight.w400,
+                                  color: secondaryText.withOpacity(0.7),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
+                  // Trend indicator
+                  if (periodLabel.isNotEmpty) ...[
+                    const SizedBox(height: 2.0),
+                    _buildTrendBadge(secondaryText),
+                  ],
                 ],
               ),
-              // Trend indicator
-              if (periodLabel.isNotEmpty) ...[
-                const SizedBox(height: 2.0),
-                _buildTrendBadge(secondaryText),
-              ],
+              const Spacer(),
+              // Toggle
+              _buildChartToggle(context, primary, alternate, secondaryText),
             ],
-          ),
-          const Spacer(),
-          // Toggle
-          _buildChartToggle(context, primary, alternate, secondaryText),
-        ],
+          );
+        },
       ),
     );
   }
