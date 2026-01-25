@@ -10,6 +10,7 @@ import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
+import '../../domain/entities/sync_state.dart';
 import '../../domain/repositories/bluetooth_repository.dart';
 import '../datasources/bluetooth_datasource.dart';
 import '../models/ble_message_model.dart';
@@ -278,6 +279,59 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       return Right(granted);
     } catch (e) {
       return Left(BluetoothFailure( 'Failed to request permissions: ${e.toString()}'));
+    }
+  }
+
+  // ============================================================
+  // MULTI-DEVICE SYNC COMMANDS
+  // ============================================================
+
+  @override
+  Future<Either<Failure, HandshakeResult>> sendHandshake({
+    required String uid,
+    required int syncSeq,
+  }) async {
+    try {
+      final result = await dataSource.sendHandshake(
+        uid: uid,
+        syncSeq: syncSeq,
+      );
+      return Right(result);
+    } catch (e) {
+      debugPrint('Handshake failed: $e');
+      return Left(BluetoothFailure('Handshake failed: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, OverrideResult>> sendOverrideChunked({
+    required int syncSeq,
+    required int selectedId,
+    required List<Item> items,
+    Map<String, String> categoryNames = const {},
+  }) async {
+    try {
+      final result = await dataSource.sendOverrideChunked(
+        syncSeq: syncSeq,
+        selectedId: selectedId,
+        items: items,
+        categoryNames: categoryNames,
+      );
+      return Right(result);
+    } catch (e) {
+      debugPrint('Override failed: $e');
+      return Left(BluetoothFailure('Override failed: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SyncCompleteResult>> sendSyncComplete(int syncSeq) async {
+    try {
+      final result = await dataSource.sendSyncComplete(syncSeq);
+      return Right(result);
+    } catch (e) {
+      debugPrint('sync_complete failed: $e');
+      return Left(BluetoothFailure('sync_complete failed: ${e.toString()}'));
     }
   }
 }

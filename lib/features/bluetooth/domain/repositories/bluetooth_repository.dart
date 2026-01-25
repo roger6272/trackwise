@@ -5,6 +5,7 @@ import '../../../items/domain/entities/item.dart';
 import '../entities/ble_connection_state.dart';
 import '../entities/ble_device.dart';
 import '../entities/ble_message.dart';
+import '../entities/sync_state.dart';
 
 /// Repository interface for Bluetooth operations.
 ///
@@ -190,6 +191,59 @@ abstract class BluetoothRepository {
   /// - Right(BleMessage): Parsed data from device
   /// - Left(BluetoothFailure): Read failed
   Future<Either<Failure, BleMessage>> readData(String deviceId);
+
+  // ============================================================
+  // MULTI-DEVICE SYNC COMMANDS
+  // ============================================================
+
+  /// Sends handshake command to device and waits for response.
+  ///
+  /// The handshake performs both:
+  /// 1. Account lock check (is this device paired to this user?)
+  /// 2. Sync sequence check (is this device in sync or conflicted?)
+  ///
+  /// [uid] - Firebase user ID
+  /// [syncSeq] - App's current sync sequence number
+  ///
+  /// Returns:
+  /// - Right(HandshakeResult): Response with status and device info
+  /// - Left(BluetoothFailure): Command failed or timed out
+  Future<Either<Failure, HandshakeResult>> sendHandshake({
+    required String uid,
+    required int syncSeq,
+  });
+
+  /// Sends override data to device using chunked protocol.
+  ///
+  /// Used when sync_seq mismatch detected (app is source of truth).
+  /// Items are chunked (10 per chunk) to fit BLE MTU limits.
+  ///
+  /// [syncSeq] - New sync sequence number
+  /// [selectedId] - Device item ID to select (-1 for none)
+  /// [items] - Items to push to device
+  /// [categoryNames] - Map of categoryId to category name
+  ///
+  /// Returns:
+  /// - Right(OverrideResult): Override completed or error
+  /// - Left(BluetoothFailure): BLE error (override aborted)
+  Future<Either<Failure, OverrideResult>> sendOverrideChunked({
+    required int syncSeq,
+    required int selectedId,
+    required List<Item> items,
+    Map<String, String> categoryNames = const {},
+  });
+
+  /// Sends sync_complete command to device.
+  ///
+  /// Called after normal sync (device -> app) to update device's sync_seq.
+  /// Wait for acknowledgment before updating Firestore.
+  ///
+  /// [syncSeq] - New sync sequence number
+  ///
+  /// Returns:
+  /// - Right(SyncCompleteResult): Device stored the new sync_seq
+  /// - Left(BluetoothFailure): Command failed or timed out
+  Future<Either<Failure, SyncCompleteResult>> sendSyncComplete(int syncSeq);
 
   // ============================================================
   // PERMISSIONS & ADAPTER STATE
