@@ -452,6 +452,7 @@ Future<Either<Failure, SyncResult>> performSync() async {
 Future<Either<Failure, SyncResult>> _performNormalSync(int currentSeq) async {
   // Step 1: Request prefs from device (existing flow)
   // IMPORTANT: Collect ALL chunks before proceeding
+  // Device sends: items + selected_device_item_id
   final prefs = await bleService.requestPrefs();
 
   // Step 2: Increment sync_seq
@@ -466,7 +467,10 @@ Future<Either<Failure, SyncResult>> _performNormalSync(int currentSeq) async {
   // Step 4: ONLY NOW update Firestore (after device confirmed)
   // This prevents false conflicts if BLE disconnects
   await itemRepository.batchUpdateCounts(userId, prefs.items);
-  await userRepository.updateSyncSequence(newSyncSeq);
+  await userRepository.updateSyncState(
+    syncSequenceNo: newSyncSeq,
+    lastSelectedDeviceItemId: prefs.selectedDeviceItemId,  // Save for future override
+  );
 
   return Right(SyncResult.success);
 }
@@ -492,7 +496,8 @@ Future<Either<Failure, SyncResult>> performOverride() async {
     return Left(TooManyItemsFailure('Cannot sync more than 100 items'));
   }
 
-  final selectedItemId = await getSelectedDeviceItemId();
+  // Get selected item from last sync (stored in Firestore), -1 if none
+  final selectedItemId = user.lastSelectedDeviceItemId ?? -1;
   final newSyncSeq = user.syncSequenceNo + 1;
 
   // Push to device using chunked protocol
