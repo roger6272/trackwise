@@ -502,10 +502,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 // Use ReorderableListView when connected and not searching
                                 // During search, use ListView with "Move to Top" action instead
                                 if (isConnected && _searchQuery.isEmpty) {
-                                  // Trigger reorder hint when connected, 2+ items, and hint not yet shown
-                                  if (filteredItems.length >= 2 &&
+                                  // Trigger activation hint when connected but no item selected
+                                  final deviceSelectedId = context.read<BluetoothBloc>().state.selectedItemId;
+                                  final hasNoDeviceSelection = deviceSelectedId == null || deviceSelectedId.isEmpty;
+
+                                  if (hasNoDeviceSelection && !appUiState.hasShownActivationHint && filteredItems.isNotEmpty) {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      _showActivationHint(appUiState, context);
+                                    });
+                                  }
+                                  // Trigger reorder hint when 2+ items and activation hint already shown
+                                  else if (filteredItems.length >= 2 &&
                                       !appUiState.hasShownReorderHint &&
-                                      _searchQuery.isEmpty) {
+                                      appUiState.hasShownActivationHint) {
                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                       _showReorderHint(appUiState, isConnected, context);
                                     });
@@ -794,23 +803,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   }
                                   return listWidget;
                                 } else {
-                                  // Trigger hints only in regular ListView (not during reorder, not searching)
-                                  if (_searchQuery.isEmpty) {
-                                    // Show activation hint when connected but no item selected on device
-                                    final deviceSelectedId = context.read<BluetoothBloc>().state.selectedItemId;
-                                    final hasNoDeviceSelection = deviceSelectedId == null || deviceSelectedId.isEmpty;
-
-                                    if (isConnected && hasNoDeviceSelection && !appUiState.hasShownActivationHint) {
-                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        _showActivationHint(appUiState, context);
-                                      });
-                                    } else if (!appUiState.hasShownSwipeHint) {
-                                      // Regular swipe hint for returning users
-                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        _showSwipeHint(appUiState);
-                                      });
-                                    }
-                                  }
+                                  // Regular ListView when disconnected or searching
+                                  // No hints shown when disconnected (device connection required for actions)
                                   final listWidget = RefreshIndicator(
                                     color: _primary,
                                     onRefresh: () async {
