@@ -131,7 +131,7 @@ void onConnect(String receivedUid) {
 ```cpp
 // App sends: { "cmd": "handshake", "uid": "xxx", "sync_seq": 42 }
 void handleHandshake(String uid, int appSyncSeq) {
-  int deviceSyncSeq = nvs_get_int("sync_seq_no", -1);  // -1 = never synced
+  int deviceSyncSeq = nvs_get_int("sync_seq_no", 0);  // 0 = never synced (matches new user)
   String deviceInstanceId = nvs_get_string("device_instance_id");
 
   if (appSyncSeq == deviceSyncSeq) {
@@ -239,7 +239,14 @@ void handleFactoryReset() {
 }
 ```
 
-### 1.10 BLE Protocol Messages
+### 1.10 BLE Command Timeouts
+
+All BLE commands should have a 10-second timeout. On timeout:
+- Treat as disconnect
+- App discards partial sync state
+- User can reconnect to retry
+
+### 1.11 BLE Protocol Messages
 
 | Direction | Message | Purpose |
 |-----------|---------|---------|
@@ -253,9 +260,26 @@ void handleFactoryReset() {
 | App → Device | `{"cmd":"sync_complete","sync_seq":43}` | After normal sync, update device seq |
 | Device → App | `{"status":"seq_updated"}` | Confirm sync_seq stored |
 
-### 1.11 Override Chunking Protocol
+### 1.12 Override Chunking Protocol
 
-Override messages are chunked to fit within BLE MTU limits:
+Override messages are chunked to fit within BLE MTU limits.
+
+**Item fields sent during override:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `device_item_id` | int | Item slot ID (0-99) |
+| `name` | string | Item name (max 32 chars) |
+| `category` | string | Category name (max 32 chars) |
+| `count` | int | Total count |
+| `todaycount` | int | Today's count |
+| `increment` | int | Count per press (1-1000) |
+| `reminder` | int | Reminder type |
+| `reminder_value` | int | Reminder threshold |
+| `lastResetTime` | long | Last reset timestamp (UTC) |
+| `reset_number` | int | Reset counter |
+
+**Note:** `selected_id` fallback - if the specified `selected_id` doesn't exist in the overridden items, device falls back to first item (index 0) or none if empty.
 
 ```cpp
 int overrideSyncSeq;
@@ -375,8 +399,10 @@ class HandshakeResult {
 ```dart
 Future<Either<Failure, SyncResult>> performSync() async {
   // Step 1: Get current user's sync state
+  // CRITICAL: Fetch FRESH from Firestore, not cached!
+  // This prevents stale data issues with multiple app instances (phone + tablet)
   final user = await userRepository.getCurrentUser();
-  final appSyncSeq = user.syncSequenceNo;
+  final appSyncSeq = await userRepository.fetchSyncSequenceFromServer();
 
   // Step 2: Send handshake
   final handshake = await bleService.sendHandshake(
@@ -772,12 +798,14 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 **The key insight:** `sync_seq` alone determines if a device is in sync or needs override. No need to track which device was last used - if the numbers match, it was this device.
 
 **Flow summary:**
-1. App sends handshake with uid + sync_seq
-2. Device compares sync_seq (-1 if never synced)
-3. Match → normal sync (device → app), then sync_complete with acknowledgment
-4. Mismatch → conflict → user confirms → override (app → device, chunked)
-5. Either way, sync_seq increments and both sides store it
-6. Firestore only updated AFTER device acknowledgment (prevents false conflicts)
+1. App fetches FRESH sync_seq from Firestore (not cached - supports multi-instance)
+2. App sends handshake with uid + sync_seq
+3. Device compares sync_seq (defaults to 0 if never synced)
+4. Match → normal sync (device → app), then sync_complete with acknowledgment
+5. Mismatch → conflict → user confirms → override (app → device, chunked)
+6. Either way, sync_seq increments and both sides store it
+7. Firestore only updated AFTER device acknowledgment (prevents false conflicts)
+8. All BLE commands have 10-second timeout
 
 **Key constraints:**
 - Items can only be created while BLE connected
