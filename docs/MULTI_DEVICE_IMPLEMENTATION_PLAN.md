@@ -104,35 +104,37 @@ void setup() {
 }
 ```
 
-### 1.4 Single-Account Lock
+### 1.4 Handshake Protocol (Account Lock + Sync Check)
 
-```cpp
-void onConnect(String receivedUid) {
-  String pairedUid = nvs_get_string("paired_uid");
-
-  if (pairedUid.isEmpty()) {
-    // First pairing - store uid
-    nvs_set_string("paired_uid", receivedUid);
-    acceptConnection();
-  } else if (pairedUid == receivedUid) {
-    // Same account - accept
-    acceptConnection();
-  } else {
-    // Different account - reject
-    rejectConnection();
-    displayMessage("PAIRED TO");
-    displayMessage("OTHER ACCOUNT");
-  }
-}
-```
-
-### 1.5 Handshake Protocol
+The handshake is the FIRST message after BLE connection. It performs both:
+1. Account lock check (is this device paired to this user?)
+2. Sync sequence check (is this device in sync or conflicted?)
 
 ```cpp
 // App sends: { "cmd": "handshake", "uid": "xxx", "sync_seq": 42 }
 void handleHandshake(String uid, int appSyncSeq) {
-  int deviceSyncSeq = nvs_get_int("sync_seq_no", 0);  // 0 = never synced (matches new user)
+  String pairedUid = nvs_get_string("paired_uid");
   String deviceInstanceId = nvs_get_string("device_instance_id");
+
+  // Step 1: Account lock check
+  if (!pairedUid.isEmpty() && pairedUid != uid) {
+    // Different account - reject
+    sendResponse({
+      "status": "wrong_account",
+      "device_instance_id": deviceInstanceId
+    });
+    displayMessage("PAIRED TO");
+    displayMessage("OTHER ACCOUNT");
+    return;
+  }
+
+  if (pairedUid.isEmpty()) {
+    // First pairing - store uid
+    nvs_set_string("paired_uid", uid);
+  }
+
+  // Step 2: Sync sequence check
+  int deviceSyncSeq = nvs_get_int("sync_seq_no", 0);  // 0 = never synced (matches new user)
 
   if (appSyncSeq == deviceSyncSeq) {
     // In sync - device is SOT, proceed with normal sync
@@ -152,7 +154,7 @@ void handleHandshake(String uid, int appSyncSeq) {
 }
 ```
 
-### 1.6 Conflict State Handling
+### 1.5 Conflict State Handling
 
 ```cpp
 bool inConflictState = false;
@@ -185,13 +187,13 @@ void onButtonPress() {
 }
 ```
 
-### 1.7 Override Handling
+### 1.6 Override Handling
 
 See **1.11 Override Chunking Protocol** for the multi-message override implementation.
 
 Override is chunked because a full item list (up to 100 items) may exceed BLE MTU.
 
-### 1.8 Normal Sync Completion
+### 1.7 Normal Sync Completion
 
 ```cpp
 // After device sends prefs and app processes them:
@@ -206,7 +208,7 @@ void handleSyncComplete(int newSyncSeq) {
 }
 ```
 
-### 1.9 Factory Reset
+### 1.8 Factory Reset
 
 ```cpp
 void handleFactoryReset() {
@@ -239,20 +241,23 @@ void handleFactoryReset() {
 }
 ```
 
-### 1.10 BLE Command Timeouts
+### 1.9 BLE Command Timeouts
 
 All BLE commands should have a 10-second timeout. On timeout:
 - Treat as disconnect
 - App discards partial sync state
 - User can reconnect to retry
 
-### 1.11 BLE Protocol Messages
+### 1.10 BLE Protocol Messages
 
 | Direction | Message | Purpose |
 |-----------|---------|---------|
 | App → Device | `{"cmd":"handshake","uid":"xxx","sync_seq":42}` | Start sync handshake |
 | Device → App | `{"status":"in_sync","device_instance_id":"uuid"}` | Proceed with normal sync |
-| Device → App | `{"status":"conflict","device_seq":40,"device_instance_id":"uuid"}` | Conflict detected |
+| Device → App | `{"status":"conflict","device_seq":40,"device_instance_id":"uuid"}` | Conflict detected, wait for override |
+| Device → App | `{"status":"wrong_account","device_instance_id":"uuid"}` | Device paired to different account |
+| App → Device | `{"cmd":"request_prefs"}` | Request prefs (existing, after `in_sync`) |
+| Device → App | Prefs chunks (existing protocol) | Device sends items + selected_id |
 | App → Device | `{"cmd":"override_start","sync_seq":43,"total_chunks":N}` | Begin override (chunked) |
 | App → Device | `{"cmd":"override_chunk","index":0,"items":[...]}` | Send items chunk |
 | App → Device | `{"cmd":"override_end","selected_id":2}` | Complete override |
@@ -260,7 +265,18 @@ All BLE commands should have a 10-second timeout. On timeout:
 | App → Device | `{"cmd":"sync_complete","sync_seq":43}` | After normal sync, update device seq |
 | Device → App | `{"status":"seq_updated"}` | Confirm sync_seq stored |
 
-### 1.12 Override Chunking Protocol
+**Normal Sync Flow:**
+1. App sends `handshake` → Device responds `in_sync`
+2. App sends `request_prefs` → Device sends prefs (existing protocol)
+3. App sends `sync_complete` → Device responds `seq_updated`
+
+**Override Flow:**
+1. App sends `handshake` → Device responds `conflict`
+2. User confirms in app
+3. App sends `override_start` → `override_chunk`(s) → `override_end`
+4. Device responds `override_complete`
+
+### 1.11 Override Chunking Protocol
 
 Override messages are chunked to fit within BLE MTU limits.
 
