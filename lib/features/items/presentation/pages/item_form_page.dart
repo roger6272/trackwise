@@ -811,10 +811,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
         (createdItem) async {
           debugPrint('🟢 Item created with ID: ${createdItem.id}');
 
-          // Set the new item as active in app UI (device selected item unchanged)
-          if (mounted) {
-            context.read<AppUiState>().activeItemId = createdItem.id;
-          }
+          // Don't auto-select the item - let user learn to activate it via swipe
+          // The items_list_page will show an activation hint for the first item
 
           // List sync handled by items_list_page buildWhen
           if (mounted) context.pop();

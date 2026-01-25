@@ -8,6 +8,7 @@ class AppUiState extends ChangeNotifier {
   static const String _activeItemKey = 'app_active_item_id';
   static const String _swipeHintShownKey = 'app_swipe_hint_shown';
   static const String _reorderHintShownKey = 'app_reorder_hint_shown';
+  static const String _activationHintShownKey = 'app_activation_hint_shown';
 
   late SharedPreferences _prefs;
   bool _initialized = false;
@@ -115,6 +116,21 @@ class AppUiState extends ChangeNotifier {
     }
   }
 
+  // ============== First Item Activation Hint (Persisted) ==============
+
+  /// Whether the first item activation hint has been shown
+  /// This teaches new users to swipe left and tap "Activate" on their first item
+  bool _hasShownActivationHint = false;
+  bool get hasShownActivationHint => _hasShownActivationHint;
+
+  /// Mark activation hint as shown (persisted)
+  void markActivationHintShown() {
+    _hasShownActivationHint = true;
+    if (_initialized) {
+      _prefs.setBool(_activationHintShownKey, true);
+    }
+  }
+
   // ============== Initialization ==============
 
   /// Initialize persisted state from SharedPreferences
@@ -125,6 +141,7 @@ class AppUiState extends ChangeNotifier {
     _activeItemId = _prefs.getString(_activeItemKey) ?? '';
     _hasShownSwipeHint = _prefs.getBool(_swipeHintShownKey) ?? false;
     _hasShownReorderHint = _prefs.getBool(_reorderHintShownKey) ?? false;
+    _hasShownActivationHint = _prefs.getBool(_activationHintShownKey) ?? false;
     _initialized = true;
     notifyListeners();
   }

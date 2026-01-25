@@ -152,6 +152,17 @@ class TestAppUiState extends ChangeNotifier implements AppUiState {
     _hasShownReorderHint = true;
     notifyListeners();
   }
+
+  bool _hasShownActivationHint = false;
+
+  @override
+  bool get hasShownActivationHint => _hasShownActivationHint;
+
+  @override
+  void markActivationHintShown() {
+    _hasShownActivationHint = true;
+    notifyListeners();
+  }
 }
 
 void main() {

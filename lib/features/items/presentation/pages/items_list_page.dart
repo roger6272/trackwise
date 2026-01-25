@@ -76,6 +76,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
   Animation<double>? _liftAnimation;
   bool _swipeHintTriggered = false;
   bool _reorderHintTriggered = false;
+  bool _activationHintTriggered = false;
+  OverlayEntry? _activationHintOverlay;
 
   // Search state
   bool _isSearching = false;
@@ -789,11 +791,22 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   }
                                   return listWidget;
                                 } else {
-                                  // Trigger swipe hint only in regular ListView (not during reorder, not searching)
-                                  if (!appUiState.hasShownSwipeHint && _searchQuery.isEmpty) {
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      _showSwipeHint(appUiState);
-                                    });
+                                  // Trigger hints only in regular ListView (not during reorder, not searching)
+                                  if (_searchQuery.isEmpty) {
+                                    // Show activation hint when connected but no item selected on device
+                                    final deviceSelectedId = context.read<BluetoothBloc>().state.selectedItemId;
+                                    final hasNoDeviceSelection = deviceSelectedId == null || deviceSelectedId.isEmpty;
+
+                                    if (isConnected && hasNoDeviceSelection && !appUiState.hasShownActivationHint) {
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        _showActivationHint(appUiState, context);
+                                      });
+                                    } else if (!appUiState.hasShownSwipeHint) {
+                                      // Regular swipe hint for returning users
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        _showSwipeHint(appUiState);
+                                      });
+                                    }
                                   }
                                   final listWidget = RefreshIndicator(
                                     color: _primary,
@@ -1889,6 +1902,80 @@ class _ItemsListContentState extends State<_ItemsListContent>
     });
   }
 
+  /// Shows an activation hint for new users who just created their first item.
+  /// Opens the swipe pane and shows a tooltip explaining how to activate.
+  void _showActivationHint(AppUiState appUiState, BuildContext context) {
+    if (_activationHintTriggered || appUiState.hasShownActivationHint) return;
+    _activationHintTriggered = true;
+
+    // Delay to let the list render first
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+
+      // Open the swipe action pane
+      _firstItemController?.openEndActionPane();
+
+      // Show tooltip overlay
+      final overlay = Overlay.of(context);
+      _activationHintOverlay = OverlayEntry(
+        builder: (context) => Positioned(
+          bottom: 120,
+          left: 20,
+          right: 20,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.swipe_left_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Swipe left and tap the pin icon to activate this item on your device',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      overlay.insert(_activationHintOverlay!);
+
+      // Close after showing
+      Future.delayed(const Duration(milliseconds: 3500), () {
+        if (!mounted) return;
+        _activationHintOverlay?.remove();
+        _activationHintOverlay = null;
+        _firstItemController?.close();
+        appUiState.markActivationHintShown();
+        // Also mark swipe hint as shown since we just showed swipe actions
+        appUiState.markSwipeHintShown();
+      });
+    });
+  }
+
   /// Syncs the device with items from the selected item's category.
   /// Used after create/update/delete/restore to keep device in sync with app.
   void _syncDeviceWithSelectedCategory({
@@ -1954,6 +2041,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   @override
   void dispose() {
+    _activationHintOverlay?.remove();
+    _activationHintOverlay = null;
     _firstItemController?.dispose();
     _reorderHintController?.dispose();
     _searchController.dispose();
