@@ -11,6 +11,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <esp_task_wdt.h>
+#include <esp_bt.h>           // For BLE bonding table access
 
 // Mutex for NVS access synchronization (prevents corruption from concurrent access)
 static SemaphoreHandle_t nvsMutex = NULL;
@@ -42,6 +43,22 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define REMINDER_INTERVAL 2
 
 #define VIBRATION_PIN 5
+
+// ============== MULTI-DEVICE NVS KEYS ==============
+// NVS keys for multi-device pairing support
+#define NVS_KEY_PAIRED_UID "paired_uid"           // String: Firebase uid (empty = unpaired)
+#define NVS_KEY_DEVICE_INSTANCE_ID "dev_inst_id"  // String: Unique device identifier (UUID)
+#define NVS_KEY_SYNC_SEQ_NO "sync_seq_no"         // int32: Last sync sequence number (default: 0)
+
+// ============== MULTI-DEVICE STATE ==============
+bool isPairingMode = false;  // True when device is unpaired and waiting for pairing
+bool inConflictState = false;  // True when sync_seq mismatch detected, waiting for app override
+
+// ============== OVERRIDE PROTOCOL STATE ==============
+// State tracking for chunked override protocol (app pushing data to device)
+int overrideSyncSeq = 0;        // Sync sequence number for this override
+int overrideTotalChunks = 0;    // Total number of chunks expected
+int overrideReceivedChunks = 0; // Number of chunks received so far
 
 // Event types for log entries (replaces String to save ~21 bytes per entry)
 #define EVENT_INCREMENT 0
@@ -190,6 +207,613 @@ String safeString(const char* str, size_t maxLen = 32) {
   if (!str) return "";
   String s(str);
   return (s.length() > maxLen) ? s.substring(0, maxLen) : s;
+}
+
+// ============== MULTI-DEVICE FUNCTIONS ==============
+
+// Generate a UUID-like random string for device instance ID
+// Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars)
+String generateUUID() {
+  const char hex[] = "0123456789abcdef";
+  char uuid[37];
+  int pos = 0;
+
+  for (int i = 0; i < 36; i++) {
+    if (i == 8 || i == 13 || i == 18 || i == 23) {
+      uuid[pos++] = '-';
+    } else {
+      uuid[pos++] = hex[esp_random() % 16];
+    }
+  }
+  uuid[36] = '\0';
+  return String(uuid);
+}
+
+// Generate and store a new device instance ID
+// Called on first boot or after factory reset
+void generateDeviceInstanceId() {
+  String uuid = generateUUID();
+  if (!nvsBeginSafe("counter", false)) {
+    Serial.println("❌ Failed to generate device instance ID - NVS mutex timeout");
+    return;
+  }
+  prefs.putString(NVS_KEY_DEVICE_INSTANCE_ID, uuid);
+  nvsEndSafe();
+  Serial.printf("🆔 Generated new device instance ID: %s\n", uuid.c_str());
+}
+
+// Get the device instance ID from NVS
+String getDeviceInstanceId() {
+  String id = "";
+  if (!nvsBeginSafe("counter", true)) return id;
+  id = prefs.getString(NVS_KEY_DEVICE_INSTANCE_ID, "");
+  nvsEndSafe();
+  return id;
+}
+
+// Get the paired Firebase UID from NVS
+String getPairedUid() {
+  String uid = "";
+  if (!nvsBeginSafe("counter", true)) return uid;
+  uid = prefs.getString(NVS_KEY_PAIRED_UID, "");
+  nvsEndSafe();
+  return uid;
+}
+
+// Set the paired Firebase UID in NVS
+void setPairedUid(const String& uid) {
+  if (!nvsBeginSafe("counter", false)) return;
+  prefs.putString(NVS_KEY_PAIRED_UID, uid);
+  nvsEndSafe();
+  Serial.printf("🔗 Paired to UID: %s\n", uid.c_str());
+}
+
+// Get the sync sequence number from NVS
+int getSyncSeqNo() {
+  int seq = 0;
+  if (!nvsBeginSafe("counter", true)) return seq;
+  seq = prefs.getInt(NVS_KEY_SYNC_SEQ_NO, 0);
+  nvsEndSafe();
+  return seq;
+}
+
+// Set the sync sequence number in NVS
+void setSyncSeqNo(int seq) {
+  if (!nvsBeginSafe("counter", false)) return;
+  prefs.putInt(NVS_KEY_SYNC_SEQ_NO, seq);
+  nvsEndSafe();
+  Serial.printf("📊 Sync sequence updated: %d\n", seq);
+}
+
+// Check if the device is paired (has a paired_uid set)
+bool isDevicePaired() {
+  String uid = getPairedUid();
+  return uid.length() > 0;
+}
+
+// Enter pairing mode - device is waiting for first pairing
+void enterPairingMode() {
+  isPairingMode = true;
+  Serial.println("🔓 Entering pairing mode - waiting for app connection");
+}
+
+// Enter normal mode - device is paired and operational
+void enterNormalMode() {
+  isPairingMode = false;
+  Serial.println("✅ Entering normal mode - device is paired");
+}
+
+// Display welcome screen on device (called when unpaired)
+// This is a placeholder - actual display code depends on hardware
+void displayWelcomeScreen() {
+  Serial.println("═══════════════════════════════════════");
+  Serial.println("║       WELCOME TO TRACKWISE          ║");
+  Serial.println("║                                     ║");
+  Serial.println("║  Please connect via the app to      ║");
+  Serial.println("║  pair this device to your account   ║");
+  Serial.println("═══════════════════════════════════════");
+}
+
+// Display a message on device (placeholder for actual display)
+void displayMessage(const char* msg) {
+  Serial.printf("📺 DISPLAY: %s\n", msg);
+}
+
+// ============== CONFLICT STATE HANDLING ==============
+
+// Enter conflict state - device shows "SEE APP" and disables buttons
+// Called when handshake detects sync_seq mismatch
+void enterConflictState() {
+  inConflictState = true;
+  displayMessage("SEE APP");
+  Serial.println("⚠️ Entered conflict state - buttons disabled, waiting for app override");
+}
+
+// Exit conflict state - restore normal operation
+// Called on BLE disconnect or after successful override
+void exitConflictState() {
+  if (!inConflictState) return;  // Already not in conflict
+  inConflictState = false;
+  Serial.println("✅ Exited conflict state - buttons re-enabled");
+  // Clear display message (actual implementation depends on hardware)
+  displayMessage("");  // Clear the "SEE APP" message
+}
+
+// Send a JSON response via BLE notification
+// Used by handshake and other protocol messages
+void sendJsonResponse(const String& jsonStr) {
+  if (!isConnected || NotifyChar == nullptr) return;
+
+  String response = jsonStr + "\n";  // Add newline for Flutter end-of-message detection
+
+  // Use non-blocking transmission for larger responses
+  if (response.length() > 180) {
+    startBleTransmit(response);
+  } else {
+    // Small response, send directly
+    NotifyChar->setValue(response.c_str());
+    NotifyChar->notify();
+  }
+  Serial.printf("📤 Sent response: %s\n", jsonStr.c_str());
+}
+
+// Handle handshake command from app
+// Performs account lock check and sync sequence comparison
+// App sends: { "cmd": "handshake", "uid": "xxx", "sync_seq": 42 }
+void handleHandshake(const String& uid, int appSyncSeq) {
+  String pairedUid = getPairedUid();
+  String deviceInstanceId = getDeviceInstanceId();
+
+  Serial.printf("🤝 Handshake: uid=%s, app_sync_seq=%d\n", uid.c_str(), appSyncSeq);
+  Serial.printf("   Device paired_uid=%s, device_sync_seq=%d\n",
+                pairedUid.isEmpty() ? "(empty)" : pairedUid.c_str(), getSyncSeqNo());
+
+  // Step 1: Account lock check
+  if (!pairedUid.isEmpty() && pairedUid != uid) {
+    // Different account - reject
+    StaticJsonDocument<256> doc;
+    doc["status"] = "wrong_account";
+    doc["device_instance_id"] = deviceInstanceId;
+
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+
+    displayMessage("PAIRED TO");
+    delay(100);  // Small delay between display messages
+    displayMessage("OTHER ACCOUNT");
+
+    Serial.println("❌ Handshake rejected: device paired to different account");
+    return;
+  }
+
+  // First pairing - store uid
+  if (pairedUid.isEmpty()) {
+    setPairedUid(uid);
+    enterNormalMode();  // Exit pairing mode
+    Serial.printf("🔗 First pairing: stored uid=%s\n", uid.c_str());
+  }
+
+  // Step 2: Sync sequence check
+  int deviceSyncSeq = getSyncSeqNo();  // 0 = never synced
+
+  if (appSyncSeq == deviceSyncSeq) {
+    // In sync - device is Source of Truth, proceed with normal sync
+    StaticJsonDocument<256> doc;
+    doc["status"] = "in_sync";
+    doc["device_instance_id"] = deviceInstanceId;
+
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+
+    Serial.printf("✅ Handshake: in_sync (seq=%d)\n", deviceSyncSeq);
+  } else {
+    // Out of sync - app is Source of Truth, enter conflict state
+    StaticJsonDocument<256> doc;
+    doc["status"] = "conflict";
+    doc["device_seq"] = deviceSyncSeq;
+    doc["device_instance_id"] = deviceInstanceId;
+
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+
+    enterConflictState();
+
+    Serial.printf("⚠️ Handshake: conflict (device_seq=%d, app_seq=%d)\n", deviceSyncSeq, appSyncSeq);
+  }
+}
+
+// Clear a single item slot from NVS
+void clearItemSlot(int index) {
+  if (index < 0 || index >= maxPrefsSlots) return;
+
+  char key[16];
+  snprintf(key, sizeof(key), "did_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "n_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "cat_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "c_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "tc_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "i_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "r_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "rv_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "lr_%d", index);
+  prefs.remove(key);
+  snprintf(key, sizeof(key), "rn_%d", index);
+  prefs.remove(key);
+}
+
+// Clear all item slots from NVS
+void clearAllItemSlots() {
+  for (int i = 0; i < maxPrefsSlots; i++) {
+    clearItemSlot(i);
+  }
+  // Reset item_total
+  prefs.putInt("item_total", 0);
+  Serial.println("🗑️ Cleared all item slots");
+}
+
+// ============== OVERRIDE PROTOCOL FUNCTIONS ==============
+
+// Save item data to a specific slot in NVS during override
+// Receives a JsonObject with item fields and stores to the slot index
+// NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
+void saveItemToSlot(int slotId, JsonObject& item) {
+  if (slotId < 0 || slotId >= maxPrefsSlots) {
+    Serial.printf("❌ Invalid slot ID: %d (must be 0-%d)\n", slotId, maxPrefsSlots - 1);
+    return;
+  }
+
+  char key[16];
+
+  // Store device_item_id
+  snprintf(key, sizeof(key), "did_%d", slotId);
+  prefs.putUChar(key, (uint8_t)slotId);
+
+  // Store name (max 32 chars)
+  snprintf(key, sizeof(key), "n_%d", slotId);
+  String name = safeString(item["name"] | "", 32);
+  prefs.putString(key, name);
+
+  // Store category (max 32 chars)
+  snprintf(key, sizeof(key), "cat_%d", slotId);
+  String category = safeString(item["category"] | "", 32);
+  prefs.putString(key, category);
+
+  // Store count
+  snprintf(key, sizeof(key), "c_%d", slotId);
+  prefs.putInt(key, item["count"] | 0);
+
+  // Store todaycount
+  snprintf(key, sizeof(key), "tc_%d", slotId);
+  prefs.putInt(key, item["todaycount"] | 0);
+
+  // Store increment (1-1000)
+  snprintf(key, sizeof(key), "i_%d", slotId);
+  int increment = clampInt(item["increment"] | 1, 1, 1000);
+  prefs.putInt(key, increment);
+
+  // Store reminder type
+  snprintf(key, sizeof(key), "r_%d", slotId);
+  int reminderType = item["reminder"] | REMINDER_NONE;
+  if (!isValidReminder(reminderType)) reminderType = REMINDER_NONE;
+  prefs.putInt(key, reminderType);
+
+  // Store reminder value
+  snprintf(key, sizeof(key), "rv_%d", slotId);
+  int reminderVal = clampInt(item["reminder_value"] | 0, 0, 1000000);
+  prefs.putInt(key, reminderVal);
+
+  // Store lastResetTime
+  snprintf(key, sizeof(key), "lr_%d", slotId);
+  unsigned long lastReset = item["lastResetTime"] | 0UL;
+  prefs.putULong(key, lastReset);
+
+  // Store reset_number
+  snprintf(key, sizeof(key), "rn_%d", slotId);
+  int resetNum = clampInt(item["reset_number"] | 0, 0, 100000);
+  prefs.putInt(key, resetNum);
+
+  Serial.printf("💾 Saved item to slot %d: %s\n", slotId, name.c_str());
+}
+
+// Set the selected item by device_item_id with fallback logic
+// If selectedId doesn't exist in items -> fall back to first item (index 0)
+// If no items at all -> select nothing
+// NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
+void setSelectedItem(int selectedId) {
+  int total = prefs.getInt("item_total", 0);
+
+  if (total == 0) {
+    // No items at all - select nothing
+    currentItemIndex = 0;
+    currentDeviceItemId = -1;
+    prefs.putInt("selected_index", 0);
+    prefs.putChar("selected_did", -1);
+    Serial.println("📌 No items - selecting nothing");
+    return;
+  }
+
+  // Search for the item with matching device_item_id
+  char key[16];
+  bool found = false;
+  for (int i = 0; i < total; i++) {
+    snprintf(key, sizeof(key), "did_%d", i);
+    uint8_t testId = prefs.getUChar(key, 255);
+    if (testId == (uint8_t)selectedId) {
+      // Found the item - select it
+      currentItemIndex = i;
+      currentDeviceItemId = selectedId;
+      prefs.putInt("selected_index", i);
+      prefs.putChar("selected_did", selectedId);
+      found = true;
+
+      // Load item data into runtime variables
+      snprintf(key, sizeof(key), "c_%d", i);
+      itemCount = prefs.getInt(key, 0);
+      snprintf(key, sizeof(key), "tc_%d", i);
+      itemTodayCount = prefs.getInt(key, 0);
+      snprintf(key, sizeof(key), "i_%d", i);
+      itemIncrement = prefs.getInt(key, 1);
+      snprintf(key, sizeof(key), "n_%d", i);
+      itemName = prefs.getString(key, "Item");
+      snprintf(key, sizeof(key), "cat_%d", i);
+      itemCategory = prefs.getString(key, "");
+      snprintf(key, sizeof(key), "r_%d", i);
+      reminder = prefs.getInt(key, REMINDER_NONE);
+      snprintf(key, sizeof(key), "rv_%d", i);
+      reminderValue = prefs.getInt(key, 0);
+      snprintf(key, sizeof(key), "lr_%d", i);
+      lastResetTime = prefs.getULong(key, 0);
+      snprintf(key, sizeof(key), "rn_%d", i);
+      itemResetNumber = prefs.getInt(key, 0);
+
+      Serial.printf("📌 Selected item %d (slot %d): %s\n", selectedId, i, itemName.c_str());
+      break;
+    }
+  }
+
+  if (!found) {
+    // selectedId not found - fall back to first item (index 0)
+    Serial.printf("⚠️ Selected ID %d not found - falling back to first item\n", selectedId);
+    currentItemIndex = 0;
+    snprintf(key, sizeof(key), "did_%d", 0);
+    currentDeviceItemId = prefs.getUChar(key, 0);
+    prefs.putInt("selected_index", 0);
+    prefs.putChar("selected_did", currentDeviceItemId);
+
+    // Load first item data into runtime variables
+    snprintf(key, sizeof(key), "c_%d", 0);
+    itemCount = prefs.getInt(key, 0);
+    snprintf(key, sizeof(key), "tc_%d", 0);
+    itemTodayCount = prefs.getInt(key, 0);
+    snprintf(key, sizeof(key), "i_%d", 0);
+    itemIncrement = prefs.getInt(key, 1);
+    snprintf(key, sizeof(key), "n_%d", 0);
+    itemName = prefs.getString(key, "Item");
+    snprintf(key, sizeof(key), "cat_%d", 0);
+    itemCategory = prefs.getString(key, "");
+    snprintf(key, sizeof(key), "r_%d", 0);
+    reminder = prefs.getInt(key, REMINDER_NONE);
+    snprintf(key, sizeof(key), "rv_%d", 0);
+    reminderValue = prefs.getInt(key, 0);
+    snprintf(key, sizeof(key), "lr_%d", 0);
+    lastResetTime = prefs.getULong(key, 0);
+    snprintf(key, sizeof(key), "rn_%d", 0);
+    itemResetNumber = prefs.getInt(key, 0);
+
+    Serial.printf("📌 Fallback to first item (slot 0): %s\n", itemName.c_str());
+  }
+}
+
+// ============== OVERRIDE PROTOCOL HANDLERS ==============
+
+// Handle override_start command from app
+// App sends: { "cmd": "override_start", "sync_seq": 43, "total_chunks": N }
+// Prepares device for receiving chunked item data
+// NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
+void handleOverrideStart(int syncSeq, int totalChunks) {
+  Serial.printf("📥 Override start: sync_seq=%d, total_chunks=%d\n", syncSeq, totalChunks);
+
+  // Store override state
+  overrideSyncSeq = syncSeq;
+  overrideTotalChunks = totalChunks;
+  overrideReceivedChunks = 0;
+
+  // Clear existing items to prepare for new data
+  clearAllItemSlots();
+
+  Serial.println("✅ Override started - ready to receive chunks");
+}
+
+// Handle override_chunk command from app
+// App sends: { "cmd": "override_chunk", "index": 0, "items": [...] }
+// Saves items from the chunk to their respective slots
+// NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
+void handleOverrideChunk(int chunkIndex, JsonArray items) {
+  Serial.printf("📥 Override chunk %d: %d items\n", chunkIndex, items.size());
+
+  int savedCount = 0;
+  for (JsonObject item : items) {
+    int slotId = item["device_item_id"] | -1;
+
+    // Enforce 100 item limit (device_item_id must be 0-99)
+    if (slotId >= 0 && slotId < maxPrefsSlots) {
+      saveItemToSlot(slotId, item);
+      savedCount++;
+    } else {
+      Serial.printf("⚠️ Skipping invalid device_item_id: %d\n", slotId);
+    }
+  }
+
+  overrideReceivedChunks++;
+  Serial.printf("✅ Chunk %d processed: saved %d items (received %d/%d chunks)\n",
+                chunkIndex, savedCount, overrideReceivedChunks, overrideTotalChunks);
+}
+
+// Handle override_end command from app
+// App sends: { "cmd": "override_end", "selected_id": 2 }
+// Validates all chunks received, sets selected item, updates sync_seq
+// NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
+void handleOverrideEnd(int selectedId) {
+  Serial.printf("📥 Override end: selected_id=%d\n", selectedId);
+
+  // Validate all chunks were received
+  if (overrideReceivedChunks != overrideTotalChunks) {
+    Serial.printf("❌ Override failed: missing chunks (received %d, expected %d)\n",
+                  overrideReceivedChunks, overrideTotalChunks);
+    sendJsonResponse("{\"status\":\"error\",\"message\":\"missing_chunks\"}");
+    return;
+  }
+
+  // Calculate item_total from received items
+  // Count contiguous items from index 0 (override stores items at their device_item_id index)
+  int itemTotal = 0;
+  char key[16];
+  for (int i = 0; i < maxPrefsSlots; i++) {
+    snprintf(key, sizeof(key), "n_%d", i);
+    String name = prefs.getString(key, "");
+    if (name.length() > 0) {
+      itemTotal++;
+    } else {
+      break;  // Stop at first empty slot
+    }
+  }
+  prefs.putInt("item_total", itemTotal);
+  Serial.printf("📊 Override complete: %d items total\n", itemTotal);
+
+  // Set selected item (with fallback logic)
+  // NOTE: setSelectedItem reads from prefs which is already open
+  setSelectedItem(selectedId);
+
+  // Update sync sequence number directly (we already hold NVS lock)
+  prefs.putInt(NVS_KEY_SYNC_SEQ_NO, overrideSyncSeq);
+  Serial.printf("📊 Sync sequence updated: %d\n", overrideSyncSeq);
+
+  // Exit conflict state
+  exitConflictState();
+
+  // Send success response
+  sendJsonResponse("{\"status\":\"override_complete\"}");
+
+  // Display "SYNCED" message
+  displayMessage("SYNCED");
+
+  // Reset override state
+  overrideSyncSeq = 0;
+  overrideTotalChunks = 0;
+  overrideReceivedChunks = 0;
+
+  Serial.println("✅ Override complete - device synced with app");
+}
+
+// Handle sync_complete command from app
+// App sends: { "cmd": "sync_complete", "sync_seq": 43 }
+// Called after normal sync (device was source of truth) to update sync_seq
+void handleSyncComplete(int newSyncSeq) {
+  Serial.printf("📥 Sync complete: new_sync_seq=%d\n", newSyncSeq);
+
+  // Update sync sequence number in NVS
+  setSyncSeqNo(newSyncSeq);
+
+  // Send acknowledgment so app knows it's safe to update Firestore
+  sendJsonResponse("{\"status\":\"seq_updated\"}");
+
+  // No display change - normal operation continues
+  Serial.println("✅ Sync complete - sequence number updated");
+}
+
+// Clear BLE bonding table
+void clearBleBonding() {
+  // Remove all bonded devices
+  int devNum = esp_ble_get_bond_device_num();
+  if (devNum > 0) {
+    esp_ble_bond_dev_t* devList = (esp_ble_bond_dev_t*)malloc(sizeof(esp_ble_bond_dev_t) * devNum);
+    if (devList != NULL) {
+      esp_ble_get_bond_device_list(&devNum, devList);
+      for (int i = 0; i < devNum; i++) {
+        esp_ble_remove_bond_device(devList[i].bd_addr);
+      }
+      free(devList);
+    }
+  }
+  Serial.printf("🔐 Cleared BLE bonding table (%d devices)\n", devNum);
+}
+
+// Wait for a specific key confirmation with timeout
+// Returns true if the expected key is pressed within timeout
+bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
+  unsigned long startTime = millis();
+  Serial.printf("⏳ Waiting for '%c' confirmation (timeout: %lu ms)...\n", expectedKey, timeoutMs);
+
+  while ((millis() - startTime) < timeoutMs) {
+    if (Serial.available()) {
+      char c = Serial.read();
+      if (c == expectedKey) {
+        Serial.println("✅ Confirmation received");
+        return true;
+      }
+    }
+    delay(50);  // Small delay to prevent busy-waiting
+  }
+
+  Serial.println("⏰ Confirmation timeout");
+  return false;
+}
+
+// Handle factory reset with confirmation
+// Clears: pairing, sync_seq, all items, BLE bonding
+// Regenerates: device_instance_id
+void handleFactoryReset() {
+  displayMessage("FACTORY RESET?");
+  displayMessage("F=CONFIRM");
+
+  if (waitForConfirmation('F', 10000)) {
+    if (!nvsBeginSafe("counter", false)) {
+      displayMessage("RESET FAILED");
+      Serial.println("❌ Factory reset failed - NVS mutex timeout");
+      return;
+    }
+
+    // Clear pairing data
+    prefs.remove(NVS_KEY_PAIRED_UID);
+    prefs.remove(NVS_KEY_SYNC_SEQ_NO);
+    Serial.println("🗑️ Cleared pairing data");
+
+    // Clear all item slots
+    clearAllItemSlots();
+
+    // Reset selection state
+    prefs.putInt("selected_index", 0);
+    prefs.putChar("selected_did", -1);
+    prefs.remove("last_reset_date");
+
+    nvsEndSafe();
+
+    // Generate NEW device instance ID (outside NVS lock since it has its own)
+    generateDeviceInstanceId();
+
+    // Clear BLE bonding table
+    clearBleBonding();
+
+    displayMessage("RESET COMPLETE");
+    Serial.println("✅ Factory reset complete - restarting device");
+    delay(2000);
+
+    ESP.restart();
+  } else {
+    displayMessage("CANCELLED");
+    Serial.println("❌ Factory reset cancelled");
+  }
 }
 
 // ============== NON-BLOCKING BLE TRANSMISSION ==============
@@ -770,6 +1394,38 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 };
 
 
+// Handle override_chunk command with larger JSON buffer
+// App sends: { "cmd": "override_chunk", "index": 0, "items": [...] }
+// Separated from WriteCallback because items array needs larger buffer
+void handleOverrideChunkCommand(const String& jsonStr) {
+  // Use larger buffer for items array (each item ~150 bytes, 10 items per chunk max)
+  StaticJsonDocument<4096> doc;
+  DeserializationError err = deserializeJson(doc, jsonStr);
+  if (err) {
+    Serial.print("❌ Override chunk JSON parse error: ");
+    Serial.println(err.c_str());
+    notifyError("override_chunk", err.c_str());
+    return;
+  }
+
+  int chunkIndex = doc["index"] | 0;
+  JsonArray items = doc["items"].as<JsonArray>();
+
+  if (items.isNull()) {
+    Serial.println("❌ Override chunk missing items array");
+    notifyError("override_chunk", "Missing items array");
+    return;
+  }
+
+  // Acquire NVS lock for saving items
+  if (!nvsBeginSafe("counter", false)) {
+    notifyError("override_chunk", "NVS mutex timeout");
+    return;
+  }
+
+  handleOverrideChunk(chunkIndex, items);
+  nvsEndSafe();
+}
 
 class WriteCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) override {
@@ -778,6 +1434,13 @@ class WriteCallback : public BLECharacteristicCallbacks {
     Serial.print("📨 Received JSON string: '");
     Serial.print(jsonStr);
     Serial.println("'");
+
+    // Special handling for override_chunk - needs larger buffer due to items array
+    // Check for "override_chunk" command prefix to route to special handler
+    if (jsonStr.indexOf("\"override_chunk\"") >= 0) {
+      handleOverrideChunkCommand(jsonStr);
+      return;
+    }
 
     StaticJsonDocument<256> doc;
     DeserializationError err = deserializeJson(doc, jsonStr);
@@ -791,7 +1454,19 @@ class WriteCallback : public BLECharacteristicCallbacks {
     String cmd = doc["cmd"] | "";
     cmd.trim();
 
-    if (cmd == "clear_logs") {  //////////////////// clear all event logs
+    if (cmd == "handshake") {  //////////////////// multi-device handshake
+      // App sends: { "cmd": "handshake", "uid": "xxx", "sync_seq": 42 }
+      String uid = doc["uid"] | "";
+      int syncSeq = doc["sync_seq"] | 0;
+
+      if (uid.isEmpty()) {
+        notifyError("handshake", "Missing uid parameter");
+        return;
+      }
+
+      handleHandshake(uid, syncSeq);
+
+    } else if (cmd == "clear_logs") {  //////////////////// clear all event logs
       clearLogs();
       Serial.println("✅ Logs cleared.");
 
@@ -921,7 +1596,45 @@ class WriteCallback : public BLECharacteristicCallbacks {
       }
     }
 
-    else if (cmd == "force_reset_today") {
+    else if (cmd == "override_start") {  //////////////////// multi-device override start
+      // App sends: { "cmd": "override_start", "sync_seq": 43, "total_chunks": N }
+      int syncSeq = doc["sync_seq"] | 0;
+      int totalChunks = doc["total_chunks"] | 0;
+
+      if (totalChunks < 0) {
+        notifyError("override_start", "Invalid total_chunks");
+        return;
+      }
+
+      // Acquire NVS lock for the entire override operation
+      if (!nvsBeginSafe("counter", false)) {
+        notifyError("override_start", "NVS mutex timeout");
+        return;
+      }
+
+      handleOverrideStart(syncSeq, totalChunks);
+      nvsEndSafe();
+
+    } else if (cmd == "override_end") {  //////////////////// multi-device override end
+      // App sends: { "cmd": "override_end", "selected_id": 2 }
+      int selectedId = doc["selected_id"] | -1;
+
+      // Acquire NVS lock for finalization
+      if (!nvsBeginSafe("counter", false)) {
+        notifyError("override_end", "NVS mutex timeout");
+        return;
+      }
+
+      handleOverrideEnd(selectedId);
+      nvsEndSafe();
+
+    } else if (cmd == "sync_complete") {  //////////////////// multi-device sync complete
+      // App sends: { "cmd": "sync_complete", "sync_seq": 43 }
+      int newSyncSeq = doc["sync_seq"] | 0;
+
+      handleSyncComplete(newSyncSeq);
+
+    } else if (cmd == "force_reset_today") {
       // Debug command to force reset all todaycounts regardless of date
       Serial.println("🔧 DEBUG: Force resetting all todayCounts...");
 
@@ -983,6 +1696,12 @@ class ServerCallbacks : public BLEServerCallbacks {
   void onDisconnect(BLEServer* p) override {
     // Flush any pending NVS writes before disconnecting to prevent data loss
     flushPendingNvsWrites();
+
+    // Exit conflict state on disconnect - device returns to normal operation
+    // User can reconnect to retry sync
+    if (inConflictState) {
+      exitConflictState();
+    }
 
     isConnected = false;
     Serial.println("🔌 Client disconnected — restarting advertising...");
@@ -1129,6 +1848,14 @@ void notifyEvent(String event, int resetNum = -1) {
 // Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
 void handleCommand(char cmd) {
   recordActivity();  // Wake from low power mode on button press
+
+  // ============== CONFLICT STATE CHECK ==============
+  // In conflict state, all buttons are disabled - user must resolve via app
+  if (inConflictState) {
+    displayMessage("SEE APP");  // Remind user to check app
+    Serial.printf("⛔ Button '%c' ignored - device in conflict state (SEE APP)\n", cmd);
+    return;
+  }
 
   if (!nvsBeginSafe("counter", false)) {
     Serial.println("⚠️ NVS mutex timeout in handleCommand");
@@ -1401,6 +2128,29 @@ void setup() {
     Serial.println("❌ Failed to open NVS in setup");
     return;
   }
+
+  // ============== MULTI-DEVICE: Device Instance ID ==============
+  // Check if device instance ID exists, generate if not (first boot)
+  String deviceInstanceId = prefs.getString(NVS_KEY_DEVICE_INSTANCE_ID, "");
+  if (deviceInstanceId.isEmpty()) {
+    // First boot ever - generate device instance ID
+    nvsEndSafe();  // Release lock before generating (it acquires its own)
+    generateDeviceInstanceId();
+    if (!nvsBeginSafe("counter", false)) {
+      Serial.println("❌ Failed to reopen NVS after generating device ID");
+      return;
+    }
+    deviceInstanceId = prefs.getString(NVS_KEY_DEVICE_INSTANCE_ID, "");
+  }
+  Serial.printf("🆔 Device Instance ID: %s\n", deviceInstanceId.c_str());
+
+  // ============== MULTI-DEVICE: Pairing Mode Detection ==============
+  // Check if device is paired (has a paired_uid set)
+  String pairedUid = prefs.getString(NVS_KEY_PAIRED_UID, "");
+  int syncSeqNo = prefs.getInt(NVS_KEY_SYNC_SEQ_NO, 0);
+  Serial.printf("🔗 Paired UID: %s\n", pairedUid.isEmpty() ? "(unpaired)" : pairedUid.c_str());
+  Serial.printf("📊 Sync Sequence: %d\n", syncSeqNo);
+
   // ✅ Verify and store item_total
   int verifiedTotal = 0;
   char key[16];  // Buffer for preference keys
@@ -1474,6 +2224,16 @@ void setup() {
   // Initialize power management
   powerState.lastActivity = millis();
   Serial.println("⚡ Power management initialized");
+
+  // ============== MULTI-DEVICE: Enter appropriate mode ==============
+  if (!isDevicePaired()) {
+    // Unpaired device - enter pairing mode
+    enterPairingMode();
+    displayWelcomeScreen();
+  } else {
+    // Paired device - normal operation
+    enterNormalMode();
+  }
 }
 
 
@@ -1527,6 +2287,9 @@ void loop() {
     char cmd = Serial.read();
     if (cmd == 'u' || cmd == 'r' || cmd == 's') {
       handleCommand(cmd);
+    } else if (cmd == 'f' || cmd == 'F') {
+      // Factory reset command - requires confirmation
+      handleFactoryReset();
     }
   }
 
