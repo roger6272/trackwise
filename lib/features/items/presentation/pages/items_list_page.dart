@@ -1896,68 +1896,76 @@ class _ItemsListContentState extends State<_ItemsListContent>
       // Show tooltip overlay
       final overlay = Overlay.of(context);
       _reorderHintOverlay = OverlayEntry(
-        builder: (context) => Positioned(
-          bottom: 120,
-          left: 20,
-          right: 20,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+        builder: (context) => GestureDetector(
+          onTap: () => _dismissReorderHint(appUiState),
+          behavior: HitTestBehavior.translucent,
+          child: Stack(
+            children: [
+              // Invisible full-screen tap target
+              Positioned.fill(
+                child: Container(color: Colors.transparent),
               ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.drag_indicator_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Long press and drag to reorder items',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+              // Tooltip at bottom
+              Positioned(
+                bottom: 120,
+                left: 20,
+                right: 20,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.drag_indicator_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Long press and drag to reorder items',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       );
       overlay.insert(_reorderHintOverlay!);
 
-      // Lift up animation
-      _reorderHintController?.forward().then((_) {
-        if (!mounted) return;
-
-        // Hold briefly, then lower
-        Future.delayed(const Duration(milliseconds: 4000), () {
-          if (!mounted) return;
-          _reorderHintController?.reverse().then((_) {
-            if (!mounted) return;
-            // Remove overlay and mark hint as shown
-            _reorderHintOverlay?.remove();
-            _reorderHintOverlay = null;
-            appUiState.markReorderHintShown();
-          });
-        });
-      });
+      // Lift up animation (stays lifted until dismissed)
+      _reorderHintController?.forward();
     });
+  }
+
+  /// Dismisses the reorder hint overlay
+  void _dismissReorderHint(AppUiState appUiState) {
+    if (_reorderHintOverlay == null) return;
+    _reorderHintController?.reverse();
+    _reorderHintOverlay?.remove();
+    _reorderHintOverlay = null;
+    appUiState.markReorderHintShown();
   }
 
   /// Shows an activation hint for new users who just created their first item.
@@ -1982,62 +1990,74 @@ class _ItemsListContentState extends State<_ItemsListContent>
       // Show tooltip overlay
       final overlay = Overlay.of(context);
       _activationHintOverlay = OverlayEntry(
-        builder: (context) => Positioned(
-          bottom: 120,
-          left: 20,
-          right: 20,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+        builder: (context) => GestureDetector(
+          onTap: () => _dismissActivationHint(appUiState),
+          behavior: HitTestBehavior.translucent,
+          child: Stack(
+            children: [
+              // Invisible full-screen tap target
+              Positioned.fill(
+                child: Container(color: Colors.transparent),
               ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.swipe_left_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Swipe left and tap the pin icon to activate this item on your device',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+              // Tooltip at bottom
+              Positioned(
+                bottom: 120,
+                left: 20,
+                right: 20,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.swipe_left_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Swipe left and tap the pin icon to activate this item on your device',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       );
       overlay.insert(_activationHintOverlay!);
-
-      // Close after showing
-      Future.delayed(const Duration(milliseconds: 5000), () {
-        if (!mounted) return;
-        _activationHintOverlay?.remove();
-        _activationHintOverlay = null;
-        _firstItemController?.close();
-        appUiState.markActivationHintShown();
-        // Also mark swipe hint as shown since we just showed swipe actions
-        appUiState.markSwipeHintShown();
-      });
     });
+  }
+
+  /// Dismisses the activation hint overlay
+  void _dismissActivationHint(AppUiState appUiState) {
+    if (_activationHintOverlay == null) return;
+    _activationHintOverlay?.remove();
+    _activationHintOverlay = null;
+    _firstItemController?.close();
+    appUiState.markActivationHintShown();
+    appUiState.markSwipeHintShown();
   }
 
   /// Syncs the device with items from the selected item's category.
