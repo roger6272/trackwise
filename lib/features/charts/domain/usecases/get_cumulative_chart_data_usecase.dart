@@ -104,7 +104,8 @@ class GetCumulativeChartDataUseCase
         return Right(ChartData(
           dataPoints: cumulative,
           aggregationLevel: params.aggregationLevel,
-          initialCount: initialCount,
+          // Only include initial count for first cycle (All Time or Period 0)
+          initialCount: params.isFirstCycle ? initialCount : 0,
           createdAt: createdAt,
         ));
       },

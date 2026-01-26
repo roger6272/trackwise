@@ -27,6 +27,10 @@ class GetChartDataParams extends Equatable {
   /// Optional time to filter events before (for interval end time).
   final DateTime? untilResetTime;
 
+  /// Whether viewing first cycle (All Time or Period 0).
+  /// Initial count is only included in charts for the first cycle.
+  final bool isFirstCycle;
+
   const GetChartDataParams({
     required this.startDate,
     required this.endDate,
@@ -34,10 +38,11 @@ class GetChartDataParams extends Equatable {
     this.itemId,
     this.sinceResetTime,
     this.untilResetTime,
+    this.isFirstCycle = true,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle];
 }
 
 /// Use case for generating aggregated chart data from events.
@@ -128,7 +133,8 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
         return Right(ChartData(
           dataPoints: aggregated,
           aggregationLevel: params.aggregationLevel,
-          initialCount: initialCount,
+          // Only include initial count for first cycle (All Time or Period 0)
+          initialCount: params.isFirstCycle ? initialCount : 0,
           createdAt: createdAt,
         ));
       },

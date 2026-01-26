@@ -121,6 +121,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Flag to trigger data reload after widget update.
   bool _needsDataReload = false;
 
+  /// Whether viewing first cycle (All Time or Period 0).
+  /// Initial count is only included in charts for the first cycle.
+  bool get _isFirstCycle =>
+      _selectedInterval == null || _selectedInterval == -1 || _selectedInterval == 0;
+
   /// Stream subscription for Bluetooth logs.
   StreamSubscription<BluetoothState>? _bluetoothSubscription;
 
@@ -663,7 +668,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         percentChange: stats.percentChange,
                                         priorPeriodCount: stats.priorPeriodCount,
                                         periodLabel: stats.periodLabel,
-                                        initialCount: widget.initialCount ?? 0,
+                                        // Only show initial count in first cycle (All Time or Period 0)
+                                        initialCount: _isFirstCycle ? (widget.initialCount ?? 0) : 0,
                                       ),
                                     ),
                                     // Periods comparison table
@@ -762,6 +768,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         itemId: widget.itemId,
         sinceResetTime: sinceResetTime,
         untilResetTime: untilResetTime,
+        isFirstCycle: _isFirstCycle,
       );
     } else {
       return LoadBarChart(
@@ -771,6 +778,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         itemId: widget.itemId,
         sinceResetTime: sinceResetTime,
         untilResetTime: untilResetTime,
+        isFirstCycle: _isFirstCycle,
       );
     }
   }

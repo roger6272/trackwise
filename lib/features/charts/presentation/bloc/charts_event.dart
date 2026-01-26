@@ -40,6 +40,10 @@ class LoadBarChart extends ChartsEvent {
   /// Optional time to filter events before (for interval end time).
   final DateTime? untilResetTime;
 
+  /// Whether viewing first cycle (All Time or Period 0).
+  /// Initial count is only included in charts for the first cycle.
+  final bool isFirstCycle;
+
   const LoadBarChart({
     required this.startDate,
     required this.endDate,
@@ -47,10 +51,11 @@ class LoadBarChart extends ChartsEvent {
     this.itemId,
     this.sinceResetTime,
     this.untilResetTime,
+    this.isFirstCycle = true,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle];
 }
 
 /// Event to load cumulative chart data.
@@ -80,6 +85,10 @@ class LoadCumulativeChart extends ChartsEvent {
   /// Optional time to filter events before (for interval end time).
   final DateTime? untilResetTime;
 
+  /// Whether viewing first cycle (All Time or Period 0).
+  /// Initial count is only included in charts for the first cycle.
+  final bool isFirstCycle;
+
   const LoadCumulativeChart({
     required this.startDate,
     required this.endDate,
@@ -87,10 +96,11 @@ class LoadCumulativeChart extends ChartsEvent {
     this.itemId,
     this.sinceResetTime,
     this.untilResetTime,
+    this.isFirstCycle = true,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle];
 }
 
 /// Event to change the date range.
