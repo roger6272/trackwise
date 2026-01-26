@@ -204,6 +204,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i59.FirebaseAuth>(() => registerModule.firebaseAuth);
     gh.lazySingleton<_i116.GoogleSignIn>(() => registerModule.googleSignIn);
     gh.lazySingleton<_i237.AppUiState>(() => registerModule.appUiState);
+    gh.lazySingleton<_i895.Connectivity>(() => registerModule.connectivity);
     gh.lazySingleton<_i590.AnalyticsService>(
         () => _i590.AnalyticsService.create());
     gh.lazySingleton<_i813.CrashlyticsService>(
