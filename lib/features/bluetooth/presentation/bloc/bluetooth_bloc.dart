@@ -575,8 +575,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         }
       },
       (result) {
-        if (kDebugMode) print('Sync completed successfully');
-        // Reload paired devices to update UI
+        if (kDebugMode) print('Sync completed successfully, deviceInstanceId=${result.deviceInstanceId}');
+        // Set the connected device instance ID and reload paired devices
+        emit(state.copyWith(connectedDeviceInstanceId: result.deviceInstanceId));
         add(const LoadPairedDevices());
       },
     );
@@ -845,10 +846,25 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   }
 
   /// Removes a paired device from the user's list.
+  /// If the device is currently connected, disconnects first.
   Future<void> _onRemovePairedDevice(
     RemovePairedDevice event,
     Emitter<BluetoothState> emit,
   ) async {
+    // Check if the device being unpaired is the currently connected device
+    final isConnectedDevice = state.connectedDeviceInstanceId == event.deviceInstanceId;
+
+    // Disconnect first if this is the connected device
+    if (isConnectedDevice && state.connectedDevice != null) {
+      if (kDebugMode) print('Disconnecting from device being unpaired');
+      _isManualDisconnect = true;
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+      _reconnectAttempts = 0;
+
+      await _bluetoothRepository.disconnect(state.connectedDevice!.id);
+    }
+
     final result = await _userRepository.removePairedDevice(event.deviceInstanceId);
 
     result.fold(
@@ -861,7 +877,17 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
             .where((d) => d.deviceInstanceId != event.deviceInstanceId)
             .toList();
 
-        emit(state.copyWith(pairedDevices: updatedDevices));
+        if (isConnectedDevice) {
+          // Also clear connected state
+          emit(state.copyWith(
+            pairedDevices: updatedDevices,
+            status: BluetoothStatus.ready,
+            clearConnectedDevice: true,
+            clearConnectedDeviceInstanceId: true,
+          ));
+        } else {
+          emit(state.copyWith(pairedDevices: updatedDevices));
+        }
       },
     );
   }

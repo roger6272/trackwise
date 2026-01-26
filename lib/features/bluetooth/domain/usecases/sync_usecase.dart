@@ -34,14 +34,19 @@ class SyncResult extends Equatable {
   /// -1 if no item selected.
   final int selectedDeviceItemId;
 
+  /// The device instance ID from handshake response.
+  /// Used to track which paired device is connected.
+  final String? deviceInstanceId;
+
   const SyncResult({
     required this.type,
     this.selectedFirestoreId,
     this.selectedDeviceItemId = -1,
+    this.deviceInstanceId,
   });
 
   @override
-  List<Object?> get props => [type, selectedFirestoreId, selectedDeviceItemId];
+  List<Object?> get props => [type, selectedFirestoreId, selectedDeviceItemId, deviceInstanceId];
 }
 
 /// Parameters for the PerformSyncUseCase.
@@ -185,7 +190,7 @@ class PerformSyncUseCase {
 
     // Step 6: Handle sync based on status
     if (handshake.status == SyncStatus.inSync) {
-      return _performNormalSync(user.id, appSyncSeq);
+      return _performNormalSync(user.id, appSyncSeq, handshake.deviceInstanceId);
     } else {
       // Return conflict for UI to handle
       return Left(SyncConflictFailure(
@@ -205,6 +210,7 @@ class PerformSyncUseCase {
   Future<Either<Failure, SyncResult>> _performNormalSync(
     String userId,
     int currentSeq,
+    String deviceInstanceId,
   ) async {
     debugPrint('PerformSyncUseCase: Starting normal sync');
 
@@ -259,7 +265,10 @@ class PerformSyncUseCase {
 
     debugPrint('PerformSyncUseCase: Normal sync complete');
 
-    return const Right(SyncResult(type: SyncResultType.success));
+    return Right(SyncResult(
+      type: SyncResultType.success,
+      deviceInstanceId: deviceInstanceId,
+    ));
   }
 
   /// Updates Firestore sync state with retry logic.
