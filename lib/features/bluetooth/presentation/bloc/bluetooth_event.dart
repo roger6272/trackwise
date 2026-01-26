@@ -252,3 +252,14 @@ class CancelSyncConflict extends BluetoothEvent {
 class ClearConflictState extends BluetoothEvent {
   const ClearConflictState();
 }
+
+/// Internal event when sync completes successfully.
+/// Sets the connected device instance ID and triggers paired devices reload.
+class SyncCompleted extends BluetoothEvent {
+  final String? deviceInstanceId;
+
+  const SyncCompleted({this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
+}

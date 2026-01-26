@@ -138,6 +138,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<ConfirmSyncOverride>(_onConfirmSyncOverride);
     on<CancelSyncConflict>(_onCancelSyncConflict);
     on<ClearConflictState>(_onClearConflictState);
+    on<SyncCompleted>(_onSyncCompleted);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -576,9 +577,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       },
       (result) {
         if (kDebugMode) print('Sync completed successfully, deviceInstanceId=${result.deviceInstanceId}');
-        // Set the connected device instance ID and reload paired devices
-        emit(state.copyWith(connectedDeviceInstanceId: result.deviceInstanceId));
-        add(const LoadPairedDevices());
+        // Use event to update state (emit not available outside event handlers)
+        add(SyncCompleted(deviceInstanceId: result.deviceInstanceId));
       },
     );
   }
@@ -973,6 +973,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     emit(state.copyWith(clearConflict: true));
+  }
+
+  /// Handles successful sync completion.
+  Future<void> _onSyncCompleted(
+    SyncCompleted event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(connectedDeviceInstanceId: event.deviceInstanceId));
+    // Reload paired devices to update UI
+    add(const LoadPairedDevices());
   }
 
   // ========== Cleanup ==========
