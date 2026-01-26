@@ -116,6 +116,9 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
         return _syncItemDeltaMessage(message, userId);
       case BleMessageType.error:
         return _handleErrorMessage(message);
+      case BleMessageType.syncResponse:
+        // Sync protocol responses are handled by PerformSyncUseCase, not here
+        return const Right(SyncDeviceDataResult());
       case BleMessageType.unknown:
         return const Right(SyncDeviceDataResult());
     }

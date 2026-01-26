@@ -80,6 +80,17 @@ class BleMessageModel extends BleMessage {
     final typeStr = parsed['type'] as String?;
     final type = _parseType(typeStr);
 
+    // For sync protocol responses (handshake, sync_complete, override_complete),
+    // there's no 'type' field but there IS a 'status' field.
+    // Store the entire JSON as data so _sendCommandAndWaitForResponse can access it.
+    if (type == BleMessageType.unknown && parsed.containsKey('status')) {
+      return BleMessageModel(
+        type: BleMessageType.syncResponse,
+        data: parsed, // Store entire JSON for sync protocol handling
+        receivedAt: DateTime.now(),
+      );
+    }
+
     // For item_delta, all fields are at top level (not in 'data')
     // Format: {"type": "item_delta", "id": 0, "count": N, "todaycount": N, "lastResetTime": N, "resetNumber": N}
     // Note: id is now numeric deviceItemId (0-99)
@@ -221,6 +232,8 @@ class BleMessageModel extends BleMessage {
         return 'item_delta';
       case BleMessageType.error:
         return 'error';
+      case BleMessageType.syncResponse:
+        return 'sync_response';
       case BleMessageType.unknown:
         return 'unknown';
     }
