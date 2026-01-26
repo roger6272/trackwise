@@ -157,62 +157,47 @@ class PerformSyncUseCase {
     debugPrint('PerformSyncUseCase: Handshake result - ${handshake.status}, '
         'deviceInstanceId=${handshake.deviceInstanceId}');
 
-    try {
-    // Step 4: Check for wrong account FIRST (before adding to paired_devices)
+    // Step 4: Check for wrong account FIRST
     if (handshake.status == SyncStatus.wrongAccount) {
       debugPrint('PerformSyncUseCase: Wrong account detected');
       return const Left(WrongAccountFailure());
     }
-    debugPrint('PerformSyncUseCase: Step 4 passed (not wrong account)');
 
-    // Step 5: Add to paired devices if new (only after confirming it's our device)
+    // Step 5: Check for conflict BEFORE adding to paired devices
+    // (Don't add device until sync is successful)
+    if (handshake.status == SyncStatus.conflict) {
+      debugPrint('PerformSyncUseCase: Returning SyncConflictFailure - '
+          'appSyncSeq=$appSyncSeq, deviceSyncSeq=${handshake.deviceSyncSeq}');
+      return Left(SyncConflictFailure(
+        deviceSyncSeq: handshake.deviceSyncSeq,
+        appSyncSeq: appSyncSeq,
+        deviceInstanceId: handshake.deviceInstanceId,
+      ));
+    }
+
+    // Step 6: Device is in sync - add to paired devices if new
     final isNewDevice = !user.pairedDevices.any(
       (d) => d.deviceInstanceId == handshake.deviceInstanceId,
     );
-    debugPrint('PerformSyncUseCase: Step 5 - isNewDevice=$isNewDevice');
 
     if (isNewDevice) {
       // Check device limit
       if (user.pairedDevices.length >= maxDevices) {
-        debugPrint('PerformSyncUseCase: Device limit reached');
         return const Left(DeviceLimitFailure());
       }
 
-      debugPrint('PerformSyncUseCase: Adding device to paired list...');
-      // Add to paired devices list
-      final addResult = await _userRepository.addPairedDevice(
+      // Add to paired devices list (non-blocking, don't wait)
+      _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: handshake.deviceInstanceId,
           deviceName: 'Trackwise Device',
           pairedAt: DateTime.now(),
         ),
       );
-      debugPrint('PerformSyncUseCase: addPairedDevice completed');
-
-      if (addResult.isLeft()) {
-        // Non-fatal - continue with sync even if adding to list fails
-        debugPrint('Warning: Failed to add device to paired list');
-      }
     }
 
-    debugPrint('PerformSyncUseCase: Step 6 - checking sync status');
-    // Step 6: Handle sync based on status
-    if (handshake.status == SyncStatus.inSync) {
-      return _performNormalSync(user.id, appSyncSeq, handshake.deviceInstanceId);
-    } else {
-      // Return conflict for UI to handle
-      debugPrint('PerformSyncUseCase: Returning SyncConflictFailure - '
-          'appSyncSeq=$appSyncSeq, deviceSyncSeq=${handshake.deviceSyncSeq}');
-      return Left(SyncConflictFailure(
-        deviceSyncSeq: handshake.deviceSyncSeq,
-        appSyncSeq: appSyncSeq,
-      ));
-    }
-    } catch (e, stackTrace) {
-      debugPrint('PerformSyncUseCase: EXCEPTION after handshake: $e');
-      debugPrint('PerformSyncUseCase: Stack trace: $stackTrace');
-      return Left(BleSyncFailure('Exception in sync: $e'));
-    }
+    // Step 7: Perform normal sync (device is source of truth)
+    return _performNormalSync(user.id, appSyncSeq, handshake.deviceInstanceId);
   }
 
   /// Performs normal sync flow (device is source of truth).

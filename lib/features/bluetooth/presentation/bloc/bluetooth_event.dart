@@ -226,14 +226,16 @@ class RemovePairedDevice extends BluetoothEvent {
 class SyncConflictDetected extends BluetoothEvent {
   final int? deviceSyncSeq;
   final int appSyncSeq;
+  final String? deviceInstanceId;
 
   const SyncConflictDetected({
     this.deviceSyncSeq,
     required this.appSyncSeq,
+    this.deviceInstanceId,
   });
 
   @override
-  List<Object?> get props => [deviceSyncSeq, appSyncSeq];
+  List<Object?> get props => [deviceSyncSeq, appSyncSeq, deviceInstanceId];
 }
 
 /// User confirmed override in conflict dialog.

@@ -559,10 +559,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       (failure) {
         if (failure is SyncConflictFailure) {
           // Conflict detected - notify UI to show dialog
-          if (kDebugMode) print('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}');
+          if (kDebugMode) print('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}, deviceInstanceId=${failure.deviceInstanceId}');
           add(SyncConflictDetected(
             appSyncSeq: failure.appSyncSeq,
             deviceSyncSeq: failure.deviceSyncSeq,
+            deviceInstanceId: failure.deviceInstanceId,
           ));
         } else if (failure is WrongAccountFailure) {
           if (kDebugMode) print('Wrong account - device locked to different user');
@@ -899,10 +900,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SyncConflictDetected event,
     Emitter<BluetoothState> emit,
   ) async {
+    if (kDebugMode) print('BluetoothBloc: Setting hasConflict=true, deviceInstanceId=${event.deviceInstanceId}');
     emit(state.copyWith(
       hasConflict: true,
       conflictAppSyncSeq: event.appSyncSeq,
       conflictDeviceSyncSeq: event.deviceSyncSeq,
+      conflictDeviceInstanceId: event.deviceInstanceId,
     ));
   }
 

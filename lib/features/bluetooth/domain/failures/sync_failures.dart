@@ -54,18 +54,22 @@ class SyncConflictFailure extends SyncFailure {
   /// App's current sync sequence number (from Firestore).
   final int appSyncSeq;
 
+  /// Device instance ID (needed to add device after successful override).
+  final String? deviceInstanceId;
+
   const SyncConflictFailure({
     this.deviceSyncSeq,
     required this.appSyncSeq,
+    this.deviceInstanceId,
     String message = 'Device needs to be updated to match your app.',
   }) : super(message);
 
   @override
-  List<Object> get props => [message, appSyncSeq, if (deviceSyncSeq != null) deviceSyncSeq!];
+  List<Object> get props => [message, appSyncSeq, if (deviceSyncSeq != null) deviceSyncSeq!, if (deviceInstanceId != null) deviceInstanceId!];
 
   @override
   String toString() => 'SyncConflictFailure(message: $message, '
-      'deviceSyncSeq: $deviceSyncSeq, appSyncSeq: $appSyncSeq)';
+      'deviceSyncSeq: $deviceSyncSeq, appSyncSeq: $appSyncSeq, deviceInstanceId: $deviceInstanceId)';
 }
 
 /// Firestore update failed after device acknowledged sync.

@@ -88,6 +88,9 @@ class BluetoothState extends Equatable {
   /// Device's sync sequence number (for conflict dialog context).
   final int? conflictDeviceSyncSeq;
 
+  /// Device instance ID from conflict (needed to add after successful override).
+  final String? conflictDeviceInstanceId;
+
   /// Whether an override sync is in progress.
   final bool isOverriding;
 
@@ -107,6 +110,7 @@ class BluetoothState extends Equatable {
     this.hasConflict = false,
     this.conflictAppSyncSeq,
     this.conflictDeviceSyncSeq,
+    this.conflictDeviceInstanceId,
     this.isOverriding = false,
   });
 
@@ -127,6 +131,7 @@ class BluetoothState extends Equatable {
     bool? hasConflict,
     int? conflictAppSyncSeq,
     int? conflictDeviceSyncSeq,
+    String? conflictDeviceInstanceId,
     bool? isOverriding,
     bool clearConnectedDevice = false,
     bool clearConnectingDeviceId = false,
@@ -154,6 +159,7 @@ class BluetoothState extends Equatable {
       hasConflict: clearConflict ? false : (hasConflict ?? this.hasConflict),
       conflictAppSyncSeq: clearConflict ? null : (conflictAppSyncSeq ?? this.conflictAppSyncSeq),
       conflictDeviceSyncSeq: clearConflict ? null : (conflictDeviceSyncSeq ?? this.conflictDeviceSyncSeq),
+      conflictDeviceInstanceId: clearConflict ? null : (conflictDeviceInstanceId ?? this.conflictDeviceInstanceId),
       isOverriding: isOverriding ?? this.isOverriding,
     );
   }
@@ -190,6 +196,7 @@ class BluetoothState extends Equatable {
         hasConflict,
         conflictAppSyncSeq,
         conflictDeviceSyncSeq,
+        conflictDeviceInstanceId,
         isOverriding,
       ];
 
