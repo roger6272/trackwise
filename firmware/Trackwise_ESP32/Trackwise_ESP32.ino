@@ -756,6 +756,9 @@ bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
   Serial.printf("⏳ Waiting for '%c' confirmation (timeout: %lu ms)...\n", expectedKey, timeoutMs);
 
   while ((millis() - startTime) < timeoutMs) {
+    // Explicitly feed the watchdog every iteration
+    esp_task_wdt_reset();
+
     if (Serial.available()) {
       char c = Serial.read();
       if (c == expectedKey) {
@@ -763,8 +766,8 @@ bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
         return true;
       }
     }
-    // Yield to system tasks and feed watchdog
-    vTaskDelay(pdMS_TO_TICKS(100));
+    // Small delay to prevent busy-waiting
+    delay(100);
   }
 
   Serial.println("⏰ Confirmation timeout");
