@@ -393,25 +393,6 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.factory<_i1061.ExportBloc>(() => _i1061.ExportBloc(
         sendEmailWithCSVUseCase: gh<_i963.SendEmailWithCSVUseCase>()));
-    gh.lazySingleton<_i72.BluetoothBloc>(() => _i72.BluetoothBloc(
-          gh<_i697.ScanDevicesUseCase>(),
-          gh<_i907.StopScanUseCase>(),
-          gh<_i679.ConnectDeviceUseCase>(),
-          gh<_i939.DisconnectDeviceUseCase>(),
-          gh<_i385.WatchConnectionStateUseCase>(),
-          gh<_i508.WatchDeviceMessagesUseCase>(),
-          gh<_i705.SendItemsToDeviceUseCase>(),
-          gh<_i884.SendSelectedItemUseCase>(),
-          gh<_i981.SendTimeSyncUseCase>(),
-          gh<_i809.RequestDeviceDataUseCase>(),
-          gh<_i733.ClearDeviceLogsUseCase>(),
-          gh<_i769.CheckBluetoothEnabledUseCase>(),
-          gh<_i269.RequestBluetoothPermissionsUseCase>(),
-          gh<_i833.SyncDeviceDataUseCase>(),
-          gh<_i844.PerformOverrideUseCase>(),
-          gh<_i881.UserRepository>(),
-          gh<_i862.BluetoothRepository>(),
-        ));
     gh.factory<_i626.AuthBloc>(() => _i626.AuthBloc(
           signInWithEmail: gh<_i588.SignInWithEmailUseCase>(),
           signInWithGoogle: gh<_i718.SignInWithGoogleUseCase>(),
@@ -436,6 +417,26 @@ extension GetItInjectableX on _i174.GetIt {
           deleteItemUseCase: gh<_i64.DeleteItemUseCase>(),
           incrementItemUseCase: gh<_i154.IncrementItemUseCase>(),
           itemRepository: gh<_i319.ItemRepository>(),
+        ));
+    gh.lazySingleton<_i72.BluetoothBloc>(() => _i72.BluetoothBloc(
+          gh<_i697.ScanDevicesUseCase>(),
+          gh<_i907.StopScanUseCase>(),
+          gh<_i679.ConnectDeviceUseCase>(),
+          gh<_i939.DisconnectDeviceUseCase>(),
+          gh<_i385.WatchConnectionStateUseCase>(),
+          gh<_i508.WatchDeviceMessagesUseCase>(),
+          gh<_i705.SendItemsToDeviceUseCase>(),
+          gh<_i884.SendSelectedItemUseCase>(),
+          gh<_i981.SendTimeSyncUseCase>(),
+          gh<_i809.RequestDeviceDataUseCase>(),
+          gh<_i733.ClearDeviceLogsUseCase>(),
+          gh<_i769.CheckBluetoothEnabledUseCase>(),
+          gh<_i269.RequestBluetoothPermissionsUseCase>(),
+          gh<_i833.SyncDeviceDataUseCase>(),
+          gh<_i844.PerformSyncUseCase>(),
+          gh<_i844.PerformOverrideUseCase>(),
+          gh<_i881.UserRepository>(),
+          gh<_i862.BluetoothRepository>(),
         ));
     gh.factory<_i1055.EventsBloc>(() => _i1055.EventsBloc(
           getEventsByDateRangeUseCase: gh<_i549.GetEventsByDateRangeUseCase>(),

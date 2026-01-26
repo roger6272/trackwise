@@ -25,6 +25,7 @@ import '../../domain/usecases/send_time_sync_usecase.dart';
 import '../../domain/usecases/stop_scan_usecase.dart';
 import '../../domain/usecases/sync_device_data_usecase.dart';
 import '../../domain/usecases/sync_usecase.dart';
+import '../../domain/failures/sync_failures.dart';
 import '../../domain/usecases/watch_connection_state_usecase.dart';
 import '../../domain/usecases/watch_device_messages_usecase.dart';
 import '../../domain/repositories/bluetooth_repository.dart';
@@ -56,6 +57,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final CheckBluetoothEnabledUseCase _checkBluetoothEnabled;
   final RequestBluetoothPermissionsUseCase _requestPermissions;
   final SyncDeviceDataUseCase _syncDeviceData;
+  final PerformSyncUseCase _performSync;
   final PerformOverrideUseCase _performOverride;
   final UserRepository _userRepository;
   final BluetoothRepository _bluetoothRepository;
@@ -101,6 +103,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._checkBluetoothEnabled,
     this._requestPermissions,
     this._syncDeviceData,
+    this._performSync,
     this._performOverride,
     this._userRepository,
     this._bluetoothRepository,
@@ -544,8 +547,45 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Small delay between commands to avoid overwhelming BLE
     await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
 
+    // Perform the new handshake-based sync flow
+    if (kDebugMode) print('Initial sync: starting handshake flow');
+
+    final syncResult = await _performSync.call(
+      PerformSyncParams(deviceId: deviceId),
+    );
+
+    syncResult.fold(
+      (failure) {
+        if (failure is SyncConflictFailure) {
+          // Conflict detected - notify UI to show dialog
+          if (kDebugMode) print('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}');
+          add(SyncConflictDetected(
+            appSyncSeq: failure.appSyncSeq,
+            deviceSyncSeq: failure.deviceSyncSeq,
+          ));
+        } else if (failure is WrongAccountFailure) {
+          if (kDebugMode) print('Wrong account - device locked to different user');
+          // TODO: Show wrong account dialog
+        } else if (failure is NoInternetFailure) {
+          if (kDebugMode) print('No internet - falling back to old sync flow');
+          // Fall back to old sync flow when offline
+          _performLegacySync(deviceId);
+        } else {
+          if (kDebugMode) print('Sync failed: ${failure.message}');
+        }
+      },
+      (result) {
+        if (kDebugMode) print('Sync completed successfully');
+        // Reload paired devices to update UI
+        add(const LoadPairedDevices());
+      },
+    );
+  }
+
+  /// Legacy sync flow for offline mode (no internet).
+  /// Uses prepare_read to get prefs/logs from device.
+  Future<void> _performLegacySync(String deviceId) async {
     // Request prefs from device (item counts, selected item)
-    // Response will arrive via notification -> MessageReceived event
     final prefsResult = await _requestData.call(
       RequestDeviceDataParams(
         deviceId: deviceId,
@@ -556,14 +596,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     prefsResult.fold(
       (failure) { if (kDebugMode) print('Failed to request prefs: ${failure.message}'); },
-      (_) { if (kDebugMode) print('Initial sync: prefs requested'); },
+      (_) { if (kDebugMode) print('Legacy sync: prefs requested'); },
     );
 
     // Small delay before requesting logs
     await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
 
     // Request logs from device (event history)
-    // Response will arrive via notification -> MessageReceived event
     final logsResult = await _requestData.call(
       RequestDeviceDataParams(
         deviceId: deviceId,
@@ -574,11 +613,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     logsResult.fold(
       (failure) { if (kDebugMode) print('Failed to request logs: ${failure.message}'); },
-      (_) { if (kDebugMode) print('Initial sync: logs requested'); },
+      (_) { if (kDebugMode) print('Legacy sync: logs requested'); },
     );
-
-    // Note: We no longer send items/counts from app to device on connect.
-    // Device is the source of truth for counts - app receives data from device.
   }
 
   // ========== Data Handlers ==========
