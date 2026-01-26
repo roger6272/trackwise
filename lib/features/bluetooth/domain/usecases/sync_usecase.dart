@@ -157,6 +157,7 @@ class PerformSyncUseCase {
     debugPrint('PerformSyncUseCase: Handshake result - ${handshake.status}, '
         'deviceInstanceId=${handshake.deviceInstanceId}');
 
+    try {
     // Step 4: Check for wrong account FIRST (before adding to paired_devices)
     if (handshake.status == SyncStatus.wrongAccount) {
       debugPrint('PerformSyncUseCase: Wrong account detected');
@@ -206,6 +207,11 @@ class PerformSyncUseCase {
         deviceSyncSeq: handshake.deviceSyncSeq,
         appSyncSeq: appSyncSeq,
       ));
+    }
+    } catch (e, stackTrace) {
+      debugPrint('PerformSyncUseCase: EXCEPTION after handshake: $e');
+      debugPrint('PerformSyncUseCase: Stack trace: $stackTrace');
+      return Left(BleSyncFailure('Exception in sync: $e'));
     }
   }
 
