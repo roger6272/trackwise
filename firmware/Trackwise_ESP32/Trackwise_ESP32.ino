@@ -763,7 +763,8 @@ bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
         return true;
       }
     }
-    delay(50);  // Small delay to prevent busy-waiting
+    // Yield to system tasks and feed watchdog
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 
   Serial.println("⏰ Confirmation timeout");
