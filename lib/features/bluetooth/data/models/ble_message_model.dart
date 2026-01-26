@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../../domain/entities/ble_message.dart';
 
 /// Data model for BleMessage entity with JSON parsing.
@@ -84,6 +86,7 @@ class BleMessageModel extends BleMessage {
     // there's no 'type' field but there IS a 'status' field.
     // Store the entire JSON as data so _sendCommandAndWaitForResponse can access it.
     if (type == BleMessageType.unknown && parsed.containsKey('status')) {
+      debugPrint('BleMessageModel: Detected syncResponse with status=${parsed['status']}');
       return BleMessageModel(
         type: BleMessageType.syncResponse,
         data: parsed, // Store entire JSON for sync protocol handling

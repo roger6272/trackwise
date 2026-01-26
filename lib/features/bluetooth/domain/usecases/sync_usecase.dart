@@ -193,6 +193,8 @@ class PerformSyncUseCase {
       return _performNormalSync(user.id, appSyncSeq, handshake.deviceInstanceId);
     } else {
       // Return conflict for UI to handle
+      debugPrint('PerformSyncUseCase: Returning SyncConflictFailure - '
+          'appSyncSeq=$appSyncSeq, deviceSyncSeq=${handshake.deviceSyncSeq}');
       return Left(SyncConflictFailure(
         deviceSyncSeq: handshake.deviceSyncSeq,
         appSyncSeq: appSyncSeq,

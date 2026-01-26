@@ -808,11 +808,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Listen for the response on the notification stream
     subscription = _messageController.stream.listen(
       (message) {
+        debugPrint('_sendCommandAndWaitForResponse: Received message type=${message.type}, data=${message.data}');
         // Check if this is a sync protocol response (has 'status' field)
         // Sync responses have type syncResponse and data is the full JSON map
         if (message.type == BleMessageType.syncResponse &&
             message.data is Map<String, dynamic> &&
             (message.data as Map<String, dynamic>).containsKey('status')) {
+          debugPrint('_sendCommandAndWaitForResponse: Got syncResponse, completing future');
           timer.cancel();
           subscription?.cancel();
           if (!completer.isCompleted) {
