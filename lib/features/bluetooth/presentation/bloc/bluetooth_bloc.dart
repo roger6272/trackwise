@@ -461,6 +461,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         status: BluetoothStatus.ready,
         clearConnectedDevice: true,
         clearConnectingDeviceId: true,
+        clearConnectedDeviceInstanceId: true,
       )),
     );
   }
@@ -500,6 +501,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         status: BluetoothStatus.ready,
         clearConnectedDevice: true,
         clearConnectingDeviceId: true,
+        clearConnectedDeviceInstanceId: true,
       ));
 
       // Auto-reconnect if not manual disconnect (with exponential backoff)
@@ -809,12 +811,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) async {
     final result = await _userRepository.getCurrentUser();
     result.fold(
-      (failure) {
-        if (kDebugMode) print('Failed to load paired devices: ${failure.message}');
-      },
-      (user) {
-        emit(state.copyWith(pairedDevices: user.pairedDevices));
-      },
+      (failure) {},
+      (user) => emit(state.copyWith(pairedDevices: user.pairedDevices)),
     );
   }
 
@@ -906,6 +904,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       conflictAppSyncSeq: event.appSyncSeq,
       conflictDeviceSyncSeq: event.deviceSyncSeq,
       conflictDeviceInstanceId: event.deviceInstanceId,
+      // Also set connectedDeviceInstanceId so paired devices page shows it as connected
+      connectedDeviceInstanceId: event.deviceInstanceId,
     ));
   }
 
@@ -923,13 +923,21 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       return;
     }
 
+    // Save these BEFORE clearing conflict state
+    final deviceInstanceId = state.conflictDeviceInstanceId;
+    final deviceName = state.connectedDevice?.name;
+
     emit(state.copyWith(
       isOverriding: true,
       clearConflict: true,
     ));
 
     final result = await _performOverride.call(
-      PerformOverrideParams(deviceId: deviceId),
+      PerformOverrideParams(
+        deviceId: deviceId,
+        deviceInstanceId: deviceInstanceId,
+        deviceName: deviceName,
+      ),
     );
 
     result.fold(
@@ -946,6 +954,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         ));
 
         if (kDebugMode) print('Override completed successfully');
+
+        // Trigger sync completed to reload paired devices
+        add(SyncCompleted(deviceInstanceId: syncResult.deviceInstanceId));
       },
     );
   }

@@ -15,11 +15,23 @@ import '../bloc/bluetooth_state.dart';
 /// Allows renaming and unpairing devices.
 ///
 /// Connected device is shown with a green indicator.
-class PairedDevicesPage extends StatelessWidget {
+class PairedDevicesPage extends StatefulWidget {
   const PairedDevicesPage({super.key});
 
   static const String routeName = 'PairedDevicesPage';
   static const String routePath = 'paired-devices';
+
+  @override
+  State<PairedDevicesPage> createState() => _PairedDevicesPageState();
+}
+
+class _PairedDevicesPageState extends State<PairedDevicesPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Load paired devices when page opens
+    context.read<BluetoothBloc>().add(const LoadPairedDevices());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -317,8 +329,13 @@ class _DeviceListTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       decoration: BoxDecoration(
-        color: secondaryBackground,
+        color: isConnected
+            ? Colors.green.withValues(alpha: 0.15)
+            : secondaryBackground,
         borderRadius: BorderRadius.circular(12.0),
+        border: isConnected
+            ? Border.all(color: Colors.green.withValues(alpha: 0.5), width: 1.5)
+            : null,
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(

@@ -1,12 +1,12 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../auth/domain/repositories/user_repository.dart';
 import '../../../categories/domain/repositories/category_repository.dart';
+import '../../../items/domain/entities/item.dart';
 import '../../../items/domain/repositories/item_repository.dart';
 import '../entities/paired_device.dart';
 import '../entities/sync_state.dart';
@@ -136,7 +136,6 @@ class PerformSyncUseCase {
     }
     final appSyncSeq = syncSeqResult.getOrElse(() => 0);
 
-    debugPrint('PerformSyncUseCase: Starting handshake with sync_seq=$appSyncSeq');
 
     // Step 3: Send handshake to device
     final handshakeResult = await _bluetoothRepository.sendHandshake(
@@ -154,20 +153,14 @@ class PerformSyncUseCase {
       () => throw StateError('Handshake should exist'),
     );
 
-    debugPrint('PerformSyncUseCase: Handshake result - ${handshake.status}, '
-        'deviceInstanceId=${handshake.deviceInstanceId}');
-
     // Step 4: Check for wrong account FIRST
     if (handshake.status == SyncStatus.wrongAccount) {
-      debugPrint('PerformSyncUseCase: Wrong account detected');
       return const Left(WrongAccountFailure());
     }
 
     // Step 5: Check for conflict BEFORE adding to paired devices
     // (Don't add device until sync is successful)
     if (handshake.status == SyncStatus.conflict) {
-      debugPrint('PerformSyncUseCase: Returning SyncConflictFailure - '
-          'appSyncSeq=$appSyncSeq, deviceSyncSeq=${handshake.deviceSyncSeq}');
       return Left(SyncConflictFailure(
         deviceSyncSeq: handshake.deviceSyncSeq,
         appSyncSeq: appSyncSeq,
@@ -186,8 +179,7 @@ class PerformSyncUseCase {
         return const Left(DeviceLimitFailure());
       }
 
-      // Add to paired devices list (non-blocking, don't wait)
-      _userRepository.addPairedDevice(
+      await _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: handshake.deviceInstanceId,
           deviceName: 'Trackwise Device',
@@ -212,7 +204,6 @@ class PerformSyncUseCase {
     int currentSeq,
     String deviceInstanceId,
   ) async {
-    debugPrint('PerformSyncUseCase: Starting normal sync');
 
     // Step 1: Request prefs from device
     // This is handled by the existing BLE message flow (prefs are sent
@@ -246,7 +237,6 @@ class PerformSyncUseCase {
       return const Left(SyncCompleteNotAcknowledgedFailure());
     }
 
-    debugPrint('PerformSyncUseCase: Device acknowledged sync_complete');
 
     // Step 4: Update Firestore (with retry)
     // Note: In the full implementation, we'd get the selected item from prefs
@@ -263,7 +253,6 @@ class PerformSyncUseCase {
       );
     }
 
-    debugPrint('PerformSyncUseCase: Normal sync complete');
 
     return Right(SyncResult(
       type: SyncResultType.success,
@@ -289,13 +278,10 @@ class PerformSyncUseCase {
       }
 
       if (attempt == maxRetries) {
-        debugPrint('PerformSyncUseCase: All $maxRetries Firestore retries failed');
         return const Left(FirestoreUpdateFailure());
       }
 
       // Backoff: 1s, 2s, 3s
-      debugPrint('PerformSyncUseCase: Firestore update failed, '
-          'attempt $attempt/$maxRetries, retrying in ${attempt}s');
       await Future.delayed(Duration(seconds: attempt));
     }
 
@@ -319,10 +305,20 @@ class PerformOverrideParams extends Equatable {
   /// ID of the connected BLE device.
   final String deviceId;
 
-  const PerformOverrideParams({required this.deviceId});
+  /// Device instance ID from the conflict (needed to add to paired devices).
+  final String? deviceInstanceId;
+
+  /// Device name for display in paired devices list.
+  final String? deviceName;
+
+  const PerformOverrideParams({
+    required this.deviceId,
+    this.deviceInstanceId,
+    this.deviceName,
+  });
 
   @override
-  List<Object?> get props => [deviceId];
+  List<Object?> get props => [deviceId, deviceInstanceId, deviceName];
 }
 
 /// Use case for performing override flow (app is source of truth).
@@ -396,26 +392,71 @@ class PerformOverrideUseCase {
     final allItems = itemsResult.getOrElse(() => []);
 
     // Filter to items with device_item_id (synced items only)
-    final deviceItems = allItems.where((i) => i.deviceItemId != null).toList();
+    final syncedItems = allItems.where((i) => i.deviceItemId != null).toList();
 
-    debugPrint('PerformOverrideUseCase: Found ${deviceItems.length} synced items');
 
-    // Step 4: Validate item count
+    // Step 4: Get selected item from last sync (stored in Firestore)
+    var selectedItemId = user.lastSelectedDeviceItemId;
+    final newSyncSeq = user.syncSequenceNo + 1;
+
+    // Step 5: Find selected item and filter to its category
+    // (Device should only have items from the active category, like normal sync)
+    List<Item> deviceItems;
+
+    // Find the selected item (or pick first if none selected)
+    Item? selectedItem;
+    if (selectedItemId >= 0 && syncedItems.isNotEmpty) {
+      // Try to find the item with matching device_item_id
+      selectedItem = syncedItems.cast<Item?>().firstWhere(
+        (i) => i?.deviceItemId == selectedItemId,
+        orElse: () => null,
+      );
+      // If not found, fall back to first item
+      if (selectedItem == null) {
+        selectedItem = syncedItems.first;
+        selectedItemId = selectedItem.deviceItemId ?? -1;
+      }
+    } else if (syncedItems.isNotEmpty) {
+      // No selected item - pick the first one and use its category
+      selectedItem = syncedItems.first;
+      selectedItemId = selectedItem.deviceItemId ?? -1;
+    }
+
+    if (selectedItem != null) {
+      final selectedCategoryId = selectedItem.categoryId ?? '';
+
+      // Filter to only items in the selected item's category
+      deviceItems = syncedItems.where((i) {
+        final itemCategoryId = i.categoryId ?? '';
+        return itemCategoryId == selectedCategoryId;
+      }).toList();
+
+      // Sort by categoryOrder for consistent ordering
+      deviceItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+
+      // After sorting, select the FIRST item in the list (matches app UI order)
+      // This ensures device selection matches what the app shows as "current"
+      if (deviceItems.isNotEmpty) {
+        final firstItem = deviceItems.first;
+        if (firstItem.deviceItemId != selectedItemId) {
+          selectedItemId = firstItem.deviceItemId ?? -1;
+        }
+      }
+    } else {
+      // No items at all - send empty list
+      deviceItems = [];
+    }
+
+    // Step 6: Validate item count
     if (deviceItems.length > maxItems) {
       return Left(TooManyItemsFailure(itemCount: deviceItems.length));
     }
 
-    // Step 5: Build category name map
+    // Step 7: Build category name map
     final categoryNames = await _buildCategoryNameMap(user.id);
 
-    // Step 6: Get selected item from last sync (stored in Firestore)
-    final selectedItemId = user.lastSelectedDeviceItemId;
-    final newSyncSeq = user.syncSequenceNo + 1;
-
-    debugPrint('PerformOverrideUseCase: Sending override with '
-        'sync_seq=$newSyncSeq, selected_id=$selectedItemId');
-
-    // Step 7: Send override to device
+    // Step 8: Send override to device
     final overrideResult = await _bluetoothRepository.sendOverrideChunked(
       syncSeq: newSyncSeq,
       selectedId: selectedItemId,
@@ -438,7 +479,6 @@ class PerformOverrideUseCase {
       return Left(OverrideFailure(deviceMessage: result.message));
     }
 
-    debugPrint('PerformOverrideUseCase: Device confirmed override_complete');
 
     // Step 8: Update Firestore sync_seq (with retry)
     final updateResult = await _updateSyncStateWithRetry(
@@ -453,7 +493,17 @@ class PerformOverrideUseCase {
       );
     }
 
-    debugPrint('PerformOverrideUseCase: Override complete');
+
+    // Step 9: Add device to paired devices (await to ensure it completes before LoadPairedDevices)
+    if (params.deviceInstanceId != null) {
+      await _userRepository.addPairedDevice(
+        PairedDevice(
+          deviceInstanceId: params.deviceInstanceId!,
+          deviceName: params.deviceName ?? 'Trackwise Device',
+          pairedAt: DateTime.now(),
+        ),
+      );
+    }
 
     // Find the Firestore ID of the selected item
     String? selectedFirestoreId;
@@ -469,6 +519,7 @@ class PerformOverrideUseCase {
       type: SyncResultType.overrideComplete,
       selectedFirestoreId: selectedFirestoreId,
       selectedDeviceItemId: selectedItemId,
+      deviceInstanceId: params.deviceInstanceId,
     ));
   }
 
@@ -478,7 +529,6 @@ class PerformOverrideUseCase {
 
     return categoriesResult.fold(
       (failure) {
-        debugPrint('Warning: Failed to fetch categories: ${failure.message}');
         return <String, String>{};
       },
       (categories) {
@@ -505,12 +555,10 @@ class PerformOverrideUseCase {
       }
 
       if (attempt == maxRetries) {
-        debugPrint('PerformOverrideUseCase: All $maxRetries Firestore retries failed');
         return const Left(FirestoreUpdateFailure());
       }
 
-      debugPrint('PerformOverrideUseCase: Firestore update failed, '
-          'attempt $attempt/$maxRetries, retrying in ${attempt}s');
+      // Backoff: 1s, 2s, 3s
       await Future.delayed(Duration(seconds: attempt));
     }
 

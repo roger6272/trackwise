@@ -59,6 +59,7 @@ bool inConflictState = false;  // True when sync_seq mismatch detected, waiting 
 int overrideSyncSeq = 0;        // Sync sequence number for this override
 int overrideTotalChunks = 0;    // Total number of chunks expected
 int overrideReceivedChunks = 0; // Number of chunks received so far
+int overrideNextSlot = 0;       // Next sequential slot index for saving items
 
 // Event types for log entries (replaces String to save ~21 bytes per entry)
 #define EVENT_INCREMENT 0
@@ -106,6 +107,9 @@ String itemName = "Item";
 String itemCategory = "";
 unsigned long connectedAt = 0;
 bool didInitialSync = false;
+bool needsSendSyncData = false;  // Set after successful handshake to trigger prefs+logs send
+bool needsSendLogs = false;      // Set after prefs transmission completes to trigger logs send
+unsigned long syncDataRequestedAt = 0;  // Timestamp when needsSendSyncData was set
 bool isConnected = false;
 int reminder = REMINDER_NONE;
 int reminderValue = 0;
@@ -230,7 +234,7 @@ String generateUUID() {
 }
 
 // Generate and store a new device instance ID
-// Called on first boot or after factory reset
+// Called ONLY on first boot - device_instance_id is permanent and survives factory reset
 void generateDeviceInstanceId() {
   String uuid = generateUUID();
   if (!nvsBeginSafe("counter", false)) {
@@ -339,6 +343,9 @@ void exitConflictState() {
   displayMessage("");  // Clear the "SEE APP" message
 }
 
+// Forward declaration for BLE transmit queue check
+bool isBleTransmitBusy();
+
 // Send a JSON response via BLE notification
 // Used by handshake and other protocol messages
 void sendJsonResponse(const String& jsonStr) {
@@ -346,11 +353,12 @@ void sendJsonResponse(const String& jsonStr) {
 
   String response = jsonStr + "\n";  // Add newline for Flutter end-of-message detection
 
-  // Use non-blocking transmission for larger responses
-  if (response.length() > 180) {
+  // Always use non-blocking queue if another transmission is in progress
+  // to prevent interleaved chunks corrupting messages
+  if (response.length() > 180 || isBleTransmitBusy()) {
     startBleTransmit(response);
   } else {
-    // Small response, send directly
+    // Small response and no transmission in progress, send directly
     NotifyChar->setValue(response.c_str());
     NotifyChar->notify();
   }
@@ -408,6 +416,13 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     sendJsonResponse(response);
 
     Serial.printf("✅ Handshake: in_sync (seq=%d)\n", deviceSyncSeq);
+
+    // Automatically send prefs+logs after successful handshake
+    // (App expects these to arrive via notification stream)
+    // Note: We set a flag here, the actual sending happens in loop()
+    // to avoid blocking the BLE callback
+    needsSendSyncData = true;  // Flag to trigger prefs+logs send in loop()
+    syncDataRequestedAt = millis();  // Record time to allow handshake response to send first
   } else {
     // Out of sync - app is Source of Truth, enter conflict state
     StaticJsonDocument<256> doc;
@@ -465,7 +480,8 @@ void clearAllItemSlots() {
 // ============== OVERRIDE PROTOCOL FUNCTIONS ==============
 
 // Save item data to a specific slot in NVS during override
-// Receives a JsonObject with item fields and stores to the slot index
+// slotId = sequential storage index (0, 1, 2...)
+// device_item_id from JSON = the ID that maps back to Firestore
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void saveItemToSlot(int slotId, JsonObject& item) {
   if (slotId < 0 || slotId >= maxPrefsSlots) {
@@ -475,9 +491,10 @@ void saveItemToSlot(int slotId, JsonObject& item) {
 
   char key[16];
 
-  // Store device_item_id
+  // Store device_item_id (from JSON, NOT the slot index)
+  int deviceItemId = item["device_item_id"] | slotId;  // Fallback to slotId if missing
   snprintf(key, sizeof(key), "did_%d", slotId);
-  prefs.putUChar(key, (uint8_t)slotId);
+  prefs.putUChar(key, (uint8_t)deviceItemId);
 
   // Store name (max 32 chars)
   snprintf(key, sizeof(key), "n_%d", slotId);
@@ -523,15 +540,26 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   int resetNum = clampInt(item["reset_number"] | 0, 0, 100000);
   prefs.putInt(key, resetNum);
 
-  Serial.printf("💾 Saved item to slot %d: %s\n", slotId, name.c_str());
+  Serial.printf("💾 Saved item to slot %d (did=%d): %s\n", slotId, deviceItemId, name.c_str());
 }
 
 // Set the selected item by device_item_id with fallback logic
-// If selectedId doesn't exist in items -> fall back to first item (index 0)
+// If selectedId == -1 -> select nothing (explicit "no selection" from app)
+// If selectedId >= 0 but doesn't exist in items -> fall back to first item (index 0)
 // If no items at all -> select nothing
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void setSelectedItem(int selectedId) {
   int total = prefs.getInt("item_total", 0);
+
+  // Check for explicit "select nothing" from app (-1)
+  if (selectedId == -1) {
+    currentItemIndex = 0;
+    currentDeviceItemId = -1;
+    prefs.putInt("selected_index", 0);
+    prefs.putChar("selected_did", -1);
+    Serial.println("📌 selected_id=-1: selecting nothing");
+    return;
+  }
 
   if (total == 0) {
     // No items at all - select nothing
@@ -628,6 +656,7 @@ void handleOverrideStart(int syncSeq, int totalChunks) {
   overrideSyncSeq = syncSeq;
   overrideTotalChunks = totalChunks;
   overrideReceivedChunks = 0;
+  overrideNextSlot = 0;  // Reset sequential slot counter
 
   // Clear existing items to prepare for new data
   clearAllItemSlots();
@@ -637,21 +666,29 @@ void handleOverrideStart(int syncSeq, int totalChunks) {
 
 // Handle override_chunk command from app
 // App sends: { "cmd": "override_chunk", "index": 0, "items": [...] }
-// Saves items from the chunk to their respective slots
+// Saves items SEQUENTIALLY at indices 0, 1, 2... (not at their device_item_id)
+// The device_item_id is stored in did_X field for mapping back to Firestore
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void handleOverrideChunk(int chunkIndex, JsonArray items) {
   Serial.printf("📥 Override chunk %d: %d items\n", chunkIndex, items.size());
 
   int savedCount = 0;
   for (JsonObject item : items) {
-    int slotId = item["device_item_id"] | -1;
+    int deviceItemId = item["device_item_id"] | -1;
 
-    // Enforce 100 item limit (device_item_id must be 0-99)
-    if (slotId >= 0 && slotId < maxPrefsSlots) {
-      saveItemToSlot(slotId, item);
+    // Enforce 100 item limit
+    if (overrideNextSlot >= maxPrefsSlots) {
+      Serial.printf("⚠️ Max items reached (%d), skipping remaining\n", maxPrefsSlots);
+      break;
+    }
+
+    if (deviceItemId >= 0) {
+      // Save item at sequential slot index (not device_item_id)
+      saveItemToSlot(overrideNextSlot, item);
       savedCount++;
+      overrideNextSlot++;
     } else {
-      Serial.printf("⚠️ Skipping invalid device_item_id: %d\n", slotId);
+      Serial.printf("⚠️ Skipping invalid device_item_id: %d\n", deviceItemId);
     }
   }
 
@@ -675,19 +712,8 @@ void handleOverrideEnd(int selectedId) {
     return;
   }
 
-  // Calculate item_total from received items
-  // Count contiguous items from index 0 (override stores items at their device_item_id index)
-  int itemTotal = 0;
-  char key[16];
-  for (int i = 0; i < maxPrefsSlots; i++) {
-    snprintf(key, sizeof(key), "n_%d", i);
-    String name = prefs.getString(key, "");
-    if (name.length() > 0) {
-      itemTotal++;
-    } else {
-      break;  // Stop at first empty slot
-    }
-  }
+  // Use overrideNextSlot as item_total (we saved items sequentially at 0, 1, 2...)
+  int itemTotal = overrideNextSlot;
   prefs.putInt("item_total", itemTotal);
   Serial.printf("📊 Override complete: %d items total\n", itemTotal);
 
@@ -712,6 +738,7 @@ void handleOverrideEnd(int selectedId) {
   overrideSyncSeq = 0;
   overrideTotalChunks = 0;
   overrideReceivedChunks = 0;
+  overrideNextSlot = 0;
 
   Serial.println("✅ Override complete - device synced with app");
 }
@@ -776,7 +803,7 @@ bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
 
 // Handle factory reset with confirmation
 // Clears: pairing, sync_seq, all items, BLE bonding
-// Regenerates: device_instance_id
+// Keeps: device_instance_id (persistent device identity)
 void handleFactoryReset() {
   displayMessage("FACTORY RESET?");
   displayMessage("F=CONFIRM");
@@ -803,8 +830,7 @@ void handleFactoryReset() {
 
     nvsEndSafe();
 
-    // Generate NEW device instance ID (outside NVS lock since it has its own)
-    generateDeviceInstanceId();
+    // Note: device_instance_id is NOT regenerated - it's a persistent device identity
 
     // Clear BLE bonding table
     clearBleBonding();
@@ -822,28 +848,66 @@ void handleFactoryReset() {
 
 // ============== NON-BLOCKING BLE TRANSMISSION ==============
 // State machine for chunk-based BLE transmission without blocking
+// Uses a queue to prevent message interleaving
+
+#define BLE_TX_QUEUE_SIZE 4  // Max pending messages
+
 struct BleTransmitState {
-  String buffer;
+  String queue[BLE_TX_QUEUE_SIZE];  // Queue of pending messages
+  int queueHead = 0;                 // Next slot to write
+  int queueTail = 0;                 // Next slot to read
+  int queueCount = 0;                // Number of items in queue
+  String buffer;                     // Current message being transmitted
   int offset = 0;
   unsigned long lastChunkTime = 0;
   bool inProgress = false;
   const int mtu = 180;
 } bleTransmit;
 
+// Check if BLE transmit is busy (used by sendJsonResponse forward declaration)
+bool isBleTransmitBusy() {
+  return bleTransmit.inProgress || bleTransmit.queueCount > 0;
+}
+
 void startBleTransmit(const String& data) {
-  if (bleTransmit.inProgress) return;  // Already transmitting
-  bleTransmit.buffer = data;
-  bleTransmit.offset = 0;
-  bleTransmit.lastChunkTime = 0;
-  bleTransmit.inProgress = true;
+  // If not currently transmitting, start immediately
+  if (!bleTransmit.inProgress) {
+    bleTransmit.buffer = data;
+    bleTransmit.offset = 0;
+    bleTransmit.lastChunkTime = 0;
+    bleTransmit.inProgress = true;
+    return;
+  }
+
+  // Already transmitting - add to queue if space available
+  if (bleTransmit.queueCount < BLE_TX_QUEUE_SIZE) {
+    bleTransmit.queue[bleTransmit.queueHead] = data;
+    bleTransmit.queueHead = (bleTransmit.queueHead + 1) % BLE_TX_QUEUE_SIZE;
+    bleTransmit.queueCount++;
+    Serial.printf("📋 Queued BLE message (%d in queue)\n", bleTransmit.queueCount);
+  } else {
+    Serial.println("⚠️ BLE transmit queue full - message dropped!");
+  }
 }
 
 // Process one chunk of BLE transmission (call from loop)
-// Returns true when transmission is complete
+// Returns true when a transmission is complete (but queue may have more)
 bool processBleTransmit() {
   if (!bleTransmit.inProgress || !isConnected) {
-    bleTransmit.inProgress = false;
-    return false;
+    // Check if there's something in the queue to start
+    if (bleTransmit.queueCount > 0 && isConnected) {
+      bleTransmit.buffer = bleTransmit.queue[bleTransmit.queueTail];
+      bleTransmit.queue[bleTransmit.queueTail] = "";  // Free memory
+      bleTransmit.queueTail = (bleTransmit.queueTail + 1) % BLE_TX_QUEUE_SIZE;
+      bleTransmit.queueCount--;
+      bleTransmit.offset = 0;
+      bleTransmit.lastChunkTime = 0;
+      bleTransmit.inProgress = true;
+      Serial.printf("📋 Dequeued BLE message (%d remaining)\n", bleTransmit.queueCount);
+    } else {
+      bleTransmit.inProgress = false;
+      return false;
+    }
   }
 
   // Enforce 20ms delay between chunks
@@ -1707,6 +1771,21 @@ class ServerCallbacks : public BLEServerCallbacks {
       exitConflictState();
     }
 
+    // Clear sync state flags to avoid stale state on next connection
+    needsSendSyncData = false;
+    needsSendLogs = false;
+    syncDataRequestedAt = 0;
+
+    // Clear BLE transmit queue
+    bleTransmit.inProgress = false;
+    bleTransmit.buffer = "";
+    bleTransmit.queueCount = 0;
+    bleTransmit.queueHead = 0;
+    bleTransmit.queueTail = 0;
+    for (int i = 0; i < BLE_TX_QUEUE_SIZE; i++) {
+      bleTransmit.queue[i] = "";
+    }
+
     isConnected = false;
     Serial.println("🔌 Client disconnected — restarting advertising...");
     BLEDevice::startAdvertising();
@@ -2273,6 +2352,33 @@ void loop() {
       incomingJsonBuffer = "";
       lastChunkReceived = 0;
     }
+  }
+
+  // After successful handshake (in_sync), send prefs and logs to app
+  // This mimics the old prepare_read flow but is triggered automatically
+  // Uses two-step approach: prefs first, then logs after prefs completes
+  // Wait 100ms after handshake to ensure response is sent before starting prefs
+  if (needsSendSyncData && !bleTransmit.inProgress &&
+      (millis() - syncDataRequestedAt >= 100)) {
+    needsSendSyncData = false;  // Clear flag to prevent re-triggering
+    Serial.println("📤 Sending initial prefs after handshake...");
+
+    // Send prefs first (non-blocking)
+    notifyPrefsToApp();
+
+    // Set flag to send logs after prefs transmission completes
+    needsSendLogs = true;
+  }
+
+  // Send logs after prefs transmission completes
+  if (needsSendLogs && !bleTransmit.inProgress) {
+    needsSendLogs = false;  // Clear flag to prevent re-triggering
+    Serial.println("📤 Prefs sent, now sending logs...");
+
+    // Send logs (page 0)
+    notifyLogsToApp(0);
+
+    Serial.println("✅ Initial sync data sent");
   }
 
   // Handle prepare_read requests by sending data via notification

@@ -13,6 +13,9 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'features/bluetooth/presentation/widgets/sync_conflict_dialog.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -170,20 +173,46 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      debugShowCheckedModeBanner: false,
-      title: 'Traxogic',
-      scrollBehavior: MyAppScrollBehavior(),
-      localizationsDelegates: [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('en', '')],
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: _themeMode,
-      routerConfig: _router,
+    return BlocListener<BluetoothBloc, BluetoothState>(
+      listenWhen: (previous, current) =>
+          !previous.hasConflict && current.hasConflict,
+      listener: (context, state) {
+        if (state.hasConflict) {
+          // Show conflict dialog globally
+          _showConflictDialog(context);
+        }
+      },
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        title: 'Traxogic',
+        scrollBehavior: MyAppScrollBehavior(),
+        localizationsDelegates: [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('en', '')],
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: _themeMode,
+        routerConfig: _router,
+      ),
     );
+  }
+
+  void _showConflictDialog(BuildContext context) {
+    // Use the router's navigator context for the dialog
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
+    if (navigatorContext != null) {
+      SyncConflictDialog.show(
+        context: navigatorContext,
+        onConfirm: () {
+          context.read<BluetoothBloc>().add(const ConfirmSyncOverride());
+        },
+        onCancel: () {
+          context.read<BluetoothBloc>().add(const CancelSyncConflict());
+        },
+      );
+    }
   }
 }

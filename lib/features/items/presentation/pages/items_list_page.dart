@@ -74,7 +74,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
   SlidableController? _firstItemController;
   AnimationController? _reorderHintController;
   Animation<double>? _liftAnimation;
-  bool _swipeHintTriggered = false;
   bool _reorderHintTriggered = false;
   bool _activationHintTriggered = false;
   OverlayEntry? _activationHintOverlay;
@@ -1477,12 +1476,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Slidable(
-        controller: controller,
-        endActionPane: ActionPane(
-          motion: const ScrollMotion(),
-          extentRatio: 0.65,
-          children: [
+      child: Listener(
+        onPointerMove: (event) {
+          // Detect left swipe to dismiss activation hint
+          if (event.delta.dx < -3) {
+            _dismissActivationHintIfShowing();
+          }
+        },
+        child: Slidable(
+          controller: controller,
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.65,
+            children: [
             // Activate (pin) action
             SlidableAction(
               backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
@@ -1490,6 +1496,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.lightImpact();
+                _dismissActivationHintIfShowing();
                 if (isConnected) {
                   appUiState.activeItemId = item.id;
                   // Send only items from the activated item's category to device
@@ -1541,6 +1548,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.lightImpact();
+                _dismissActivationHintIfShowing();
                 if (isConnected) {
                   final itemsBloc = context.read<ItemsBloc>();
                   final itemsState = itemsBloc.state;
@@ -1584,6 +1592,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.lightImpact();
+                _dismissActivationHintIfShowing();
                 Slidable.of(slidableContext)?.close();
                 if (isConnected) {
                   context.pushNamed(
@@ -1601,6 +1610,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.mediumImpact();
+                _dismissActivationHintIfShowing();
                 if (isConnected) {
                   // Capture references BEFORE the async dialog
                   final itemsBloc = context.read<ItemsBloc>();
@@ -1655,7 +1665,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           ],
         ),
-        child: tileContent,
+          child: tileContent,
+        ),
       ),
     );
 
@@ -1848,25 +1859,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     ) ?? false;
   }
 
-  /// Shows a swipe hint animation on the first item
-  void _showSwipeHint(AppUiState appUiState) {
-    if (_swipeHintTriggered || appUiState.hasShownSwipeHint) return;
-    _swipeHintTriggered = true;
-
-    // Delay to let the list render first
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      _firstItemController?.openEndActionPane();
-
-      // Close after showing the actions briefly
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        if (!mounted) return;
-        _firstItemController?.close();
-        appUiState.markSwipeHintShown();
-      });
-    });
-  }
-
   /// Shows a reorder hint animation on the first item (lift effect) with tooltip.
   /// Only triggers when connected (reordering requires device connection).
   void _showReorderHint(AppUiState appUiState, bool isConnected, BuildContext context) {
@@ -2042,6 +2034,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
     _activationHintOverlay = null;
     appUiState.markActivationHintShown();
     appUiState.markSwipeHintShown();
+  }
+
+  /// Dismisses activation hint if showing (called when any item is swiped/actioned)
+  void _dismissActivationHintIfShowing() {
+    if (_activationHintOverlay != null && _activationHintAppUiState != null) {
+      _dismissActivationHint(_activationHintAppUiState!);
+    }
   }
 
   /// Syncs the device with items from the selected item's category.
