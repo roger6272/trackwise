@@ -159,20 +159,25 @@ class PerformSyncUseCase {
 
     // Step 4: Check for wrong account FIRST (before adding to paired_devices)
     if (handshake.status == SyncStatus.wrongAccount) {
+      debugPrint('PerformSyncUseCase: Wrong account detected');
       return const Left(WrongAccountFailure());
     }
+    debugPrint('PerformSyncUseCase: Step 4 passed (not wrong account)');
 
     // Step 5: Add to paired devices if new (only after confirming it's our device)
     final isNewDevice = !user.pairedDevices.any(
       (d) => d.deviceInstanceId == handshake.deviceInstanceId,
     );
+    debugPrint('PerformSyncUseCase: Step 5 - isNewDevice=$isNewDevice');
 
     if (isNewDevice) {
       // Check device limit
       if (user.pairedDevices.length >= maxDevices) {
+        debugPrint('PerformSyncUseCase: Device limit reached');
         return const Left(DeviceLimitFailure());
       }
 
+      debugPrint('PerformSyncUseCase: Adding device to paired list...');
       // Add to paired devices list
       final addResult = await _userRepository.addPairedDevice(
         PairedDevice(
@@ -181,6 +186,7 @@ class PerformSyncUseCase {
           pairedAt: DateTime.now(),
         ),
       );
+      debugPrint('PerformSyncUseCase: addPairedDevice completed');
 
       if (addResult.isLeft()) {
         // Non-fatal - continue with sync even if adding to list fails
@@ -188,6 +194,7 @@ class PerformSyncUseCase {
       }
     }
 
+    debugPrint('PerformSyncUseCase: Step 6 - checking sync status');
     // Step 6: Handle sync based on status
     if (handshake.status == SyncStatus.inSync) {
       return _performNormalSync(user.id, appSyncSeq, handshake.deviceInstanceId);
