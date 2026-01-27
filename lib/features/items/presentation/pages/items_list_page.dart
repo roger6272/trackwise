@@ -79,8 +79,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   bool _activationHintTriggered = false;
   OverlayEntry? _activationHintOverlay;
   OverlayEntry? _reorderHintOverlay;
-  AppUiState? _activationHintAppUiState; // For swipe listener callback
-  VoidCallback? _swipeListener; // Listener to detect user swipe
+  AppUiState? _activationHintAppUiState; // For pin tap callback
 
   // Search state
   bool _isSearching = false;
@@ -582,6 +581,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       // Only trigger haptic for items, not labels
                                       if (!listEntries[index].isLabel) {
                                         HapticFeedback.mediumImpact();
+                                        // Dismiss reorder hint when user actually drags
+                                        _dismissReorderHint(appUiState);
                                       }
                                     },
                                     proxyDecorator: (child, index, animation) {
@@ -1888,15 +1889,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
       // Show tooltip overlay
       final overlay = Overlay.of(context);
       _reorderHintOverlay = OverlayEntry(
-        builder: (context) => GestureDetector(
-          onTap: () => _dismissReorderHint(appUiState),
-          behavior: HitTestBehavior.translucent,
+        builder: (context) => IgnorePointer(
+          // Don't block taps - hint dismisses only when user actually drags
           child: Stack(
             children: [
-              // Invisible full-screen tap target
-              Positioned.fill(
-                child: Container(color: Colors.transparent),
-              ),
               // Tooltip at bottom
               Positioned(
                 bottom: 120,
@@ -1961,7 +1957,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   }
 
   /// Shows an activation hint for new users who just created their first item.
-  /// Displays a tooltip and waits for user to swipe left to dismiss.
+  /// Displays a tooltip until user taps the pin icon.
   void _showActivationHint(AppUiState appUiState, BuildContext context) {
     if (_activationHintTriggered || appUiState.hasShownActivationHint) return;
     _activationHintTriggered = true;
@@ -1973,16 +1969,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
 
-      // Add listener to detect when user swipes left (opens end action pane)
-      _swipeListener = () {
-        // ratio > 0 means the end action pane is opening/open
-        if (_firstItemController != null && _firstItemController!.ratio > 0.1) {
-          _dismissActivationHint(_activationHintAppUiState!);
-        }
-      };
-      _firstItemController?.animation.addListener(_swipeListener!);
-
-      // Show tooltip overlay (no tap to dismiss - wait for swipe)
+      // Show tooltip overlay (dismisses only when pin is tapped)
       final overlay = Overlay.of(context);
       _activationHintOverlay = OverlayEntry(
         builder: (context) => Positioned(
@@ -2035,11 +2022,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
   /// Dismisses the activation hint overlay
   void _dismissActivationHint(AppUiState appUiState) {
     if (_activationHintOverlay == null) return;
-    // Remove swipe listener
-    if (_swipeListener != null) {
-      _firstItemController?.animation.removeListener(_swipeListener!);
-      _swipeListener = null;
-    }
     _activationHintAppUiState = null;
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
@@ -2119,11 +2101,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   @override
   void dispose() {
-    // Clean up swipe listener
-    if (_swipeListener != null) {
-      _firstItemController?.animation.removeListener(_swipeListener!);
-      _swipeListener = null;
-    }
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
     _reorderHintOverlay?.remove();
