@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -36,6 +37,17 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     GoRouter.optionURLReflectsImperativeAPIs = true;
     usePathUrlStrategy();
+
+    // Pre-load Google Fonts to reduce error spam during hot reload
+    // Errors during font loading are caught and ignored (fallback to system fonts)
+    try {
+      await GoogleFonts.pendingFonts([
+        GoogleFonts.inter(),
+        GoogleFonts.interTight(),
+      ]);
+    } catch (_) {
+      // Ignore font loading errors - will use system fonts as fallback
+    }
 
     await initFirebase();
 
