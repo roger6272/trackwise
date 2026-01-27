@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -43,15 +44,20 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
       backgroundColor: primaryBackground,
       appBar: AppBar(
         backgroundColor: primaryBackground,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_rounded, color: primaryText),
+          onPressed: () => context.pop(),
+        ),
         title: Text(
           'Paired Devices',
           style: GoogleFonts.interTight(
             color: primaryText,
             fontWeight: FontWeight.w600,
-            fontSize: 22.0,
+            fontSize: 20.0,
           ),
         ),
-        elevation: 0.0,
+        centerTitle: true,
       ),
       body: BlocBuilder<BluetoothBloc, BluetoothState>(
         builder: (context, state) {
