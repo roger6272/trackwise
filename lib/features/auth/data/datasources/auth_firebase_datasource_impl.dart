@@ -32,7 +32,9 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
   ///
   /// [isNewSignup] should be true for new account creation (signup),
   /// false for existing user login. New signups get onboarding_completed=false.
-  Future<void> _ensureUserDocument(firebase.User user, {bool isNewSignup = false}) async {
+  ///
+  /// Returns the Firestore document data (for use in creating UserModel).
+  Future<Map<String, dynamic>?> _ensureUserDocument(firebase.User user, {bool isNewSignup = false}) async {
     debugPrint('🔐 _ensureUserDocument: checking for ${user.uid} (isNewSignup: $isNewSignup)');
     final userDoc = _firestore.collection('users').doc(user.uid);
     final docSnapshot = await userDoc.get();
@@ -40,7 +42,7 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
     if (!docSnapshot.exists) {
       debugPrint('🔐 _ensureUserDocument: document MISSING, creating...');
       // Create new user document
-      await userDoc.set({
+      final newDocData = {
         'uid': user.uid,
         'email': user.email,
         'display_name': user.displayName,
@@ -48,10 +50,13 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
         'created_time': FieldValue.serverTimestamp(),
         // New signups need onboarding, existing users (migration) don't
         if (isNewSignup) 'onboarding_completed': false,
-      });
+      };
+      await userDoc.set(newDocData);
       debugPrint('✅ Created user document for ${user.uid}');
+      return newDocData;
     } else {
       debugPrint('🔐 _ensureUserDocument: document EXISTS');
+      return docSnapshot.data() as Map<String, dynamic>?;
     }
   }
 
@@ -67,9 +72,9 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       }
 
       // Ensure user document exists (for backwards compatibility with old accounts)
-      await _ensureUserDocument(credential.user!);
+      final firestoreData = await _ensureUserDocument(credential.user!);
 
-      return UserModel.fromFirebaseUser(credential.user!);
+      return UserModel.fromFirebaseUserAndFirestore(credential.user!, firestoreData);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
     }
@@ -109,9 +114,9 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       // Ensure user document exists in Firestore
       // Check if this is a new user (first time signing in with Google)
       final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
-      await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
+      final firestoreData = await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
 
-      return UserModel.fromFirebaseUser(credential.user!);
+      return UserModel.fromFirebaseUserAndFirestore(credential.user!, firestoreData);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
     }
@@ -165,9 +170,9 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       // Ensure user document exists in Firestore
       // Check if this is a new user (first time signing in with Apple)
       final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
-      await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
+      final firestoreData = await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
 
-      return UserModel.fromFirebaseUser(credential.user!);
+      return UserModel.fromFirebaseUserAndFirestore(credential.user!, firestoreData);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
     } on SignInWithAppleAuthorizationException catch (e) {
@@ -187,9 +192,9 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       }
 
       // Create user document in Firestore (new signup needs onboarding)
-      await _ensureUserDocument(credential.user!, isNewSignup: true);
+      final firestoreData = await _ensureUserDocument(credential.user!, isNewSignup: true);
 
-      return UserModel.fromFirebaseUser(credential.user!);
+      return UserModel.fromFirebaseUserAndFirestore(credential.user!, firestoreData);
     } on firebase.FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
     }
