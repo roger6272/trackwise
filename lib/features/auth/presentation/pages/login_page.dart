@@ -491,8 +491,13 @@ class _LoginPageState extends State<LoginPage> {
 
   void _handleAuthStateChange(BuildContext context, AuthState state) {
     if (state is Authenticated) {
-      // Navigate to main app (root route shows ItemsListPage)
-      context.go('/');
+      // Check if user needs onboarding (new user via Google/Apple sign-in)
+      if (!state.user.onboardingCompleted) {
+        context.go('/onboarding');
+      } else {
+        // Navigate to main app (root route shows ItemsListPage)
+        context.go('/');
+      }
     } else if (state is AuthError) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
