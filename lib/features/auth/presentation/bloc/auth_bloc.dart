@@ -99,7 +99,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     if (event.user != null) {
-      emit(Authenticated(event.user!));
+      // The stream user only has Firebase Auth data, not Firestore data.
+      // Fetch full user from Firestore to get onboarding_completed, etc.
+      final result = await _userRepository.getCurrentUser();
+      result.fold(
+        (failure) {
+          // If Firestore fetch fails, use basic user data
+          debugPrint('🔐 AuthBloc._onAuthStateChanged: Firestore fetch failed, using basic user');
+          emit(Authenticated(event.user!));
+        },
+        (fullUser) {
+          debugPrint('🔐 AuthBloc._onAuthStateChanged: Firestore user onboardingCompleted=${fullUser.onboardingCompleted}');
+          emit(Authenticated(fullUser));
+        },
+      );
     } else {
       emit(const Unauthenticated());
     }
