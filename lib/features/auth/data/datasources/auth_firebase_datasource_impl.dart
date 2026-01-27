@@ -56,12 +56,13 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       debugPrint('🔐 _ensureUserDocument: document EXISTS');
       final data = docSnapshot.data() as Map<String, dynamic>?;
 
-      // If document exists but doesn't have onboarding_completed, set it to false
-      // This handles users who signed up before onboarding was implemented
+      // If document exists but doesn't have onboarding_completed, set it to true
+      // These are existing users who signed up before onboarding was implemented
+      // They don't need to go through onboarding again
       if (data != null && !data.containsKey('onboarding_completed')) {
-        debugPrint('🔐 _ensureUserDocument: adding missing onboarding_completed=false');
-        await userDoc.update({'onboarding_completed': false});
-        return {...data, 'onboarding_completed': false};
+        debugPrint('🔐 _ensureUserDocument: legacy user, setting onboarding_completed=true');
+        await userDoc.update({'onboarding_completed': true});
+        return {...data, 'onboarding_completed': true};
       }
 
       return data;
