@@ -32,6 +32,7 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
   ///
   /// Returns the Firestore document data (for use in creating UserModel).
   /// New documents always have onboarding_completed=false.
+  /// Existing documents without onboarding_completed field also get it set to false.
   Future<Map<String, dynamic>?> _ensureUserDocument(firebase.User user) async {
     debugPrint('🔐 _ensureUserDocument: checking for ${user.uid}');
     final userDoc = _firestore.collection('users').doc(user.uid);
@@ -53,7 +54,17 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       return newDocData;
     } else {
       debugPrint('🔐 _ensureUserDocument: document EXISTS');
-      return docSnapshot.data() as Map<String, dynamic>?;
+      final data = docSnapshot.data() as Map<String, dynamic>?;
+
+      // If document exists but doesn't have onboarding_completed, set it to false
+      // This handles users who signed up before onboarding was implemented
+      if (data != null && !data.containsKey('onboarding_completed')) {
+        debugPrint('🔐 _ensureUserDocument: adding missing onboarding_completed=false');
+        await userDoc.update({'onboarding_completed': false});
+        return {...data, 'onboarding_completed': false};
+      }
+
+      return data;
     }
   }
 
