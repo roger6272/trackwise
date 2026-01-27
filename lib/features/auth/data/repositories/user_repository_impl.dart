@@ -261,4 +261,42 @@ class UserRepositoryImpl implements UserRepository {
       return Left(ServerFailure('Unexpected error updating device name: $e'));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> completeOnboarding({
+    String? displayName,
+    required String primaryUseCase,
+    String? referralSource,
+  }) async {
+    try {
+      final firebaseUser = _requireCurrentUser();
+      final userDocRef = _userDocRef(firebaseUser.uid);
+
+      // Build update data
+      final updateData = <String, dynamic>{
+        'onboarding_completed': true,
+        'primary_use_case': primaryUseCase,
+      };
+
+      if (referralSource != null && referralSource.isNotEmpty) {
+        updateData['referral_source'] = referralSource;
+      }
+
+      // Update Firestore
+      await userDocRef.set(updateData, SetOptions(merge: true));
+
+      // Update display name in Firebase Auth if provided
+      if (displayName != null && displayName.isNotEmpty) {
+        await firebaseUser.updateDisplayName(displayName);
+      }
+
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on FirebaseException catch (e) {
+      return Left(ServerFailure('Failed to complete onboarding: ${e.message}'));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error during onboarding: $e'));
+    }
+  }
 }

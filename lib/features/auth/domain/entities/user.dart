@@ -43,6 +43,18 @@ class User extends Equatable {
   /// Maximum 10 devices per account.
   final List<PairedDevice> pairedDevices;
 
+  /// Whether the user has completed onboarding.
+  /// New users should be redirected to onboarding page.
+  final bool onboardingCompleted;
+
+  /// User's primary use case for the product.
+  /// Collected during onboarding for product insights.
+  final String? primaryUseCase;
+
+  /// How the user heard about the product.
+  /// Collected during onboarding for marketing insights.
+  final String? referralSource;
+
   const User({
     required this.id,
     required this.email,
@@ -52,6 +64,9 @@ class User extends Equatable {
     this.syncSequenceNo = 0,
     this.lastSelectedDeviceItemId = -1,
     this.pairedDevices = const [],
+    this.onboardingCompleted = false,
+    this.primaryUseCase,
+    this.referralSource,
   });
 
   /// Creates a copy with the given fields replaced.
@@ -64,6 +79,9 @@ class User extends Equatable {
     int? syncSequenceNo,
     int? lastSelectedDeviceItemId,
     List<PairedDevice>? pairedDevices,
+    bool? onboardingCompleted,
+    String? primaryUseCase,
+    String? referralSource,
   }) {
     return User(
       id: id ?? this.id,
@@ -75,6 +93,9 @@ class User extends Equatable {
       lastSelectedDeviceItemId:
           lastSelectedDeviceItemId ?? this.lastSelectedDeviceItemId,
       pairedDevices: pairedDevices ?? this.pairedDevices,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      primaryUseCase: primaryUseCase ?? this.primaryUseCase,
+      referralSource: referralSource ?? this.referralSource,
     );
   }
 
@@ -88,6 +109,9 @@ class User extends Equatable {
         syncSequenceNo,
         lastSelectedDeviceItemId,
         pairedDevices,
+        onboardingCompleted,
+        primaryUseCase,
+        referralSource,
       ];
 
   /// Check if user has a display name

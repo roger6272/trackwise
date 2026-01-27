@@ -146,6 +146,7 @@ class _MyAppState extends State<MyApp> {
       _authStateNotifier.updateAuthState(
         uid: state.user.id,
         isLoggedIn: true,
+        onboardingCompleted: state.user.onboardingCompleted,
       );
     } else if (state is Unauthenticated) {
       _authStateNotifier.updateAuthState(

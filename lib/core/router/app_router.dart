@@ -6,6 +6,7 @@ import '../widgets/app_shell.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
+import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/items/presentation/pages/items_list_page.dart';
 import '../../features/items/presentation/pages/item_detail_page.dart';
 import '../../features/items/presentation/pages/item_form_page.dart';
@@ -43,14 +44,28 @@ class AppRouter {
         final loggingIn = state.matchedLocation == LoginPage.routePath ||
             state.matchedLocation == SignupPage.routePath ||
             state.matchedLocation == ForgotPasswordPage.routePath;
+        final onOnboarding = state.matchedLocation == OnboardingPage.routePath;
 
         // If not logged in and not on auth page, redirect to login
         if (!loggedIn && !loggingIn) {
           return LoginPage.routePath;
         }
 
-        // If logged in and on auth page, redirect to home
+        // If logged in and on auth page, redirect to onboarding or home
         if (loggedIn && loggingIn) {
+          if (authStateNotifier.needsOnboarding) {
+            return OnboardingPage.routePath;
+          }
+          return '/';
+        }
+
+        // If logged in and needs onboarding, redirect to onboarding
+        if (loggedIn && authStateNotifier.needsOnboarding && !onOnboarding) {
+          return OnboardingPage.routePath;
+        }
+
+        // If on onboarding but doesn't need it, redirect to home
+        if (onOnboarding && !authStateNotifier.needsOnboarding) {
           return '/';
         }
 
@@ -79,6 +94,11 @@ class AppRouter {
           name: ForgotPasswordPage.routeName,
           path: ForgotPasswordPage.routePath,
           builder: (context, state) => const ForgotPasswordPage(),
+        ),
+        GoRoute(
+          name: OnboardingPage.routeName,
+          path: OnboardingPage.routePath,
+          builder: (context, state) => const OnboardingPage(),
         ),
 
         // Main app with shell navigation

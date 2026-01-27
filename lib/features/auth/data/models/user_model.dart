@@ -19,6 +19,9 @@ class UserModel extends User {
     super.syncSequenceNo,
     super.lastSelectedDeviceItemId,
     super.pairedDevices,
+    super.onboardingCompleted,
+    super.primaryUseCase,
+    super.referralSource,
   });
 
   /// Create UserModel from Firebase Auth User.
@@ -61,6 +64,9 @@ class UserModel extends User {
       lastSelectedDeviceItemId:
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
+      onboardingCompleted: data['onboarding_completed'] as bool? ?? false,
+      primaryUseCase: data['primary_use_case'] as String?,
+      referralSource: data['referral_source'] as String?,
     );
   }
 
@@ -86,6 +92,9 @@ class UserModel extends User {
       lastSelectedDeviceItemId:
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
+      onboardingCompleted: data['onboarding_completed'] as bool? ?? false,
+      primaryUseCase: data['primary_use_case'] as String?,
+      referralSource: data['referral_source'] as String?,
     );
   }
 
@@ -98,6 +107,9 @@ class UserModel extends User {
       'sync_sequence_no': syncSequenceNo,
       'last_selected_device_item_id': lastSelectedDeviceItemId,
       'paired_devices': pairedDevices.map((d) => d.toFirestore()).toList(),
+      'onboarding_completed': onboardingCompleted,
+      if (primaryUseCase != null) 'primary_use_case': primaryUseCase,
+      if (referralSource != null) 'referral_source': referralSource,
     };
   }
 
@@ -112,6 +124,9 @@ class UserModel extends User {
       syncSequenceNo: syncSequenceNo,
       lastSelectedDeviceItemId: lastSelectedDeviceItemId,
       pairedDevices: pairedDevices,
+      onboardingCompleted: onboardingCompleted,
+      primaryUseCase: primaryUseCase,
+      referralSource: referralSource,
     );
   }
 
@@ -126,6 +141,9 @@ class UserModel extends User {
     int? syncSequenceNo,
     int? lastSelectedDeviceItemId,
     List<PairedDevice>? pairedDevices,
+    bool? onboardingCompleted,
+    String? primaryUseCase,
+    String? referralSource,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -137,6 +155,9 @@ class UserModel extends User {
       lastSelectedDeviceItemId:
           lastSelectedDeviceItemId ?? this.lastSelectedDeviceItemId,
       pairedDevices: pairedDevices ?? this.pairedDevices,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      primaryUseCase: primaryUseCase ?? this.primaryUseCase,
+      referralSource: referralSource ?? this.referralSource,
     );
   }
 }

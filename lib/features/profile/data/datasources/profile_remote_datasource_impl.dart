@@ -32,7 +32,13 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       final doc = await _firestore.collection('users').doc(user.uid).get();
 
       if (doc.exists) {
-        return UserProfileModel.fromFirestore(doc);
+        final firestoreProfile = UserProfileModel.fromFirestore(doc);
+        // Merge with Firebase Auth data - prefer Firebase Auth displayName
+        // as it may have been updated during onboarding
+        return firestoreProfile.copyWith(
+          displayName: user.displayName ?? firestoreProfile.displayName,
+          photoUrl: user.photoURL ?? firestoreProfile.photoUrl,
+        );
       }
 
       // If no Firestore profile, create one from Firebase Auth user

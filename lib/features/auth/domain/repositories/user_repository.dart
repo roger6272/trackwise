@@ -75,4 +75,18 @@ abstract class UserRepository {
     String deviceInstanceId,
     String newName,
   );
+
+  /// Completes onboarding and saves user preferences.
+  ///
+  /// [displayName] - User's name (optional).
+  /// [primaryUseCase] - How the user plans to use the product.
+  /// [referralSource] - How the user heard about the product (optional).
+  ///
+  /// Returns [AuthFailure] if not authenticated.
+  /// Returns [ServerFailure] if Firestore operation fails.
+  Future<Either<Failure, void>> completeOnboarding({
+    String? displayName,
+    required String primaryUseCase,
+    String? referralSource,
+  });
 }
