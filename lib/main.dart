@@ -38,16 +38,9 @@ void main() async {
     GoRouter.optionURLReflectsImperativeAPIs = true;
     usePathUrlStrategy();
 
-    // Pre-load Google Fonts to reduce error spam during hot reload
-    // Errors during font loading are caught and ignored (fallback to system fonts)
-    try {
-      await GoogleFonts.pendingFonts([
-        GoogleFonts.inter(),
-        GoogleFonts.interTight(),
-      ]);
-    } catch (_) {
-      // Ignore font loading errors - will use system fonts as fallback
-    }
+    // Disable Google Fonts runtime fetching to prevent error spam
+    // Fonts will be loaded from cache if available, otherwise system fonts are used
+    GoogleFonts.config.allowRuntimeFetching = false;
 
     await initFirebase();
 
