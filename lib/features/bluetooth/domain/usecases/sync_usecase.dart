@@ -428,25 +428,58 @@ class PerformOverrideUseCase {
       print('🔍 Override selection debug:');
       print('   params.currentSelectedFirestoreId: ${params.currentSelectedFirestoreId}');
       print('   user.lastSelectedDeviceItemId: ${user.lastSelectedDeviceItemId}');
+      print('   allItems count: ${allItems.length}');
       print('   syncedItems count: ${syncedItems.length}');
-      for (final item in syncedItems) {
-        print('   - ${item.name}: firestoreId=${item.id}, deviceItemId=${item.deviceItemId}');
+      for (final item in allItems) {
+        print('   - ${item.name}: firestoreId=${item.id}, deviceItemId=${item.deviceItemId}, categoryId=${item.categoryId}');
       }
     }
 
     // First, try to use current app selection (Firestore ID from UI state)
+    // IMPORTANT: Search in allItems first to find the item (even if it doesn't have deviceItemId)
+    // This ensures we get the correct category for filtering
+    Item? selectedItemFromAll;
     if (params.currentSelectedFirestoreId != null &&
         params.currentSelectedFirestoreId!.isNotEmpty &&
         params.currentSelectedFirestoreId != 'none') {
-      selectedItem = syncedItems.cast<Item?>().firstWhere(
+      // First, find the item in allItems to get its category
+      selectedItemFromAll = allItems.cast<Item?>().firstWhere(
         (i) => i?.id == params.currentSelectedFirestoreId,
         orElse: () => null,
       );
-      if (selectedItem != null) {
-        selectedItemId = selectedItem.deviceItemId ?? -1;
-        if (kDebugMode) print('   ✓ Found by currentSelectedFirestoreId: ${selectedItem.name} (deviceItemId=$selectedItemId)');
+      if (selectedItemFromAll != null) {
+        if (kDebugMode) print('   ✓ Found in allItems: ${selectedItemFromAll.name} (deviceItemId=${selectedItemFromAll.deviceItemId})');
+        // Now check if this item is also in syncedItems (has deviceItemId)
+        if (selectedItemFromAll.deviceItemId != null) {
+          selectedItem = selectedItemFromAll;
+          selectedItemId = selectedItemFromAll.deviceItemId!;
+          if (kDebugMode) print('   ✓ Item has deviceItemId: $selectedItemId');
+        } else {
+          // Item exists but doesn't have deviceItemId - use its category to filter
+          // and pick the first synced item in that category
+          if (kDebugMode) print('   ⚠ Item has no deviceItemId, will use its category to filter');
+        }
       } else {
-        if (kDebugMode) print('   ✗ currentSelectedFirestoreId not found in syncedItems');
+        if (kDebugMode) print('   ✗ currentSelectedFirestoreId not found in allItems');
+      }
+    }
+
+    // If we found an item in allItems but it doesn't have deviceItemId,
+    // use its category to filter syncedItems and pick the first one
+    if (selectedItem == null && selectedItemFromAll != null) {
+      final targetCategoryId = selectedItemFromAll.categoryId ?? '';
+      final itemsInCategory = syncedItems.where((i) {
+        final itemCategoryId = i.categoryId ?? '';
+        return itemCategoryId == targetCategoryId;
+      }).toList();
+      if (itemsInCategory.isNotEmpty) {
+        itemsInCategory.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+        final firstInCategory = itemsInCategory.first;
+        selectedItem = firstInCategory;
+        selectedItemId = firstInCategory.deviceItemId ?? -1;
+        if (kDebugMode) print('   ✓ Using first synced item in same category: ${firstInCategory.name} (deviceItemId=$selectedItemId)');
+      } else {
+        if (kDebugMode) print('   ⚠ No synced items in category $targetCategoryId');
       }
     }
 
