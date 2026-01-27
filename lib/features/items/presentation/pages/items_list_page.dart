@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../auth/domain/repositories/user_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
@@ -104,6 +105,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
     super.initState();
     _firstItemController = SlidableController(this);
 
+    // Mark user as existing (completed onboarding) when they reach items page
+    _markOnboardingComplete();
+
     // Animation for reorder hint: lift effect
     _reorderHintController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -126,6 +130,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
           category.id: category.order,
       };
     }
+  }
+
+  /// Marks the user as having completed onboarding when they reach the items page.
+  /// This ensures existing users who skipped or didn't see onboarding are marked appropriately.
+  Future<void> _markOnboardingComplete() async {
+    final userRepository = sl<UserRepository>();
+    await userRepository.completeOnboarding(primaryUseCase: 'existing_user');
   }
 
   // Static colors (theme-independent)
