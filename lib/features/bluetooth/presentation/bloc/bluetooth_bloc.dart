@@ -612,9 +612,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         }
       },
       (result) {
-        if (kDebugMode) print('Sync completed successfully, deviceInstanceId=${result.deviceInstanceId}');
+        final macAddress = state.connectedDevice!.id;
+        if (kDebugMode) print('Sync completed successfully, deviceInstanceId=$macAddress');
         // Use event to update state (emit not available outside event handlers)
-        add(SyncCompleted(deviceInstanceId: result.deviceInstanceId));
+        add(SyncCompleted(deviceInstanceId: macAddress));
       },
     );
   }
@@ -989,8 +990,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
         if (kDebugMode) print('Override completed successfully');
 
-        // Trigger sync completed to reload paired devices
-        add(SyncCompleted(deviceInstanceId: syncResult.deviceInstanceId));
+        // Trigger sync completed to reload paired devices (use MAC address as device ID)
+        add(SyncCompleted(deviceInstanceId: state.connectedDevice!.id));
       },
     );
   }
@@ -1096,8 +1097,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
         if (kDebugMode) print('Device setup completed successfully');
 
-        // Trigger sync completed to reload paired devices
-        add(SyncCompleted(deviceInstanceId: syncResult.deviceInstanceId));
+        // Trigger sync completed to reload paired devices (use MAC address as device ID)
+        add(SyncCompleted(deviceInstanceId: state.connectedDevice!.id));
       },
     );
   }

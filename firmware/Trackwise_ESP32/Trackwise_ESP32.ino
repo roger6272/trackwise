@@ -47,8 +47,8 @@ static const esp_task_wdt_config_t wdtConfig = {
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
 #define NVS_KEY_PAIRED_UID "paired_uid"           // String: Firebase uid (empty = unpaired)
-#define NVS_KEY_DEVICE_INSTANCE_ID "dev_inst_id"  // String: Unique device identifier (UUID)
 #define NVS_KEY_SYNC_SEQ_NO "sync_seq_no"         // int32: Last sync sequence number (default: 0)
+// Note: Device Instance ID is now the BLE MAC address (no NVS storage needed)
 
 // ============== MULTI-DEVICE STATE ==============
 bool isPairingMode = false;  // True when device is unpaired and waiting for pairing
@@ -216,44 +216,10 @@ String safeString(const char* str, size_t maxLen = 32) {
 
 // ============== MULTI-DEVICE FUNCTIONS ==============
 
-// Generate a UUID-like random string for device instance ID
-// Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars)
-String generateUUID() {
-  const char hex[] = "0123456789abcdef";
-  char uuid[37];
-  int pos = 0;
-
-  for (int i = 0; i < 36; i++) {
-    if (i == 8 || i == 13 || i == 18 || i == 23) {
-      uuid[pos++] = '-';
-    } else {
-      uuid[pos++] = hex[esp_random() % 16];
-    }
-  }
-  uuid[36] = '\0';
-  return String(uuid);
-}
-
-// Generate and store a new device instance ID
-// Called ONLY on first boot - device_instance_id is permanent and survives factory reset
-void generateDeviceInstanceId() {
-  String uuid = generateUUID();
-  if (!nvsBeginSafe("counter", false)) {
-    Serial.println("❌ Failed to generate device instance ID - NVS mutex timeout");
-    return;
-  }
-  prefs.putString(NVS_KEY_DEVICE_INSTANCE_ID, uuid);
-  nvsEndSafe();
-  Serial.printf("🆔 Generated new device instance ID: %s\n", uuid.c_str());
-}
-
-// Get the device instance ID from NVS
+// Get the device instance ID (uses BLE MAC address)
+// MAC address is unique per device and doesn't require NVS storage
 String getDeviceInstanceId() {
-  String id = "";
-  if (!nvsBeginSafe("counter", true)) return id;
-  id = prefs.getString(NVS_KEY_DEVICE_INSTANCE_ID, "");
-  nvsEndSafe();
-  return id;
+  return BLEDevice::getAddress().toString().c_str();
 }
 
 // Get the paired Firebase UID from NVS
@@ -2195,19 +2161,8 @@ void setup() {
   }
 
   // ============== MULTI-DEVICE: Device Instance ID ==============
-  // Check if device instance ID exists, generate if not (first boot)
-  String deviceInstanceId = prefs.getString(NVS_KEY_DEVICE_INSTANCE_ID, "");
-  if (deviceInstanceId.isEmpty()) {
-    // First boot ever - generate device instance ID
-    nvsEndSafe();  // Release lock before generating (it acquires its own)
-    generateDeviceInstanceId();
-    if (!nvsBeginSafe("counter", false)) {
-      Serial.println("❌ Failed to reopen NVS after generating device ID");
-      return;
-    }
-    deviceInstanceId = prefs.getString(NVS_KEY_DEVICE_INSTANCE_ID, "");
-  }
-  Serial.printf("🆔 Device Instance ID: %s\n", deviceInstanceId.c_str());
+  // Device Instance ID is the BLE MAC address (no NVS storage needed)
+  Serial.printf("🆔 Device Instance ID (MAC): %s\n", getDeviceInstanceId().c_str());
 
   // ============== MULTI-DEVICE: Pairing Mode Detection ==============
   // Check if device is paired (has a paired_uid set)
