@@ -144,6 +144,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<ConfirmDeviceSetup>(_onConfirmDeviceSetup);
     on<CancelDeviceSetup>(_onCancelDeviceSetup);
     on<ClearSetupState>(_onClearSetupState);
+    // Wrong account events
+    on<WrongAccountDetected>(_onWrongAccountDetected);
+    on<DismissWrongAccount>(_onDismissWrongAccount);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -602,7 +605,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           add(DeviceSetupRequired(deviceInstanceId: failure.deviceInstanceId));
         } else if (failure is WrongAccountFailure) {
           if (kDebugMode) print('Wrong account - device locked to different user');
-          // TODO: Show wrong account dialog
+          add(const WrongAccountDetected());
         } else if (failure is NoInternetFailure) {
           if (kDebugMode) print('No internet - falling back to old sync flow');
           // Fall back to old sync flow when offline
@@ -1135,6 +1138,37 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     emit(state.copyWith(clearSetup: true));
+  }
+
+  // ========== Wrong Account Handlers ==========
+
+  /// Device is locked to a different user account.
+  /// Set state to show dialog, then disconnect.
+  Future<void> _onWrongAccountDetected(
+    WrongAccountDetected event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(hasWrongAccount: true));
+  }
+
+  /// User dismissed wrong account dialog - disconnect from device.
+  Future<void> _onDismissWrongAccount(
+    DismissWrongAccount event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(hasWrongAccount: false));
+
+    // Disconnect from device
+    final deviceId = state.connectedDevice?.id;
+    if (deviceId != null) {
+      _isManualDisconnect = true;
+      await _bluetoothRepository.disconnect(deviceId);
+      emit(state.copyWith(
+        status: BluetoothStatus.ready,
+        clearConnectedDevice: true,
+        clearConnectedDeviceInstanceId: true,
+      ));
+    }
   }
 
   // ========== Cleanup ==========

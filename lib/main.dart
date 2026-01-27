@@ -18,6 +18,7 @@ import 'features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import 'features/bluetooth/presentation/widgets/device_setup_dialog.dart';
 import 'features/bluetooth/presentation/widgets/sync_conflict_dialog.dart';
+import 'features/bluetooth/presentation/widgets/wrong_account_dialog.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -200,7 +201,16 @@ class _MyAppState extends State<MyApp> {
             _showSetupDialog(context);
           }
         },
-        child: MaterialApp.router(
+        child: BlocListener<BluetoothBloc, BluetoothState>(
+          listenWhen: (previous, current) =>
+              !previous.hasWrongAccount && current.hasWrongAccount,
+          listener: (context, state) {
+            if (state.hasWrongAccount) {
+              // Show wrong account dialog globally
+              _showWrongAccountDialog(context);
+            }
+          },
+          child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Traxelos',
         scrollBehavior: MyAppScrollBehavior(),
@@ -215,6 +225,7 @@ class _MyAppState extends State<MyApp> {
         themeMode: _themeMode,
         routerConfig: _router,
       ),
+        ),
       ),
     );
   }
@@ -258,6 +269,19 @@ class _MyAppState extends State<MyApp> {
         },
         onCancel: () {
           context.read<BluetoothBloc>().add(const CancelDeviceSetup());
+        },
+      );
+    }
+  }
+
+  void _showWrongAccountDialog(BuildContext context) {
+    // Use the router's navigator context for the dialog
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
+    if (navigatorContext != null) {
+      WrongAccountDialog.show(
+        context: navigatorContext,
+        onDismiss: () {
+          context.read<BluetoothBloc>().add(const DismissWrongAccount());
         },
       );
     }

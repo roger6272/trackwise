@@ -309,3 +309,17 @@ class SyncCompleted extends BluetoothEvent {
   @override
   List<Object?> get props => [deviceInstanceId];
 }
+
+// ========== Wrong Account Events (device paired to different user) ==========
+
+/// Internal event when device is locked to a different user account.
+/// UI should show wrong account dialog and disconnect.
+class WrongAccountDetected extends BluetoothEvent {
+  const WrongAccountDetected();
+}
+
+/// User dismissed wrong account dialog.
+/// Disconnects from device.
+class DismissWrongAccount extends BluetoothEvent {
+  const DismissWrongAccount();
+}
