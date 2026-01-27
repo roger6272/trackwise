@@ -159,11 +159,14 @@ class PerformSyncUseCase {
       return const Left(WrongAccountFailure());
     }
 
+    // Normalize device instance ID to uppercase (ESP32 returns lowercase, Flutter Blue Plus uses uppercase)
+    final deviceInstanceId = handshake.deviceInstanceId.toUpperCase();
+
     // Step 5: Check for uninitialized device (factory reset or new)
     // User must confirm setup before we proceed
     if (handshake.status == SyncStatus.uninitialized) {
       return Left(DeviceUninitializedFailure(
-        deviceInstanceId: handshake.deviceInstanceId,
+        deviceInstanceId: deviceInstanceId,
       ));
     }
 
@@ -173,13 +176,13 @@ class PerformSyncUseCase {
       return Left(SyncConflictFailure(
         deviceSyncSeq: handshake.deviceSyncSeq,
         appSyncSeq: appSyncSeq,
-        deviceInstanceId: handshake.deviceInstanceId,
+        deviceInstanceId: deviceInstanceId,
       ));
     }
 
     // Step 7: Device is in sync - add to paired devices if new
     final isNewDevice = !user.pairedDevices.any(
-      (d) => d.deviceInstanceId == handshake.deviceInstanceId,
+      (d) => d.deviceInstanceId.toUpperCase() == deviceInstanceId,
     );
 
     if (isNewDevice) {
@@ -190,15 +193,15 @@ class PerformSyncUseCase {
 
       await _userRepository.addPairedDevice(
         PairedDevice(
-          deviceInstanceId: handshake.deviceInstanceId,
+          deviceInstanceId: deviceInstanceId,
           deviceName: 'Trackwise Device',
           pairedAt: DateTime.now(),
         ),
       );
     }
 
-    // Step 7: Perform normal sync (device is source of truth)
-    return _performNormalSync(user.id, appSyncSeq, handshake.deviceInstanceId);
+    // Step 8: Perform normal sync (device is source of truth)
+    return _performNormalSync(user.id, appSyncSeq, deviceInstanceId);
   }
 
   /// Performs normal sync flow (device is source of truth).
