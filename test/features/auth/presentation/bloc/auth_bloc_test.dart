@@ -42,6 +42,10 @@ void main() {
     mockResetPassword = MockResetPasswordUseCase();
     mockWatchAuthState = MockWatchAuthStateUseCase();
     mockUserRepository = MockUserRepository();
+
+    // Default stub for getCurrentUser - used by _onCheckAuthStatus and _onAuthStateChanged
+    when(() => mockUserRepository.getCurrentUser())
+        .thenAnswer((_) async => const Right(testUser));
   });
 
   AuthBloc createBloc() {
