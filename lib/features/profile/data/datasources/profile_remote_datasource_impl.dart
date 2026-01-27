@@ -167,9 +167,24 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       throw AuthException('Not authenticated');
     }
 
+    final userId = user.uid;
+    final userRef = _firestore.collection('users').doc(userId);
+
+    // Try to delete Firebase Auth account FIRST
+    // This requires recent authentication - if it fails, no data is deleted yet
+    try {
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        throw AuthException('Please sign in again to delete your account');
+      }
+      throw AuthException('Failed to delete account: ${e.message}');
+    }
+
+    // Auth account deleted successfully, now clean up Firestore data
+    // Even if this fails, the account is gone and data will be orphaned
     try {
       final batch = _firestore.batch();
-      final userRef = _firestore.collection('users').doc(user.uid);
 
       // Delete all items (uses DocumentReference for uid)
       final itemsSnapshot = await _firestore
@@ -183,7 +198,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       // Delete all event logs (uses string user_id)
       final eventsSnapshot = await _firestore
           .collection('EventLog')
-          .where('user_id', isEqualTo: user.uid)
+          .where('user_id', isEqualTo: userId)
           .get();
       for (final doc in eventsSnapshot.docs) {
         batch.delete(doc.reference);
@@ -203,17 +218,9 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
       // Commit batch delete
       await batch.commit();
-
-      // Delete Firebase Auth account (must be last)
-      await user.delete();
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'requires-recent-login') {
-        throw AuthException('Please sign in again to delete your account');
-      }
-      throw AuthException('Failed to delete account: ${e.message}');
     } catch (e) {
-      if (e is AuthException) rethrow;
-      throw ServerException('Failed to delete account: ${e.toString()}');
+      // Firestore cleanup failed, but account is already deleted
+      // Data will be orphaned but user can't access it anymore
     }
   }
 }
