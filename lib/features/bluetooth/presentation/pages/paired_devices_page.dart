@@ -9,7 +9,7 @@ import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
 
-/// Page for managing paired Trackwise devices.
+/// Page for managing paired Traxelos devices.
 ///
 /// Displays a list of all devices paired to the user's account.
 /// Allows renaming and unpairing devices.
@@ -108,7 +108,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Connect to a Trackwise device to pair it with your account.',
+              'Connect to a Traxelos device to pair it with your account.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 color: secondaryText.withValues(alpha: 0.7),

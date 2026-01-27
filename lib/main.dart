@@ -142,7 +142,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _onAuthStateChanged(AuthState state) {
+    debugPrint('🔐 main._onAuthStateChanged: state=${state.runtimeType}');
     if (state is Authenticated) {
+      debugPrint('🔐 main: Authenticated user=${state.user.id}, onboardingCompleted=${state.user.onboardingCompleted}');
       _authStateNotifier.updateAuthState(
         uid: state.user.id,
         isLoggedIn: true,
@@ -195,7 +197,7 @@ class _MyAppState extends State<MyApp> {
         },
         child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
-        title: 'Traxogic',
+        title: 'Traxelos',
         scrollBehavior: MyAppScrollBehavior(),
         localizationsDelegates: [
           GlobalMaterialLocalizations.delegate,

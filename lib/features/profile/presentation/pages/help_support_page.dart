@@ -49,7 +49,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       scheme: 'mailto',
       path: _supportEmail,
       queryParameters: {
-        'subject': 'Traxogic Support Request',
+        'subject': 'Traxelos Support Request',
         'body': '\n\n---\nApp Version: $_appVersion',
       },
     );
@@ -118,7 +118,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                 child: Column(
                   children: [
                     Text(
-                      'Traxogic',
+                      'Traxelos',
                       style: GoogleFonts.interTight(
                         color: secondaryText,
                         fontSize: 14.0,
@@ -163,7 +163,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     final faqs = [
       (
         question: 'How do I connect my device?',
-        answer: 'Go to the Bluetooth tab and tap "Find Device". Make sure your Traxogic device is powered on and nearby. Select it from the list to connect.',
+        answer: 'Go to the Bluetooth tab and tap "Find Device". Make sure your Traxelos device is powered on and nearby. Select it from the list to connect.',
       ),
       (
         question: 'How do I add a new item to track?',

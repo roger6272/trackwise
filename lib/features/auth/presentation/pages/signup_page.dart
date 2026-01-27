@@ -92,7 +92,7 @@ class _SignupPageState extends State<SignupPage> {
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 70.0, 0.0, 32.0),
       child: Text(
-        'Traxogic',
+        'Traxelos',
         style: GoogleFonts.interTight(
           color: Colors.white,
           fontSize: 32.0,

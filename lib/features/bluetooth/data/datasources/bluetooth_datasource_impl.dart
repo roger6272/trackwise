@@ -385,7 +385,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
     if (missingChars.isNotEmpty) {
       final error = 'Missing required BLE characteristics: ${missingChars.join(', ')}. '
-          'Device may not be a valid Traxogic device or firmware needs update.';
+          'Device may not be a valid Traxelos device or firmware needs update.';
       debugPrint(error);
       throw StateError(error);
     }

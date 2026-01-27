@@ -1,12 +1,12 @@
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 
-import 'package:trackwise/core/error/exceptions.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/core/usecases/usecase.dart';
-import 'package:trackwise/features/export/data/datasources/firestore_mail_datasource.dart';
-import 'package:trackwise/features/export/domain/entities/send_email_params.dart';
-import 'package:trackwise/features/export/domain/usecases/generate_csv_usecase.dart';
+import 'package:traxelos/core/error/exceptions.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/core/usecases/usecase.dart';
+import 'package:traxelos/features/export/data/datasources/firestore_mail_datasource.dart';
+import 'package:traxelos/features/export/domain/entities/send_email_params.dart';
+import 'package:traxelos/features/export/domain/usecases/generate_csv_usecase.dart';
 
 /// Use case for sending an email with CSV export attached.
 @injectable
@@ -61,7 +61,7 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
   String _generateSubject(SendEmailParams params) {
     final startStr = _formatDate(params.startDate);
     final endStr = _formatDate(params.endDate);
-    return 'Traxogic Export: $startStr to $endStr';
+    return 'Traxelos Export: $startStr to $endStr';
   }
 
   /// Generate email body based on export parameters.
@@ -71,14 +71,14 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
     final aggregation = params.aggregationLevel.name;
 
     return '''
-Your Traxogic data export is attached.
+Your Traxelos data export is attached.
 
 Export Details:
 - Date Range: $startStr to $endStr
 - Aggregation: ${_capitalizeFirst(aggregation)}
 ${params.itemId != null ? '- Item: Filtered by specific item' : '- Items: All items'}
 
-Thank you for using Traxogic!
+Thank you for using Traxelos!
 ''';
   }
 

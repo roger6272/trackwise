@@ -59,7 +59,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _completeOnboarding() async {
     if (_selectedUseCase == null) {
-      setState(() => _errorMessage = 'Please select how you plan to use Trackwise');
+      setState(() => _errorMessage = 'Please select how you plan to use Traxelos');
       return;
     }
 
@@ -136,7 +136,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
               // Welcome header
               Text(
-                'Welcome to Trackwise!',
+                'Welcome to Traxelos!',
                 style: GoogleFonts.interTight(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -183,7 +183,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
               // Use case selection (required)
               Text(
-                'How do you plan to use Trackwise?',
+                'How do you plan to use Traxelos?',
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,

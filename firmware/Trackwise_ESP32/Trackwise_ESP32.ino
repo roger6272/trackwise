@@ -1766,7 +1766,7 @@ static void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 
 // BLE peripheral and characteristic setup
 void setupBLE() {
-  BLEDevice::init("Traxogic_device");
+  BLEDevice::init("Traxelos");
 
   // Log device instance ID (MAC address) now that BLE is initialized
   Serial.printf("🆔 Device Instance ID (MAC): %s\n", getDeviceInstanceId().c_str());

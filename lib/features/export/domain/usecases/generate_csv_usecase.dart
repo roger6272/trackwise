@@ -1,14 +1,14 @@
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/core/usecases/usecase.dart';
-import 'package:trackwise/features/categories/domain/repositories/category_repository.dart';
-import 'package:trackwise/features/events/domain/entities/event_log.dart';
-import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
-import 'package:trackwise/features/export/domain/entities/aggregation_key.dart';
-import 'package:trackwise/features/export/domain/entities/csv_export_config.dart';
-import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/core/usecases/usecase.dart';
+import 'package:traxelos/features/categories/domain/repositories/category_repository.dart';
+import 'package:traxelos/features/events/domain/entities/event_log.dart';
+import 'package:traxelos/features/events/domain/repositories/event_log_repository.dart';
+import 'package:traxelos/features/export/domain/entities/aggregation_key.dart';
+import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
+import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
 
 /// Use case for generating CSV from event data.
 @injectable

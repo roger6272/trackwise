@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
-/// Represents a physical Trackwise device paired to a user's account.
+/// Represents a physical Traxelos device paired to a user's account.
 ///
 /// Each physical device has a unique [deviceInstanceId] generated on first boot.
 /// The ID is regenerated on factory reset, allowing the same physical device
@@ -20,7 +20,7 @@ class PairedDevice extends Equatable {
 
   /// User-friendly name for this device.
   ///
-  /// Defaults to "Trackwise Device" on first pairing.
+  /// Defaults to "Traxelos Device" on first pairing.
   /// Can be customized by user in settings.
   final String deviceName;
 
@@ -50,7 +50,7 @@ class PairedDevice extends Equatable {
   factory PairedDevice.fromFirestore(Map<String, dynamic> data) {
     return PairedDevice(
       deviceInstanceId: data['device_instance_id'] as String? ?? '',
-      deviceName: data['device_name'] as String? ?? 'Trackwise Device',
+      deviceName: data['device_name'] as String? ?? 'Traxelos Device',
       pairedAt: _parseTimestamp(data['paired_at']),
     );
   }

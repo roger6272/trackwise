@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -70,13 +71,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     // Check if there's a logged-in user
     final currentUser = _watchAuthState.currentUser;
+    debugPrint('🔐 AuthBloc._onCheckAuthStatus: currentUser=${currentUser?.id}');
     if (currentUser != null) {
       // Fetch full user data from Firestore (includes onboarding_completed)
       final result = await _userRepository.getCurrentUser();
       result.fold(
         // If fetch fails, use basic user data
-        (_) => emit(Authenticated(currentUser)),
-        (fullUser) => emit(Authenticated(fullUser)),
+        (failure) {
+          debugPrint('🔐 AuthBloc: Firestore fetch FAILED: ${failure.message}, using basic user (onboardingCompleted=${currentUser.onboardingCompleted})');
+          emit(Authenticated(currentUser));
+        },
+        (fullUser) {
+          debugPrint('🔐 AuthBloc: Firestore fetch SUCCESS, onboardingCompleted=${fullUser.onboardingCompleted}');
+          emit(Authenticated(fullUser));
+        },
       );
     } else {
       emit(const Unauthenticated());
