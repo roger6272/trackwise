@@ -274,7 +274,10 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 onChanged: (val) {
                                   // Handle "Manage Categories" navigation
                                   if (val == '__manage__') {
-                                    context.push('/profile/categories');
+                                    context.push('/profile/categories').then((_) {
+                                      // Force rebuild to restore previous category selection
+                                      if (mounted) setState(() {});
+                                    });
                                     return;
                                   }
                                   setState(() => selectedCategoryId = val ?? '');
