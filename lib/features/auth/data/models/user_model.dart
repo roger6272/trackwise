@@ -54,6 +54,13 @@ class UserModel extends User {
         .map((e) => PairedDevice.fromFirestore(e as Map<String, dynamic>))
         .toList();
 
+    // For onboarding: if field exists, use it. If not:
+    // - Existing users (have Firestore data) → skip onboarding (default true)
+    // - New users (no Firestore data) → show onboarding (default false)
+    final hasFirestoreData = firestoreData != null && firestoreData.isNotEmpty;
+    final onboardingCompleted = data['onboarding_completed'] as bool? ??
+        hasFirestoreData; // Existing users skip onboarding
+
     return UserModel(
       id: firebaseUser.uid,
       email: firebaseUser.email ?? '',
@@ -64,7 +71,7 @@ class UserModel extends User {
       lastSelectedDeviceItemId:
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
-      onboardingCompleted: data['onboarding_completed'] as bool? ?? false,
+      onboardingCompleted: onboardingCompleted,
       primaryUseCase: data['primary_use_case'] as String?,
       referralSource: data['referral_source'] as String?,
     );
@@ -82,6 +89,10 @@ class UserModel extends User {
         .map((e) => PairedDevice.fromFirestore(e as Map<String, dynamic>))
         .toList();
 
+    // If doc exists with data, user is existing → default onboarding to true
+    final hasData = data.isNotEmpty;
+    final onboardingCompleted = data['onboarding_completed'] as bool? ?? hasData;
+
     return UserModel(
       id: doc.id,
       email: data['email'] as String? ?? '',
@@ -92,7 +103,7 @@ class UserModel extends User {
       lastSelectedDeviceItemId:
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
-      onboardingCompleted: data['onboarding_completed'] as bool? ?? false,
+      onboardingCompleted: onboardingCompleted,
       primaryUseCase: data['primary_use_case'] as String?,
       referralSource: data['referral_source'] as String?,
     );
