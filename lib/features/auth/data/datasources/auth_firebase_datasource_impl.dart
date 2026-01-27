@@ -30,29 +30,26 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
 
   /// Creates or updates user document in Firestore.
   ///
-  /// [isNewSignup] should be true for new account creation (signup),
-  /// false for existing user login. New signups get onboarding_completed=false.
-  ///
   /// Returns the Firestore document data (for use in creating UserModel).
-  Future<Map<String, dynamic>?> _ensureUserDocument(firebase.User user, {bool isNewSignup = false}) async {
-    debugPrint('🔐 _ensureUserDocument: checking for ${user.uid} (isNewSignup: $isNewSignup)');
+  /// New documents always have onboarding_completed=false.
+  Future<Map<String, dynamic>?> _ensureUserDocument(firebase.User user) async {
+    debugPrint('🔐 _ensureUserDocument: checking for ${user.uid}');
     final userDoc = _firestore.collection('users').doc(user.uid);
     final docSnapshot = await userDoc.get();
 
     if (!docSnapshot.exists) {
       debugPrint('🔐 _ensureUserDocument: document MISSING, creating...');
-      // Create new user document
+      // Create new user document - always require onboarding for new documents
       final newDocData = {
         'uid': user.uid,
         'email': user.email,
         'display_name': user.displayName,
         'photo_url': user.photoURL,
         'created_time': FieldValue.serverTimestamp(),
-        // New signups need onboarding, existing users (migration) don't
-        if (isNewSignup) 'onboarding_completed': false,
+        'onboarding_completed': false,
       };
       await userDoc.set(newDocData);
-      debugPrint('✅ Created user document for ${user.uid}');
+      debugPrint('✅ Created user document for ${user.uid} with onboarding_completed=false');
       return newDocData;
     } else {
       debugPrint('🔐 _ensureUserDocument: document EXISTS');
@@ -112,9 +109,7 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       }
 
       // Ensure user document exists in Firestore
-      // Check if this is a new user (first time signing in with Google)
-      final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
-      final firestoreData = await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
+      final firestoreData = await _ensureUserDocument(credential.user!);
 
       return UserModel.fromFirebaseUserAndFirestore(credential.user!, firestoreData);
     } on firebase.FirebaseAuthException catch (e) {
@@ -168,9 +163,7 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       }
 
       // Ensure user document exists in Firestore
-      // Check if this is a new user (first time signing in with Apple)
-      final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
-      final firestoreData = await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
+      final firestoreData = await _ensureUserDocument(credential.user!);
 
       return UserModel.fromFirebaseUserAndFirestore(credential.user!, firestoreData);
     } on firebase.FirebaseAuthException catch (e) {
@@ -192,7 +185,7 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       }
 
       // Create user document in Firestore (new signup needs onboarding)
-      final firestoreData = await _ensureUserDocument(credential.user!, isNewSignup: true);
+      final firestoreData = await _ensureUserDocument(credential.user!);
 
       return UserModel.fromFirebaseUserAndFirestore(credential.user!, firestoreData);
     } on firebase.FirebaseAuthException catch (e) {
