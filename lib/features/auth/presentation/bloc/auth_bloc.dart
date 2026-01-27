@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/usecases/usecase.dart';
+import '../../domain/repositories/user_repository.dart';
 import '../../domain/usecases/reset_password_usecase.dart';
 import '../../domain/usecases/sign_in_with_apple_usecase.dart';
 import '../../domain/usecases/sign_in_with_email_usecase.dart';
@@ -24,6 +25,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignOutUseCase _signOut;
   final ResetPasswordUseCase _resetPassword;
   final WatchAuthStateUseCase _watchAuthState;
+  final UserRepository _userRepository;
 
   StreamSubscription? _authSubscription;
 
@@ -35,6 +37,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required SignOutUseCase signOut,
     required ResetPasswordUseCase resetPassword,
     required WatchAuthStateUseCase watchAuthState,
+    required UserRepository userRepository,
   })  : _signInWithEmail = signInWithEmail,
         _signInWithGoogle = signInWithGoogle,
         _signInWithApple = signInWithApple,
@@ -42,6 +45,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         _signOut = signOut,
         _resetPassword = resetPassword,
         _watchAuthState = watchAuthState,
+        _userRepository = userRepository,
         super(const AuthInitial()) {
     on<CheckAuthStatusEvent>(_onCheckAuthStatus);
     on<SignInWithEmailEvent>(_onSignInWithEmail);
@@ -64,10 +68,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     CheckAuthStatusEvent event,
     Emitter<AuthState> emit,
   ) async {
-    // Check current user synchronously
+    // Check if there's a logged-in user
     final currentUser = _watchAuthState.currentUser;
     if (currentUser != null) {
-      emit(Authenticated(currentUser));
+      // Fetch full user data from Firestore (includes onboarding_completed)
+      final result = await _userRepository.getCurrentUser();
+      result.fold(
+        // If fetch fails, use basic user data
+        (_) => emit(Authenticated(currentUser)),
+        (fullUser) => emit(Authenticated(fullUser)),
+      );
     } else {
       emit(const Unauthenticated());
     }

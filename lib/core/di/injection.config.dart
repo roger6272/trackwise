@@ -401,6 +401,7 @@ extension GetItInjectableX on _i174.GetIt {
           signOut: gh<_i549.SignOutUseCase>(),
           resetPassword: gh<_i517.ResetPasswordUseCase>(),
           watchAuthState: gh<_i28.WatchAuthStateUseCase>(),
+          userRepository: gh<_i881.UserRepository>(),
         ));
     gh.factory<_i408.CategoriesBloc>(() => _i408.CategoriesBloc(
           watchCategoriesUseCase: gh<_i269.WatchCategoriesUseCase>(),
