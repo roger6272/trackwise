@@ -122,7 +122,8 @@ unsigned long lastResetCheck = 0;
 static int incrementsSinceWrite = 0;
 static bool countsDirty = false;
 
-String incomingJsonBuffer = "";
+String incomingJsonBuffer = "";       // Buffer for SET_ITEMS characteristic (chunked item list)
+String writeCommandBuffer = "";       // Buffer for WRITE characteristic (chunked commands like override_chunk)
 unsigned long lastChunkReceived = 0;  // Timestamp of last chunk for timeout detection
 const unsigned long CHUNK_TIMEOUT_MS = 5000;  // 5 second timeout for incomplete transfers
 enum ReadMode { READ_NONE,
@@ -395,14 +396,26 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     return;
   }
 
-  // First pairing - store uid
+  // Step 2: Uninitialized device - needs setup
+  // Don't store UID yet - wait for user confirmation via override command
   if (pairedUid.isEmpty()) {
-    setPairedUid(uid);
-    enterNormalMode();  // Exit pairing mode
-    Serial.printf("🔗 First pairing: stored uid=%s\n", uid.c_str());
+    StaticJsonDocument<256> doc;
+    doc["status"] = "uninitialized";
+    doc["device_instance_id"] = deviceInstanceId;
+
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+
+    displayMessage("AWAITING");
+    delay(100);
+    displayMessage("SETUP");
+
+    Serial.println("📱 Handshake: device uninitialized, awaiting setup from app");
+    return;
   }
 
-  // Step 2: Sync sequence check
+  // Step 3: Sync sequence check (device is already paired)
   int deviceSyncSeq = getSyncSeqNo();  // 0 = never synced
 
   if (appSyncSeq == deviceSyncSeq) {
@@ -646,11 +659,21 @@ void setSelectedItem(int selectedId) {
 // ============== OVERRIDE PROTOCOL HANDLERS ==============
 
 // Handle override_start command from app
-// App sends: { "cmd": "override_start", "sync_seq": 43, "total_chunks": N }
+// App sends: { "cmd": "override_start", "uid": "xxx", "sync_seq": 43, "total_chunks": N }
 // Prepares device for receiving chunked item data
+// Stores UID if device is uninitialized (user confirmed setup)
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
-void handleOverrideStart(int syncSeq, int totalChunks) {
-  Serial.printf("📥 Override start: sync_seq=%d, total_chunks=%d\n", syncSeq, totalChunks);
+void handleOverrideStart(const String& uid, int syncSeq, int totalChunks) {
+  Serial.printf("📥 Override start: uid=%s, sync_seq=%d, total_chunks=%d\n",
+                uid.c_str(), syncSeq, totalChunks);
+
+  // Store UID if not already paired (user confirmed device setup)
+  String pairedUid = prefs.getString(NVS_KEY_PAIRED_UID, "");
+  if (pairedUid.isEmpty() && !uid.isEmpty()) {
+    prefs.putString(NVS_KEY_PAIRED_UID, uid);
+    enterNormalMode();  // Exit pairing mode
+    Serial.printf("🔗 Device setup: stored uid=%s\n", uid.c_str());
+  }
 
   // Store override state
   overrideSyncSeq = syncSeq;
@@ -1220,6 +1243,10 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       return;
     }
 
+    // Trim trailing whitespace/newlines before checking for end of JSON
+    // (App sends newline delimiter after the JSON array)
+    incomingJsonBuffer.trim();
+
     // Check if buffer ends with ']' (simple heuristic for end of JSON array)
     if (incomingJsonBuffer.endsWith("]")) {
       StaticJsonDocument<32768> doc;  // Increased for 100 items
@@ -1495,12 +1522,11 @@ void handleOverrideChunkCommand(const String& jsonStr) {
   nvsEndSafe();
 }
 
-class WriteCallback : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic* c) override {
-    String jsonStr = String(c->getValue().c_str());
-    jsonStr.trim();  // ⚠️ Trim whitespace and line breaks
-    Serial.print("📨 Received JSON string: '");
-    Serial.print(jsonStr);
+// Process a complete write command (called when newline delimiter received)
+void processWriteCommand(const String& jsonStr) {
+    Serial.print("📨 Processing command: '");
+    Serial.print(jsonStr.substring(0, min((unsigned int)100, jsonStr.length())));
+    if (jsonStr.length() > 100) Serial.print("...");
     Serial.println("'");
 
     // Special handling for override_chunk - needs larger buffer due to items array
@@ -1591,100 +1617,32 @@ class WriteCallback : public BLECharacteristicCallbacks {
 
           Serial.printf("✅ Selected item [%d]: deviceItemId=%d (%s) category=%s resetNumber=%d\n", i, targetDeviceId, itemName.c_str(), itemCategory.c_str(), itemResetNumber);
           found = true;
-          break;
+          nvsEndSafe();
+          return;
         }
       }
 
       if (!found) {
-        Serial.printf("⚠️ DeviceItemId %d not found in stored items\n", targetDeviceId);
+        Serial.printf("⚠️ Item with deviceItemId=%d not found.\n", targetDeviceId);
       }
       nvsEndSafe();
 
-    } else if (cmd == "set_time") {
-      String utc_time = doc["utc_time"] | "";
-      utc_time.trim();
-      int offsetMin = doc["offset"];       // timezone offset in minutes
-
-      Serial.print("📥 Received utc_time: '");
-      Serial.print(utc_time);
-      Serial.print("', offset: ");
-      Serial.println(offsetMin);
-
-      struct tm tm;
-      memset(&tm, 0, sizeof(tm));  // Clear struct to avoid garbage values
-      if (strptime(utc_time.c_str(), "%Y-%m-%d %H:%M:%S", &tm)) {
-        Serial.printf("📅 Parsed: year=%d mon=%d day=%d hour=%d min=%d sec=%d\n",
-                      tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-
-        // Construct DateTime directly from parsed components
-        // This avoids mktime() which has timezone interpretation issues on ESP32
-        DateTime utcDt(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-                       tm.tm_hour, tm.tm_min, tm.tm_sec);
-        time_t parsedTime = utcDt.unixtime();
-
-        Serial.print("⏱️ UTC unix timestamp: ");
-        Serial.println(parsedTime);
-
-        if (parsedTime > 1000000000) {              // Rough sanity check (post-2001)
-          rtc.adjust(utcDt);                        // ✅ Set the RTC to UTC time
-
-          if (nvsBeginSafe("counter", false)) {
-            // ✅ Store timezone offset in Preferences
-            prefs.putInt("timezone_offset", offsetMin);
-            nvsEndSafe();
-          }
-
-          localTimestamp = parsedTime + offsetMin * 60;
-          localTime = DateTime(localTimestamp);  // ✅ Assign to global
-
-          Serial.print("🕒 UTC time set = ");
-          Serial.println(utcDt.timestamp());
-          Serial.print("🕒 Local time = ");
-          Serial.println(localTime.timestamp());
-          Serial.print("✅ RTC now reads: ");
-          Serial.println(rtc.now().timestamp());
-        } else {
-          Serial.print("⚠️ Parsed time was too early (");
-          Serial.print(parsedTime);
-          Serial.println(") — ignoring.");
-        }
-      } else {
-        Serial.println("❌ Failed to parse set_time value.");
-      }
-
-
-    } else if (cmd == "prepare_read") {
-      String type = doc["type"] | "";
-      currentPage = doc["page"] | 0;  // ← Parse page, default to 0
-
-      if (type == "prefs") {
-        currentReadMode = READ_PREFS;
-      } else if (type == "logs") {
-        currentReadMode = READ_LOGS;
-      }
-    }
-
-    else if (cmd == "override_start") {  //////////////////// multi-device override start
-      // App sends: { "cmd": "override_start", "sync_seq": 43, "total_chunks": N }
+    } else if (cmd == "override_start") {  //////////////////// multi-device override start
+      // App sends: { "cmd": "override_start", "uid": "xxx", "sync_seq": N, "total_chunks": M }
+      String uid = doc["uid"] | "";
       int syncSeq = doc["sync_seq"] | 0;
       int totalChunks = doc["total_chunks"] | 0;
 
-      if (totalChunks < 0) {
-        notifyError("override_start", "Invalid total_chunks");
-        return;
-      }
-
-      // Acquire NVS lock for the entire override operation
+      // Acquire NVS lock for the override operation
       if (!nvsBeginSafe("counter", false)) {
         notifyError("override_start", "NVS mutex timeout");
         return;
       }
-
-      handleOverrideStart(syncSeq, totalChunks);
+      handleOverrideStart(uid, syncSeq, totalChunks);
       nvsEndSafe();
 
     } else if (cmd == "override_end") {  //////////////////// multi-device override end
-      // App sends: { "cmd": "override_end", "selected_id": 2 }
+      // App sends: { "cmd": "override_end", "selected_id": X }
       int selectedId = doc["selected_id"] | -1;
 
       // Acquire NVS lock for finalization
@@ -1692,63 +1650,87 @@ class WriteCallback : public BLECharacteristicCallbacks {
         notifyError("override_end", "NVS mutex timeout");
         return;
       }
-
       handleOverrideEnd(selectedId);
       nvsEndSafe();
 
     } else if (cmd == "sync_complete") {  //////////////////// multi-device sync complete
-      // App sends: { "cmd": "sync_complete", "sync_seq": 43 }
-      int newSyncSeq = doc["sync_seq"] | 0;
+      // App sends: { "cmd": "sync_complete", "sync_seq": N }
+      int syncSeq = doc["sync_seq"] | 0;
+      handleSyncComplete(syncSeq);
 
-      handleSyncComplete(newSyncSeq);
-
-    } else if (cmd == "force_reset_today") {
-      // Debug command to force reset all todaycounts regardless of date
-      Serial.println("🔧 DEBUG: Force resetting all todayCounts...");
-
-      updateLocalTime();
-
-      // Use UTC timestamp for lastResetTime (consistent with event timestamps)
-      time_t utcTimestamp = rtc.now().unixtime();
-
-      if (!nvsBeginSafe("counter", false)) {
-        notifyError("force_reset_today", "NVS mutex timeout");
-        return;
-      }
-      int total = prefs.getInt("item_total", 0);
-
-      char key[16];  // Buffer for preference keys
-      for (int i = 0; i < total; i++) {
-        // Reset todaycount to 0
-        snprintf(key, sizeof(key), "tc_%d", i);
-        prefs.putInt(key, 0);
-
-        // Update lastResetTime to UTC timestamp (not localTimestamp which has offset applied)
-        snprintf(key, sizeof(key), "lr_%d", i);
-        prefs.putULong(key, utcTimestamp);
-
-        Serial.printf("Force reset: %s = 0, lastResetTime = %lu (UTC)\n", key, utcTimestamp);
+    } else if (cmd == "set_time") {  //////////////////// set time
+      // Format: {"cmd": "set_time", "utc_time": "yyyy-MM-dd HH:mm:ss", "offset": minutes}
+      const char* utcTimeStr = doc["utc_time"];
+      int offsetMinutes = doc["offset"] | 0;
+      if (utcTimeStr) {
+        // Parse the UTC time string
+        int y, mo, d, h, mi, s;
+        sscanf(utcTimeStr, "%d-%d-%d %d:%d:%d", &y, &mo, &d, &h, &mi, &s);
+        DateTime utcTime(y, mo, d, h, mi, s);
+        // Set RTC to UTC time
+        rtc.adjust(utcTime);
+        // Store offset in prefs
+        prefs.begin("counter", false);
+        prefs.putInt("tz_offset", offsetMinutes);
+        prefs.end();
+        Serial.printf("✅ RTC set to UTC: %04d-%02d-%02d %02d:%02d:%02d (local offset: %d min)\n",
+                      y, mo, d, h, mi, s, offsetMinutes);
       }
 
-      // Update last_reset_date to today
-      char todayStr[11];
-      snprintf(todayStr, sizeof(todayStr), "%04d-%02d-%02d", localTime.year(), localTime.month(), localTime.day());
-      prefs.putString("last_reset_date", todayStr);
-
-      // Reset runtime variable if item is selected
-      if (currentDeviceItemId >= 0) {
-        itemTodayCount = 0;
-        lastResetTime = utcTimestamp;
+    } else if (cmd == "prepare_read") {  //////////////////// prepare data for reading
+      const char* t = doc["type"];
+      int page = doc["page"] | 0;
+      if (!t) return;
+      String type = String(t);
+      currentPage = page;
+      if (type == "prefs") {
+        currentReadMode = READ_PREFS;
+      } else if (type == "logs") {
+        currentReadMode = READ_LOGS;
       }
+      // Note: Actual sending happens in loop() when currentReadMode is set
 
-      nvsEndSafe();
-      Serial.println("✅ Force reset complete.");
+    } else {
+      Serial.print("⚠️ Unknown command: ");
+      Serial.println(cmd);
+    }
+}
+
+class WriteCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) override {
+    String chunk = String(c->getValue().c_str());
+
+    // Update timestamp for chunk timeout detection
+    lastChunkReceived = millis();
+
+    // Accumulate chunks in buffer
+    writeCommandBuffer += chunk;
+
+    // Check for buffer overflow
+    if (writeCommandBuffer.length() > 8192) {
+      Serial.println("❌ Write command buffer overflow (>8KB)");
+      notifyError("write", "Buffer overflow");
+      writeCommandBuffer = "";
+      return;
     }
 
-    else {
-      Serial.print("❓ Unknown command: ");
-      Serial.println(cmd);
-      notifyError(cmd.c_str(), "Unknown command type");
+    // Check for newline delimiter indicating complete message
+    int newlinePos = writeCommandBuffer.indexOf('\n');
+    while (newlinePos >= 0) {
+      // Extract complete command (everything before newline)
+      String completeCmd = writeCommandBuffer.substring(0, newlinePos);
+      completeCmd.trim();
+
+      // Remove processed command from buffer (including newline)
+      writeCommandBuffer = writeCommandBuffer.substring(newlinePos + 1);
+
+      // Process the complete command
+      if (completeCmd.length() > 0) {
+        processWriteCommand(completeCmd);
+      }
+
+      // Check for another newline (multiple commands in one transfer)
+      newlinePos = writeCommandBuffer.indexOf('\n');
     }
   }
 };
@@ -2351,6 +2333,14 @@ void loop() {
       Serial.printf("⚠️ Chunk timeout - clearing stale buffer (%d bytes)\n", incomingJsonBuffer.length());
       incomingJsonBuffer = "";
       lastChunkReceived = 0;
+    }
+  }
+
+  // Check for stale write command buffer (incomplete multi-packet command)
+  if (writeCommandBuffer.length() > 0 && lastChunkReceived > 0) {
+    if (millis() - lastChunkReceived > CHUNK_TIMEOUT_MS) {
+      Serial.printf("⚠️ Write command timeout - clearing stale buffer (%d bytes)\n", writeCommandBuffer.length());
+      writeCommandBuffer = "";
     }
   }
 

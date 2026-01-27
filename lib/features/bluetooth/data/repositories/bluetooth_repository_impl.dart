@@ -305,6 +305,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
 
   @override
   Future<Either<Failure, OverrideResult>> sendOverrideChunked({
+    required String uid,
     required int syncSeq,
     required int selectedId,
     required List<Item> items,
@@ -312,6 +313,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }) async {
     try {
       final result = await dataSource.sendOverrideChunked(
+        uid: uid,
         syncSeq: syncSeq,
         selectedId: selectedId,
         items: items,

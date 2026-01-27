@@ -365,12 +365,26 @@ class _DeviceListTile extends StatelessWidget {
             fontSize: 16.0,
           ),
         ),
-        subtitle: Text(
-          isConnected ? 'Connected' : 'Paired ${_formatDate(device.pairedAt)}',
-          style: GoogleFonts.inter(
-            color: isConnected ? Colors.green : secondaryText,
-            fontSize: 13.0,
-          ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isConnected ? 'Connected' : 'Paired ${_formatDate(device.pairedAt)}',
+              style: GoogleFonts.inter(
+                color: isConnected ? Colors.green : secondaryText,
+                fontSize: 13.0,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'ID: ${device.deviceInstanceId}',
+              style: TextStyle(
+                color: secondaryText.withValues(alpha: 0.6),
+                fontSize: 11.0,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
         ),
         trailing: PopupMenuButton<String>(
           icon: Icon(Icons.more_vert, color: secondaryText),

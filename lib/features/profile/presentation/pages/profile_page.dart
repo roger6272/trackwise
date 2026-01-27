@@ -449,85 +449,113 @@ class _ProfilePageState extends State<ProfilePage> {
     final secondaryBackground = AppColors.secondaryBackground(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
-    return BlocBuilder<BluetoothBloc, BluetoothState>(
-      builder: (context, bluetoothState) {
-        final isConnected = bluetoothState.isConnected;
-
-        return InkWell(
-          onTap: isConnected ? () => _showDeleteConfirmation(context) : null,
+    return InkWell(
+      onTap: () => _showDeleteConfirmation(context),
+      borderRadius: BorderRadius.circular(12.0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: secondaryBackground,
           borderRadius: BorderRadius.circular(12.0),
-          child: Opacity(
-            opacity: isConnected ? 1.0 : 0.5,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: secondaryBackground,
-                borderRadius: BorderRadius.circular(12.0),
-                border: Border.all(
-                  color: _error.withValues(alpha: 0.3),
-                  width: 1.0,
-                ),
-              ),
-              child: Row(
+          border: Border.all(
+            color: _error.withValues(alpha: 0.3),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: _error,
+              size: 24.0,
+            ),
+            const SizedBox(width: 12.0),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: _error,
-                    size: 24.0,
-                  ),
-                  const SizedBox(width: 12.0),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Delete Account',
-                          style: GoogleFonts.inter(
-                            color: _error,
-                            fontSize: 16.0,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2.0),
-                        Text(
-                          isConnected
-                              ? 'Permanently delete your account and all data'
-                              : 'Device connection required',
-                          style: GoogleFonts.inter(
-                            color: secondaryText,
-                            fontSize: 12.0,
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'Delete Account',
+                    style: GoogleFonts.inter(
+                      color: _error,
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: secondaryText,
-                    size: 20.0,
+                  const SizedBox(height: 2.0),
+                  Text(
+                    'Permanently delete your account and all data',
+                    style: GoogleFonts.inter(
+                      color: secondaryText,
+                      fontSize: 12.0,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        );
-      },
+            Icon(
+              Icons.chevron_right,
+              color: secondaryText,
+              size: 20.0,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   void _showDeleteConfirmation(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Account?'),
-        content: const Text(
-          'This will permanently delete all your data including:\n\n'
-          '- Your profile\n'
-          '- All items\n'
-          '- All event logs\n'
-          '- Your account\n\n'
-          'This action cannot be undone. Are you sure?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will permanently delete all your data including:\n\n'
+              '• Your profile\n'
+              '• All items\n'
+              '• All event logs\n'
+              '• Your account\n\n'
+              'This action cannot be undone.',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.orange.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Any paired devices must be factory reset before they can be used again.\n\nOn device: Hold B button for 10 seconds.',
+                      style: TextStyle(
+                        color: secondaryText,
+                        fontSize: 13.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(

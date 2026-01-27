@@ -91,6 +91,13 @@ class BluetoothState extends Equatable {
   /// Device instance ID from conflict (needed to add after successful override).
   final String? conflictDeviceInstanceId;
 
+  /// Whether device needs setup (uninitialized/factory reset).
+  /// When true, UI should show setup dialog: "New device detected. Transfer your items?"
+  final bool needsSetup;
+
+  /// Device instance ID from uninitialized device (needed to add after successful setup).
+  final String? setupDeviceInstanceId;
+
   /// Whether an override sync is in progress.
   final bool isOverriding;
 
@@ -111,6 +118,8 @@ class BluetoothState extends Equatable {
     this.conflictAppSyncSeq,
     this.conflictDeviceSyncSeq,
     this.conflictDeviceInstanceId,
+    this.needsSetup = false,
+    this.setupDeviceInstanceId,
     this.isOverriding = false,
   });
 
@@ -132,6 +141,8 @@ class BluetoothState extends Equatable {
     int? conflictAppSyncSeq,
     int? conflictDeviceSyncSeq,
     String? conflictDeviceInstanceId,
+    bool? needsSetup,
+    String? setupDeviceInstanceId,
     bool? isOverriding,
     bool clearConnectedDevice = false,
     bool clearConnectingDeviceId = false,
@@ -140,6 +151,7 @@ class BluetoothState extends Equatable {
     bool clearSelectedItemId = false,
     bool clearConnectedDeviceInstanceId = false,
     bool clearConflict = false,
+    bool clearSetup = false,
   }) {
     return BluetoothState(
       status: status ?? this.status,
@@ -160,6 +172,8 @@ class BluetoothState extends Equatable {
       conflictAppSyncSeq: clearConflict ? null : (conflictAppSyncSeq ?? this.conflictAppSyncSeq),
       conflictDeviceSyncSeq: clearConflict ? null : (conflictDeviceSyncSeq ?? this.conflictDeviceSyncSeq),
       conflictDeviceInstanceId: clearConflict ? null : (conflictDeviceInstanceId ?? this.conflictDeviceInstanceId),
+      needsSetup: clearSetup ? false : (needsSetup ?? this.needsSetup),
+      setupDeviceInstanceId: clearSetup ? null : (setupDeviceInstanceId ?? this.setupDeviceInstanceId),
       isOverriding: isOverriding ?? this.isOverriding,
     );
   }
@@ -197,6 +211,8 @@ class BluetoothState extends Equatable {
         conflictAppSyncSeq,
         conflictDeviceSyncSeq,
         conflictDeviceInstanceId,
+        needsSetup,
+        setupDeviceInstanceId,
         isOverriding,
       ];
 

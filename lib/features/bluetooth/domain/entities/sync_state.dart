@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 /// - [inSync]: Device sync_seq matches app sync_seq - proceed with normal sync
 /// - [conflict]: Device sync_seq differs from app sync_seq - app is source of truth
 /// - [wrongAccount]: Device is paired to a different Firebase uid
+/// - [uninitialized]: Device has no UID - needs setup (factory reset or new device)
 enum SyncStatus {
   /// Device is in sync with app - proceed with normal sync (device is SOT)
   inSync,
@@ -14,6 +15,10 @@ enum SyncStatus {
 
   /// Device is paired to a different account - cannot sync
   wrongAccount,
+
+  /// Device has no UID - needs setup (factory reset or new device)
+  /// User must confirm before items are transferred
+  uninitialized,
 }
 
 /// Result of handshake command sent to device.
@@ -44,6 +49,7 @@ class HandshakeResult extends Equatable {
   /// - `{"status":"in_sync","device_instance_id":"uuid"}`
   /// - `{"status":"conflict","device_seq":40,"device_instance_id":"uuid"}`
   /// - `{"status":"wrong_account","device_instance_id":"uuid"}`
+  /// - `{"status":"uninitialized","device_instance_id":"uuid"}`
   factory HandshakeResult.fromJson(Map<String, dynamic> json) {
     final statusStr = json['status'] as String?;
     SyncStatus status;
@@ -54,6 +60,9 @@ class HandshakeResult extends Equatable {
         break;
       case 'wrong_account':
         status = SyncStatus.wrongAccount;
+        break;
+      case 'uninitialized':
+        status = SyncStatus.uninitialized;
         break;
       case 'conflict':
       default:

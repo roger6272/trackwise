@@ -139,6 +139,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<CancelSyncConflict>(_onCancelSyncConflict);
     on<ClearConflictState>(_onClearConflictState);
     on<SyncCompleted>(_onSyncCompleted);
+    // Device setup events (uninitialized/factory reset)
+    on<DeviceSetupRequired>(_onDeviceSetupRequired);
+    on<ConfirmDeviceSetup>(_onConfirmDeviceSetup);
+    on<CancelDeviceSetup>(_onCancelDeviceSetup);
+    on<ClearSetupState>(_onClearSetupState);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -406,23 +411,47 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       );
     });
 
-    // Attempt connection
-    final result = await _connectDevice.call(
-      ConnectDeviceParams(event.deviceId),
-    );
+    // Attempt connection with retry for Android error 133
+    const maxRetries = 3;
+    const retryDelay = Duration(milliseconds: 500);
 
-    result.fold(
-      (failure) {
-        emit(state.copyWith(
-          status: BluetoothStatus.error,
-          errorMessage: failure.message,
-          clearConnectingDeviceId: true,
-        ));
-      },
-      (_) {
-        // Connection successful - state will be updated by stream
-      },
-    );
+    for (var attempt = 1; attempt <= maxRetries; attempt++) {
+      final result = await _connectDevice.call(
+        ConnectDeviceParams(event.deviceId),
+      );
+
+      final shouldRetry = result.fold(
+        (failure) {
+          // Check if this is Android GATT error 133 (common intermittent failure)
+          final isError133 = failure.message.contains('133') ||
+              failure.message.contains('ANDROID_SPECIFIC_ERROR');
+
+          if (isError133 && attempt < maxRetries) {
+            if (kDebugMode) {
+              print('Connection failed with error 133, retrying ($attempt/$maxRetries)...');
+            }
+            return true; // Retry
+          }
+
+          // Final attempt failed or non-retryable error
+          emit(state.copyWith(
+            status: BluetoothStatus.error,
+            errorMessage: failure.message,
+            clearConnectingDeviceId: true,
+          ));
+          return false; // Don't retry
+        },
+        (_) {
+          // Connection successful - state will be updated by stream
+          return false; // Don't retry
+        },
+      );
+
+      if (!shouldRetry) break;
+
+      // Wait before retrying
+      await Future.delayed(retryDelay);
+    }
   }
 
   Future<void> _onDisconnect(
@@ -567,6 +596,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
             deviceSyncSeq: failure.deviceSyncSeq,
             deviceInstanceId: failure.deviceInstanceId,
           ));
+        } else if (failure is DeviceUninitializedFailure) {
+          // Device needs setup (factory reset or new device)
+          if (kDebugMode) print('Device uninitialized: deviceInstanceId=${failure.deviceInstanceId}');
+          add(DeviceSetupRequired(deviceInstanceId: failure.deviceInstanceId));
         } else if (failure is WrongAccountFailure) {
           if (kDebugMode) print('Wrong account - device locked to different user');
           // TODO: Show wrong account dialog
@@ -937,6 +970,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         deviceId: deviceId,
         deviceInstanceId: deviceInstanceId,
         deviceName: deviceName,
+        currentSelectedFirestoreId: state.selectedItemId,
       ),
     );
 
@@ -997,6 +1031,103 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     emit(state.copyWith(connectedDeviceInstanceId: event.deviceInstanceId));
     // Reload paired devices to update UI
     add(const LoadPairedDevices());
+  }
+
+  // ========== Device Setup Handlers (uninitialized/factory reset) ==========
+
+  /// Handles uninitialized device detection - UI should show setup dialog.
+  Future<void> _onDeviceSetupRequired(
+    DeviceSetupRequired event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    if (kDebugMode) print('BluetoothBloc: Setting needsSetup=true, deviceInstanceId=${event.deviceInstanceId}');
+    emit(state.copyWith(
+      needsSetup: true,
+      setupDeviceInstanceId: event.deviceInstanceId,
+      // Also set connectedDeviceInstanceId so paired devices page shows it as connected
+      connectedDeviceInstanceId: event.deviceInstanceId,
+    ));
+  }
+
+  /// User confirmed device setup - perform override to transfer items.
+  Future<void> _onConfirmDeviceSetup(
+    ConfirmDeviceSetup event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final deviceId = state.connectedDevice?.id;
+    if (deviceId == null) {
+      emit(state.copyWith(
+        clearSetup: true,
+        errorMessage: 'No device connected',
+      ));
+      return;
+    }
+
+    // Save these BEFORE clearing setup state
+    final deviceInstanceId = state.setupDeviceInstanceId;
+    final deviceName = state.connectedDevice?.name;
+
+    emit(state.copyWith(
+      isOverriding: true,
+      clearSetup: true,
+    ));
+
+    final result = await _performOverride.call(
+      PerformOverrideParams(
+        deviceId: deviceId,
+        deviceInstanceId: deviceInstanceId,
+        deviceName: deviceName,
+        currentSelectedFirestoreId: state.selectedItemId,
+      ),
+    );
+
+    result.fold(
+      (failure) {
+        emit(state.copyWith(
+          isOverriding: false,
+          errorMessage: failure.message,
+        ));
+      },
+      (syncResult) {
+        emit(state.copyWith(
+          isOverriding: false,
+          selectedItemId: syncResult.selectedFirestoreId,
+        ));
+
+        if (kDebugMode) print('Device setup completed successfully');
+
+        // Trigger sync completed to reload paired devices
+        add(SyncCompleted(deviceInstanceId: syncResult.deviceInstanceId));
+      },
+    );
+  }
+
+  /// User cancelled device setup dialog - disconnect from device.
+  Future<void> _onCancelDeviceSetup(
+    CancelDeviceSetup event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(clearSetup: true));
+
+    // Disconnect from device (device stays empty/unpaired)
+    final deviceId = state.connectedDevice?.id;
+    if (deviceId != null) {
+      _isManualDisconnect = true;
+      await _bluetoothRepository.disconnect(deviceId);
+      emit(state.copyWith(
+        status: BluetoothStatus.ready,
+        clearConnectedDevice: true,
+        clearConnectedDeviceInstanceId: true,
+      ));
+    }
+  }
+
+  /// Clears setup state after it's been handled.
+  Future<void> _onClearSetupState(
+    ClearSetupState event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    emit(state.copyWith(clearSetup: true));
   }
 
   // ========== Cleanup ==========

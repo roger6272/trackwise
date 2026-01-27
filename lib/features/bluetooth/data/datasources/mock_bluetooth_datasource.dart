@@ -262,6 +262,7 @@ class MockBluetoothDataSource implements BluetoothDataSource {
 
   @override
   Future<OverrideResult> sendOverrideChunked({
+    required String uid,
     required int syncSeq,
     required int selectedId,
     required List<Item> items,

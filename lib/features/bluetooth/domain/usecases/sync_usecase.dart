@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failures.dart';
@@ -158,7 +159,15 @@ class PerformSyncUseCase {
       return const Left(WrongAccountFailure());
     }
 
-    // Step 5: Check for conflict BEFORE adding to paired devices
+    // Step 5: Check for uninitialized device (factory reset or new)
+    // User must confirm setup before we proceed
+    if (handshake.status == SyncStatus.uninitialized) {
+      return Left(DeviceUninitializedFailure(
+        deviceInstanceId: handshake.deviceInstanceId,
+      ));
+    }
+
+    // Step 6: Check for conflict BEFORE adding to paired devices
     // (Don't add device until sync is successful)
     if (handshake.status == SyncStatus.conflict) {
       return Left(SyncConflictFailure(
@@ -168,7 +177,7 @@ class PerformSyncUseCase {
       ));
     }
 
-    // Step 6: Device is in sync - add to paired devices if new
+    // Step 7: Device is in sync - add to paired devices if new
     final isNewDevice = !user.pairedDevices.any(
       (d) => d.deviceInstanceId == handshake.deviceInstanceId,
     );
@@ -311,14 +320,19 @@ class PerformOverrideParams extends Equatable {
   /// Device name for display in paired devices list.
   final String? deviceName;
 
+  /// Current selected item's Firestore ID (from app UI state).
+  /// If provided, this takes precedence over the last synced selection.
+  final String? currentSelectedFirestoreId;
+
   const PerformOverrideParams({
     required this.deviceId,
     this.deviceInstanceId,
     this.deviceName,
+    this.currentSelectedFirestoreId,
   });
 
   @override
-  List<Object?> get props => [deviceId, deviceInstanceId, deviceName];
+  List<Object?> get props => [deviceId, deviceInstanceId, deviceName, currentSelectedFirestoreId];
 }
 
 /// Use case for performing override flow (app is source of truth).
@@ -395,31 +409,63 @@ class PerformOverrideUseCase {
     final syncedItems = allItems.where((i) => i.deviceItemId != null).toList();
 
 
-    // Step 4: Get selected item from last sync (stored in Firestore)
-    var selectedItemId = user.lastSelectedDeviceItemId;
+    // Step 4: Determine selected item
+    // Priority: current app selection > last synced selection > first item
+    var selectedItemId = -1;
     final newSyncSeq = user.syncSequenceNo + 1;
 
     // Step 5: Find selected item and filter to its category
     // (Device should only have items from the active category, like normal sync)
     List<Item> deviceItems;
 
-    // Find the selected item (or pick first if none selected)
+    // Find the selected item based on priority
     Item? selectedItem;
-    if (selectedItemId >= 0 && syncedItems.isNotEmpty) {
-      // Try to find the item with matching device_item_id
+
+    if (kDebugMode) {
+      print('🔍 Override selection debug:');
+      print('   params.currentSelectedFirestoreId: ${params.currentSelectedFirestoreId}');
+      print('   user.lastSelectedDeviceItemId: ${user.lastSelectedDeviceItemId}');
+      print('   syncedItems count: ${syncedItems.length}');
+      for (final item in syncedItems) {
+        print('   - ${item.name}: firestoreId=${item.id}, deviceItemId=${item.deviceItemId}');
+      }
+    }
+
+    // First, try to use current app selection (Firestore ID from UI state)
+    if (params.currentSelectedFirestoreId != null &&
+        params.currentSelectedFirestoreId!.isNotEmpty &&
+        params.currentSelectedFirestoreId != 'none') {
       selectedItem = syncedItems.cast<Item?>().firstWhere(
-        (i) => i?.deviceItemId == selectedItemId,
+        (i) => i?.id == params.currentSelectedFirestoreId,
         orElse: () => null,
       );
-      // If not found, fall back to first item
-      if (selectedItem == null) {
-        selectedItem = syncedItems.first;
+      if (selectedItem != null) {
         selectedItemId = selectedItem.deviceItemId ?? -1;
+        if (kDebugMode) print('   ✓ Found by currentSelectedFirestoreId: ${selectedItem.name} (deviceItemId=$selectedItemId)');
+      } else {
+        if (kDebugMode) print('   ✗ currentSelectedFirestoreId not found in syncedItems');
       }
-    } else if (syncedItems.isNotEmpty) {
-      // No selected item - pick the first one and use its category
+    }
+
+    // If no current selection, fall back to last synced selection
+    if (selectedItem == null && user.lastSelectedDeviceItemId >= 0 && syncedItems.isNotEmpty) {
+      selectedItem = syncedItems.cast<Item?>().firstWhere(
+        (i) => i?.deviceItemId == user.lastSelectedDeviceItemId,
+        orElse: () => null,
+      );
+      if (selectedItem != null) {
+        selectedItemId = selectedItem.deviceItemId ?? -1;
+        if (kDebugMode) print('   ✓ Found by lastSelectedDeviceItemId: ${selectedItem.name} (deviceItemId=$selectedItemId)');
+      } else {
+        if (kDebugMode) print('   ✗ lastSelectedDeviceItemId not found in syncedItems');
+      }
+    }
+
+    // If still no selection, pick the first synced item
+    if (selectedItem == null && syncedItems.isNotEmpty) {
       selectedItem = syncedItems.first;
       selectedItemId = selectedItem.deviceItemId ?? -1;
+      if (kDebugMode) print('   ⚠ Falling back to first item: ${selectedItem.name} (deviceItemId=$selectedItemId)');
     }
 
     if (selectedItem != null) {
@@ -434,15 +480,8 @@ class PerformOverrideUseCase {
       // Sort by categoryOrder for consistent ordering
       deviceItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
-
-      // After sorting, select the FIRST item in the list (matches app UI order)
-      // This ensures device selection matches what the app shows as "current"
-      if (deviceItems.isNotEmpty) {
-        final firstItem = deviceItems.first;
-        if (firstItem.deviceItemId != selectedItemId) {
-          selectedItemId = firstItem.deviceItemId ?? -1;
-        }
-      }
+      // Keep the original selectedItemId - don't override with first item
+      // The selection was already determined above based on lastSelectedDeviceItemId
     } else {
       // No items at all - send empty list
       deviceItems = [];
@@ -456,8 +495,9 @@ class PerformOverrideUseCase {
     // Step 7: Build category name map
     final categoryNames = await _buildCategoryNameMap(user.id);
 
-    // Step 8: Send override to device
+    // Step 8: Send override to device (uid is stored on device during setup)
     final overrideResult = await _bluetoothRepository.sendOverrideChunked(
+      uid: user.id,
       syncSeq: newSyncSeq,
       selectedId: selectedItemId,
       items: deviceItems,

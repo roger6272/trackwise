@@ -218,6 +218,7 @@ abstract class BluetoothRepository {
   /// Used when sync_seq mismatch detected (app is source of truth).
   /// Items are chunked (10 per chunk) to fit BLE MTU limits.
   ///
+  /// [uid] - Firebase user ID (stored on device for account lock)
   /// [syncSeq] - New sync sequence number
   /// [selectedId] - Device item ID to select (-1 for none)
   /// [items] - Items to push to device
@@ -227,6 +228,7 @@ abstract class BluetoothRepository {
   /// - Right(OverrideResult): Override completed or error
   /// - Left(BluetoothFailure): BLE error (override aborted)
   Future<Either<Failure, OverrideResult>> sendOverrideChunked({
+    required String uid,
     required int syncSeq,
     required int selectedId,
     required List<Item> items,

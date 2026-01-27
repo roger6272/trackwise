@@ -131,7 +131,7 @@ abstract class BluetoothDataSource {
   /// Sends override data to device using chunked protocol.
   ///
   /// Override flow:
-  /// 1. Send `{"cmd":"override_start","sync_seq":N,"total_chunks":M}`
+  /// 1. Send `{"cmd":"override_start","uid":"xxx","sync_seq":N,"total_chunks":M}`
   /// 2. Send `{"cmd":"override_chunk","index":i,"items":[...]}` for each chunk
   /// 3. Send `{"cmd":"override_end","selected_id":X}`
   /// 4. Wait for response
@@ -139,6 +139,7 @@ abstract class BluetoothDataSource {
   /// Items are chunked (10 items per chunk) to fit BLE MTU limits.
   /// Individual chunks don't have responses - validation occurs at override_end.
   ///
+  /// [uid] is the Firebase user ID - device stores this on first setup.
   /// [categoryNames] maps categoryId to category name for device display.
   ///
   /// Returns [OverrideResult] with status:
@@ -147,6 +148,7 @@ abstract class BluetoothDataSource {
   ///
   /// Throws on BLE error during any chunk send (aborts override).
   Future<OverrideResult> sendOverrideChunked({
+    required String uid,
     required int syncSeq,
     required int selectedId,
     required List<Item> items,

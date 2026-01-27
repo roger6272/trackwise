@@ -514,12 +514,14 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   ///
   /// Uses negotiated MTU (or default 180 bytes if negotiation failed).
   /// ESP32 requires 20ms delay between chunks to process.
+  /// Adds newline delimiter at end so firmware knows when message is complete.
   Future<void> _writeChunked(
     BluetoothCharacteristic char,
     String data,
   ) async {
-    // Send raw data without delimiter (matches old FlutterFlow behavior)
-    final bytes = utf8.encode(data);
+    // Add newline delimiter so firmware can detect end of message
+    // This is critical for messages larger than MTU (like override_chunk)
+    final bytes = utf8.encode('$data\n');
 
     // Use negotiated MTU for optimal chunk size
     final mtu = _negotiatedMtu;
@@ -702,6 +704,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<OverrideResult> sendOverrideChunked({
+    required String uid,
     required int syncSeq,
     required int selectedId,
     required List<Item> items,
@@ -711,7 +714,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
 
-    debugPrint('Starting override: syncSeq=$syncSeq, selectedId=$selectedId, itemCount=${items.length}');
+    debugPrint('Starting override: uid=$uid, syncSeq=$syncSeq, selectedId=$selectedId, itemCount=${items.length}');
 
     // Chunk items (10 items per chunk)
     final chunks = <List<Map<String, dynamic>>>[];
@@ -727,9 +730,10 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     debugPrint('Override chunked into $totalChunks chunks');
 
     try {
-      // Step 1: Send override_start
+      // Step 1: Send override_start (includes UID for device setup)
       final startCommand = jsonEncode({
         'cmd': 'override_start',
+        'uid': uid,
         'sync_seq': syncSeq,
         'total_chunks': totalChunks,
       });

@@ -15,6 +15,7 @@ import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'features/bluetooth/presentation/widgets/device_setup_dialog.dart';
 import 'features/bluetooth/presentation/widgets/sync_conflict_dialog.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 
@@ -182,7 +183,16 @@ class _MyAppState extends State<MyApp> {
           _showConflictDialog(context);
         }
       },
-      child: MaterialApp.router(
+      child: BlocListener<BluetoothBloc, BluetoothState>(
+        listenWhen: (previous, current) =>
+            !previous.needsSetup && current.needsSetup,
+        listener: (context, state) {
+          if (state.needsSetup) {
+            // Show setup dialog globally
+            _showSetupDialog(context);
+          }
+        },
+        child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Traxogic',
         scrollBehavior: MyAppScrollBehavior(),
@@ -196,6 +206,7 @@ class _MyAppState extends State<MyApp> {
         darkTheme: AppTheme.darkTheme,
         themeMode: _themeMode,
         routerConfig: _router,
+      ),
       ),
     );
   }
@@ -211,6 +222,22 @@ class _MyAppState extends State<MyApp> {
         },
         onCancel: () {
           context.read<BluetoothBloc>().add(const CancelSyncConflict());
+        },
+      );
+    }
+  }
+
+  void _showSetupDialog(BuildContext context) {
+    // Use the router's navigator context for the dialog
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
+    if (navigatorContext != null) {
+      DeviceSetupDialog.show(
+        context: navigatorContext,
+        onConfirm: () {
+          context.read<BluetoothBloc>().add(const ConfirmDeviceSetup());
+        },
+        onCancel: () {
+          context.read<BluetoothBloc>().add(const CancelDeviceSetup());
         },
       );
     }

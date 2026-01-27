@@ -38,6 +38,31 @@ class DeviceLimitFailure extends SyncFailure {
   ]) : super(message);
 }
 
+/// Device is uninitialized (factory reset or new device).
+///
+/// Device has no UID stored and needs setup. User must confirm
+/// before items are transferred.
+///
+/// When this failure is returned, the UI should:
+/// 1. Show setup dialog: "New device detected. Transfer your items?"
+/// 2. Allow user to confirm (proceed with override to set up device)
+/// 3. Allow user to cancel (disconnect, device stays empty)
+class DeviceUninitializedFailure extends SyncFailure {
+  /// Device instance ID (needed to add device after successful setup).
+  final String deviceInstanceId;
+
+  const DeviceUninitializedFailure({
+    required this.deviceInstanceId,
+    String message = 'New device detected.',
+  }) : super(message);
+
+  @override
+  List<Object> get props => [message, deviceInstanceId];
+
+  @override
+  String toString() => 'DeviceUninitializedFailure(deviceInstanceId: $deviceInstanceId)';
+}
+
 /// Sync sequence mismatch detected - app data should override device.
 ///
 /// Contains both sequence numbers so the UI can show appropriate

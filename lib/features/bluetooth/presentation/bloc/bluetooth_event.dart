@@ -255,6 +255,36 @@ class ClearConflictState extends BluetoothEvent {
   const ClearConflictState();
 }
 
+// ========== Device Setup Events (for uninitialized/factory reset devices) ==========
+
+/// Internal event when an uninitialized device is detected.
+/// UI should show setup dialog: "New device detected. Transfer your items?"
+class DeviceSetupRequired extends BluetoothEvent {
+  final String deviceInstanceId;
+
+  const DeviceSetupRequired({required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
+}
+
+/// User confirmed device setup in dialog.
+/// Triggers override to transfer items to device.
+class ConfirmDeviceSetup extends BluetoothEvent {
+  const ConfirmDeviceSetup();
+}
+
+/// User cancelled device setup dialog.
+/// Disconnects from device (device stays empty/unpaired).
+class CancelDeviceSetup extends BluetoothEvent {
+  const CancelDeviceSetup();
+}
+
+/// Clear setup state after it's been handled.
+class ClearSetupState extends BluetoothEvent {
+  const ClearSetupState();
+}
+
 /// Internal event when sync completes successfully.
 /// Sets the connected device instance ID and triggers paired devices reload.
 class SyncCompleted extends BluetoothEvent {

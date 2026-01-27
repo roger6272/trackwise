@@ -499,6 +499,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        uid: tUserId,
         syncSeq: tSyncSeq + 1,
         selectedId: tUser.lastSelectedDeviceItemId,
         items: tItems,
@@ -523,6 +524,7 @@ void main() {
         (syncResult) => expect(syncResult.type, SyncResultType.overrideComplete),
       );
       verify(() => mockBluetoothRepository.sendOverrideChunked(
+        uid: tUserId,
         syncSeq: tSyncSeq + 1,
         selectedId: tUser.lastSelectedDeviceItemId,
         items: tItems,
@@ -541,6 +543,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        uid: any(named: 'uid'),
         syncSeq: any(named: 'syncSeq'),
         selectedId: any(named: 'selectedId'),
         items: any(named: 'items'),
@@ -577,6 +580,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        uid: any(named: 'uid'),
         syncSeq: any(named: 'syncSeq'),
         selectedId: any(named: 'selectedId'),
         items: any(named: 'items'),
@@ -622,6 +626,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        uid: any(named: 'uid'),
         syncSeq: any(named: 'syncSeq'),
         selectedId: any(named: 'selectedId'),
         items: any(named: 'items'),
