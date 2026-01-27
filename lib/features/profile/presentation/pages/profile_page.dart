@@ -545,7 +545,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Any paired devices must be factory reset before they can be used again.\n\nOn device: Hold B button for 10 seconds.',
+                      'Any paired devices must be factory reset before they can be paired again.\n\nOn device: Hold B button for 10 seconds.',
                       style: TextStyle(
                         color: secondaryText,
                         fontSize: 13.0,
