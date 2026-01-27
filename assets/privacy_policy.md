@@ -1,10 +1,10 @@
-# Privacy Policy for Trackwise
+# Privacy Policy for Traxelos
 
 **Last updated:** January 13, 2026
 
 ## Introduction
 
-Trackwise ("we", "our", "us") respects your privacy and is committed to protecting your personal data. This privacy policy explains how we collect, use, and safeguard your information when you use our mobile application.
+Traxelos ("we", "our", "us") respects your privacy and is committed to protecting your personal data. This privacy policy explains how we collect, use, and safeguard your information when you use our mobile application.
 
 ## Data We Collect
 
@@ -75,7 +75,7 @@ We do **not** sell, trade, or rent your personal data to third parties. We only 
 
 ## Children's Privacy
 
-Trackwise is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13.
+Traxelos is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13.
 
 ## International Data Transfers
 
@@ -97,4 +97,4 @@ If you have any questions about this privacy policy or our data practices, pleas
 
 ## Your Consent
 
-By using Trackwise, you consent to this privacy policy.
+By using Traxelos, you consent to this privacy policy.
