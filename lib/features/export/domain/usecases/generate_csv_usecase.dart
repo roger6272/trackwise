@@ -93,6 +93,9 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       },
     );
 
+    // Filter out events for deleted items (items not in the active items list)
+    filteredEvents = filteredEvents.where((e) => itemNameMap.containsKey(e.itemId)).toList();
+
     // Build categoryId -> categoryName mapping
     final categoriesResult = await categoryRepository.getCategories(userId);
     final Map<String, String> categoryNameMap = {};
