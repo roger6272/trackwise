@@ -54,6 +54,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
   bool _isLoading = false;
 
+  // Key to force dropdown rebuild after returning from Manage Categories
+  int _categoryDropdownKey = 0;
+
   @override
   void initState() {
     super.initState();
@@ -229,6 +232,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               label: 'Category (optional)',
                               labelColor: primaryText,
                               child: DropdownButtonFormField<String>(
+                                key: ValueKey(_categoryDropdownKey),
                                 value: validCategoryId,
                                 items: [
                                   DropdownMenuItem<String>(
@@ -275,8 +279,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   // Handle "Manage Categories" navigation
                                   if (val == '__manage__') {
                                     context.push('/profile/categories').then((_) {
-                                      // Force rebuild to restore previous category selection
-                                      if (mounted) setState(() {});
+                                      // Increment key to force dropdown rebuild with correct value
+                                      if (mounted) setState(() => _categoryDropdownKey++);
                                     });
                                     return;
                                   }
