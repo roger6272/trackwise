@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trackwise/core/error/failures.dart';
+import 'package:traxelos/core/error/failures.dart';
 
 /// Unit tests for Failure classes.
 ///

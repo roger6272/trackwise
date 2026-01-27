@@ -4,10 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/auth/data/repositories/user_repository_impl.dart';
-import 'package:trackwise/features/auth/domain/entities/user.dart';
-import 'package:trackwise/features/bluetooth/domain/entities/paired_device.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/auth/data/repositories/user_repository_impl.dart';
+import 'package:traxelos/features/auth/domain/entities/user.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/paired_device.dart';
 
 // Mocks
 class MockFirebaseAuth extends Mock implements firebase.FirebaseAuth {}

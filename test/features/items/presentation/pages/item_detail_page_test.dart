@@ -5,18 +5,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/charts/domain/entities/chart_data.dart';
-import 'package:trackwise/features/charts/domain/entities/chart_data_point.dart';
-import 'package:trackwise/features/charts/presentation/bloc/charts_bloc.dart';
-import 'package:trackwise/features/charts/presentation/bloc/charts_event.dart';
-import 'package:trackwise/features/charts/presentation/bloc/charts_state.dart';
-import 'package:trackwise/features/events/presentation/bloc/events_bloc.dart';
-import 'package:trackwise/features/events/presentation/bloc/events_event.dart';
-import 'package:trackwise/features/events/presentation/bloc/events_state.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
-import 'package:trackwise/features/items/presentation/pages/item_detail_page.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/charts/domain/entities/chart_data.dart';
+import 'package:traxelos/features/charts/domain/entities/chart_data_point.dart';
+import 'package:traxelos/features/charts/presentation/bloc/charts_bloc.dart';
+import 'package:traxelos/features/charts/presentation/bloc/charts_event.dart';
+import 'package:traxelos/features/charts/presentation/bloc/charts_state.dart';
+import 'package:traxelos/features/events/presentation/bloc/events_bloc.dart';
+import 'package:traxelos/features/events/presentation/bloc/events_event.dart';
+import 'package:traxelos/features/events/presentation/bloc/events_state.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
+import 'package:traxelos/features/items/presentation/pages/item_detail_page.dart';
 
 class MockEventsBloc extends MockBloc<EventsEvent, EventsState>
     implements EventsBloc {}

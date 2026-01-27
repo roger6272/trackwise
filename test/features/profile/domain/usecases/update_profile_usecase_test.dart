@@ -2,10 +2,10 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/profile/domain/entities/user_profile.dart';
-import 'package:trackwise/features/profile/domain/repositories/profile_repository.dart';
-import 'package:trackwise/features/profile/domain/usecases/update_profile_usecase.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/profile/domain/entities/user_profile.dart';
+import 'package:traxelos/features/profile/domain/repositories/profile_repository.dart';
+import 'package:traxelos/features/profile/domain/usecases/update_profile_usecase.dart';
 
 class MockProfileRepository extends Mock implements ProfileRepository {}
 

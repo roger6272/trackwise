@@ -6,22 +6,22 @@ import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import 'package:trackwise/core/state/app_ui_state.dart';
-import 'package:trackwise/features/auth/domain/entities/user.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_event.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_state.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_event.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_state.dart';
-import 'package:trackwise/features/categories/presentation/bloc/categories_bloc.dart';
-import 'package:trackwise/features/categories/presentation/bloc/categories_event.dart';
-import 'package:trackwise/features/categories/presentation/bloc/categories_state.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_event.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_state.dart';
-import 'package:trackwise/features/items/presentation/pages/item_form_page.dart';
+import 'package:traxelos/core/state/app_ui_state.dart';
+import 'package:traxelos/features/auth/domain/entities/user.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_event.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_state.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'package:traxelos/features/categories/presentation/bloc/categories_bloc.dart';
+import 'package:traxelos/features/categories/presentation/bloc/categories_event.dart';
+import 'package:traxelos/features/categories/presentation/bloc/categories_state.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_event.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_state.dart';
+import 'package:traxelos/features/items/presentation/pages/item_form_page.dart';
 
 class MockItemsBloc extends MockBloc<ItemsEvent, ItemsState>
     implements ItemsBloc {}

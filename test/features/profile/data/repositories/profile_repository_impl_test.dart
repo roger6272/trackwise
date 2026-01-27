@@ -2,12 +2,12 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/exceptions.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/profile/data/datasources/profile_remote_datasource.dart';
-import 'package:trackwise/features/profile/data/models/user_profile_model.dart';
-import 'package:trackwise/features/profile/data/repositories/profile_repository_impl.dart';
-import 'package:trackwise/features/profile/domain/entities/user_profile.dart';
+import 'package:traxelos/core/error/exceptions.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/profile/data/datasources/profile_remote_datasource.dart';
+import 'package:traxelos/features/profile/data/models/user_profile_model.dart';
+import 'package:traxelos/features/profile/data/repositories/profile_repository_impl.dart';
+import 'package:traxelos/features/profile/domain/entities/user_profile.dart';
 
 class MockProfileRemoteDataSource extends Mock implements ProfileRemoteDataSource {}
 

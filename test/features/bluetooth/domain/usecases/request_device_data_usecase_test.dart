@@ -1,9 +1,9 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/bluetooth/domain/repositories/bluetooth_repository.dart';
-import 'package:trackwise/features/bluetooth/domain/usecases/request_device_data_usecase.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/bluetooth/domain/repositories/bluetooth_repository.dart';
+import 'package:traxelos/features/bluetooth/domain/usecases/request_device_data_usecase.dart';
 
 class MockBluetoothRepository extends Mock implements BluetoothRepository {}
 

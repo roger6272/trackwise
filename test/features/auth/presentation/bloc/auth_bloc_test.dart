@@ -3,14 +3,14 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/core/usecases/usecase.dart';
-import 'package:trackwise/features/auth/domain/usecases/sign_in_with_email_usecase.dart';
-import 'package:trackwise/features/auth/domain/usecases/sign_up_usecase.dart';
-import 'package:trackwise/features/auth/domain/usecases/reset_password_usecase.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_event.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_state.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/core/usecases/usecase.dart';
+import 'package:traxelos/features/auth/domain/usecases/sign_in_with_email_usecase.dart';
+import 'package:traxelos/features/auth/domain/usecases/sign_up_usecase.dart';
+import 'package:traxelos/features/auth/domain/usecases/reset_password_usecase.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_event.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_state.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

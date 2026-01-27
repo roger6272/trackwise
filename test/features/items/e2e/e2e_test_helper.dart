@@ -5,21 +5,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:trackwise/features/events/data/datasources/event_log_remote_datasource.dart';
-import 'package:trackwise/features/events/data/datasources/event_log_remote_datasource_impl.dart';
-import 'package:trackwise/features/events/data/repositories/event_log_repository_impl.dart';
-import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
-import 'package:trackwise/features/items/data/datasources/item_remote_datasource.dart';
-import 'package:trackwise/features/items/data/datasources/item_remote_datasource_impl.dart';
-import 'package:trackwise/features/items/data/repositories/item_repository_impl.dart';
-import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
-import 'package:trackwise/features/items/domain/usecases/create_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/delete_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/get_items_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/increment_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/update_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/watch_items_usecase.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
+import 'package:traxelos/features/events/data/datasources/event_log_remote_datasource.dart';
+import 'package:traxelos/features/events/data/datasources/event_log_remote_datasource_impl.dart';
+import 'package:traxelos/features/events/data/repositories/event_log_repository_impl.dart';
+import 'package:traxelos/features/events/domain/repositories/event_log_repository.dart';
+import 'package:traxelos/features/items/data/datasources/item_remote_datasource.dart';
+import 'package:traxelos/features/items/data/datasources/item_remote_datasource_impl.dart';
+import 'package:traxelos/features/items/data/repositories/item_repository_impl.dart';
+import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
+import 'package:traxelos/features/items/domain/usecases/create_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/delete_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/get_items_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/increment_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/update_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/watch_items_usecase.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
 
 /// E2E test helper for testing with real Firebase emulator.
 ///

@@ -1,19 +1,19 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/core/services/connectivity_service.dart';
-import 'package:trackwise/features/auth/domain/entities/user.dart';
-import 'package:trackwise/features/auth/domain/repositories/user_repository.dart';
-import 'package:trackwise/features/bluetooth/domain/entities/paired_device.dart';
-import 'package:trackwise/features/bluetooth/domain/entities/sync_state.dart';
-import 'package:trackwise/features/bluetooth/domain/failures/sync_failures.dart';
-import 'package:trackwise/features/bluetooth/domain/repositories/bluetooth_repository.dart';
-import 'package:trackwise/features/bluetooth/domain/usecases/sync_usecase.dart';
-import 'package:trackwise/features/categories/domain/entities/category.dart';
-import 'package:trackwise/features/categories/domain/repositories/category_repository.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/core/services/connectivity_service.dart';
+import 'package:traxelos/features/auth/domain/entities/user.dart';
+import 'package:traxelos/features/auth/domain/repositories/user_repository.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/paired_device.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/sync_state.dart';
+import 'package:traxelos/features/bluetooth/domain/failures/sync_failures.dart';
+import 'package:traxelos/features/bluetooth/domain/repositories/bluetooth_repository.dart';
+import 'package:traxelos/features/bluetooth/domain/usecases/sync_usecase.dart';
+import 'package:traxelos/features/categories/domain/entities/category.dart';
+import 'package:traxelos/features/categories/domain/repositories/category_repository.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
 
 class MockBluetoothRepository extends Mock implements BluetoothRepository {}
 

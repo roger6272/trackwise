@@ -3,16 +3,16 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/core/usecases/usecase.dart';
-import 'package:trackwise/features/profile/domain/entities/user_profile.dart';
-import 'package:trackwise/features/profile/domain/usecases/delete_account_usecase.dart';
-import 'package:trackwise/features/profile/domain/usecases/export_user_data_usecase.dart';
-import 'package:trackwise/features/profile/domain/usecases/get_profile_usecase.dart';
-import 'package:trackwise/features/profile/domain/usecases/update_profile_usecase.dart';
-import 'package:trackwise/features/profile/presentation/bloc/profile_bloc.dart';
-import 'package:trackwise/features/profile/presentation/bloc/profile_event.dart';
-import 'package:trackwise/features/profile/presentation/bloc/profile_state.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/core/usecases/usecase.dart';
+import 'package:traxelos/features/profile/domain/entities/user_profile.dart';
+import 'package:traxelos/features/profile/domain/usecases/delete_account_usecase.dart';
+import 'package:traxelos/features/profile/domain/usecases/export_user_data_usecase.dart';
+import 'package:traxelos/features/profile/domain/usecases/get_profile_usecase.dart';
+import 'package:traxelos/features/profile/domain/usecases/update_profile_usecase.dart';
+import 'package:traxelos/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:traxelos/features/profile/presentation/bloc/profile_event.dart';
+import 'package:traxelos/features/profile/presentation/bloc/profile_state.dart';
 
 class MockGetProfileUseCase extends Mock implements GetProfileUseCase {}
 

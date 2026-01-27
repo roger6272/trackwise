@@ -1,6 +1,6 @@
-import 'package:trackwise/features/events/domain/entities/event_log.dart';
-import 'package:trackwise/features/export/domain/entities/csv_export_config.dart';
-import 'package:trackwise/features/export/domain/entities/send_email_params.dart';
+import 'package:traxelos/features/events/domain/entities/event_log.dart';
+import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
+import 'package:traxelos/features/export/domain/entities/send_email_params.dart';
 
 /// Test fixtures for Export tests.
 

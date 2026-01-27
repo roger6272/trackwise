@@ -1,5 +1,5 @@
-import 'package:trackwise/features/auth/domain/entities/user.dart';
-import 'package:trackwise/features/auth/data/models/user_model.dart';
+import 'package:traxelos/features/auth/domain/entities/user.dart';
+import 'package:traxelos/features/auth/data/models/user_model.dart';
 
 /// Test user with all fields populated.
 const testUser = User(

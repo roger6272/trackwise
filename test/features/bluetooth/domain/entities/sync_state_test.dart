@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:trackwise/features/bluetooth/domain/entities/sync_state.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/sync_state.dart';
 
 void main() {
   group('SyncStatus', () {

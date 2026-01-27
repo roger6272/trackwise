@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/bluetooth/domain/failures/sync_failures.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/bluetooth/domain/failures/sync_failures.dart';
 
 void main() {
   group('SyncFailures', () {

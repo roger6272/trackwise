@@ -2,10 +2,10 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/exceptions.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/export/domain/entities/csv_export_config.dart';
-import 'package:trackwise/features/export/domain/usecases/send_email_with_csv_usecase.dart';
+import 'package:traxelos/core/error/exceptions.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
+import 'package:traxelos/features/export/domain/usecases/send_email_with_csv_usecase.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

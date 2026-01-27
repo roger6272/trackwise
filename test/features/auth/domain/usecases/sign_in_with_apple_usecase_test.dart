@@ -2,9 +2,9 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/core/usecases/usecase.dart';
-import 'package:trackwise/features/auth/domain/usecases/sign_in_with_apple_usecase.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/core/usecases/usecase.dart';
+import 'package:traxelos/features/auth/domain/usecases/sign_in_with_apple_usecase.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

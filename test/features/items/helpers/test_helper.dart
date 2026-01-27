@@ -1,15 +1,15 @@
 import 'package:mocktail/mocktail.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
-import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
-import 'package:trackwise/features/items/domain/usecases/get_items_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/watch_items_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/create_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/update_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/delete_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/increment_item_usecase.dart';
-import 'package:trackwise/features/items/data/datasources/item_remote_datasource.dart';
+import 'package:traxelos/features/events/domain/repositories/event_log_repository.dart';
+import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
+import 'package:traxelos/features/items/domain/usecases/get_items_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/watch_items_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/create_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/update_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/delete_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/increment_item_usecase.dart';
+import 'package:traxelos/features/items/data/datasources/item_remote_datasource.dart';
 
 // Domain mocks
 class MockItemRepository extends Mock implements ItemRepository {}

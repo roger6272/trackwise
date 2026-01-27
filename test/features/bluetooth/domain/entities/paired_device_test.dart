@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:trackwise/features/bluetooth/domain/entities/paired_device.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/paired_device.dart';
 
 void main() {
   group('PairedDevice', () {

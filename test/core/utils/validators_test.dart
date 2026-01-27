@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trackwise/core/utils/validators.dart';
-import 'package:trackwise/core/utils/constants.dart';
+import 'package:traxelos/core/utils/validators.dart';
+import 'package:traxelos/core/utils/constants.dart';
 
 /// Unit tests for Validators class.
 ///
