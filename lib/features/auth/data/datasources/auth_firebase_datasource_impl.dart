@@ -29,8 +29,11 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
         _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['profile', 'email']);
 
   /// Creates or updates user document in Firestore.
-  Future<void> _ensureUserDocument(firebase.User user) async {
-    debugPrint('🔐 _ensureUserDocument: checking for ${user.uid}');
+  ///
+  /// [isNewSignup] should be true for new account creation (signup),
+  /// false for existing user login. New signups get onboarding_completed=false.
+  Future<void> _ensureUserDocument(firebase.User user, {bool isNewSignup = false}) async {
+    debugPrint('🔐 _ensureUserDocument: checking for ${user.uid} (isNewSignup: $isNewSignup)');
     final userDoc = _firestore.collection('users').doc(user.uid);
     final docSnapshot = await userDoc.get();
 
@@ -43,6 +46,8 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
         'display_name': user.displayName,
         'photo_url': user.photoURL,
         'created_time': FieldValue.serverTimestamp(),
+        // New signups need onboarding, existing users (migration) don't
+        if (isNewSignup) 'onboarding_completed': false,
       });
       debugPrint('✅ Created user document for ${user.uid}');
     } else {
@@ -102,7 +107,9 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       }
 
       // Ensure user document exists in Firestore
-      await _ensureUserDocument(credential.user!);
+      // Check if this is a new user (first time signing in with Google)
+      final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
+      await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
 
       return UserModel.fromFirebaseUser(credential.user!);
     } on firebase.FirebaseAuthException catch (e) {
@@ -156,7 +163,9 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
       }
 
       // Ensure user document exists in Firestore
-      await _ensureUserDocument(credential.user!);
+      // Check if this is a new user (first time signing in with Apple)
+      final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
+      await _ensureUserDocument(credential.user!, isNewSignup: isNewUser);
 
       return UserModel.fromFirebaseUser(credential.user!);
     } on firebase.FirebaseAuthException catch (e) {
@@ -177,8 +186,8 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
         throw AuthException('Sign up failed: No user returned');
       }
 
-      // Create user document in Firestore
-      await _ensureUserDocument(credential.user!);
+      // Create user document in Firestore (new signup needs onboarding)
+      await _ensureUserDocument(credential.user!, isNewSignup: true);
 
       return UserModel.fromFirebaseUser(credential.user!);
     } on firebase.FirebaseAuthException catch (e) {
