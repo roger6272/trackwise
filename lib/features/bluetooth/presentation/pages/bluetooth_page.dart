@@ -9,7 +9,6 @@ import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
 import '../widgets/sync_conflict_dialog.dart';
 import 'bluetooth_search_page.dart';
-import 'device_management_page.dart';
 
 /// Main Bluetooth page - entry point for Bluetooth functionality.
 ///
@@ -106,30 +105,16 @@ class _BluetoothPageState extends State<BluetoothPage> {
 
   Widget _buildActionButtons(BuildContext context, BluetoothState state) {
     if (state.isConnected) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ElevatedButton.icon(
-            onPressed: () => context.push(DeviceManagementPage.routePath),
-            icon: const Icon(Icons.settings),
-            label: const Text('Manage Device'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () {
-              context.read<BluetoothBloc>().add(const DisconnectFromDevice());
-            },
-            icon: const Icon(Icons.bluetooth_disabled),
-            label: const Text('Disconnect'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              foregroundColor: Colors.red,
-            ),
-          ),
-        ],
+      return OutlinedButton.icon(
+        onPressed: () {
+          context.read<BluetoothBloc>().add(const DisconnectFromDevice());
+        },
+        icon: const Icon(Icons.bluetooth_disabled),
+        label: const Text('Disconnect'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          foregroundColor: Colors.red,
+        ),
       );
     }
 

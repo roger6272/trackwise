@@ -18,7 +18,6 @@ import '../../features/export/presentation/pages/export_page.dart';
 import '../../features/items/presentation/pages/deleted_items_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_search_page.dart';
-import '../../features/bluetooth/presentation/pages/device_management_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_test_page.dart';
 import '../../features/bluetooth/presentation/pages/paired_devices_page.dart';
 import '../../features/items/domain/entities/item.dart';
@@ -176,11 +175,6 @@ class AppRouter {
                   name: BluetoothSearchPage.routeName,
                   path: 'search',
                   builder: (context, state) => const BluetoothSearchPage(),
-                ),
-                GoRoute(
-                  name: DeviceManagementPage.routeName,
-                  path: 'device',
-                  builder: (context, state) => const DeviceManagementPage(),
                 ),
                 // Temporary test route - remove after Task #18
                 GoRoute(
