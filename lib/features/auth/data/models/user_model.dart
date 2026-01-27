@@ -54,10 +54,8 @@ class UserModel extends User {
         .map((e) => PairedDevice.fromFirestore(e as Map<String, dynamic>))
         .toList();
 
-    // For onboarding: if field exists, use it.
-    // If missing, default to true (skip onboarding) - this handles existing users.
-    // New signups explicitly set onboarding_completed=false in _ensureUserDocument.
-    final onboardingCompleted = data['onboarding_completed'] as bool? ?? true;
+    // Default to false - user must complete onboarding to mark it true
+    final onboardingCompleted = data['onboarding_completed'] as bool? ?? false;
 
     return UserModel(
       id: firebaseUser.uid,
@@ -87,9 +85,8 @@ class UserModel extends User {
         .map((e) => PairedDevice.fromFirestore(e as Map<String, dynamic>))
         .toList();
 
-    // If loading from Firestore doc directly, default to true (skip onboarding)
-    // since this path is typically used for existing users
-    final onboardingCompleted = data['onboarding_completed'] as bool? ?? true;
+    // Default to false - user must complete onboarding to mark it true
+    final onboardingCompleted = data['onboarding_completed'] as bool? ?? false;
 
     return UserModel(
       id: doc.id,
