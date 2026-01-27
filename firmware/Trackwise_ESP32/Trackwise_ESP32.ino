@@ -278,7 +278,7 @@ void enterNormalMode() {
 // This is a placeholder - actual display code depends on hardware
 void displayWelcomeScreen() {
   Serial.println("═══════════════════════════════════════");
-  Serial.println("║       WELCOME TO TRACKWISE          ║");
+  Serial.println("║       WELCOME TO TRAXELOS           ║");
   Serial.println("║                                     ║");
   Serial.println("║  Please connect via the app to      ║");
   Serial.println("║  pair this device to your account   ║");
