@@ -241,7 +241,14 @@ class SyncConflictDetected extends BluetoothEvent {
 /// User confirmed override in conflict dialog.
 /// Triggers PerformOverrideUseCase.
 class ConfirmSyncOverride extends BluetoothEvent {
-  const ConfirmSyncOverride();
+  /// The currently selected item ID from the app UI.
+  /// Takes precedence over BluetoothState.selectedItemId.
+  final String? currentSelectedItemId;
+
+  const ConfirmSyncOverride({this.currentSelectedItemId});
+
+  @override
+  List<Object?> get props => [currentSelectedItemId];
 }
 
 /// User cancelled conflict dialog.
@@ -271,7 +278,14 @@ class DeviceSetupRequired extends BluetoothEvent {
 /// User confirmed device setup in dialog.
 /// Triggers override to transfer items to device.
 class ConfirmDeviceSetup extends BluetoothEvent {
-  const ConfirmDeviceSetup();
+  /// The currently selected item ID from the app UI.
+  /// Takes precedence over BluetoothState.selectedItemId.
+  final String? currentSelectedItemId;
+
+  const ConfirmDeviceSetup({this.currentSelectedItemId});
+
+  @override
+  List<Object?> get props => [currentSelectedItemId];
 }
 
 /// User cancelled device setup dialog.

@@ -226,7 +226,13 @@ class _MyAppState extends State<MyApp> {
       SyncConflictDialog.show(
         context: navigatorContext,
         onConfirm: () {
-          context.read<BluetoothBloc>().add(const ConfirmSyncOverride());
+          // Pass the currently selected item from AppUiState
+          final appUiState = context.read<AppUiState>();
+          context.read<BluetoothBloc>().add(ConfirmSyncOverride(
+            currentSelectedItemId: appUiState.activeItemId.isNotEmpty
+                ? appUiState.activeItemId
+                : null,
+          ));
         },
         onCancel: () {
           context.read<BluetoothBloc>().add(const CancelSyncConflict());
@@ -242,7 +248,13 @@ class _MyAppState extends State<MyApp> {
       DeviceSetupDialog.show(
         context: navigatorContext,
         onConfirm: () {
-          context.read<BluetoothBloc>().add(const ConfirmDeviceSetup());
+          // Pass the currently selected item from AppUiState
+          final appUiState = context.read<AppUiState>();
+          context.read<BluetoothBloc>().add(ConfirmDeviceSetup(
+            currentSelectedItemId: appUiState.activeItemId.isNotEmpty
+                ? appUiState.activeItemId
+                : null,
+          ));
         },
         onCancel: () {
           context.read<BluetoothBloc>().add(const CancelDeviceSetup());

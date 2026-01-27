@@ -966,12 +966,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       clearConflict: true,
     ));
 
+    // Use event's selectedItemId if provided, otherwise fall back to state
+    final selectedItemId = event.currentSelectedItemId ?? state.selectedItemId;
+
     final result = await _performOverride.call(
       PerformOverrideParams(
         deviceId: deviceId,
         deviceInstanceId: deviceInstanceId,
         deviceName: deviceName,
-        currentSelectedFirestoreId: state.selectedItemId,
+        currentSelectedFirestoreId: selectedItemId,
       ),
     );
 
@@ -1073,12 +1076,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       clearSetup: true,
     ));
 
+    // Use event's selectedItemId if provided, otherwise fall back to state
+    final selectedItemId = event.currentSelectedItemId ?? state.selectedItemId;
+
     final result = await _performOverride.call(
       PerformOverrideParams(
         deviceId: deviceId,
         deviceInstanceId: deviceInstanceId,
         deviceName: deviceName,
-        currentSelectedFirestoreId: state.selectedItemId,
+        currentSelectedFirestoreId: selectedItemId,
       ),
     );
 
