@@ -99,6 +99,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
   String? _lastSyncedCategoryId;
   DateTime? _lastSyncTime;
 
+  // Key to force category dropdown rebuild after returning from Manage Categories
+  int _categoryDropdownKey = 0;
+
   @override
   void initState() {
     super.initState();
@@ -1111,6 +1114,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
+          key: ValueKey(_categoryDropdownKey),
           value: selectedCategoryId,
           isExpanded: true,
           icon: Icon(Icons.expand_more_rounded, color: secondaryText),
@@ -1201,7 +1205,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
           onChanged: (value) {
             // Handle "Manage Categories" navigation
             if (value == '__manage__') {
-              context.push('/profile/categories');
+              context.push('/profile/categories').then((_) {
+                // Increment key to force dropdown rebuild with correct value
+                if (mounted) setState(() => _categoryDropdownKey++);
+              });
               return;
             }
 
