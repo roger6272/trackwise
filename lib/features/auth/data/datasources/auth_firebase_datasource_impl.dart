@@ -201,6 +201,70 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
   }
 
   @override
+  Future<String> reauthenticate() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw AuthException('Not authenticated');
+    }
+
+    // Find the provider used to sign in
+    final providerIds = user.providerData.map((p) => p.providerId).toList();
+
+    try {
+      if (providerIds.contains('google.com')) {
+        // Reauthenticate with Google
+        if (kIsWeb) {
+          final provider = firebase.GoogleAuthProvider();
+          await user.reauthenticateWithPopup(provider);
+        } else {
+          await _googleSignIn.signOut().catchError((_) => null);
+          final googleUser = await _googleSignIn.signIn();
+          if (googleUser == null) {
+            throw AuthException('Google sign-in was cancelled');
+          }
+          final googleAuth = await googleUser.authentication;
+          final credential = firebase.GoogleAuthProvider.credential(
+            idToken: googleAuth.idToken,
+            accessToken: googleAuth.accessToken,
+          );
+          await user.reauthenticateWithCredential(credential);
+        }
+        return 'google.com';
+      } else if (providerIds.contains('apple.com')) {
+        // Reauthenticate with Apple
+        if (kIsWeb) {
+          final provider = firebase.OAuthProvider('apple.com')
+            ..addScope('email')
+            ..addScope('name');
+          await user.reauthenticateWithPopup(provider);
+        } else {
+          final rawNonce = _generateNonce();
+          final nonce = _sha256ofString(rawNonce);
+          final appleCredential = await SignInWithApple.getAppleIDCredential(
+            scopes: [
+              AppleIDAuthorizationScopes.email,
+              AppleIDAuthorizationScopes.fullName,
+            ],
+            nonce: nonce,
+          );
+          final oauthCredential = firebase.OAuthProvider('apple.com').credential(
+            idToken: appleCredential.identityToken,
+            rawNonce: rawNonce,
+            accessToken: appleCredential.authorizationCode,
+          );
+          await user.reauthenticateWithCredential(oauthCredential);
+        }
+        return 'apple.com';
+      } else {
+        // Email/password - can't auto-reauthenticate without password
+        throw AuthException('Please sign out and sign in again');
+      }
+    } on firebase.FirebaseAuthException catch (e) {
+      throw AuthException(_mapFirebaseAuthError(e));
+    }
+  }
+
+  @override
   Future<void> signOut() async {
     try {
       // Sign out from Google if applicable

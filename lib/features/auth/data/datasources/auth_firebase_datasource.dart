@@ -25,4 +25,8 @@ abstract class AuthFirebaseDataSource {
 
   /// Stream of auth state changes.
   Stream<UserModel?> watchAuthState();
+
+  /// Reauthenticates the current user (required for sensitive operations).
+  /// Returns the provider ID used for reauthentication.
+  Future<String> reauthenticate();
 }

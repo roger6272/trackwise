@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
@@ -93,22 +94,10 @@ class _ProfilePageState extends State<ProfilePage> {
               if (state is AccountDeleted) {
                 await _handleAccountDeleted(context);
               } else if (state is ProfileError) {
-                // If deletion failed due to re-auth required, sign out and go to login
-                // The user's Firestore data may already be deleted at this point,
-                // so they need to re-authenticate and try again
+                // If deletion failed due to re-auth required, show reauthentication dialog
                 if (state.message.toLowerCase().contains('sign in') ||
                     state.message.toLowerCase().contains('log in')) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          'Session expired. Please log in again to complete account deletion.'),
-                      backgroundColor: _error,
-                    ),
-                  );
-                  // Clean up device before signing out
-                  await _cleanupDevice(context);
-                  // Sign out and navigate to login
-                  context.read<AuthBloc>().add(const SignOutEvent());
+                  _showReauthenticationDialog(context);
                   return;
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -653,6 +642,83 @@ class _ProfilePageState extends State<ProfilePage> {
               authBloc.add(const SignOutEvent());
             },
             child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shows a dialog to reauthenticate before sensitive operations like account deletion.
+  void _showReauthenticationDialog(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: primaryBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        title: Text(
+          'Session Expired',
+          style: GoogleFonts.interTight(
+            color: primaryText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'For security, please sign in again to delete your account.',
+          style: GoogleFonts.inter(
+            color: secondaryText,
+            fontSize: 14.0,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(color: secondaryText),
+            ),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              // Show loading indicator
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Signing in...')),
+              );
+              // Reauthenticate and retry deletion
+              final authRepository = sl<AuthRepository>();
+              final result = await authRepository.reauthenticate();
+              result.fold(
+                (failure) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(failure.message),
+                      backgroundColor: _error,
+                    ),
+                  );
+                },
+                (_) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  // Retry account deletion
+                  context.read<ProfileBloc>().add(const DeleteAccountEvent());
+                },
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: _error,
+            ),
+            child: Text(
+              'Sign In & Delete',
+              style: GoogleFonts.inter(color: Colors.white),
+            ),
           ),
         ],
       ),

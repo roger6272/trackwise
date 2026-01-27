@@ -89,4 +89,14 @@ class AuthRepositoryImpl implements AuthRepository {
       return userModel?.toEntity();
     });
   }
+
+  @override
+  Future<Either<Failure, String>> reauthenticate() async {
+    try {
+      final providerId = await dataSource.reauthenticate();
+      return Right(providerId);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    }
+  }
 }
