@@ -5,11 +5,11 @@ import '../../../../core/theme/app_colors.dart';
 
 /// Dialog shown when an uninitialized device is detected (factory reset or new).
 ///
-/// Asks the user to confirm transferring items to the new device.
+/// Asks the user to confirm pairing the device to their account.
 ///
 /// Actions:
 /// - Cancel: Disconnects from device without setting it up
-/// - Transfer: Triggers override flow to transfer items to device
+/// - Set Up: Triggers override flow to pair and sync items to device
 class DeviceSetupDialog extends StatelessWidget {
   /// Called when user confirms the transfer
   final VoidCallback onConfirm;
@@ -60,26 +60,12 @@ class DeviceSetupDialog extends StatelessWidget {
           color: primaryText,
         ),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Transfer your items?',
-            style: GoogleFonts.inter(
-              color: primaryText,
-              fontSize: 15.0,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Your items will be synced to the device.',
-            style: GoogleFonts.inter(
-              color: secondaryText,
-              fontSize: 14.0,
-            ),
-          ),
-        ],
+      content: Text(
+        'This will pair the device to your account. Your items will sync automatically.',
+        style: GoogleFonts.inter(
+          color: secondaryText,
+          fontSize: 14.0,
+        ),
       ),
       actions: [
         TextButton(
@@ -101,7 +87,7 @@ class DeviceSetupDialog extends StatelessWidget {
             backgroundColor: AppColors.primary,
           ),
           child: Text(
-            'Transfer',
+            'Set Up',
             style: GoogleFonts.inter(color: Colors.white),
           ),
         ),
