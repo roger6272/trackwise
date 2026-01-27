@@ -51,23 +51,13 @@ class AppRouter {
           return LoginPage.routePath;
         }
 
-        // If logged in and on auth page, redirect to onboarding or home
+        // If logged in and on auth page, redirect to home
         if (loggedIn && loggingIn) {
-          if (authStateNotifier.needsOnboarding) {
-            return OnboardingPage.routePath;
-          }
           return '/';
         }
 
-        // If logged in and needs onboarding, redirect to onboarding
-        if (loggedIn && authStateNotifier.needsOnboarding && !onOnboarding) {
-          return OnboardingPage.routePath;
-        }
-
-        // If on onboarding but doesn't need it, redirect to home
-        if (onOnboarding && !authStateNotifier.needsOnboarding) {
-          return '/';
-        }
+        // If on onboarding page, allow it (user navigated there manually or from signup)
+        // No automatic redirect to onboarding - it's only shown after signup
 
         // Handle saved redirect location
         if (authStateNotifier.shouldRedirect) {

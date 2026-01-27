@@ -1768,6 +1768,9 @@ static void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 void setupBLE() {
   BLEDevice::init("Traxogic_device");
 
+  // Log device instance ID (MAC address) now that BLE is initialized
+  Serial.printf("🆔 Device Instance ID (MAC): %s\n", getDeviceInstanceId().c_str());
+
   // Set maximum MTU to allow larger packets (default is 23, max is 517)
   // This allows the app to negotiate larger MTU for faster transfers
   BLEDevice::setMTU(517);
@@ -2161,8 +2164,7 @@ void setup() {
   }
 
   // ============== MULTI-DEVICE: Device Instance ID ==============
-  // Device Instance ID is the BLE MAC address (no NVS storage needed)
-  Serial.printf("🆔 Device Instance ID (MAC): %s\n", getDeviceInstanceId().c_str());
+  // Device Instance ID is the BLE MAC address (logged after BLE init in setupBLE)
 
   // ============== MULTI-DEVICE: Pairing Mode Detection ==============
   // Check if device is paired (has a paired_uid set)

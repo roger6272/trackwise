@@ -11,6 +11,7 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 import '../widgets/social_sign_in_button.dart';
+import 'onboarding_page.dart';
 
 /// Signup page for creating a new account.
 class SignupPage extends StatefulWidget {
@@ -541,8 +542,8 @@ class _SignupPageState extends State<SignupPage> {
 
   void _handleAuthStateChange(BuildContext context, AuthState state) {
     if (state is Authenticated) {
-      // Navigate to main app (root route shows ItemsListPage)
-      context.go('/');
+      // Navigate to onboarding for new users
+      context.go(OnboardingPage.routePath);
     } else if (state is AuthError) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
