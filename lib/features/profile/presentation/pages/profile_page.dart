@@ -629,20 +629,28 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showSignOutConfirmation(BuildContext context) {
+    final bluetoothBloc = context.read<BluetoothBloc>();
+    final authBloc = context.read<AuthBloc>();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Sign Out?'),
         content: const Text('Are you sure you want to sign out?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<AuthBloc>().add(const SignOutEvent());
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              // Disconnect from device if connected (don't clear data, just disconnect)
+              if (bluetoothBloc.state.isConnected) {
+                bluetoothBloc.add(const DisconnectFromDevice());
+                await Future.delayed(const Duration(milliseconds: 200));
+              }
+              authBloc.add(const SignOutEvent());
             },
             child: const Text('Sign Out'),
           ),
