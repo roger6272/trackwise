@@ -87,7 +87,7 @@ void main() {
     pairedDevices: [
       PairedDevice(
         deviceInstanceId: tDeviceInstanceId,
-        deviceName: 'Trackwise Device',
+        deviceName: 'Traxelos Device',
         pairedAt: DateTime.now(),
       ),
     ],

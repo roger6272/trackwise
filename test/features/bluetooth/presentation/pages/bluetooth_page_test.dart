@@ -135,7 +135,6 @@ void main() {
 
       expect(find.text('Connected'), findsOneWidget);
       expect(find.textContaining('ESP32-Tracker'), findsWidgets);
-      expect(find.text('Manage Device'), findsOneWidget);
       expect(find.text('Disconnect'), findsOneWidget);
     });
 

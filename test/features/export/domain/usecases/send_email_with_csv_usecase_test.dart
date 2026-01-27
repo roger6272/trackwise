@@ -142,7 +142,7 @@ void main() {
       // Assert
       verify(() => mockMailDataSource.sendEmailWithAttachment(
             toEmail: any(named: 'toEmail'),
-            subject: 'Traxogic Export: 2024-01-01 to 2024-01-31',
+            subject: 'Traxelos Export: 2024-01-01 to 2024-01-31',
             body: any(named: 'body'),
             csvContent: any(named: 'csvContent'),
             filename: any(named: 'filename'),

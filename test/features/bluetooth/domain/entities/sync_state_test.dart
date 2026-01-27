@@ -4,11 +4,12 @@ import 'package:traxelos/features/bluetooth/domain/entities/sync_state.dart';
 
 void main() {
   group('SyncStatus', () {
-    test('should have three values', () {
-      expect(SyncStatus.values.length, 3);
+    test('should have four values', () {
+      expect(SyncStatus.values.length, 4);
       expect(SyncStatus.values, contains(SyncStatus.inSync));
       expect(SyncStatus.values, contains(SyncStatus.conflict));
       expect(SyncStatus.values, contains(SyncStatus.wrongAccount));
+      expect(SyncStatus.values, contains(SyncStatus.uninitialized));
     });
   });
 

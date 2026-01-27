@@ -81,7 +81,7 @@ void main() {
         final device = PairedDevice.fromFirestore(data);
 
         expect(device.deviceInstanceId, '');
-        expect(device.deviceName, 'Trackwise Device');
+        expect(device.deviceName, 'Traxelos Device');
         expect(device.pairedAt, isA<DateTime>());
       });
 

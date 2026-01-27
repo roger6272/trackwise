@@ -23,6 +23,7 @@ void main() {
   late MockSignOutUseCase mockSignOut;
   late MockResetPasswordUseCase mockResetPassword;
   late MockWatchAuthStateUseCase mockWatchAuthState;
+  late MockUserRepository mockUserRepository;
 
   setUpAll(() {
     // Register fallback values for mocktail
@@ -40,6 +41,7 @@ void main() {
     mockSignOut = MockSignOutUseCase();
     mockResetPassword = MockResetPasswordUseCase();
     mockWatchAuthState = MockWatchAuthStateUseCase();
+    mockUserRepository = MockUserRepository();
   });
 
   AuthBloc createBloc() {
@@ -51,6 +53,7 @@ void main() {
       signOut: mockSignOut,
       resetPassword: mockResetPassword,
       watchAuthState: mockWatchAuthState,
+      userRepository: mockUserRepository,
     );
   }
 
