@@ -1718,7 +1718,7 @@ for (final uuid in required) {
 | Min increment | 1 | Clamping |
 | Max reminder value | 1,000,000 | Clamping |
 | Max count value | 2,147,483,647 | int32 limit |
-| Max log entries | 800 | Circular buffer |
+| Max log entries | 1000 | Circular buffer |
 | Max set_items payload | 32KB | CHAR_SET_ITEMS buffer |
 | Max WRITE command payload | 8KB | CHAR_WRITE buffer |
 | Max message size | 64KB | App buffer limit |
