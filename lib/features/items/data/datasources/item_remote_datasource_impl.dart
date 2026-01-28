@@ -333,6 +333,10 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         order: item.order,
         initialCount: item.initialCount,
         goal: item.goal,
+        categoryId: item.categoryId,
+        categoryOrder: item.categoryOrder,
+        deviceItemId: item.deviceItemId,
+        resetNumber: item.resetNumber,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
