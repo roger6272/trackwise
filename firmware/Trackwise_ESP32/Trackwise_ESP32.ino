@@ -44,6 +44,15 @@ static const esp_task_wdt_config_t wdtConfig = {
 
 #define VIBRATION_PIN 5
 
+// ============== PROTOCOL & FIRMWARE VERSION ==============
+// Protocol version: Increment when changing command/response formats or behavior
+// - v1: Initial protocol
+// - v2: Added multi-device sync with handshake-first approach
+#define PROTOCOL_VERSION 2
+
+// Firmware version: Semantic versioning (major.minor.patch)
+#define FIRMWARE_VERSION "1.1.0"
+
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
 #define NVS_KEY_PAIRED_UID "paired_uid"           // String: Firebase uid (empty = unpaired)
@@ -347,6 +356,8 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     StaticJsonDocument<256> doc;
     doc["status"] = "wrong_account";
     doc["device_instance_id"] = deviceInstanceId;
+    doc["protocol_version"] = PROTOCOL_VERSION;
+    doc["firmware_version"] = FIRMWARE_VERSION;
 
     String response;
     serializeJson(doc, response);
@@ -366,6 +377,8 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     StaticJsonDocument<256> doc;
     doc["status"] = "uninitialized";
     doc["device_instance_id"] = deviceInstanceId;
+    doc["protocol_version"] = PROTOCOL_VERSION;
+    doc["firmware_version"] = FIRMWARE_VERSION;
 
     String response;
     serializeJson(doc, response);
@@ -387,6 +400,8 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     StaticJsonDocument<256> doc;
     doc["status"] = "in_sync";
     doc["device_instance_id"] = deviceInstanceId;
+    doc["protocol_version"] = PROTOCOL_VERSION;
+    doc["firmware_version"] = FIRMWARE_VERSION;
 
     String response;
     serializeJson(doc, response);
@@ -406,6 +421,8 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     doc["status"] = "conflict";
     doc["device_seq"] = deviceSyncSeq;
     doc["device_instance_id"] = deviceInstanceId;
+    doc["protocol_version"] = PROTOCOL_VERSION;
+    doc["firmware_version"] = FIRMWARE_VERSION;
 
     String response;
     serializeJson(doc, response);

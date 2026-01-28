@@ -1,11 +1,19 @@
 # Traxelos BLE Protocol Specification
 
-> **Version:** 2.0
+> **Protocol Version:** 2
 > **Last Updated:** 2026-01-27
 > **Device:** ESP32 (Traxelos)
 > **App:** Flutter (Traxelos)
 
 This document defines the Bluetooth Low Energy communication protocol between the Traxelos mobile app and ESP32 firmware. It serves as the **source of truth** for app-device communication.
+
+### Version History
+
+| Protocol | Firmware | Changes |
+|----------|----------|---------|
+| v2 | 1.1.0+ | Added `protocol_version` and `firmware_version` to handshake responses |
+| v2 | 1.0.x | Multi-device sync with handshake-first approach |
+| v1 | 0.x | Initial protocol (single device) |
 
 ---
 
@@ -405,12 +413,24 @@ The multi-device sync protocol enables a single user account to sync with multip
 
 **Response Variants:**
 
+All responses include `protocol_version` (int) and `firmware_version` (string) for version compatibility checking.
+
 | Status | Condition | Response Format |
 |--------|-----------|-----------------|
-| `in_sync` | Device sync_seq == App sync_seq | `{"status":"in_sync","device_instance_id":"MAC"}` |
-| `conflict` | Device sync_seq != App sync_seq | `{"status":"conflict","device_seq":N,"device_instance_id":"MAC"}` |
-| `wrong_account` | Device paired to different UID | `{"status":"wrong_account","device_instance_id":"MAC"}` |
-| `uninitialized` | Device has no UID (new/reset) | `{"status":"uninitialized","device_instance_id":"MAC"}` |
+| `in_sync` | Device sync_seq == App sync_seq | `{"status":"in_sync","device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
+| `conflict` | Device sync_seq != App sync_seq | `{"status":"conflict","device_seq":N,"device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
+| `wrong_account` | Device paired to different UID | `{"status":"wrong_account","device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
+| `uninitialized` | Device has no UID (new/reset) | `{"status":"uninitialized","device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Handshake result (see table above) |
+| `device_instance_id` | string | Device BLE MAC address |
+| `device_seq` | int | Device's sync sequence (only in `conflict` response) |
+| `protocol_version` | int | BLE protocol version (for compatibility checking) |
+| `firmware_version` | string | Device firmware version (semantic versioning) |
 
 **Device Behavior by Status:**
 
@@ -424,7 +444,7 @@ The multi-device sync protocol enables a single user account to sync with multip
 **Example Flow (in_sync):**
 ```
 App: {"cmd": "handshake", "uid": "abc123", "sync_seq": 42}
-Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF"}
+Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF", "protocol_version": 2, "firmware_version": "1.1.0"}
 Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic)
 Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic)
 App: {"cmd": "sync_complete", "sync_seq": 43}
