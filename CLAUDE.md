@@ -4,28 +4,22 @@
 
 ## Project-Specific Instructions
 
-This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean architecture.
+This is a Flutter app (Traxelos) using clean architecture with BLoC pattern.
 
 ## Cross-Codebase Awareness
 
 **CRITICAL: Always consider ALL codebases AND documentation when making enhancements, troubleshooting, or doing project reviews/analysis:**
 
-1. **New App Code** (clean architecture)
+1. **App Code**
    - Location: `lib/features/`, `lib/core/`, `lib/backend/`
-   - This is the target architecture we're migrating to
    - Uses BLoC pattern and clean architecture principles
 
-2. **Old App Code** (FlutterFlow)
-   - Location: `lib/flutter_flow/`, `lib/auth/`, `lib/custom_code/`
-   - Reference for existing behavior and business logic
-   - Check here to understand how features currently work
-
-3. **Firmware** (ESP32)
+2. **Firmware** (ESP32)
    - Location: `firmware/Trackwise_ESP32/`
    - BLE protocol, commands, and device behavior
    - **Essential for BLE-related issues** - always check firmware to understand expected data formats, command sequences, and timing
 
-4. **BLE Protocol Specification**
+3. **BLE Protocol Specification**
    - Location: `docs/BLE_PROTOCOL.md`
    - **Source of truth** for app-device communication
    - Contains: UUIDs, commands, notifications, timing, sync sequences, edge cases
@@ -37,20 +31,20 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
      - Whole-project reviews or architecture analysis
    - Read BEFORE diving into firmware code - the doc explains the "why" behind the implementation
 
-5. **User Guide**
+4. **User Guide**
    - Location: `docs/USER_GUIDE.md`
    - **Non-technical user documentation** - how end users interact with the product
    - Contains: Feature explanations, user flows, troubleshooting, quick reference
    - **Consult when:** Making UI/UX changes, adding features, writing user-facing text, or creating other documentation
    - Ensures code changes align with documented user expectations
 
-6. **Product Overview**
+5. **Product Overview**
    - Location: `docs/PRODUCT_OVERVIEW.md`
    - **Business/product context** - what the product is and why it exists
    - Contains: Problem/solution, key features, differentiators, use cases
    - **Consult when:** Making architectural decisions or prioritizing features
 
-7. **Architecture Decision Records (ADRs)**
+6. **Architecture Decision Records (ADRs)**
    - Location: `docs/decisions/`
    - **Documents explaining WHY** non-obvious design decisions were made
    - **ALWAYS check here first** when questioning an existing design choice
@@ -64,14 +58,14 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
      - It contradicts common patterns (e.g., "why device over cloud as source of truth?")
    - **Quick test:** If explaining "why" takes more than one sentence, consider an ADR. If no ADR exists for a non-obvious design, double check with user before making changes.
 
-8. **Troubleshooting Playbook**
+7. **Troubleshooting Playbook**
    - Location: `docs/TROUBLESHOOTING.md`
    - **Quick diagnostic guides** for common issues
    - Contains: Connection issues, sync problems, count mismatches, notification issues, daily reset problems
    - **Consult when:** Debugging BLE issues, investigating user-reported bugs, or understanding failure modes
    - Includes diagnostic commands and quick reference tables
 
-9. **Data Flow & Sync Scenarios**
+8. **Data Flow & Sync Scenarios**
    - Location: `docs/DATA_FLOW.md`
    - **Visual guide** to how data moves through the system
    - Contains: Three-tier architecture, sync scenario diagrams, real-time event flow, multi-device sync, consistency rules
@@ -81,7 +75,6 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication
 - Verify BLE command/response formats match between app and firmware
-- Review existing FlutterFlow implementation for reference behavior
 - Ensure new code maintains compatibility with firmware protocol
 
 ## Epics and Tasks (CCPM)
@@ -94,21 +87,6 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
 4. Before starting any task, **verify it aligns with the relevant PRD**
 5. If a task contradicts the PRD, **flag this to the user** before proceeding
 6. Don't blindly execute tasks - they may have been incorrectly defined
-
-## Migration Work
-
-**CRITICAL: Before any migration-related changes:**
-
-1. **Read the PRD** at `.claude/prds/trackwise-app-migration.md`
-2. **Verify the task/epic aligns** with the PRD's phased approach
-3. **Check that feature flags exist** in `lib/core/config/migration_flags.dart` before switching implementations
-4. **Use feature flags** to toggle between old and new implementations
-5. **Keep FF pages as fallback** until new pages are fully tested
-
-The PRD specifies:
-- Phase 1: Wire up existing code (enable migration flags one by one)
-- Phase 2: Complete missing pages (implement remaining pages)
-- Phase 3: Cleanup (remove FF imports, delete FF directories)
 
 ## Continued Sessions
 
@@ -140,7 +118,6 @@ Always run tests before committing:
 Follow existing patterns in the codebase.
 - Use BLoC pattern for state management
 - Follow clean architecture structure in `features/`
-- Match FlutterFlow visual styling exactly during migration
 
 ## Documentation Maintenance
 
