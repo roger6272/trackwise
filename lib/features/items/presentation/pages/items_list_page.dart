@@ -469,11 +469,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                               selectedItem.deviceItemId ?? 0,
                                             ));
                                           });
-                                        } else {
-                                          // Update signature/category but skip sync (debounced)
-                                          _lastSyncedSignature = currentSignature;
-                                          _lastSyncedCategoryId = selectedCatId;
                                         }
+                                        // Note: Don't update signature when debounced - let the next
+                                        // buildWhen detect the change and sync when debounce expires
                                       }
                                     }
                                   }
