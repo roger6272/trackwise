@@ -178,7 +178,9 @@ class BluetoothState {
          │                                                │
          │  ⑦ Receive handshake response                 │
          │ ◄─────────────────────────────────────────────│
-         │  {"status":"in_sync|conflict|..."}            │
+         │  {"status":"...",                            │
+         │   "protocol_version":2,                      │
+         │   "firmware_version":"1.3.0"}                │
          │                                                │
          │  ⑧ Branch based on status...                  │
          │                                                │
@@ -268,7 +270,8 @@ class BluetoothState {
      │                     │ ② handshake(seq=42) │
      │                     │ ───────────────────►│
      │                     │                     │
-     │                     │ ③ {status:in_sync}  │
+     │                     │ ③ {status:in_sync,  │
+     │                     │    protocol_version:2}
      │                     │ ◄───────────────────│
      │                     │                     │
      │                     │ ④ prefs (automatic) │
@@ -314,7 +317,8 @@ Data Flow:
      │                     │ ───────────────────►│ Device has seq=40
      │                     │                     │
      │                     │ ③ {status:conflict, │
-     │                     │    device_seq:40}   │
+     │                     │    device_seq:40,   │
+     │                     │    protocol_version:2}
      │                     │ ◄───────────────────│ Buttons disabled!
      │                     │                     │ Shows "SEE APP"
      │                     │                     │
@@ -367,7 +371,8 @@ Data Flow:
      │                     │ ───────────────────►│ No UID stored
      │                     │                     │
      │                     │ ③ {status:          │
-     │                     │    uninitialized}   │
+     │                     │    uninitialized,   │
+     │                     │    protocol_version:2}
      │                     │ ◄───────────────────│ Shows "AWAITING
      │                     │                     │  SETUP"
      │                     │                     │
@@ -407,7 +412,8 @@ Data Flow:
      │                     │ ───────────────────►│ Has uid_B stored
      │                     │                     │
      │                     │ ② {status:          │
-     │                     │    wrong_account}   │
+     │                     │    wrong_account,   │
+     │                     │    protocol_version:2}
      │                     │ ◄───────────────────│ Shows "PAIRED TO
      │                     │                     │  OTHER ACCOUNT"
      │                     │                     │
@@ -569,7 +575,8 @@ Note: Only 'event', no 'item_delta'
      │                     │ ② handshake(seq=42)│
      │                     │ ───────────────────►│ (Device has seq=42)
      │                     │                     │
-     │                     │ ③ {status:in_sync} │
+     │                     │ ③ {status:in_sync, │
+     │                     │    protocol_version:2}
      │                     │ ◄───────────────────│
      │                     │                     │
      │                     │ ④ prefs             │ Includes offline
