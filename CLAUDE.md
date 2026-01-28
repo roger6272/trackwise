@@ -125,13 +125,16 @@ Follow existing patterns in the codebase.
 
 | If you change... | Update these docs |
 |------------------|-------------------|
-| BLE commands, notifications, protocol | `docs/BLE_PROTOCOL.md` |
-| Sync logic, handshake, data flow | `docs/DATA_FLOW.md` |
+| BLE commands, notifications, protocol | `docs/BLE_PROTOCOL.md`, check `DATA_FLOW.md` for examples |
+| Handshake request/response format | `docs/BLE_PROTOCOL.md`, `docs/DATA_FLOW.md` (has response examples) |
+| Sync logic, data flow | `docs/DATA_FLOW.md`, `docs/DATA_FLOW.html` |
 | Firmware behavior | `docs/BLE_PROTOCOL.md`, `docs/DATA_FLOW.md` |
-| Error handling, failure modes | `docs/TROUBLESHOOTING.md` |
+| Error handling, failure modes | `docs/TROUBLESHOOTING.md`, `docs/BLE_PROTOCOL.md` (error codes) |
 | User-facing features, UI flows | `docs/USER_GUIDE.md` |
 | Product capabilities, use cases | `docs/PRODUCT_OVERVIEW.md` |
 | Non-obvious design decisions | Create new `docs/decisions/ADR-XXX.md` |
+
+**Note:** `DATA_FLOW.html` is a styled version of `DATA_FLOW.md` - update both when changing data flow diagrams.
 
 **Guidelines:**
 - Update docs in the **same commit** as the code change when possible
