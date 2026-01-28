@@ -275,6 +275,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         goal: item.goal,
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
+        deviceItemId: item.deviceItemId, // Preserve deviceItemId
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -727,6 +728,73 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       throw ServerException('Failed to reset all items: ${e.message}');
     } catch (e) {
       throw ServerException('Unexpected error resetting all items: $e');
+    }
+  }
+
+  @override
+  Future<int> ensureDeviceItemIds(String userId) async {
+    try {
+      final userRef = firestore.collection('users').doc(userId);
+      final snapshot = await firestore
+          .collection('Item')
+          .where('uid', isEqualTo: userRef)
+          .get();
+
+      // Find all active items and their existing deviceItemIds
+      final activeItems = <DocumentSnapshot<Map<String, dynamic>>>[];
+      final usedIds = <int>{};
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        if (data['deletedAt'] == null) {
+          activeItems.add(doc);
+          final deviceId = data['device_item_id'] as int?;
+          if (deviceId != null) {
+            usedIds.add(deviceId);
+          }
+        }
+      }
+
+      // Find items missing deviceItemId
+      final itemsNeedingId = activeItems
+          .where((doc) => doc.data()?['device_item_id'] == null)
+          .toList();
+
+      if (itemsNeedingId.isEmpty) {
+        debugPrint('✅ All items have deviceItemId assigned');
+        return 0;
+      }
+
+      debugPrint('⚠️ Found ${itemsNeedingId.length} items without deviceItemId');
+
+      // Assign IDs to items that need them
+      final batch = firestore.batch();
+      int nextId = 0;
+
+      for (final doc in itemsNeedingId) {
+        // Find next available ID
+        while (usedIds.contains(nextId) && nextId < 100) {
+          nextId++;
+        }
+
+        if (nextId >= 100) {
+          throw ServerException('Maximum 100 items reached');
+        }
+
+        final itemName = doc.data()?['item_name'] ?? 'unknown';
+        debugPrint('📝 Assigning deviceItemId=$nextId to $itemName');
+        batch.update(doc.reference, {'device_item_id': nextId});
+        usedIds.add(nextId);
+        nextId++;
+      }
+
+      await batch.commit();
+      debugPrint('✅ Assigned deviceItemId to ${itemsNeedingId.length} items');
+      return itemsNeedingId.length;
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to ensure device item IDs: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error ensuring device item IDs: $e');
     }
   }
 }

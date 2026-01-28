@@ -216,4 +216,17 @@ abstract class ItemRepository {
   /// - Right(List<Item>): List of reset items
   /// - Left(ServerFailure): Firestore batch update failed
   Future<Either<Failure, List<Item>>> resetAllItems(String userId);
+
+  /// Ensures all items have a valid deviceItemId assigned.
+  ///
+  /// Migrates items that were created before deviceItemId was implemented.
+  /// Each item without a deviceItemId is assigned a unique ID (0-99).
+  ///
+  /// Parameters:
+  /// - [userId]: The user whose items to check and fix
+  ///
+  /// Returns:
+  /// - Right(int): Number of items that were assigned new deviceItemIds
+  /// - Left(ServerFailure): Firestore operations failed
+  Future<Either<Failure, int>> ensureDeviceItemIds(String userId);
 }

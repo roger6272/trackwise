@@ -110,6 +110,18 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
 
     emit(ItemsLoading());
 
+    // Ensure all items have deviceItemId (migration for items created before this field)
+    // This is a no-op if all items already have deviceItemId assigned
+    final migrationResult = await itemRepository.ensureDeviceItemIds(event.userId);
+    migrationResult.fold(
+      (failure) => debugPrint('⚠️ Failed to ensure device item IDs: ${failure.message}'),
+      (count) {
+        if (count > 0) {
+          debugPrint('✅ Migrated $count items with missing deviceItemId');
+        }
+      },
+    );
+
     // Subscribe to the stream using emit.onEach (non-blocking)
     await emit.onEach<Either<Failure, List<Item>>>(
       watchItemsUseCase(GetItemsParams(event.userId)),

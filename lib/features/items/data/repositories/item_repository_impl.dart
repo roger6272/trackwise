@@ -333,4 +333,14 @@ class ItemRepositoryImpl implements ItemRepository {
       return Left(ServerFailure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, int>> ensureDeviceItemIds(String userId) async {
+    try {
+      final count = await remoteDataSource.ensureDeviceItemIds(userId);
+      return Right(count);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
 }
