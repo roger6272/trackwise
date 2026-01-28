@@ -11,6 +11,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Protocol | Firmware | Changes |
 |----------|----------|---------|
+| v2 | 1.2.0+ | Added optional `ack` parameter to `set_time` and `clear_logs` commands |
 | v2 | 1.1.0+ | Added `protocol_version` and `firmware_version` to handshake responses |
 | v2 | 1.0.x | Multi-device sync with handshake-first approach |
 | v1 | 0.x | Initial protocol (single device) |
@@ -164,7 +165,8 @@ Synchronize device RTC clock with phone time.
 {
   "cmd": "set_time",
   "utc_time": "2025-01-24 14:30:45",
-  "offset": -300
+  "offset": -300,
+  "ack": true
 }
 ```
 
@@ -175,6 +177,7 @@ Synchronize device RTC clock with phone time.
 | `cmd` | string | Yes | - | Always `"set_time"` |
 | `utc_time` | string | Yes | `yyyy-MM-dd HH:mm:ss` | Current UTC time |
 | `offset` | int | Yes | Minutes | Timezone offset from UTC |
+| `ack` | bool | No | - | If `true`, device sends acknowledgment response |
 
 **Timezone Offset Examples:**
 
@@ -191,8 +194,16 @@ Synchronize device RTC clock with phone time.
 2. Sets internal RTC clock
 3. Stores timezone offset in NVS (`timezone_offset`)
 4. Triggers daily reset check (in case date changed)
+5. If `ack: true`, sends acknowledgment response
 
-**Response:** None (silent success)
+**Response:** None by default. If `ack: true`:
+```json
+{"status": "ok", "cmd": "set_time"}
+```
+Or on error:
+```json
+{"status": "error", "cmd": "set_time", "reason": "Missing utc_time parameter"}
+```
 
 **App-side Formatting:**
 ```dart
@@ -251,16 +262,28 @@ Clear event log buffer on device.
 **Request:**
 ```json
 {
-  "cmd": "clear_logs"
+  "cmd": "clear_logs",
+  "ack": true
 }
 ```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `cmd` | string | Yes | Always `"clear_logs"` |
+| `ack` | bool | No | If `true`, device sends acknowledgment response |
 
 **Device Behavior:**
 1. Resets `logCount` to 0
 2. Resets `logWriteIndex` to 0
 3. Does NOT clear NVS (logs are RAM-only)
+4. If `ack: true`, sends acknowledgment response
 
-**Response:** None (silent success)
+**Response:** None by default. If `ack: true`:
+```json
+{"status": "ok", "cmd": "clear_logs"}
+```
 
 **When to Use:**
 - After successfully retrieving all log pages

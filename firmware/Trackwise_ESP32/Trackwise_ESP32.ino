@@ -51,7 +51,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define PROTOCOL_VERSION 2
 
 // Firmware version: Semantic versioning (major.minor.patch)
-#define FIRMWARE_VERSION "1.1.0"
+#define FIRMWARE_VERSION "1.2.0"
 
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
@@ -337,6 +337,24 @@ void sendJsonResponse(const String& jsonStr) {
     NotifyChar->notify();
   }
   Serial.printf("📤 Sent response: %s\n", jsonStr.c_str());
+}
+
+// Send acknowledgment response for fire-and-forget commands
+// Only sends if ack was requested (ack parameter is true)
+void sendAckIfRequested(JsonDocument& doc, const char* cmd, bool success = true, const char* errorReason = nullptr) {
+  bool ackRequested = doc["ack"] | false;
+  if (!ackRequested) return;
+
+  StaticJsonDocument<128> ackDoc;
+  ackDoc["status"] = success ? "ok" : "error";
+  ackDoc["cmd"] = cmd;
+  if (!success && errorReason) {
+    ackDoc["reason"] = errorReason;
+  }
+
+  String response;
+  serializeJson(ackDoc, response);
+  sendJsonResponse(response);
 }
 
 // Handle handshake command from app
@@ -1550,8 +1568,10 @@ void processWriteCommand(const String& jsonStr) {
       handleHandshake(uid, syncSeq);
 
     } else if (cmd == "clear_logs") {  //////////////////// clear all event logs
+      // Format: {"cmd": "clear_logs"} or {"cmd": "clear_logs", "ack": true}
       clearLogs();
       Serial.println("✅ Logs cleared.");
+      sendAckIfRequested(doc, "clear_logs");
 
     } else if (cmd == "set_selected") {  ///////////////////////// set selected item
       // id is now numeric deviceItemId (0-99), -1 means no selection
@@ -1649,6 +1669,7 @@ void processWriteCommand(const String& jsonStr) {
 
     } else if (cmd == "set_time") {  //////////////////// set time
       // Format: {"cmd": "set_time", "utc_time": "yyyy-MM-dd HH:mm:ss", "offset": minutes}
+      // Optional: {"cmd": "set_time", ..., "ack": true} for acknowledgment
       const char* utcTimeStr = doc["utc_time"];
       int offsetMinutes = doc["offset"] | 0;
       if (utcTimeStr) {
@@ -1664,6 +1685,10 @@ void processWriteCommand(const String& jsonStr) {
         prefs.end();
         Serial.printf("✅ RTC set to UTC: %04d-%02d-%02d %02d:%02d:%02d (local offset: %d min)\n",
                       y, mo, d, h, mi, s, offsetMinutes);
+        sendAckIfRequested(doc, "set_time", true);
+      } else {
+        Serial.println("❌ set_time: missing utc_time parameter");
+        sendAckIfRequested(doc, "set_time", false, "Missing utc_time parameter");
       }
 
     } else if (cmd == "prepare_read") {  //////////////////// prepare data for reading
