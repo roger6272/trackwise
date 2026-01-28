@@ -1046,9 +1046,24 @@ void notifyError(const char* cmd, const char* reason) {
   Serial.printf("📤 Error notification: cmd=%s, reason=%s\n", cmd, reason);
 }
 
-// Send delta update for a single item (much smaller than full prefs)
-// Used after increment/reset to update just the changed item
-// Uses numeric deviceItemId (0-99) for memory optimization
+// ============================================================================
+// ITEM_DELTA NOTIFICATION - Current State
+// ============================================================================
+// Purpose: Sync the CURRENT STATE of an item to the app for UI display.
+// Contains: count, todaycount, lastResetTime, resetNumber
+//
+// This is DIFFERENT from notifyEvent():
+//   - item_delta = "here's the current state" (for UI updates)
+//   - event      = "here's what just happened" (for history/logging)
+//
+// When sent:
+//   - After increment/reset button press (paired with notifyEvent)
+//   - After set_selected command (WITHOUT notifyEvent - no action occurred)
+//
+// The app needs BOTH notifications on button press because:
+//   - event: provides timestamp, action type, increment value (for history)
+//   - item_delta: provides todaycount, lastResetTime (for UI state)
+// ============================================================================
 void notifyItemDelta(int8_t deviceItemId, int count, int todayCount, time_t resetTime, int resetNumber) {
   if (!isConnected || NotifyChar == nullptr) return;
 
@@ -1830,9 +1845,24 @@ void updateReadChar() {
 
 
 
-// Send event to app via notification. This will be called everytime a button is pressed
-// For reset events, pass the OLD resetNumber before incrementing
-// Uses numeric deviceItemId (0-99) for memory optimization
+// ============================================================================
+// EVENT NOTIFICATION - Action History
+// ============================================================================
+// Purpose: Record WHAT JUST HAPPENED for history/logging/analytics.
+// Contains: event type, timestamp, itemId, count, increment, resetNumber
+//
+// This is DIFFERENT from notifyItemDelta():
+//   - event      = "here's what just happened" (for history/logging)
+//   - item_delta = "here's the current state" (for UI updates)
+//
+// When sent:
+//   - After increment button press (paired with notifyItemDelta)
+//   - After reset button press (paired with notifyItemDelta)
+//   - After switch button press (NO item_delta - state didn't change for switched-from item)
+//
+// Note: For reset events, pass the OLD resetNumber before incrementing
+// Uses numeric deviceItemId (0-99) for memory optimization - app looks up name
+// ============================================================================
 void notifyEvent(String event, int resetNum = -1) {
   if (!isConnected || NotifyChar == nullptr) return;
 

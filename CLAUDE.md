@@ -29,8 +29,13 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
    - Location: `docs/BLE_PROTOCOL.md`
    - **Source of truth** for app-device communication
    - Contains: UUIDs, commands, notifications, timing, sync sequences, edge cases
-   - **Check this FIRST** when debugging BLE issues before reading firmware code
-   - **IMPORTANT:** Also review this doc for whole-project reviews, architecture analysis, or when asked to understand how the system works - it documents the critical app↔device interface
+   - **ALWAYS read this doc** when the task involves:
+     - Bluetooth/BLE code (app or firmware)
+     - Protocol design, review, or optimization questions
+     - Sync, notifications, or device communication
+     - Any question about how app and device communicate
+     - Whole-project reviews or architecture analysis
+   - Read BEFORE diving into firmware code - the doc explains the "why" behind the implementation
 
 5. **User Guide**
    - Location: `docs/USER_GUIDE.md`

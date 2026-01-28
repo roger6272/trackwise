@@ -673,7 +673,20 @@ Full item list with current counts and selection state.
 
 ### 5.2 event (Real-time Event)
 
-Sent immediately when user interacts with physical device buttons.
+**Purpose:** Record **what just happened** for history, logging, and analytics.
+
+Sent immediately when user interacts with physical device buttons. This notification captures the **action** that occurred.
+
+> **Relationship to `item_delta`:** On button press, the device sends BOTH `event` AND `item_delta`:
+> - `event` = what happened (action type, timestamp, increment value)
+> - `item_delta` = current state (todaycount, lastResetTime)
+>
+> They are **not redundant** - each contains fields the other lacks. The app needs both to update history AND UI state.
+
+**When Sent:**
+- After increment button press (paired with `item_delta`)
+- After reset button press (paired with `item_delta`)
+- After switch button press (**without** `item_delta` - only the action matters)
 
 **Format:**
 ```json
@@ -714,7 +727,19 @@ Sent immediately when user interacts with physical device buttons.
 
 ### 5.3 item_delta (Efficient Count Update)
 
-Smaller payload for single-item updates. Sent after `set_selected` or as alternative to full event.
+**Purpose:** Sync the **current state** of an item for UI display.
+
+Smaller payload for single-item updates. This notification captures the **state** of the item.
+
+> **Relationship to `event`:** On button press, the device sends BOTH `item_delta` AND `event`:
+> - `item_delta` = current state (todaycount, lastResetTime for UI)
+> - `event` = what happened (action type, timestamp for history)
+>
+> **Key difference:** `item_delta` contains `todaycount` and `lastResetTime` which `event` does not have.
+
+**When Sent:**
+- After increment/reset button press (paired with `event`)
+- After `set_selected` command (**without** `event` - no action occurred, just state query)
 
 **Format:**
 ```json
@@ -739,7 +764,23 @@ Smaller payload for single-item updates. Sent after `set_selected` or as alterna
 | `lastResetTime` | int | Unix timestamp (UTC) |
 | `resetNumber` | int | Reset counter |
 
-**Use Case:** More efficient than `prefs` when only one item changed.
+**Use Cases:**
+- More efficient than `prefs` when only one item changed
+- Provides `todaycount` and `lastResetTime` that `event` notification lacks
+- Enables UI to show daily progress without computing it locally
+
+**Field Comparison: `event` vs `item_delta`**
+
+| Field | `event` | `item_delta` | Purpose |
+|-------|:-------:|:------------:|---------|
+| count | ✓ | ✓ | Current total |
+| resetNumber | ✓ | ✓ | Reset counter |
+| itemId/id | ✓ | ✓ | Item identifier |
+| **todaycount** | ✗ | ✓ | Daily progress (UI) |
+| **lastResetTime** | ✗ | ✓ | When daily reset occurred |
+| **timestamp** | ✓ | ✗ | When action happened (history) |
+| **event type** | ✓ | ✗ | What action occurred |
+| **increment** | ✓ | ✗ | Amount incremented |
 
 ---
 
