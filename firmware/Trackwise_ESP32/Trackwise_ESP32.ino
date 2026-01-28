@@ -51,7 +51,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define PROTOCOL_VERSION 2
 
 // Firmware version: Semantic versioning (major.minor.patch)
-#define FIRMWARE_VERSION "1.2.0"
+#define FIRMWARE_VERSION "1.3.0"
 
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
@@ -74,6 +74,27 @@ int overrideNextSlot = 0;       // Next sequential slot index for saving items
 #define EVENT_INCREMENT 0
 #define EVENT_RESET 1
 #define EVENT_SWITCH 2
+
+// ============== ERROR CODES ==============
+// Error codes for notifyError() - enables reliable error handling in app
+// Ranges: 1xx = payload, 2xx = storage, 3xx = protocol, 4xx = state
+
+// 1xx: Payload errors
+#define ERR_PAYLOAD_TOO_LARGE   101  // Payload exceeds buffer size
+#define ERR_INVALID_JSON        102  // JSON parse error
+#define ERR_BUFFER_OVERFLOW     103  // Write buffer overflow
+
+// 2xx: Storage errors
+#define ERR_NVS_MUTEX_TIMEOUT   201  // NVS mutex acquisition failed
+#define ERR_NVS_WRITE_FAILED    202  // NVS write operation failed
+
+// 3xx: Protocol errors
+#define ERR_MISSING_FIELD       301  // Required field missing in command
+#define ERR_UNKNOWN_COMMAND     302  // Unrecognized command
+
+// 4xx: State errors
+#define ERR_NO_ITEM_SELECTED    401  // Operation requires selected item
+#define ERR_CONFLICT_STATE      402  // Device in conflict state
 
 // Convert event type to string for JSON serialization
 const char* eventTypeToString(uint8_t eventType) {
@@ -1064,12 +1085,16 @@ void notifyPrefsToApp() {
 
 // Send error notification to app via NOTIFY characteristic
 // Used to report command failures, parse errors, etc. for better debugging
-void notifyError(const char* cmd, const char* reason) {
+// error_code: Numeric code for reliable app-side error handling (0 = legacy/unspecified)
+void notifyError(const char* cmd, const char* reason, int error_code = 0) {
   if (!isConnected || NotifyChar == nullptr || cmd == nullptr || reason == nullptr) return;
 
   StaticJsonDocument<256> doc;
   doc["type"] = "error";
   doc["cmd"] = cmd;
+  if (error_code > 0) {
+    doc["error_code"] = error_code;
+  }
   doc["reason"] = reason;
 
   String jsonOut;
@@ -1078,7 +1103,7 @@ void notifyError(const char* cmd, const char* reason) {
 
   NotifyChar->setValue(jsonOut.c_str());
   NotifyChar->notify();
-  Serial.printf("📤 Error notification: cmd=%s, reason=%s\n", cmd, reason);
+  Serial.printf("📤 Error notification: cmd=%s, code=%d, reason=%s\n", cmd, error_code, reason);
 }
 
 // ============================================================================
@@ -1245,7 +1270,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
     // Input validation: check payload size before parsing
     if (incomingJsonBuffer.length() > 32000) {
       Serial.println("❌ Payload too large (>32KB)");
-      notifyError("set_items", "Payload too large");
+      notifyError("set_items", "Payload too large", ERR_PAYLOAD_TOO_LARGE);
       incomingJsonBuffer = "";
       return;
     }
@@ -1261,7 +1286,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       if (err) {
         Serial.print("JSON parse failed: ");
         Serial.println(err.c_str());
-        notifyError("set_items", err.c_str());
+        notifyError("set_items", err.c_str(), ERR_INVALID_JSON);
         incomingJsonBuffer = "";  // clear buffer on failure
         return;
       }
@@ -1271,7 +1296,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       flushPendingNvsWrites();
 
       if (!nvsBeginSafe("counter", false)) {
-        notifyError("set_items", "NVS mutex timeout");
+        notifyError("set_items", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
         incomingJsonBuffer = "";
         return;
       }
@@ -1506,7 +1531,7 @@ void handleOverrideChunkCommand(const String& jsonStr) {
   if (err) {
     Serial.print("❌ Override chunk JSON parse error: ");
     Serial.println(err.c_str());
-    notifyError("override_chunk", err.c_str());
+    notifyError("override_chunk", err.c_str(), ERR_INVALID_JSON);
     return;
   }
 
@@ -1515,13 +1540,13 @@ void handleOverrideChunkCommand(const String& jsonStr) {
 
   if (items.isNull()) {
     Serial.println("❌ Override chunk missing items array");
-    notifyError("override_chunk", "Missing items array");
+    notifyError("override_chunk", "Missing items array", ERR_MISSING_FIELD);
     return;
   }
 
   // Acquire NVS lock for saving items
   if (!nvsBeginSafe("counter", false)) {
-    notifyError("override_chunk", "NVS mutex timeout");
+    notifyError("override_chunk", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
     return;
   }
 
@@ -1548,7 +1573,7 @@ void processWriteCommand(const String& jsonStr) {
     if (err) {
       Serial.print("❌ Command JSON parse error: ");
       Serial.println(err.c_str());
-      notifyError("parse", err.c_str());
+      notifyError("parse", err.c_str(), ERR_INVALID_JSON);
       return;
     }
 
@@ -1561,7 +1586,7 @@ void processWriteCommand(const String& jsonStr) {
       int syncSeq = doc["sync_seq"] | 0;
 
       if (uid.isEmpty()) {
-        notifyError("handshake", "Missing uid parameter");
+        notifyError("handshake", "Missing uid parameter", ERR_MISSING_FIELD);
         return;
       }
 
@@ -1581,7 +1606,7 @@ void processWriteCommand(const String& jsonStr) {
       flushPendingNvsWrites();
 
       if (!nvsBeginSafe("counter", false)) {
-        notifyError("set_selected", "NVS mutex timeout");
+        notifyError("set_selected", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
         return;
       }
 
@@ -1644,7 +1669,7 @@ void processWriteCommand(const String& jsonStr) {
 
       // Acquire NVS lock for the override operation
       if (!nvsBeginSafe("counter", false)) {
-        notifyError("override_start", "NVS mutex timeout");
+        notifyError("override_start", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
         return;
       }
       handleOverrideStart(uid, syncSeq, totalChunks);
@@ -1656,7 +1681,7 @@ void processWriteCommand(const String& jsonStr) {
 
       // Acquire NVS lock for finalization
       if (!nvsBeginSafe("counter", false)) {
-        notifyError("override_end", "NVS mutex timeout");
+        notifyError("override_end", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
         return;
       }
       handleOverrideEnd(selectedId);
@@ -1723,7 +1748,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
     // Check for buffer overflow
     if (writeCommandBuffer.length() > 8192) {
       Serial.println("❌ Write command buffer overflow (>8KB)");
-      notifyError("write", "Buffer overflow");
+      notifyError("write", "Buffer overflow", ERR_BUFFER_OVERFLOW);
       writeCommandBuffer = "";
       return;
     }
@@ -1964,7 +1989,7 @@ void handleCommand(char cmd) {
     // Increment current item count and update in prefs using indexed keys
     if (currentDeviceItemId < 0) {
       Serial.println("No Item Selected");
-      notifyError("increment", "No item selected");
+      notifyError("increment", "No item selected", ERR_NO_ITEM_SELECTED);
       nvsEndSafe();
       return;
     }
@@ -2015,7 +2040,7 @@ void handleCommand(char cmd) {
     // Reset current item count and update in prefs using indexed keys
     if (currentDeviceItemId < 0) {
       Serial.println("No Item Selected");
-      notifyError("reset", "No item selected");
+      notifyError("reset", "No item selected", ERR_NO_ITEM_SELECTED);
       nvsEndSafe();
       return;
     }

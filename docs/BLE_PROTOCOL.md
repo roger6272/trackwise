@@ -11,6 +11,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Protocol | Firmware | Changes |
 |----------|----------|---------|
+| v2 | 1.3.0+ | Added numeric `error_code` to all error notifications |
 | v2 | 1.2.0+ | Added optional `ack` parameter to `set_time` and `clear_logs` commands |
 | v2 | 1.1.0+ | Added `protocol_version` and `firmware_version` to handshake responses |
 | v2 | 1.0.x | Multi-device sync with handshake-first approach |
@@ -945,6 +946,7 @@ Sent when device encounters an error processing a command.
 {
   "type": "error",
   "cmd": "set_items",
+  "error_code": 101,
   "reason": "Payload too large"
 }
 ```
@@ -955,17 +957,48 @@ Sent when device encounters an error processing a command.
 |-------|------|-------------|
 | `type` | string | Always `"error"` |
 | `cmd` | string | Command that failed |
+| `error_code` | int | Numeric error code for reliable app-side handling (see table below) |
 | `reason` | string | Human-readable error message |
 
-**Common Errors:**
+**Error Codes:**
 
-| Reason | Cause | Resolution |
-|--------|-------|------------|
-| `Payload too large` | set_items > 32KB | Reduce item count |
-| `NVS mutex timeout` | Flash busy | Retry after delay |
-| `NVS timeout` | NVS operation failed | Retry |
-| `Unknown command type` | Invalid `cmd` field | Check command spelling |
-| JSON parse errors | Malformed JSON | Validate JSON format |
+| Code | Constant | Description | Resolution |
+|------|----------|-------------|------------|
+| **1xx** | **Payload Errors** | | |
+| 101 | `ERR_PAYLOAD_TOO_LARGE` | Payload exceeds 32KB limit | Reduce item count |
+| 102 | `ERR_INVALID_JSON` | JSON parse error | Validate JSON format |
+| 103 | `ERR_BUFFER_OVERFLOW` | Write buffer overflow | Reduce payload size |
+| **2xx** | **Storage Errors** | | |
+| 201 | `ERR_NVS_MUTEX_TIMEOUT` | NVS mutex acquisition failed | Retry after delay |
+| 202 | `ERR_NVS_WRITE_FAILED` | NVS write operation failed | Retry |
+| **3xx** | **Protocol Errors** | | |
+| 301 | `ERR_MISSING_FIELD` | Required field missing | Check command format |
+| 302 | `ERR_UNKNOWN_COMMAND` | Unrecognized command | Check command spelling |
+| **4xx** | **State Errors** | | |
+| 401 | `ERR_NO_ITEM_SELECTED` | Operation requires selected item | Select an item first |
+| 402 | `ERR_CONFLICT_STATE` | Device in conflict state | Complete override or disconnect |
+
+**App-side Error Handling:**
+```dart
+void handleError(Map<String, dynamic> error) {
+  final code = error['error_code'] as int?;
+  final reason = error['reason'] as String;
+
+  // Use code for reliable matching
+  switch (code) {
+    case 101:
+      showDialog("Item list is too large. Remove some items.");
+      break;
+    case 201:
+      // Retry after delay
+      Future.delayed(Duration(seconds: 1), () => retryCommand());
+      break;
+    default:
+      // Fallback to reason string
+      showDialog(reason);
+  }
+}
+```
 
 ---
 
