@@ -985,7 +985,7 @@ Formula: `100ms × 2^(attempt+2)` (capped at 3 attempts)
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  1. Start BLE scan                                          │
-│  2. Filter by device name: "Traxogic_device"                   │
+│  2. Filter by device name: "Traxelos"                          │
 │  3. Collect discovered devices                              │
 │  4. Stop scan after 15s or user selection                   │
 └─────────────────────────────────────────────────────────────┘
