@@ -294,7 +294,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 await _showItemLimitDialog(context);
                                 return;
                               }
-                              context.pushNamed(ItemFormPage.routeName);
+                              final createdItem = await context.pushNamed<Item>(ItemFormPage.routeName);
+                              if (createdItem != null && mounted) {
+                                _handleCreatedItem(context, createdItem);
+                              }
                             },
                             style: IconButton.styleFrom(
                               backgroundColor: isConnected ? _primary : Colors.grey.shade400,
@@ -1801,7 +1804,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
           const SizedBox(height: 24.0),
           FilledButton.icon(
             onPressed: isConnected
-                ? () => context.pushNamed(ItemFormPage.routeName)
+                ? () async {
+                    final createdItem = await context.pushNamed<Item>(ItemFormPage.routeName);
+                    if (createdItem != null && mounted) {
+                      _handleCreatedItem(context, createdItem);
+                    }
+                  }
                 : null,
             style: FilledButton.styleFrom(
               backgroundColor: _primary,
@@ -2047,6 +2055,30 @@ class _ItemsListContentState extends State<_ItemsListContent>
     if (_activationHintOverlay != null && _activationHintAppUiState != null) {
       _dismissActivationHint(_activationHintAppUiState!);
     }
+  }
+
+  /// Handles a newly created item by syncing it to the device.
+  /// Called when ItemFormPage returns a created item.
+  /// This ensures the new item is included in the sync even if the
+  /// Firestore stream hasn't updated yet.
+  void _handleCreatedItem(BuildContext context, Item createdItem) {
+    final bluetoothBloc = context.read<BluetoothBloc>();
+    if (!bluetoothBloc.state.isConnected) return;
+
+    final itemsState = context.read<ItemsBloc>().state;
+    if (itemsState is! ItemsLoaded) return;
+
+    final deviceSelectedId = bluetoothBloc.state.selectedItemId;
+
+    debugPrint('📱 Syncing newly created item: ${createdItem.name} (deviceItemId: ${createdItem.deviceItemId})');
+
+    _syncDeviceWithSelectedCategory(
+      bluetoothBloc: bluetoothBloc,
+      allItems: itemsState.items,
+      deviceSelectedId: deviceSelectedId,
+      includeItem: createdItem,
+      fallbackCategoryId: createdItem.categoryId,
+    );
   }
 
   /// Syncs the device with items from the selected item's category.

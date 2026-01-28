@@ -816,13 +816,14 @@ class _ItemFormPageState extends State<ItemFormPage> {
           }
         },
         (createdItem) async {
-          debugPrint('🟢 Item created with ID: ${createdItem.id}');
+          debugPrint('🟢 Item created with ID: ${createdItem.id}, deviceItemId: ${createdItem.deviceItemId}');
 
           // Don't auto-select the item - let user learn to activate it via swipe
           // The items_list_page will show an activation hint for the first item
 
-          // List sync handled by items_list_page buildWhen
-          if (mounted) context.pop();
+          // Return created item so items_list_page can include it in device sync
+          // (Firestore stream may not have updated yet when buildWhen runs)
+          if (mounted) context.pop(createdItem);
         },
       );
     }
