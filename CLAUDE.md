@@ -62,7 +62,7 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
      - It looks like a bug but isn't (e.g., "why does set_items ignore counts?")
      - Trade-offs were weighed (e.g., "why batch every 10 instead of every 1?")
      - It contradicts common patterns (e.g., "why device over cloud as source of truth?")
-   - **Quick test:** If explaining "why" takes more than one sentence, consider an ADR
+   - **Quick test:** If explaining "why" takes more than one sentence, consider an ADR. If no ADR exists for a non-obvious design, double check with user before making changes.
 
 8. **Troubleshooting Playbook**
    - Location: `docs/TROUBLESHOOTING.md`
