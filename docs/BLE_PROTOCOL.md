@@ -11,6 +11,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Protocol | Firmware | Changes |
 |----------|----------|---------|
+| v2 | 1.4.0+ | Added `delete_item` command for single-item deletion |
 | v2 | 1.3.0+ | Added numeric `error_code` to all error notifications |
 | v2 | 1.2.0+ | Added optional `ack` parameter to `set_time` and `clear_logs` commands |
 | v2 | 1.1.0+ | Added `protocol_version` and `firmware_version` to handshake responses |
@@ -398,6 +399,67 @@ For each item in received JSON:
 **Response:** `error` notification on failure, silent on success
 
 **Chunking:** Required for payloads > MTU. See [Section 10](#10-chunked-transfer-protocol).
+
+---
+
+### 3.7 delete_item
+
+Delete a single item from the device. More efficient than `set_items` when removing just one item.
+
+**Request:**
+```json
+{
+  "cmd": "delete_item",
+  "deviceItemId": 5
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Range | Description |
+|-------|------|----------|-------|-------------|
+| `cmd` | string | Yes | - | Always `"delete_item"` |
+| `deviceItemId` | int | Yes | 0-99 | ID of item to delete |
+
+**Success Response:**
+```json
+{
+  "status": "deleted",
+  "deviceItemId": 5,
+  "item_total": 4
+}
+```
+
+**Error Responses:**
+
+| Error | error_code | Reason |
+|-------|------------|--------|
+| Missing field | 301 | `deviceItemId` not provided |
+| Not found | 403 | No item with that `deviceItemId` exists |
+| NVS timeout | 201 | Failed to acquire NVS mutex |
+
+**Device Behavior:**
+1. Finds the slot index where `deviceItemId` matches
+2. Shifts all subsequent items down by one (maintains sequential storage)
+3. Clears the now-empty last slot
+4. Updates `item_total`
+5. If deleted item was selected, selects first item (or none if empty)
+6. Sends success response with updated `item_total`
+
+**When to Use:**
+
+| Scenario | Use |
+|----------|-----|
+| Delete 1 item | `delete_item` (~40 bytes) |
+| Delete multiple items | `set_items` (send remaining items) |
+| Delete all items | `set_items` with empty array |
+
+**Example Flow:**
+```
+App: {"cmd": "delete_item", "deviceItemId": 5}
+Device: Removes item, shifts indices, updates total
+Device: {"status": "deleted", "deviceItemId": 5, "item_total": 4}
+```
 
 ---
 
@@ -977,6 +1039,7 @@ Sent when device encounters an error processing a command.
 | **4xx** | **State Errors** | | |
 | 401 | `ERR_NO_ITEM_SELECTED` | Operation requires selected item | Select an item first |
 | 402 | `ERR_CONFLICT_STATE` | Device in conflict state | Complete override or disconnect |
+| 403 | `ERR_ITEM_NOT_FOUND` | Item with deviceItemId not found | Verify item exists |
 
 **App-side Error Handling:**
 ```dart

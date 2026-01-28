@@ -51,7 +51,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define PROTOCOL_VERSION 2
 
 // Firmware version: Semantic versioning (major.minor.patch)
-#define FIRMWARE_VERSION "1.3.0"
+#define FIRMWARE_VERSION "1.4.0"
 
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
@@ -95,6 +95,7 @@ int overrideNextSlot = 0;       // Next sequential slot index for saving items
 // 4xx: State errors
 #define ERR_NO_ITEM_SELECTED    401  // Operation requires selected item
 #define ERR_CONFLICT_STATE      402  // Device in conflict state
+#define ERR_ITEM_NOT_FOUND      403  // Item with given deviceItemId not found
 
 // Convert event type to string for JSON serialization
 const char* eventTypeToString(uint8_t eventType) {
@@ -1691,6 +1692,154 @@ void processWriteCommand(const String& jsonStr) {
       // App sends: { "cmd": "sync_complete", "sync_seq": N }
       int syncSeq = doc["sync_seq"] | 0;
       handleSyncComplete(syncSeq);
+
+    } else if (cmd == "delete_item") {  //////////////////// delete single item
+      // App sends: { "cmd": "delete_item", "deviceItemId": N }
+      // More efficient than set_items when deleting a single item
+      int targetDeviceId = doc["deviceItemId"] | -1;
+
+      if (targetDeviceId < 0) {
+        notifyError("delete_item", "Missing deviceItemId", ERR_MISSING_FIELD);
+        return;
+      }
+
+      if (!nvsBeginSafe("counter", false)) {
+        notifyError("delete_item", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
+        return;
+      }
+
+      int total = prefs.getInt("item_total", 0);
+      char key[16];
+      int foundIndex = -1;
+
+      // Find the slot index for this deviceItemId
+      for (int i = 0; i < total; i++) {
+        snprintf(key, sizeof(key), "did_%d", i);
+        uint8_t testId = prefs.getUChar(key, 255);
+        if (testId == (uint8_t)targetDeviceId) {
+          foundIndex = i;
+          break;
+        }
+      }
+
+      if (foundIndex < 0) {
+        nvsEndSafe();
+        notifyError("delete_item", "Item not found", ERR_ITEM_NOT_FOUND);
+        return;
+      }
+
+      // Check if we're deleting the currently selected item
+      bool deletingSelected = (currentDeviceItemId == targetDeviceId);
+
+      // Shift all items after foundIndex down by one
+      for (int i = foundIndex; i < total - 1; i++) {
+        // Copy slot i+1 to slot i
+        snprintf(key, sizeof(key), "did_%d", i + 1);
+        uint8_t did = prefs.getUChar(key, 0);
+        snprintf(key, sizeof(key), "did_%d", i);
+        prefs.putUChar(key, did);
+
+        snprintf(key, sizeof(key), "n_%d", i + 1);
+        String name = prefs.getString(key, "");
+        snprintf(key, sizeof(key), "n_%d", i);
+        prefs.putString(key, name);
+
+        snprintf(key, sizeof(key), "cat_%d", i + 1);
+        String cat = prefs.getString(key, "");
+        snprintf(key, sizeof(key), "cat_%d", i);
+        prefs.putString(key, cat);
+
+        snprintf(key, sizeof(key), "c_%d", i + 1);
+        int count = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "c_%d", i);
+        prefs.putInt(key, count);
+
+        snprintf(key, sizeof(key), "tc_%d", i + 1);
+        int todayCount = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "tc_%d", i);
+        prefs.putInt(key, todayCount);
+
+        snprintf(key, sizeof(key), "i_%d", i + 1);
+        int inc = prefs.getInt(key, 1);
+        snprintf(key, sizeof(key), "i_%d", i);
+        prefs.putInt(key, inc);
+
+        snprintf(key, sizeof(key), "r_%d", i + 1);
+        int rem = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "r_%d", i);
+        prefs.putInt(key, rem);
+
+        snprintf(key, sizeof(key), "rv_%d", i + 1);
+        int remVal = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "rv_%d", i);
+        prefs.putInt(key, remVal);
+
+        snprintf(key, sizeof(key), "lr_%d", i + 1);
+        unsigned long lr = prefs.getULong(key, 0);
+        snprintf(key, sizeof(key), "lr_%d", i);
+        prefs.putULong(key, lr);
+
+        snprintf(key, sizeof(key), "rn_%d", i + 1);
+        int rn = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "rn_%d", i);
+        prefs.putInt(key, rn);
+      }
+
+      // Clear the last slot (now a duplicate)
+      clearItemSlot(total - 1);
+
+      // Update item_total
+      int newTotal = total - 1;
+      prefs.putInt("item_total", newTotal);
+
+      // Handle selection after deletion
+      if (newTotal == 0) {
+        // No items left
+        currentDeviceItemId = -1;
+        currentItemIndex = -1;
+        prefs.putChar("selected_did", -1);
+        prefs.putInt("selected_index", 0);
+        itemName = "";
+        itemCount = 0;
+        itemTodayCount = 0;
+      } else if (deletingSelected) {
+        // Select first item if we deleted the selected one
+        currentItemIndex = 0;
+        snprintf(key, sizeof(key), "did_%d", 0);
+        currentDeviceItemId = prefs.getUChar(key, 0);
+        prefs.putChar("selected_did", currentDeviceItemId);
+        prefs.putInt("selected_index", 0);
+        // Load the new selected item's data
+        snprintf(key, sizeof(key), "n_%d", 0);
+        itemName = prefs.getString(key, "Item");
+        snprintf(key, sizeof(key), "c_%d", 0);
+        itemCount = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "tc_%d", 0);
+        itemTodayCount = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "i_%d", 0);
+        itemIncrement = prefs.getInt(key, 1);
+      } else if (currentItemIndex > foundIndex) {
+        // Adjust current index if it was after the deleted item
+        currentItemIndex--;
+        prefs.putInt("selected_index", currentItemIndex);
+      }
+
+      nvsEndSafe();
+
+      // Send success response
+      StaticJsonDocument<128> response;
+      response["status"] = "deleted";
+      response["deviceItemId"] = targetDeviceId;
+      response["item_total"] = newTotal;
+      String responseStr;
+      serializeJson(response, responseStr);
+      sendJsonResponse(responseStr);
+
+      Serial.printf("✅ Deleted item deviceItemId=%d (was at index %d), %d items remaining\n",
+                    targetDeviceId, foundIndex, newTotal);
+
+      // Update display
+      updateOLED();
 
     } else if (cmd == "set_time") {  //////////////////// set time
       // Format: {"cmd": "set_time", "utc_time": "yyyy-MM-dd HH:mm:ss", "offset": minutes}
