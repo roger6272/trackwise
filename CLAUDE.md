@@ -134,3 +134,24 @@ Follow existing patterns in the codebase.
 - Use BLoC pattern for state management
 - Follow clean architecture structure in `features/`
 - Match FlutterFlow visual styling exactly during migration
+
+## Documentation Maintenance
+
+**When making changes, always check if documentation needs updating.**
+
+| If you change... | Update these docs |
+|------------------|-------------------|
+| BLE commands, notifications, protocol | `docs/BLE_PROTOCOL.md` |
+| Sync logic, handshake, data flow | `docs/DATA_FLOW.md` |
+| Firmware behavior | `docs/BLE_PROTOCOL.md`, `docs/DATA_FLOW.md` |
+| Error handling, failure modes | `docs/TROUBLESHOOTING.md` |
+| User-facing features, UI flows | `docs/USER_GUIDE.md` |
+| Product capabilities, use cases | `docs/PRODUCT_OVERVIEW.md` |
+| Non-obvious design decisions | Create new `docs/decisions/ADR-XXX.md` |
+
+**Guidelines:**
+- Update docs in the **same commit** as the code change when possible
+- If a doc describes behavior you're changing, **update it or flag the inconsistency**
+- When adding new features, check if they should be documented in User Guide
+- When fixing bugs, check if Troubleshooting playbook needs the fix added
+- Keep diagrams and examples in sync with actual implementation
