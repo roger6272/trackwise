@@ -1847,8 +1847,7 @@ void notifyEvent(String event, int resetNum = -1) {
   // Create the data object with event details
   JsonObject data = root.createNestedObject("data");
   data["timestamp"] = rtc.now().unixtime();
-  data["itemId"] = (int)currentDeviceItemId;  // Numeric deviceItemId instead of string
-  data["itemName"] = itemName;
+  data["itemId"] = (int)currentDeviceItemId;  // Numeric deviceItemId - app looks up name
   data["event"] = event;
   data["increment"] = itemIncrement;
   data["count"] = itemCount;
