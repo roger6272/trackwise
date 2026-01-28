@@ -1085,7 +1085,7 @@ void notifyLogsToApp(int page) {
 // Convert ALL prefs into a JSON string to send to the app
 // Uses numeric deviceItemId (0-99) instead of string IDs for memory optimization
 String getPrefsJson() {
-  StaticJsonDocument<16384> doc;  // Increased for 100 items
+  StaticJsonDocument<15360> doc;  // 100 items × ~145 bytes = 14.5KB + headroom
 
   // Create the outer object
   JsonObject root = doc.to<JsonObject>();
@@ -1132,7 +1132,7 @@ String getPrefsJson() {
 // Convert ALL pts into a JSON string to send to the app
 // Uses numeric deviceItemId (0-99) instead of string IDs
 String getLogsAsString(int page) {
-  StaticJsonDocument<4096> doc;
+  StaticJsonDocument<2048> doc;  // 15 entries × ~60 bytes = ~1KB + headroom
 
   // Create outer object
   JsonObject root = doc.to<JsonObject>();
@@ -1206,7 +1206,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
     // Check if buffer ends with ']' (simple heuristic for end of JSON array)
     if (incomingJsonBuffer.endsWith("]")) {
-      StaticJsonDocument<32768> doc;  // Increased for 100 items
+      StaticJsonDocument<24576> doc;  // 100 items × ~200 bytes = 20KB + headroom
       DeserializationError err = deserializeJson(doc, incomingJsonBuffer);
       if (err) {
         Serial.print("JSON parse failed: ");
@@ -1450,8 +1450,8 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 // App sends: { "cmd": "override_chunk", "index": 0, "items": [...] }
 // Separated from WriteCallback because items array needs larger buffer
 void handleOverrideChunkCommand(const String& jsonStr) {
-  // Use larger buffer for items array (each item ~150 bytes, 10 items per chunk max)
-  StaticJsonDocument<4096> doc;
+  // 10 items per chunk × ~150 bytes = ~1.5KB + headroom
+  StaticJsonDocument<2048> doc;
   DeserializationError err = deserializeJson(doc, jsonStr);
   if (err) {
     Serial.print("❌ Override chunk JSON parse error: ");
@@ -1838,7 +1838,7 @@ void notifyEvent(String event, int resetNum = -1) {
 
   int eventResetNumber = (resetNum >= 0) ? resetNum : itemResetNumber;
 
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<256> doc;  // ~120 bytes actual, 256 with headroom
 
   // Create the standard JSON structure
   JsonObject root = doc.to<JsonObject>();
