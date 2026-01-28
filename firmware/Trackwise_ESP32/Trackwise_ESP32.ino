@@ -35,7 +35,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 
 
 // RAM-based log buffer setup
-#define MAX_LOG_ENTRIES 1000  // Doubled from 500 with memory-optimized struct
+#define MAX_LOG_ENTRIES 800  // Reduced from 1000; saves 2.8KB RAM
 #define maxPrefsSlots 100  // Max item slots supported (increased for inventory use)
 
 #define REMINDER_NONE 0
