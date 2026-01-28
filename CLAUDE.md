@@ -50,6 +50,13 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
    - Contains: Problem/solution, key features, differentiators, use cases
    - **Consult when:** Making architectural decisions or prioritizing features
 
+7. **Architecture Decision Records (ADRs)**
+   - Location: `docs/decisions/`
+   - **Documents explaining WHY** non-obvious design decisions were made
+   - **ALWAYS check here first** when questioning an existing design choice
+   - If a decision seems wrong, read the ADR before suggesting changes
+   - When making new significant decisions, create a new ADR
+
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication
 - Verify BLE command/response formats match between app and firmware
