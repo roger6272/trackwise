@@ -1838,9 +1838,6 @@ void processWriteCommand(const String& jsonStr) {
       Serial.printf("✅ Deleted item deviceItemId=%d (was at index %d), %d items remaining\n",
                     targetDeviceId, foundIndex, newTotal);
 
-      // Update display
-      updateOLED();
-
     } else if (cmd == "set_time") {  //////////////////// set time
       // Format: {"cmd": "set_time", "utc_time": "yyyy-MM-dd HH:mm:ss", "offset": minutes}
       // Optional: {"cmd": "set_time", ..., "ack": true} for acknowledgment
