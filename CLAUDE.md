@@ -57,6 +57,13 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
    - If a decision seems wrong, read the ADR before suggesting changes
    - When making new significant decisions, create a new ADR
 
+8. **Troubleshooting Playbook**
+   - Location: `docs/TROUBLESHOOTING.md`
+   - **Quick diagnostic guides** for common issues
+   - Contains: Connection issues, sync problems, count mismatches, notification issues, daily reset problems
+   - **Consult when:** Debugging BLE issues, investigating user-reported bugs, or understanding failure modes
+   - Includes diagnostic commands and quick reference tables
+
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication
 - Verify BLE command/response formats match between app and firmware
