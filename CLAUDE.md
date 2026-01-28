@@ -56,6 +56,13 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
    - **ALWAYS check here first** when questioning an existing design choice
    - If a decision seems wrong, read the ADR before suggesting changes
    - When making new significant decisions, create a new ADR
+   - **What's "non-obvious"?** A decision where someone might ask "why didn't they just...?"
+     - You rejected a simpler approach (e.g., "why two notifications instead of one?")
+     - Multiple valid options existed (e.g., "why JSON over binary?")
+     - It looks like a bug but isn't (e.g., "why does set_items ignore counts?")
+     - Trade-offs were weighed (e.g., "why batch every 10 instead of every 1?")
+     - It contradicts common patterns (e.g., "why device over cloud as source of truth?")
+   - **Quick test:** If explaining "why" takes more than one sentence, consider an ADR
 
 8. **Troubleshooting Playbook**
    - Location: `docs/TROUBLESHOOTING.md`
