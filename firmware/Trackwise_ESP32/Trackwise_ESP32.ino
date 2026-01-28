@@ -51,7 +51,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define PROTOCOL_VERSION 2
 
 // Firmware version: Semantic versioning (major.minor.patch)
-#define FIRMWARE_VERSION "1.4.0"
+#define FIRMWARE_VERSION "1.5.0"
 
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
@@ -1837,6 +1837,48 @@ void processWriteCommand(const String& jsonStr) {
 
       Serial.printf("✅ Deleted item deviceItemId=%d (was at index %d), %d items remaining\n",
                     targetDeviceId, foundIndex, newTotal);
+
+    } else if (cmd == "unpair") {  //////////////////// unpair device
+      // App sends: { "cmd": "unpair" }
+      // Used when user deletes their account while connected
+      // Clears pairing data so device can be paired to a new account
+
+      if (!nvsBeginSafe("counter", false)) {
+        notifyError("unpair", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
+        return;
+      }
+
+      // Clear pairing data
+      prefs.remove(NVS_KEY_PAIRED_UID);
+      prefs.remove(NVS_KEY_SYNC_SEQ_NO);
+
+      // Reset selection state
+      prefs.putInt("selected_index", 0);
+      prefs.putChar("selected_did", -1);
+
+      nvsEndSafe();
+
+      // Set device to pairing mode
+      isPairingMode = true;
+      inConflictState = false;
+
+      // Clear runtime state
+      currentDeviceItemId = -1;
+      currentItemIndex = -1;
+      itemName = "";
+      itemCount = 0;
+      itemTodayCount = 0;
+
+      // Send success response
+      StaticJsonDocument<64> response;
+      response["status"] = "unpaired";
+      String responseStr;
+      serializeJson(response, responseStr);
+      sendJsonResponse(responseStr);
+
+      Serial.println("✅ Device unpaired - ready for new account");
+
+      // Display will update to "AWAITING SETUP" on next refresh
 
     } else if (cmd == "set_time") {  //////////////////// set time
       // Format: {"cmd": "set_time", "utc_time": "yyyy-MM-dd HH:mm:ss", "offset": minutes}

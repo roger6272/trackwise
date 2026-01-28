@@ -11,6 +11,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Protocol | Firmware | Changes |
 |----------|----------|---------|
+| v2 | 1.5.0+ | Added `unpair` command for account deletion flow |
 | v2 | 1.4.0+ | Added `delete_item` command for single-item deletion |
 | v2 | 1.3.0+ | Added numeric `error_code` to all error notifications |
 | v2 | 1.2.0+ | Added optional `ack` parameter to `set_time` and `clear_logs` commands |
@@ -459,6 +460,58 @@ Delete a single item from the device. More efficient than `set_items` when remov
 App: {"cmd": "delete_item", "deviceItemId": 5}
 Device: Removes item, shifts indices, updates total
 Device: {"status": "deleted", "deviceItemId": 5, "item_total": 4}
+```
+
+---
+
+### 3.8 unpair
+
+Unpair the device from the current account. Used when user deletes their account while connected.
+
+**Request:**
+```json
+{
+  "cmd": "unpair"
+}
+```
+
+**Success Response:**
+```json
+{
+  "status": "unpaired"
+}
+```
+
+**Error Responses:**
+
+| Error | error_code | Reason |
+|-------|------------|--------|
+| NVS timeout | 201 | Failed to acquire NVS mutex |
+
+**Device Behavior:**
+1. Clears `paired_uid` from NVS
+2. Clears `sync_seq_no` from NVS
+3. Resets selection state
+4. Sets device to pairing mode (`isPairingMode = true`)
+5. Sends success response
+6. Display shows "AWAITING SETUP"
+
+**When to Use:**
+
+| Scenario | Action |
+|----------|--------|
+| User deletes account (connected) | Send `[]` → `set_selected -1` → `clear_logs` → `unpair` |
+| User deletes account (disconnected) | Show "factory reset required" message |
+
+**Important:** The app should clear items (`set_items` with `[]`) and logs (`clear_logs`) BEFORE sending `unpair`. The unpair command only clears pairing data, not item data.
+
+**Example Flow:**
+```
+App: {"cmd": "unpair"}
+Device: Clears paired_uid, enters pairing mode
+Device: {"status": "unpaired"}
+Device: Shows "AWAITING SETUP"
+App: Disconnects
 ```
 
 ---
