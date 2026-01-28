@@ -64,6 +64,13 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
    - **Consult when:** Debugging BLE issues, investigating user-reported bugs, or understanding failure modes
    - Includes diagnostic commands and quick reference tables
 
+9. **Data Flow & Sync Scenarios**
+   - Location: `docs/DATA_FLOW.md`
+   - **Visual guide** to how data moves through the system
+   - Contains: Three-tier architecture, sync scenario diagrams, real-time event flow, multi-device sync, consistency rules
+   - **Consult when:** Debugging sync issues, understanding source-of-truth decisions, or working on multi-device features
+   - Includes ASCII sequence diagrams and decision trees
+
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication
 - Verify BLE command/response formats match between app and firmware
