@@ -683,7 +683,6 @@ Sent immediately when user interacts with physical device buttons.
     "event": "increment",
     "timestamp": 1706140800,
     "itemId": 0,
-    "itemName": "Push-ups",
     "count": 176,
     "increment": 1,
     "resetNumber": 5
@@ -698,8 +697,7 @@ Sent immediately when user interacts with physical device buttons.
 | `type` | string | Always `"event"` |
 | `data.event` | string | `"increment"`, `"reset"`, `"switch"` |
 | `data.timestamp` | int | Unix timestamp (UTC) |
-| `data.itemId` | int | `deviceItemId` (0-99) |
-| `data.itemName` | string | Item name at time of event |
+| `data.itemId` | int | `deviceItemId` (0-99) - app looks up name |
 | `data.count` | int | Count **after** event |
 | `data.increment` | int | Amount incremented (for increment events) |
 | `data.resetNumber` | int | Reset counter after event |
@@ -759,7 +757,6 @@ Paginated historical events from RAM buffer.
     {
       "timestamp": 1706140800,
       "itemId": 0,
-      "itemName": "Push-ups",
       "event": "increment",
       "increment": 1,
       "count": 176,
@@ -768,7 +765,6 @@ Paginated historical events from RAM buffer.
     {
       "timestamp": 1706140750,
       "itemId": 0,
-      "itemName": "Push-ups",
       "event": "increment",
       "increment": 1,
       "count": 175,
@@ -792,8 +788,7 @@ Paginated historical events from RAM buffer.
 | Field | Type | Description |
 |-------|------|-------------|
 | `timestamp` | int | Unix timestamp (UTC) |
-| `itemId` | int | `deviceItemId` |
-| `itemName` | string | Item name at time of event |
+| `itemId` | int | `deviceItemId` - app looks up name |
 | `event` | string | `"increment"`, `"reset"`, `"switch"` |
 | `increment` | int | Increment value used |
 | `count` | int | Count after event |
@@ -1823,7 +1818,6 @@ CHAR_WRITE:    12345678-1234-1234-1234-123456789010
     "event": "increment",
     "timestamp": 1706184532,
     "itemId": 0,
-    "itemName": "Push-ups",
     "count": 1599,
     "increment": 1,
     "resetNumber": 16

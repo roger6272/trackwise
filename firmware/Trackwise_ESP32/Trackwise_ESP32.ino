@@ -77,21 +77,19 @@ const char* eventTypeToString(uint8_t eventType) {
 }
 
 // Event struct to store count logs
-// Memory-optimized: ~52 bytes per entry (was ~91 bytes)
+// Memory-optimized: 14 bytes per entry (was ~91 bytes)
 // - Removed String objects to eliminate heap fragmentation
 // - Used smallest int types that fit the data
-// - Ordered fields for optimal alignment
+// - Removed itemName (app looks up from deviceItemId)
+// - Removed reminder/reminderValue (only used for NVS, not logged)
 struct CountLog {
   uint32_t timestamp;       // 4 bytes
   int32_t count;            // 4 bytes
-  int32_t reminderValue;    // 4 bytes
-  char itemName[33];        // 33 bytes (32 chars + null terminator)
   uint8_t deviceItemId;     // 1 byte (0-99)
   uint8_t eventType;        // 1 byte (EVENT_INCREMENT, EVENT_RESET, EVENT_SWITCH)
-  uint8_t reminder;         // 1 byte (0-2)
   int16_t increment;        // 2 bytes (max 1000)
   uint16_t resetNumber;     // 2 bytes
-};  // Total: ~52 bytes (was ~91 bytes with String objects)
+};  // Total: 14 bytes (app looks up itemName from deviceItemId)
 
 CountLog logs[MAX_LOG_ENTRIES];  //Create an array named logs that can hold up to MAX_LOG_ENTRIES items, where each item is a CountLog struct. This is the RAM!!!!!!!!!!!!!!!!!!!!!!
 int logWriteIndex = 0;           //keep track of which slot in log should a new event be stored in
@@ -1007,15 +1005,9 @@ void logEvent(uint8_t eventType, int resetNum = -1) {
   CountLog& log = logs[logWriteIndex];
   log.timestamp = rtc.now().unixtime();
   log.count = itemCount;
-  log.reminderValue = reminderValue;
-
-  // Safely copy itemName with null termination
-  strncpy(log.itemName, itemName.c_str(), 32);
-  log.itemName[32] = '\0';
 
   log.deviceItemId = (uint8_t)(currentDeviceItemId >= 0 ? currentDeviceItemId : 0);
   log.eventType = eventType;
-  log.reminder = (uint8_t)reminder;
   log.increment = (int16_t)itemIncrement;
   log.resetNumber = logResetNumber;
 
@@ -1165,7 +1157,6 @@ String getLogsAsString(int page) {
     JsonObject o = arr.createNestedObject();
     o["timestamp"] = logs[i].timestamp;
     o["itemId"] = (int)logs[i].deviceItemId;  // Numeric deviceItemId
-    o["itemName"] = logs[i].itemName;
     o["event"] = eventTypeToString(logs[i].eventType);  // Convert enum to string
     o["increment"] = (int)logs[i].increment;
     o["count"] = logs[i].count;
