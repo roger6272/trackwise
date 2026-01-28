@@ -1105,6 +1105,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Color secondaryText,
     Color alternate,
   ) {
+    // Validate selectedCategoryId exists in available options
+    // Valid values: null (All), '' (Uncategorized), or a category.id that exists
+    final validCategoryId = selectedCategoryId == null ||
+            selectedCategoryId == '' ||
+            categories.any((c) => c.id == selectedCategoryId)
+        ? selectedCategoryId
+        : null; // Reset to "All Categories" if selected category no longer exists
+
     return Container(
       height: 48.0,
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1115,7 +1123,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           key: ValueKey(_categoryDropdownKey),
-          value: selectedCategoryId,
+          value: validCategoryId,
           isExpanded: true,
           icon: Icon(Icons.expand_more_rounded, color: secondaryText),
           style: GoogleFonts.inter(
