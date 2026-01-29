@@ -1625,6 +1625,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         excludeItemId: item.id,
                         fallbackCategoryId: item.categoryId,
                       );
+                      // Update tracking so buildWhen doesn't duplicate the sync
+                      final targetCatId = selectedCatId ?? deletedCatId;
+                      final postDeleteItems = currentItems
+                          .where((i) => i.id != item.id && (i.categoryId ?? '') == targetCatId)
+                          .toList()
+                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+                      _lastSyncedSignature = _computeCategorySignature(postDeleteItems);
+                      _lastSyncedCategoryId = targetCatId;
+                      _lastSyncTime = DateTime.now();
                     }
                   }
                 } else {
