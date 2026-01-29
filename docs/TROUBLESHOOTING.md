@@ -667,7 +667,25 @@ This ensures the first `ItemsLoaded` after navigation establishes a baseline, an
 
 ---
 
-### 9.10 Debugging Checklist: App → Device Sync
+### 9.10 "Device not updated after category deletion" / "Empty item list after deleting viewed category"
+
+**Symptoms (device):** After deleting a category from Manage Categories, the device still shows the old category's items. The S button cycles through stale items until the user manually navigates back to the items list.
+
+**Symptoms (UI):** If the user was viewing the deleted category's items, returning to the items list shows "All Categories" in the dropdown but an empty list.
+
+**Root Cause (device):** Category deletion happens on `manage_categories_page` (under the Profile tab). The items list page is disposed on tab switch (`ShellRoute`, not `StatefulShellRoute`), so `buildWhen` can't detect the change. When the page is recreated, `_initSyncTracking` sets a baseline from the already-changed items (now uncategorized) — no diff is detected, no sync fires.
+
+**Root Cause (UI):** The dropdown resets `validCategoryId` to `null` visually when the category is gone, but the BLoC's `selectedCategoryId` still holds the deleted category's ID. `getFilteredItemsWithCategoryOrder` filters by the stale ID, finding zero items.
+
+**Fix Applied:**
+- **Device:** `manage_categories_page` now calls `_syncDeviceAfterCategoryDeletion()` immediately after dispatching `DeleteCategoryEvent`. It waits 500ms for the Firestore batch to clear `category_id`, fetches updated items, and syncs the device if the selected item was in the deleted category.
+- **UI:** `_buildCategoryDropdown` fires `FilterByCategoryEvent(null)` via `addPostFrameCallback` when the selected category no longer exists, resetting both the BLoC filter and `AppUiState`.
+
+**Key Lesson:** When the items list page can be disposed during an operation (tab navigation), don't rely on `buildWhen` to detect changes. Sync the device from the page where the operation happens. Also, visual-only resets (dropdown display) must be accompanied by state resets (BLoC + AppUiState).
+
+---
+
+### 9.11 Debugging Checklist: App → Device Sync
 
 When items aren't syncing correctly, check in this order:
 
@@ -703,5 +721,7 @@ When items aren't syncing correctly, check in this order:
 | Items missing deviceItemId | Use `fromFirestore` + `copyWith`, not manual `ItemModel(...)` |
 | Multiple items with id=0 | Check device_item_id in Firestore (null?) |
 | Unnecessary sync after navigation | `_lastSyncedSignature` null after `ItemsLoading` — needs `_initSyncTracking` |
+| Device stale after category deletion | Sync from `manage_categories_page`, not `buildWhen` (page disposed on tab switch) |
+| Empty list after deleting viewed category | Reset BLoC filter with `FilterByCategoryEvent(null)` when category is gone |
 | Sync silently lost | Check debounce signature update logic |
 | S button crosses categories | Check if sync path filters by selected category |
