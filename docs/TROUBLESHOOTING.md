@@ -579,9 +579,9 @@ If all 5 work, BLE communication is healthy.
 - Legacy items created before the feature was added
 - `updateItem` / `incrementItem` not preserving the field
 
-**Fix Applied:** Migration (`ensureDeviceItemIds`) runs on startup. All model update paths now preserve `deviceItemId`.
+**Fix Applied:** Migration (`ensureDeviceItemIds`) runs on startup. All model update paths now preserve `deviceItemId` — including `resetAllItems` which was missing it (caused all items to get `id:0` after reset).
 
-**Key Lesson:** Any nullable field used as an ID must have a migration path. Default values (like `?? 0`) silently mask the problem.
+**Key Lesson:** Any nullable field used as an ID must have a migration path. Default values (like `?? 0`) silently mask the problem. When adding a field, grep for ALL `ItemModel(` constructors — every path that builds an item must include it.
 
 ---
 

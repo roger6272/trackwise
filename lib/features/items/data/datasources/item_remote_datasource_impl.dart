@@ -723,6 +723,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           goal: data['goal'] as int?,
           categoryId: data['category_id'] as String?,
           categoryOrder: data['category_order'] as int? ?? 0,
+          deviceItemId: data['device_item_id'] as int?,
         ));
       }
 
