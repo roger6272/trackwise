@@ -1042,11 +1042,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
   ) {
     // Validate selectedCategoryId exists in available options
     // Valid values: null (All), '' (Uncategorized), or a category.id that exists
-    final validCategoryId = selectedCategoryId == null ||
-            selectedCategoryId == '' ||
-            categories.any((c) => c.id == selectedCategoryId)
-        ? selectedCategoryId
-        : null; // Reset to "All Categories" if selected category no longer exists
+    final categoryExists = selectedCategoryId == null ||
+        selectedCategoryId == '' ||
+        categories.any((c) => c.id == selectedCategoryId);
+    final validCategoryId = categoryExists ? selectedCategoryId : null;
+
+    // If selected category was deleted, reset filter in BLoC and AppUiState
+    if (!categoryExists) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<ItemsBloc>().add(FilterByCategoryEvent(null));
+        context.read<AppUiState>().selectedCategoryId = null;
+      });
+    }
 
     return Container(
       height: 48.0,
