@@ -886,8 +886,23 @@ class _ProfilePageState extends State<ProfilePage> {
           (categories) => {for (final c in categories) c.id: c.name},
         );
 
-        // Send reset items to device
-        bluetoothBloc.add(SendItemsToDevice(resetItems!, categoryNames: categoryNames));
+        // Send reset items to device (filtered to selected item's category)
+        final selectedId = bluetoothBloc.state.selectedItemId;
+        if (selectedId != null && selectedId.isNotEmpty && selectedId != 'none') {
+          final selectedItem = resetItems!.where((i) => i.id == selectedId).firstOrNull;
+          if (selectedItem != null) {
+            final selectedCatId = selectedItem.categoryId ?? '';
+            final categoryItems = resetItems!
+                .where((i) => (i.categoryId ?? '') == selectedCatId)
+                .toList()
+              ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+            bluetoothBloc.add(SendItemsToDevice(categoryItems, categoryNames: categoryNames));
+          } else {
+            bluetoothBloc.add(SendItemsToDevice(resetItems!, categoryNames: categoryNames));
+          }
+        } else {
+          bluetoothBloc.add(SendItemsToDevice(resetItems!, categoryNames: categoryNames));
+        }
       }
 
       scaffoldMessenger.showSnackBar(
