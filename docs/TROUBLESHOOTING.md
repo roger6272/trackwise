@@ -601,7 +601,21 @@ When the device changes selection (e.g., via button press), only `BluetoothState
 
 ---
 
-### 9.6 Debugging Checklist: App → Device Sync
+### 9.6 "Device has items from wrong category after reset/sync"
+
+**Symptoms:** After reset (or other bulk operation), pressing S on device cycles through items from multiple categories instead of staying in one.
+
+**Root Cause:** The code path that sends items to the device after the operation bypasses the category filter.
+
+**Pattern:** The normal `buildWhen` path in `items_list_page` always filters items by the selected item's category. But other code paths (reset, future bulk operations) may call `SendItemsToDevice` directly with an unfiltered list.
+
+**Fix Applied:** Added category filtering to the reset sync path in `profile_page.dart`.
+
+**Key Lesson:** Every path that sends items to the device must filter by the selected item's category. When adding a new sync trigger, don't just pass "all items" — replicate the category-filtering logic from `buildWhen` or extract it into a shared helper.
+
+---
+
+### 9.7 Debugging Checklist: App → Device Sync
 
 When items aren't syncing correctly, check in this order:
 
@@ -632,3 +646,4 @@ When items aren't syncing correctly, check in this order:
 | Override selects wrong item | Check AppUiState vs BluetoothState selectedItemId sync |
 | Multiple items with id=0 | Check device_item_id in Firestore (null?) |
 | Sync silently lost | Check debounce signature update logic |
+| S button crosses categories | Check if sync path filters by selected category |
