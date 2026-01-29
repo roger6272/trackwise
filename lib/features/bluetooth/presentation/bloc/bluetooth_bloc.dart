@@ -971,6 +971,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     // Use event's selectedItemId if provided, otherwise fall back to state
     final selectedItemId = event.currentSelectedItemId ?? state.selectedItemId;
+    debugPrint('🔄 Override: event.currentSelectedItemId=${event.currentSelectedItemId}, '
+        'state.selectedItemId=${state.selectedItemId}, '
+        'resolved selectedItemId=$selectedItemId');
 
     final result = await _performOverride.call(
       PerformOverrideParams(

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
+import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
@@ -90,7 +92,12 @@ class _BluetoothPageState extends State<BluetoothPage> {
     SyncConflictDialog.show(
       context: context,
       onConfirm: () {
-        context.read<BluetoothBloc>().add(const ConfirmSyncOverride());
+        final appUiState = context.read<AppUiState>();
+        context.read<BluetoothBloc>().add(ConfirmSyncOverride(
+          currentSelectedItemId: appUiState.activeItemId.isNotEmpty
+              ? appUiState.activeItemId
+              : null,
+        ));
       },
       onCancel: () {
         context.read<BluetoothBloc>().add(const CancelSyncConflict());
