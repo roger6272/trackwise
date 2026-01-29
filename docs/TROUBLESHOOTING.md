@@ -647,7 +647,27 @@ When the device changes selection (e.g., via button press), only `BluetoothState
 
 ---
 
-### 9.9 Debugging Checklist: App → Device Sync
+### 9.9 "Unnecessary device sync after navigating back from another page"
+
+**Symptoms:** After navigating to another page (e.g., item form, profile) and returning, the device receives a full item list even though nothing changed. Most visible when creating an item in a *different* category — the device gets an update it doesn't need.
+
+**Root Cause:** Navigating away triggers `ItemsLoading` (stream re-subscribe), which resets `_lastSyncedSignature` to `null`. When `ItemsLoaded` arrives on return, `buildWhen` sees `signatureChanged = (currentSignature != null) = true` and syncs unconditionally.
+
+This is a recurring pattern: **any code path that passes through `ItemsLoading` wipes the tracking state**, so the next `ItemsLoaded → ItemsLoaded` transition looks like a change.
+
+**Fix Applied:** Split `buildWhen` into two branches:
+- `ItemsLoaded → ItemsLoaded`: call `_checkDeviceSync()` (compare signature, debounce, sync if changed)
+- `non-ItemsLoaded → ItemsLoaded` with `_lastSyncedSignature == null`: call `_initSyncTracking()` (set baseline signature *without* syncing)
+
+This ensures the first `ItemsLoaded` after navigation establishes a baseline, and only *actual* changes trigger device sync.
+
+**Key Lesson:** When tracking state (`_lastSyncedSignature`) is used to detect changes, every transition that resets it must re-initialize it *without* treating the reset as a change. Watch for `ItemsLoading` transitions — they are the most common source of null tracking state. The pattern is: **initialize tracking on state recovery, sync on state change**.
+
+**Related:** Section 9.7 (same null-signature root cause, different trigger — Start New Cycle instead of navigation).
+
+---
+
+### 9.10 Debugging Checklist: App → Device Sync
 
 When items aren't syncing correctly, check in this order:
 
@@ -682,5 +702,6 @@ When items aren't syncing correctly, check in this order:
 | Wrong category after reset | Ensure sync goes through `syncItemsToDevice()`, not raw `SendItemsToDevice` |
 | Items missing deviceItemId | Use `fromFirestore` + `copyWith`, not manual `ItemModel(...)` |
 | Multiple items with id=0 | Check device_item_id in Firestore (null?) |
+| Unnecessary sync after navigation | `_lastSyncedSignature` null after `ItemsLoading` — needs `_initSyncTracking` |
 | Sync silently lost | Check debounce signature update logic |
 | S button crosses categories | Check if sync path filters by selected category |
