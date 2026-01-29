@@ -10,6 +10,7 @@ import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
+import '../../../bluetooth/domain/repositories/bluetooth_repository.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -506,7 +507,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Account?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -554,12 +555,12 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               _showFinalDeleteConfirmation(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -575,7 +576,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Final Confirmation'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -598,16 +599,22 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               if (controller.text == 'DELETE') {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+                // Clean up device BEFORE deleting account.
+                // Account deletion triggers auth state change which redirects
+                // to login, potentially before BlocConsumer listener runs.
+                // Use page context (not dialog context) since dialog is dismissed.
+                await _cleanupDevice(context);
+                if (!context.mounted) return;
                 context.read<ProfileBloc>().add(const DeleteAccountEvent());
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(
                     content: Text('Please type DELETE to confirm'),
                     backgroundColor: Colors.orange,
@@ -711,9 +718,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   );
                 },
-                (_) {
+                (_) async {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  // Retry account deletion
+                  // Clean up device BEFORE deleting account (same reason as above)
+                  await _cleanupDevice(context);
+                  if (!context.mounted) return;
                   context.read<ProfileBloc>().add(const DeleteAccountEvent());
                 },
               );
@@ -926,44 +935,35 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _handleAccountDeleted(BuildContext context) async {
-    // Clean up device if connected
-    await _cleanupDevice(context);
-
-    // Navigate to login screen using go_router (replaces entire stack)
+    // Device cleanup already happened before DeleteAccountEvent was dispatched.
+    // Navigate to login screen using go_router (replaces entire stack).
     context.go('/login');
   }
 
-  /// Cleans up the Bluetooth device by clearing items, logs, and disconnecting.
-  /// Waits for commands to be sent before returning.
+  /// Cleans up the Bluetooth device by unpairing and disconnecting.
+  /// Called BEFORE account deletion to ensure the unpair command is sent
+  /// while the page is still mounted (account deletion triggers auth state
+  /// change which redirects to login via GoRouter).
   Future<void> _cleanupDevice(BuildContext context) async {
     try {
       final bluetoothBloc = context.read<BluetoothBloc>();
-      if (bluetoothBloc.state.isConnected) {
-        // Clear all items from device (send empty list)
-        bluetoothBloc.add(const SendItemsToDevice([]));
-        // Deselect current item (-1 means no selection)
-        bluetoothBloc.add(const SendSelectedItem('none', -1));
-        // Clear device logs
-        bluetoothBloc.add(const ClearDeviceLogs());
+      final deviceId = bluetoothBloc.state.connectedDevice?.id;
+      if (deviceId == null) return;
 
-        // Wait for clear commands to be sent
-        await Future.delayed(const Duration(milliseconds: 500));
+      // Send unpair directly via repository (awaited) to guarantee the
+      // BLE write completes before proceeding to account deletion.
+      final repository = sl<BluetoothRepository>();
+      await repository.unpairDevice(deviceId);
 
-        // Unpair device so it can be paired to another account
-        bluetoothBloc.add(const UnpairDevice());
+      // Wait for firmware to process and commit NVS
+      await Future.delayed(const Duration(milliseconds: 500));
 
-        // Wait for unpair command to be sent before disconnecting
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        // Disconnect from device
-        bluetoothBloc.add(const DisconnectFromDevice());
-
-        // Wait for disconnect to complete
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
+      // Disconnect
+      bluetoothBloc.add(const DisconnectFromDevice());
+      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       // Ignore errors during cleanup - account deletion should proceed
-      debugPrint('Device cleanup error during account deletion: $e');
+      debugPrint('Device cleanup error: $e');
     }
   }
 }
