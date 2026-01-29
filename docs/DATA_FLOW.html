@@ -717,6 +717,45 @@ Per-Item (index 0-99):              Global:
   &#8226; <span style="color: #fbbf24;">event</span>: For history/logging (has timestamp, event type)
   &#8226; <span style="color: #34d399;">item_delta</span>: For UI state (has todaycount, lastResetTime)</div>
 
+        <h3>5.4 Category Deletion (While Connected)</h3>
+
+        <div class="diagram-box">
+<span style="color: #94a3b8;">┌─────────┐           ┌─────────┐           ┌─────────┐</span>
+<span style="color: #94a3b8;">│</span>FIRESTORE<span style="color: #94a3b8;">│           │</span>   APP   <span style="color: #94a3b8;">│           │</span> DEVICE  <span style="color: #94a3b8;">│</span>
+<span style="color: #94a3b8;">└────┬────┘           └────┬────┘           └────┬────┘</span>
+     │                     │                     │
+     │                     │ <span style="color: #f87171;">① Delete category</span>   │
+     │                     │   (Manage Categories)│
+     │                     │                     │
+     │ <span style="color: #fbbf24;">② Soft-delete</span>       │                     │
+     │ <span style="color: #fbbf24;">   category</span>          │                     │
+     │ ◄───────────────────│                     │
+     │   (set deleted_at)  │                     │
+     │                     │                     │
+     │ <span style="color: #fbbf24;">③ Batch clear</span>       │                     │
+     │ <span style="color: #fbbf24;">   category_id</span>       │                     │
+     │ ◄───────────────────│                     │
+     │                     │                     │
+     │                     │ ④ Wait 500ms        │
+     │                     │                     │
+     │                     │ <span style="color: #60a5fa;">⑤ Fetch items</span>       │
+     │ ────────────────────►                     │
+     │                     │                     │
+     │                     │ <span style="color: #4ade80;">⑥ If selected item</span>  │
+     │                     │ <span style="color: #4ade80;">   in deleted cat:</span>  │
+     │                     │   set_items (uncat) │
+     │                     │ ───────────────────►│
+     │                     │   set_selected      │
+     │                     │ ───────────────────►│
+     │                     │                     │ <span style="color: #34d399;">⑦ Device shows</span>
+     │                     │                     │ <span style="color: #34d399;">   uncategorized</span>
+
+<span style="color: #60a5fa;">Key points:</span>
+  &#8226; Sync from <span style="color: #fbbf24;">manage_categories_page</span>, not items_list_page
+    (items page disposed on tab switch — ShellRoute)
+  &#8226; Only syncs if selected item was in the deleted category
+  &#8226; Items list resets stale BLoC filter on return</div>
+
         <hr>
 
         <h2 id="offline-reconnection">6. Offline & Reconnection</h2>

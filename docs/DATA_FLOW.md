@@ -10,7 +10,7 @@
 2. [Data Storage Layers](#2-data-storage-layers)
 3. [Connection & Handshake Flow](#3-connection--handshake-flow)
 4. [Sync Scenarios](#4-sync-scenarios)
-5. [Real-time Event Flow](#5-real-time-event-flow)
+5. [Real-time Event Flow](#5-real-time-event-flow) (incl. category deletion)
 6. [Offline & Reconnection](#6-offline--reconnection)
 7. [Multi-Device Sync](#7-multi-device-sync)
 8. [Data Consistency Rules](#8-data-consistency-rules)
@@ -531,6 +531,53 @@ Note: No 'event' notification because no action occurred
 Note: Only 'event', no 'item_delta'
       (item_delta for the new item wasn't needed
        because counts didn't change)
+```
+
+### 5.4 Category Deletion (While Connected)
+
+```
+┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① User deletes      │
+     │                     │   category from      │
+     │                     │   Manage Categories  │
+     │                     │                     │
+     │ ② Soft-delete       │                     │
+     │   category          │                     │
+     │ ◄───────────────────│                     │
+     │   (set deleted_at)  │                     │
+     │                     │                     │
+     │ ③ Batch clear       │                     │
+     │   category_id from  │                     │
+     │   all items         │                     │
+     │ ◄───────────────────│                     │
+     │                     │                     │
+     │                     │ ④ Wait 500ms for    │
+     │                     │   Firestore batch   │
+     │                     │                     │
+     │                     │ ⑤ Fetch updated     │
+     │ ──────────────────► │   items             │
+     │                     │                     │
+     │                     │ ⑥ If selected item  │
+     │                     │   was in deleted    │
+     │                     │   category:         │
+     │                     │   set_items (uncat) │
+     │                     │ ───────────────────►│
+     │                     │   set_selected      │
+     │                     │ ───────────────────►│
+     │                     │                     │ ⑦ Device updates
+     │                     │                     │   to uncategorized
+     │                     │                     │   items
+     │                     │                     │
+
+Key points:
+  • Sync happens from manage_categories_page, not items_list_page
+    (items page is disposed on tab switch — ShellRoute)
+  • Only syncs if selected item was in the deleted category
+  • Items list page resets stale BLoC filter on return via
+    FilterByCategoryEvent(null)
 ```
 
 ---
