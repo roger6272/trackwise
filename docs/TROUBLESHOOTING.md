@@ -14,6 +14,7 @@
 6. [Device State Issues](#6-device-state-issues)
 7. [Performance Issues](#7-performance-issues)
 8. [Diagnostic Tools](#8-diagnostic-tools)
+9. [App-Side Sync Pitfalls](#9-app-side-sync-pitfalls)
 
 ---
 
@@ -513,6 +514,90 @@ If all 5 work, BLE communication is healthy.
 
 ---
 
+## 9. App-Side Sync Pitfalls
+
+> Patterns that have caused bugs in the sync layer. Check here when items aren't syncing correctly.
+
+### 9.1 "Newly created item not sent to device"
+
+**Symptoms:** Item exists in Firestore but device doesn't have it
+
+**Root Cause:** Firestore stream hasn't emitted the new item when the sync triggers.
+
+**Pattern:** `createItem` writes to Firestore → `context.pop()` navigates back → `buildWhen` fires with **stale** items list → sync sends old list without new item → Firestore stream emits later but sync already happened.
+
+**Fix Applied:** `ItemFormPage` returns the created item via `context.pop(createdItem)`. `items_list_page` passes it to `_syncDeviceWithSelectedCategory(includeItem: createdItem)`.
+
+**Key Lesson:** Any operation that modifies Firestore and triggers a sync must explicitly pass the changed data. Don't rely on the Firestore stream being up-to-date immediately.
+
+---
+
+### 9.2 "Sync debounce swallows changes"
+
+**Symptoms:** Item config changed but device never updates
+
+**Root Cause:** Debounce logic updated the signature even when skipping the sync.
+
+**Pattern:** Change A triggers sync (signature updated) → Change B arrives within 500ms → debounce skips sync but **updates signature** → future `buildWhen` sees matching signature → change B is permanently lost.
+
+**Fix Applied:** Only update `_lastSyncedSignature` after a successful sync, never during debounce.
+
+**Key Lesson:** Debounce should defer work, not discard it. Never mark state as "done" when you skipped the work.
+
+---
+
+### 9.3 "Override selects wrong item"
+
+**Symptoms:** After conflict override, device shows different item than app
+
+**Root Cause:** Multiple "selected item" sources with different staleness.
+
+**Selection resolution chain:**
+1. `event.currentSelectedItemId` (from `AppUiState.activeItemId` - user's last swipe)
+2. `state.selectedItemId` (BluetoothBloc - from last device prefs notification)
+3. `user.lastSelectedDeviceItemId` (Firestore - from last sync)
+4. First item in category (fallback)
+
+**Common issue:** If step 1 is null/empty (e.g., dialog didn't pass it), falls through to stale values from previous sessions.
+
+**Fix Applied:** All conflict dialog paths now pass `AppUiState.activeItemId`.
+
+**Key Lesson:** When multiple state sources exist for the same concept, always trace which one is used. Add debug logging at the resolution point.
+
+---
+
+### 9.4 "Multiple items with deviceItemId=0"
+
+**Symptoms:** Device logs show multiple items sharing the same ID
+
+**Root Cause:** Items with `null` deviceItemId default to `0` in `_formatItemsForEsp32`:
+```dart
+'id': item.deviceItemId ?? 0  // null becomes 0
+```
+
+**Common causes of null deviceItemId:**
+- Legacy items created before the feature was added
+- `updateItem` / `incrementItem` not preserving the field
+
+**Fix Applied:** Migration (`ensureDeviceItemIds`) runs on startup. All model update paths now preserve `deviceItemId`.
+
+**Key Lesson:** Any nullable field used as an ID must have a migration path. Default values (like `?? 0`) silently mask the problem.
+
+---
+
+### 9.5 Debugging Checklist: App → Device Sync
+
+When items aren't syncing correctly, check in this order:
+
+1. **Does the item have `device_item_id` in Firestore?** (null = not synced)
+2. **Is the item in the selected item's category?** (only same-category items sync)
+3. **Was the sync debounced?** (check `_lastSyncTime` - 500ms window)
+4. **Is the Firestore stream up-to-date?** (check `current.items` in `buildWhen`)
+5. **Which `selectedItemId` source is being used?** (check debug logs for resolution chain)
+6. **Was `_lastSyncedSignature` updated without syncing?** (debounce bug pattern)
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -527,3 +612,7 @@ If all 5 work, BLE communication is healthy.
 | Garbled JSON | Check chunk reassembly and newline delimiter |
 | Daily reset wrong time | Check timezone offset |
 | Device not responding | Check conflict state and command format |
+| New item not on device | Firestore stream timing - check includeItem path |
+| Override selects wrong item | Check which selectedItemId source is used |
+| Multiple items with id=0 | Check device_item_id in Firestore (null?) |
+| Sync silently lost | Check debounce signature update logic |
