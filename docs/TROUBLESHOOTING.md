@@ -697,6 +697,7 @@ When items aren't syncing correctly, check in this order:
 6. **Is the Firestore stream up-to-date?** (check `current.items` in `buildWhen`)
 7. **Which `selectedItemId` source is being used?** (check debug logs for resolution chain)
 8. **Was `_lastSyncedSignature` updated without syncing?** (debounce bug pattern)
+9. **Was tracking updated after an explicit sync?** (explicit sync + stream sync = duplicate; update `_lastSyncedSignature`/`_lastSyncedCategoryId`/`_lastSyncTime` after every explicit `_syncDeviceWithSelectedCategory` call)
 
 ---
 
@@ -723,5 +724,6 @@ When items aren't syncing correctly, check in this order:
 | Unnecessary sync after navigation | `_lastSyncedSignature` null after `ItemsLoading` — needs `_initSyncTracking` |
 | Device stale after category deletion | Sync from `manage_categories_page`, not `buildWhen` (page disposed on tab switch) |
 | Empty list after deleting viewed category | Reset BLoC filter with `FilterByCategoryEvent(null)` when category is gone |
+| Duplicate device sync | Explicit sync missing tracking update — `buildWhen` re-syncs on stream |
 | Sync silently lost | Check debounce signature update logic |
 | S button crosses categories | Check if sync path filters by selected category |
