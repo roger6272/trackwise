@@ -704,27 +704,16 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           'user_id': itemUserId,
         });
 
-        // Build updated ItemModel for return
-        resetItems.add(ItemModel(
-          id: doc.id,
-          name: data['item_name'] as String? ?? '',
+        // Build updated ItemModel for return — use fromFirestore to capture all
+        // fields, then override only the reset-specific ones.
+        final resetItem = ItemModel.fromFirestore(doc).copyWith(
           count: 0,
           todayCount: 0,
-          incrementBy: data['increment_by'] as int? ?? 1,
-          reminder: _parseReminderType(data['reminder'] as String?),
-          reminderValue: data['reminder_value'] as int? ?? 0,
-          lastResetTime: now,
           resetNumber: newResetNumber,
+          lastResetTime: now,
           lastUpdated: now,
-          userId: itemUserId,
-          deletedAt: null,
-          order: data['order'] as int? ?? 0,
-          initialCount: data['initial_count'] as int? ?? 0,
-          goal: data['goal'] as int?,
-          categoryId: data['category_id'] as String?,
-          categoryOrder: data['category_order'] as int? ?? 0,
-          deviceItemId: data['device_item_id'] as int?,
-        ));
+        );
+        resetItems.add(resetItem);
       }
 
       await batch.commit();

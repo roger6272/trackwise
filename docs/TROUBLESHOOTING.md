@@ -607,24 +607,58 @@ When the device changes selection (e.g., via button press), only `BluetoothState
 
 **Root Cause:** The code path that sends items to the device after the operation bypasses the category filter.
 
-**Pattern:** The normal `buildWhen` path in `items_list_page` always filters items by the selected item's category. But other code paths (reset, future bulk operations) may call `SendItemsToDevice` directly with an unfiltered list.
+**Pattern:** The normal `buildWhen` path in `items_list_page` always filters items by the selected item's category. But other code paths (reset, restore, future bulk operations) may call `SendItemsToDevice` directly with an unfiltered list.
 
-**Fix Applied:** Added category filtering to the reset sync path in `profile_page.dart`.
+**Fix Applied:** Extracted shared `syncItemsToDevice()` helper in `device_sync_helper.dart`. All callers (items_list_page, profile_page, deleted_items_page) now use this single function, which always filters by the selected item's category.
 
-**Key Lesson:** Every path that sends items to the device must filter by the selected item's category. When adding a new sync trigger, don't just pass "all items" — replicate the category-filtering logic from `buildWhen` or extract it into a shared helper.
+**Key Lesson:** Every path that sends items to the device must filter by the selected item's category. Always use `syncItemsToDevice()` from `device_sync_helper.dart` — never call `SendItemsToDevice` directly with unfiltered items.
 
 ---
 
-### 9.7 Debugging Checklist: App → Device Sync
+### 9.7 "Device stuck on old category after drag across categories"
+
+**Symptoms:** After Start New Cycle (or any action that causes `ItemsLoading` → `ItemsLoaded`), dragging the selected item to a different category doesn't update the device. The S button still cycles through the old category.
+
+**Root Cause:** `buildWhen` sync tracking (`_lastSyncedSignature`) was null after an `ItemsLoading` → `ItemsLoaded` transition. The sync tracking block only runs when `previous is ItemsLoaded && current is ItemsLoaded`. After returning from the profile page, the state often passes through `ItemsLoading` (stream reconnect/reload), which means the sync block is skipped and `_lastSyncedSignature` stays null.
+
+**Pattern:**
+1. Start New Cycle on profile page → device gets Category A items
+2. Return to items list → state goes `ItemsLoading` → `ItemsLoaded` → sync block skipped, `_lastSyncedSignature` stays null
+3. Drag selected item from Category A → Category B → optimistic update emits
+4. `buildWhen` fires → `_lastSyncedSignature` is null → old INIT branch just initialized without syncing → set `_lastSyncedCategoryId = B`
+5. All subsequent `buildWhen` calls see `catChanged=false` → no sync ever fires
+6. Device stuck on Category A
+
+**Fix Applied:** Removed the INIT special case from `buildWhen`. When `_lastSyncedSignature` is null, the normal comparison `currentSignature != null` evaluates to `signatureChanged=true`, triggering a sync. Trade-off: one redundant (but harmless) sync on initial page load.
+
+**Key Lesson:** Any state tracked inside `buildWhen` that only updates during `ItemsLoaded → ItemsLoaded` transitions will become stale after `ItemsLoading` interruptions. Don't assume tracking state is always initialized — handle the null/uninitialized case as "needs sync", not "skip sync".
+
+---
+
+### 9.8 "Missing fields in manually constructed ItemModel"
+
+**Symptoms:** Items lose `deviceItemId` (or other fields) after certain operations, causing all items to show as `id:0` on device.
+
+**Root Cause:** Manual `ItemModel(...)` constructors forget to include all 18+ fields. When a new field is added, existing constructors silently use the default value (often `null` or `0`).
+
+**Fix Applied:** `resetAllItems` now uses `ItemModel.fromFirestore(doc).copyWith(count: 0, ...)` instead of manual construction. The factory method captures all fields; `copyWith` overrides only the ones that change.
+
+**Key Lesson:** Never manually construct `ItemModel` from raw Firestore data when `ItemModel.fromFirestore(doc)` already does it correctly. Use `fromFirestore` + `copyWith` to ensure future fields are preserved.
+
+---
+
+### 9.9 Debugging Checklist: App → Device Sync
 
 When items aren't syncing correctly, check in this order:
 
 1. **Does the item have `device_item_id` in Firestore?** (null = not synced)
 2. **Is the item in the selected item's category?** (only same-category items sync)
-3. **Was the sync debounced?** (check `_lastSyncTime` - 500ms window)
-4. **Is the Firestore stream up-to-date?** (check `current.items` in `buildWhen`)
-5. **Which `selectedItemId` source is being used?** (check debug logs for resolution chain)
-6. **Was `_lastSyncedSignature` updated without syncing?** (debounce bug pattern)
+3. **Is the sync going through `syncItemsToDevice()`?** (direct `SendItemsToDevice` bypasses category filter)
+4. **Was the sync debounced?** (check `_lastSyncTime` - 500ms window; category changes bypass debounce)
+5. **Is `_lastSyncedSignature` null?** (happens after any `ItemsLoading` state — should trigger sync, not skip it)
+6. **Is the Firestore stream up-to-date?** (check `current.items` in `buildWhen`)
+7. **Which `selectedItemId` source is being used?** (check debug logs for resolution chain)
+8. **Was `_lastSyncedSignature` updated without syncing?** (debounce bug pattern)
 
 ---
 
@@ -644,6 +678,9 @@ When items aren't syncing correctly, check in this order:
 | Device not responding | Check conflict state and command format |
 | New item not on device | Firestore stream timing - check includeItem path |
 | Override selects wrong item | Check AppUiState vs BluetoothState selectedItemId sync |
+| Wrong category after drag | Check `_lastSyncedSignature` null after `ItemsLoading` transition |
+| Wrong category after reset | Ensure sync goes through `syncItemsToDevice()`, not raw `SendItemsToDevice` |
+| Items missing deviceItemId | Use `fromFirestore` + `copyWith`, not manual `ItemModel(...)` |
 | Multiple items with id=0 | Check device_item_id in Firestore (null?) |
 | Sync silently lost | Check debounce signature update logic |
 | S button crosses categories | Check if sync path filters by selected category |

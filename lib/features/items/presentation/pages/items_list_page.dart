@@ -23,6 +23,7 @@ import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
 import '../../../categories/presentation/bloc/categories_state.dart';
 import '../bloc/items_bloc.dart';
+import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
 import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
 import 'item_form_page.dart';
@@ -431,15 +432,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       final currentSignature = currentCategoryItems
                                           .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
                                           .join(',');
-
-                                      // First time seeing items - just initialize signature, don't sync
-                                      // (App can't configure anything while disconnected, so nothing to sync)
-                                      if (_lastSyncedSignature == null) {
-                                        _lastSyncedSignature = currentSignature;
-                                        _lastSyncedCategoryId = selectedCatId;
-                                        _lastSyncTime = DateTime.now();
-                                        return true;
-                                      }
 
                                       // Debounce: skip if synced recently (within 500ms)
                                       final now = DateTime.now();
@@ -2087,57 +2079,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Item? includeItem,
     String? fallbackCategoryId,
   }) {
-    // Find the selected item and its category
-    // Fallback to provided category if no device selection
-    String? selectedCategoryId;
-    Item? selectedItem;
-    if (deviceSelectedId != null && deviceSelectedId != 'none') {
-      selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
-      selectedCategoryId = selectedItem?.categoryId;
-    } else if (fallbackCategoryId != null) {
-      selectedCategoryId = fallbackCategoryId;
-    }
-
-    // Get items from the selected item's category
-    var categoryItems = allItems.where((i) {
-      final cat = i.categoryId;
-      final targetCat = selectedCategoryId;
-      // Match category (treat null and empty as same - uncategorized)
-      final catEmpty = cat == null || cat.isEmpty;
-      final targetEmpty = targetCat == null || targetCat.isEmpty;
-      if (catEmpty && targetEmpty) return true;
-      if (catEmpty || targetEmpty) return false;
-      return cat == targetCat;
-    }).toList();
-
-    // Exclude item if specified (for delete)
-    if (excludeItemId != null) {
-      categoryItems = categoryItems.where((i) => i.id != excludeItemId).toList();
-    }
-
-    // Include/update item if specified (for create/update/restore)
-    if (includeItem != null) {
-      categoryItems = categoryItems.map((i) => i.id == includeItem.id ? includeItem : i).toList();
-      if (!categoryItems.any((i) => i.id == includeItem.id)) {
-        categoryItems.add(includeItem);
-      }
-    }
-
-    // Sort by categoryOrder to match app's order
-    categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-    bluetoothBloc.add(SendItemsToDevice(
-      categoryItems,
+    syncItemsToDevice(
+      bluetoothBloc: bluetoothBloc,
+      allItems: allItems,
+      deviceSelectedId: deviceSelectedId,
       categoryNames: _cachedCategoryNames,
-    ));
-
-    // Update selected item on device (including 'none' to clear selection)
-    if (deviceSelectedId != null) {
-      final deviceItemId = (deviceSelectedId == 'none' || selectedItem == null)
-          ? -1
-          : selectedItem.deviceItemId ?? 0;
-      bluetoothBloc.add(SendSelectedItem(deviceSelectedId, deviceItemId));
-    }
+      excludeItemId: excludeItemId,
+      includeItem: includeItem,
+      fallbackCategoryId: fallbackCategoryId,
+    );
   }
 
   @override

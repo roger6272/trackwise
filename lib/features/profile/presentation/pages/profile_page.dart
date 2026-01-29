@@ -13,6 +13,7 @@ import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
+import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
 import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../../items/domain/repositories/item_repository.dart';
@@ -886,23 +887,12 @@ class _ProfilePageState extends State<ProfilePage> {
           (categories) => {for (final c in categories) c.id: c.name},
         );
 
-        // Send reset items to device (filtered to selected item's category)
-        final selectedId = bluetoothBloc.state.selectedItemId;
-        if (selectedId != null && selectedId.isNotEmpty && selectedId != 'none') {
-          final selectedItem = resetItems!.where((i) => i.id == selectedId).firstOrNull;
-          if (selectedItem != null) {
-            final selectedCatId = selectedItem.categoryId ?? '';
-            final categoryItems = resetItems!
-                .where((i) => (i.categoryId ?? '') == selectedCatId)
-                .toList()
-              ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-            bluetoothBloc.add(SendItemsToDevice(categoryItems, categoryNames: categoryNames));
-          } else {
-            bluetoothBloc.add(SendItemsToDevice(resetItems!, categoryNames: categoryNames));
-          }
-        } else {
-          bluetoothBloc.add(SendItemsToDevice(resetItems!, categoryNames: categoryNames));
-        }
+        syncItemsToDevice(
+          bluetoothBloc: bluetoothBloc,
+          allItems: resetItems!,
+          deviceSelectedId: bluetoothBloc.state.selectedItemId,
+          categoryNames: categoryNames,
+        );
       }
 
       scaffoldMessenger.showSnackBar(
