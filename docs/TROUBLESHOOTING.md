@@ -585,7 +585,23 @@ If all 5 work, BLE communication is healthy.
 
 ---
 
-### 9.5 Debugging Checklist: App → Device Sync
+### 9.5 "Override changes the selected item"
+
+**Symptoms:** After reconnect + override, both app and device show a different selected item than before disconnect
+
+**Root Cause:** Two independent state sources track "selected item":
+- `AppUiState.activeItemId` (SharedPreferences, Firestore ID string) — set only on manual pin swipe
+- `BluetoothState.selectedItemId` (BLoC, Firestore ID string) — set from device prefs notifications
+
+When the device changes selection (e.g., via button press), only `BluetoothState.selectedItemId` updates. `AppUiState.activeItemId` stays stale. On reconnect → conflict → override, the dialog reads `AppUiState.activeItemId`, sending the wrong item to the device.
+
+**Fix Applied:** Added a `BlocListener` that syncs `AppUiState.activeItemId` whenever `BluetoothState.selectedItemId` changes (from prefs, override, or any source).
+
+**Key Lesson:** When two state sources track the same concept, always keep them in sync. One should be the source of truth and the other should mirror it.
+
+---
+
+### 9.6 Debugging Checklist: App → Device Sync
 
 When items aren't syncing correctly, check in this order:
 
@@ -613,6 +629,6 @@ When items aren't syncing correctly, check in this order:
 | Daily reset wrong time | Check timezone offset |
 | Device not responding | Check conflict state and command format |
 | New item not on device | Firestore stream timing - check includeItem path |
-| Override selects wrong item | Check which selectedItemId source is used |
+| Override selects wrong item | Check AppUiState vs BluetoothState selectedItemId sync |
 | Multiple items with id=0 | Check device_item_id in Firestore (null?) |
 | Sync silently lost | Check debounce signature update logic |

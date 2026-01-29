@@ -217,26 +217,22 @@ class _ItemsListContentState extends State<_ItemsListContent>
               }
             }
           },
-          // Listen for prefs message with no selection (selected_id: -1)
+          // Sync AppUiState.activeItemId whenever BluetoothState.selectedItemId changes
+          // (from device prefs, override completion, or any other source)
           child: BlocListener<BluetoothBloc, BluetoothState>(
-            listenWhen: (previous, current) {
-              // Fire when lastMessage changes to a prefs message
-              final prevMsg = previous.lastMessage;
-              final currMsg = current.lastMessage;
-              return currMsg != null &&
-                  currMsg != prevMsg &&
-                  currMsg.type == BleMessageType.prefs;
-            },
+            listenWhen: (previous, current) =>
+                previous.selectedItemId != current.selectedItemId,
             listener: (context, bluetoothState) {
-              // Prefs received - check if device says no selection
               final selectedItemId = bluetoothState.selectedItemId;
-              if (selectedItemId == null || selectedItemId.isEmpty) {
-                // Device has no selection - clear app's persisted selection
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  context.read<AppUiState>().clearActiveItem();
-                });
-              }
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                final appUiState = context.read<AppUiState>();
+                if (selectedItemId == null || selectedItemId.isEmpty) {
+                  appUiState.clearActiveItem();
+                } else if (appUiState.activeItemId != selectedItemId) {
+                  appUiState.activeItemId = selectedItemId;
+                }
+              });
             },
           child: BlocBuilder<BluetoothBloc, BluetoothState>(
             builder: (context, bluetoothState) {
