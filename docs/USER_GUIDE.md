@@ -401,8 +401,13 @@ Items stay in Recently Deleted for 90 days before permanent deletion.
 1. Go to **Profile tab**
 2. Scroll to "Danger Zone"
 3. Tap **"Delete Account"**
-4. Confirm with your password
-5. All your data will be permanently deleted
+4. Read the device notice and tap **"Delete"**
+5. Type **DELETE** to confirm
+6. All your data will be permanently deleted
+
+**Device behavior:**
+- **Connected:** The device is automatically unpaired and can be paired to a new account immediately.
+- **Not connected:** You must factory reset the device before it can be paired to another account. On device: hold the **B button for 10 seconds**.
 
 ---
 
