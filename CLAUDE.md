@@ -140,5 +140,6 @@ Follow existing patterns in the codebase.
 - Update docs in the **same commit** as the code change when possible
 - If a doc describes behavior you're changing, **update it or flag the inconsistency**
 - When adding new features, check if they should be documented in User Guide
-- When fixing bugs, check if Troubleshooting playbook needs the fix added
 - Keep diagrams and examples in sync with actual implementation
+
+**After fixing bugs:** Always add the pattern to `docs/TROUBLESHOOTING.md` if the root cause was non-obvious (took investigation to find, involved timing/state issues, or could recur). Include: symptoms, root cause, the fix, and a "key lesson" takeaway. This is not optional — treat it as part of the fix.
