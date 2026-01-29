@@ -162,6 +162,17 @@ abstract class BluetoothRepository {
   /// - Left(BluetoothFailure): Command failed
   Future<Either<Failure, void>> clearLogs(String deviceId);
 
+  /// Unpairs the device from the current account.
+  ///
+  /// Sends JSON: {"cmd": "unpair"}
+  /// Clears pairing data (UID) on the device so it can be paired to another account.
+  /// Should be called AFTER clearing items and logs.
+  ///
+  /// Returns:
+  /// - Right(void): Unpair command sent successfully
+  /// - Left(BluetoothFailure): Command failed
+  Future<Either<Failure, void>> unpairDevice(String deviceId);
+
   // ============================================================
   // NOTIFICATIONS (Read from ESP32)
   // ============================================================

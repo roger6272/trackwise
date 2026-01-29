@@ -143,6 +143,12 @@ class ClearDeviceLogs extends BluetoothEvent {
   const ClearDeviceLogs();
 }
 
+/// Unpair the device from the current account.
+/// Clears pairing data (UID) so it can be paired to another account.
+class UnpairDevice extends BluetoothEvent {
+  const UnpairDevice();
+}
+
 // ========== Message Events ==========
 
 /// Internal event when a message is received from ESP32.

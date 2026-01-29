@@ -241,6 +241,19 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }
 
   @override
+  Future<Either<Failure, void>> unpairDevice(String deviceId) async {
+    try {
+      final jsonData = jsonEncode({
+        'cmd': 'unpair',
+      });
+      await dataSource.writeCommand(deviceId, jsonData);
+      return const Right(null);
+    } catch (e) {
+      return Left(BluetoothFailure('Failed to unpair device: ${e.toString()}'));
+    }
+  }
+
+  @override
   Stream<Either<Failure, BleMessage>> watchMessages(String deviceId) async* {
     try {
       await for (final message in dataSource.watchNotifications(deviceId)) {

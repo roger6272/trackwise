@@ -14,6 +14,7 @@ import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
 import '../../domain/usecases/check_bluetooth_enabled_usecase.dart';
 import '../../domain/usecases/clear_device_logs_usecase.dart';
+import '../../domain/usecases/unpair_device_usecase.dart';
 import '../../domain/usecases/connect_device_usecase.dart';
 import '../../domain/usecases/disconnect_device_usecase.dart';
 import '../../domain/usecases/request_bluetooth_permissions_usecase.dart';
@@ -54,6 +55,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final SendTimeSyncUseCase _sendTimeSync;
   final RequestDeviceDataUseCase _requestData;
   final ClearDeviceLogsUseCase _clearLogs;
+  final UnpairDeviceUseCase _unpairDevice;
   final CheckBluetoothEnabledUseCase _checkBluetoothEnabled;
   final RequestBluetoothPermissionsUseCase _requestPermissions;
   final SyncDeviceDataUseCase _syncDeviceData;
@@ -100,6 +102,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._sendTimeSync,
     this._requestData,
     this._clearLogs,
+    this._unpairDevice,
     this._checkBluetoothEnabled,
     this._requestPermissions,
     this._syncDeviceData,
@@ -126,6 +129,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<SendTimeSync>(_onSendTimeSync);
     on<RequestDeviceData>(_onRequestData);
     on<ClearDeviceLogs>(_onClearLogs);
+    on<UnpairDevice>(_onUnpairDevice);
     on<MessageReceived>(_onMessageReceived);
     on<ScanResultsUpdated>(_onScanResultsUpdated);
     on<UpdateSelectedItemFromDevice>(_onUpdateSelectedItemFromDevice);
@@ -764,6 +768,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     final result = await _clearLogs.call(
       ClearDeviceLogsParams(deviceId),
+    );
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: BluetoothStatus.error,
+        errorMessage: failure.message,
+      )),
+      (_) {},
+    );
+  }
+
+  Future<void> _onUnpairDevice(
+    UnpairDevice event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final deviceId = state.connectedDevice?.id;
+    if (deviceId == null) return;
+
+    final result = await _unpairDevice.call(
+      UnpairDeviceParams(deviceId),
     );
 
     result.fold(

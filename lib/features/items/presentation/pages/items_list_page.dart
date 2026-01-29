@@ -195,28 +195,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
           listenWhen: (previous, current) =>
               !previous.isConnected && current.isConnected,
           listener: (context, bluetoothState) {
-            // When device connects, navigate to selected item's category
-            final selectedItemId = bluetoothState.selectedItemId;
-            if (selectedItemId != null && selectedItemId.isNotEmpty && selectedItemId != 'none') {
-              final itemsState = context.read<ItemsBloc>().state;
-              if (itemsState is ItemsLoaded) {
-                final selectedItem = itemsState.items
-                    .where((i) => i.id == selectedItemId)
-                    .firstOrNull;
-                if (selectedItem != null) {
-                  final targetCategoryId =
-                      (selectedItem.categoryId == null || selectedItem.categoryId!.isEmpty)
-                          ? ''
-                          : selectedItem.categoryId!;
-                  context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
-                  // Defer AppUiState update to next frame to avoid rebuild during callback
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    context.read<AppUiState>().selectedCategoryId = targetCategoryId;
-                  });
-                }
-              }
-            }
+            // When device connects, show all categories view
+            // (device sync sends correct category-filtered items regardless of app view)
+            context.read<ItemsBloc>().add(FilterByCategoryEvent(null));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              context.read<AppUiState>().selectedCategoryId = null;
+            });
           },
           // Sync AppUiState.activeItemId whenever BluetoothState.selectedItemId changes
           // (from device prefs, override completion, or any other source)

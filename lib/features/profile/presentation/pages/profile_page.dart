@@ -498,6 +498,11 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showDeleteConfirmation(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final secondaryText = AppColors.secondaryText(brightness);
+    final isConnected = context.read<BluetoothBloc>().state.isConnected;
+
+    final deviceMessage = isConnected
+        ? 'Your connected device will be automatically reset and unpaired.'
+        : 'Any paired devices must be factory reset before they can be paired again.\n\nOn device: Hold B button for 10 seconds.';
 
     showDialog(
       context: context,
@@ -527,15 +532,15 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.info_outline,
+                  Icon(
+                    isConnected ? Icons.bluetooth_connected : Icons.info_outline,
                     color: Colors.orange,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Any paired devices must be factory reset before they can be paired again.\n\nOn device: Hold B button for 10 seconds.',
+                      deviceMessage,
                       style: TextStyle(
                         color: secondaryText,
                         fontSize: 13.0,
@@ -941,10 +946,16 @@ class _ProfilePageState extends State<ProfilePage> {
         // Clear device logs
         bluetoothBloc.add(const ClearDeviceLogs());
 
-        // Wait for BLE commands to be sent before disconnecting
+        // Wait for clear commands to be sent
         await Future.delayed(const Duration(milliseconds: 500));
 
-        // Disconnect from device (forget connection)
+        // Unpair device so it can be paired to another account
+        bluetoothBloc.add(const UnpairDevice());
+
+        // Wait for unpair command to be sent before disconnecting
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Disconnect from device
         bluetoothBloc.add(const DisconnectFromDevice());
 
         // Wait for disconnect to complete
