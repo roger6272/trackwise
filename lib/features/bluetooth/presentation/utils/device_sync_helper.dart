@@ -47,12 +47,22 @@ void syncItemsToDevice({
   }
 
   // Include/update item if specified (for create/update/restore)
+  // Only add if the item belongs to the selected category
   if (includeItem != null) {
-    categoryItems = categoryItems
-        .map((i) => i.id == includeItem.id ? includeItem : i)
-        .toList();
-    if (!categoryItems.any((i) => i.id == includeItem.id)) {
-      categoryItems.add(includeItem);
+    final inclCat = includeItem.categoryId;
+    final targetCat = selectedCategoryId;
+    final inclEmpty = inclCat == null || inclCat.isEmpty;
+    final targetEmpty = targetCat == null || targetCat.isEmpty;
+    final sameCategory = (inclEmpty && targetEmpty) ||
+        (!inclEmpty && !targetEmpty && inclCat == targetCat);
+
+    if (sameCategory) {
+      categoryItems = categoryItems
+          .map((i) => i.id == includeItem.id ? includeItem : i)
+          .toList();
+      if (!categoryItems.any((i) => i.id == includeItem.id)) {
+        categoryItems.add(includeItem);
+      }
     }
   }
 

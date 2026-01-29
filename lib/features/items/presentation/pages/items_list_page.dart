@@ -291,10 +291,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 await _showItemLimitDialog(context);
                                 return;
                               }
-                              final createdItem = await context.pushNamed<Item>(ItemFormPage.routeName);
-                              if (createdItem != null && mounted) {
-                                _handleCreatedItem(context, createdItem);
-                              }
+                              await context.pushNamed<Item>(ItemFormPage.routeName);
                             },
                             style: IconButton.styleFrom(
                               backgroundColor: isConnected ? _primary : Colors.grey.shade400,
@@ -410,63 +407,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             buildWhen: (previous, current) {
                               // Rebuild on any state change, but also check if we need to sync device
                               if (previous is ItemsLoaded && current is ItemsLoaded) {
-                                final bluetoothState = context.read<BluetoothBloc>().state;
-                                if (bluetoothState.isConnected) {
-                                  final selectedId = bluetoothState.selectedItemId;
-                                  if (selectedId != null && selectedId.isNotEmpty) {
-                                    // Find selected item's category
-                                    final selectedItem = current.items
-                                        .where((i) => i.id == selectedId)
-                                        .firstOrNull;
-                                    if (selectedItem != null) {
-                                      final selectedCatId = selectedItem.categoryId ?? '';
-
-                                      // Get items in selected category, sorted by categoryOrder
-                                      final currentCategoryItems = current.items
-                                          .where((i) => (i.categoryId ?? '') == selectedCatId)
-                                          .toList()
-                                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-                                      // Create signature from current category items (config fields only, not counts)
-                                      // Include categoryId so category changes trigger sync
-                                      final currentSignature = currentCategoryItems
-                                          .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
-                                          .join(',');
-
-                                      // Debounce: skip if synced recently (within 500ms)
-                                      final now = DateTime.now();
-                                      final recentlySynced = _lastSyncTime != null &&
-                                          now.difference(_lastSyncTime!).inMilliseconds < 500;
-
-                                      // Check if category changed (selected item moved to different category)
-                                      final categoryChanged = _lastSyncedCategoryId != selectedCatId;
-                                      final signatureChanged = currentSignature != _lastSyncedSignature;
-
-                                      // Sync if signature changed OR if selected item's category changed
-                                      // Category change means item was edited to be in a different category
-                                      if (signatureChanged || categoryChanged) {
-                                        if (!recentlySynced) {
-                                          _lastSyncedSignature = currentSignature;
-                                          _lastSyncedCategoryId = selectedCatId;
-                                          _lastSyncTime = now;
-                                          context.read<BluetoothBloc>().add(SendItemsToDevice(
-                                            currentCategoryItems,
-                                            categoryNames: _cachedCategoryNames,
-                                          ));
-                                          Future.delayed(const Duration(milliseconds: 100), () {
-                                            if (!mounted) return;
-                                            context.read<BluetoothBloc>().add(SendSelectedItem(
-                                              selectedId,
-                                              selectedItem.deviceItemId ?? 0,
-                                            ));
-                                          });
-                                        }
-                                        // Note: Don't update signature when debounced - let the next
-                                        // buildWhen detect the change and sync when debounce expires
-                                      }
-                                    }
-                                  }
-                                }
+                                _checkDeviceSync(context, current);
+                              } else if (current is ItemsLoaded && _lastSyncedSignature == null) {
+                                // Initialize tracking after a non-ItemsLoaded → ItemsLoaded
+                                // transition (e.g., returning from another page, stream reconnect).
+                                // Don't sync — just set the baseline so future changes are detected.
+                                _initSyncTracking(context, current);
                               }
                               return true; // Always rebuild
                             },
@@ -1793,10 +1739,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
           FilledButton.icon(
             onPressed: isConnected
                 ? () async {
-                    final createdItem = await context.pushNamed<Item>(ItemFormPage.routeName);
-                    if (createdItem != null && mounted) {
-                      _handleCreatedItem(context, createdItem);
-                    }
+                    await context.pushNamed<Item>(ItemFormPage.routeName);
                   }
                 : null,
             style: FilledButton.styleFrom(
@@ -2045,28 +1988,90 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }
   }
 
-  /// Handles a newly created item by syncing it to the device.
-  /// Called when ItemFormPage returns a created item.
-  /// This ensures the new item is included in the sync even if the
-  /// Firestore stream hasn't updated yet.
-  void _handleCreatedItem(BuildContext context, Item createdItem) {
-    final bluetoothBloc = context.read<BluetoothBloc>();
-    if (!bluetoothBloc.state.isConnected) return;
+  /// Computes a signature string for the given category items.
+  /// Used to detect whether the device-relevant item list has changed.
+  String _computeCategorySignature(List<Item> categoryItems) {
+    return categoryItems
+        .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
+        .join(',');
+  }
 
-    final itemsState = context.read<ItemsBloc>().state;
-    if (itemsState is! ItemsLoaded) return;
+  /// Initializes sync tracking without sending data to the device.
+  /// Called on non-ItemsLoaded → ItemsLoaded transitions (e.g., returning
+  /// from another page) so that future buildWhen calls have a baseline.
+  void _initSyncTracking(BuildContext context, ItemsLoaded current) {
+    final bluetoothState = context.read<BluetoothBloc>().state;
+    if (!bluetoothState.isConnected) return;
 
-    final deviceSelectedId = bluetoothBloc.state.selectedItemId;
+    final selectedId = bluetoothState.selectedItemId;
+    if (selectedId == null || selectedId.isEmpty) return;
 
-    debugPrint('📱 Syncing newly created item: ${createdItem.name} (deviceItemId: ${createdItem.deviceItemId})');
+    final selectedItem = current.items
+        .where((i) => i.id == selectedId)
+        .firstOrNull;
+    if (selectedItem == null) return;
 
-    _syncDeviceWithSelectedCategory(
-      bluetoothBloc: bluetoothBloc,
-      allItems: itemsState.items,
-      deviceSelectedId: deviceSelectedId,
-      includeItem: createdItem,
-      fallbackCategoryId: createdItem.categoryId,
-    );
+    final selectedCatId = selectedItem.categoryId ?? '';
+    final categoryItems = current.items
+        .where((i) => (i.categoryId ?? '') == selectedCatId)
+        .toList()
+      ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+    _lastSyncedSignature = _computeCategorySignature(categoryItems);
+    _lastSyncedCategoryId = selectedCatId;
+    _lastSyncTime = DateTime.now();
+  }
+
+  /// Checks whether device sync is needed and sends items if so.
+  /// Called on ItemsLoaded → ItemsLoaded transitions in buildWhen.
+  void _checkDeviceSync(BuildContext context, ItemsLoaded current) {
+    final bluetoothState = context.read<BluetoothBloc>().state;
+    if (!bluetoothState.isConnected) return;
+
+    final selectedId = bluetoothState.selectedItemId;
+    if (selectedId == null || selectedId.isEmpty) return;
+
+    final selectedItem = current.items
+        .where((i) => i.id == selectedId)
+        .firstOrNull;
+    if (selectedItem == null) return;
+
+    final selectedCatId = selectedItem.categoryId ?? '';
+    final currentCategoryItems = current.items
+        .where((i) => (i.categoryId ?? '') == selectedCatId)
+        .toList()
+      ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+    final currentSignature = _computeCategorySignature(currentCategoryItems);
+
+    // Debounce: skip if synced recently (within 500ms)
+    final now = DateTime.now();
+    final recentlySynced = _lastSyncTime != null &&
+        now.difference(_lastSyncTime!).inMilliseconds < 500;
+
+    final categoryChanged = _lastSyncedCategoryId != selectedCatId;
+    final signatureChanged = currentSignature != _lastSyncedSignature;
+
+    if (signatureChanged || categoryChanged) {
+      if (!recentlySynced) {
+        _lastSyncedSignature = currentSignature;
+        _lastSyncedCategoryId = selectedCatId;
+        _lastSyncTime = now;
+        context.read<BluetoothBloc>().add(SendItemsToDevice(
+          currentCategoryItems,
+          categoryNames: _cachedCategoryNames,
+        ));
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!mounted) return;
+          context.read<BluetoothBloc>().add(SendSelectedItem(
+            selectedId,
+            selectedItem.deviceItemId ?? 0,
+          ));
+        });
+      }
+      // Note: Don't update signature when debounced - let the next
+      // buildWhen detect the change and sync when debounce expires
+    }
   }
 
   /// Syncs the device with items from the selected item's category.
