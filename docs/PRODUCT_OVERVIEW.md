@@ -1,8 +1,8 @@
-# Traxogic Product Overview
+# Traxelos Product Overview
 
-## What is Traxogic?
+## What is Traxelos?
 
-Traxogic is a **physical counter device with companion mobile app** that enables hands-free tracking of habits, inventory, or any countable activity. Unlike app-only solutions, Traxogic combines a dedicated ESP32-based hardware counter with a feature-rich Flutter app, allowing users to track with a physical button press while maintaining full analytics and cloud synchronization.
+Traxelos is a **physical counter device with companion mobile app** that enables hands-free tracking of habits, inventory, or any countable activity. Unlike app-only solutions, Traxelos combines a dedicated ESP32-based hardware counter with a feature-rich Flutter app, allowing users to track with a physical button press while maintaining full analytics and cloud synchronization.
 
 ---
 
@@ -18,12 +18,12 @@ Traditional counting and habit tracking solutions have significant limitations:
 
 ## The Solution
 
-Traxogic bridges the gap between physical simplicity and digital intelligence:
+Traxelos bridges the gap between physical simplicity and digital intelligence:
 
 | Physical Device | Mobile App |
 |----------------|------------|
 | Instant button-press counting | Full data management |
-| Haptic feedback confirmation | Analytics and charts |
+| Haptic feedback on reminders | Analytics and charts |
 | Works without phone nearby | Cloud sync and backup |
 | Daily auto-reset at midnight | CSV data export |
 | Remembers counts through power loss | Goal tracking and reminders |
@@ -35,12 +35,12 @@ Traxogic bridges the gap between physical simplicity and digital intelligence:
 ### 1. Hardware Counter Device
 - **ESP32-based** BLE peripheral with button input
 - **Real-Time Clock (DS3231)** for accurate timestamps and daily resets
-- **Vibration motor** for haptic feedback on button press and reminders
+- **Vibration motor** for haptic feedback on reminders
 - **Persistent storage** - counts survive power loss
 - **Multi-item support** - switch between items directly on device
 
 ### 2. Multi-Item Tracking
-- Track unlimited items (habits, inventory, activities)
+- Track up to 100 items (habits, inventory, activities)
 - Each item maintains:
   - **Cumulative count** (total across all time)
   - **Today count** (auto-resets at midnight)
@@ -59,13 +59,13 @@ Traxogic bridges the gap between physical simplicity and digital intelligence:
 
 ### 5. Real-Time BLE Synchronization
 - Instant sync between device and app
-- Auto-reconnect if connection drops
+- Auto-reconnect on unexpected disconnection during active session
 - Time synchronization ensures accurate timestamps
 - Works offline - syncs when reconnected
 
 ### 6. Analytics and Charts
 - Bar charts with multiple aggregation levels (Hourly / Daily / Weekly / Monthly)
-- Statistics: total, average, min, max
+- Statistics: period totals, percent change vs prior period
 - View trends and patterns over time
 
 ### 7. Data Export
@@ -114,4 +114,4 @@ Traxogic bridges the gap between physical simplicity and digital intelligence:
 
 **One button. Instant count. Full insights.**
 
-Traxogic solves the friction problem in habit and inventory tracking by combining the simplicity of a physical button with the intelligence of a modern app.
+Traxelos solves the friction problem in habit and inventory tracking by combining the simplicity of a physical button with the intelligence of a modern app.

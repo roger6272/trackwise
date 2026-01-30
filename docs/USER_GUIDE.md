@@ -1,12 +1,12 @@
-# Traxogic User Guide
+# Traxelos User Guide
 
-Welcome to Traxogic! This guide will help you get the most out of your physical counter device and companion app.
+Welcome to Traxelos! This guide will help you get the most out of your physical counter device and companion app.
 
 ---
 
 ## Table of Contents
 
-1. [What is Traxogic?](#1-what-is-traxogic)
+1. [What is Traxelos?](#1-what-is-traxelos)
 2. [Getting Started](#2-getting-started)
 3. [Connecting Your Device](#3-connecting-your-device)
 4. [Creating & Managing Items](#4-creating--managing-items)
@@ -21,9 +21,9 @@ Welcome to Traxogic! This guide will help you get the most out of your physical 
 
 ---
 
-## 1. What is Traxogic?
+## 1. What is Traxelos?
 
-Traxogic is a **physical counter device** paired with a **mobile app** that makes tracking habits, inventory, or any countable activity effortless.
+Traxelos is a **physical counter device** paired with a **mobile app** that makes tracking habits, inventory, or any countable activity effortless.
 
 **How it works:**
 - Press the button on your device to count
@@ -42,25 +42,36 @@ Traxogic is a **physical counter device** paired with a **mobile app** that make
 
 ### Step 1: Download the App
 
-Download Traxogic from the App Store (iOS) or Google Play (Android).
+Download Traxelos from the App Store (iOS) or Google Play (Android).
 
 ### Step 2: Create an Account
 
 1. Open the app
 2. Tap **Create Account**
-3. Enter your email and create a password
-4. Add your name (optional)
-5. Tap **Sign Up**
+3. Enter your email address
+4. Create a password and confirm it
+5. Tap **Create Account**
 
-*You can also sign in with Google or Apple for faster setup.*
+*You can also sign in with Google (or Apple on iOS) for faster setup.*
 
-### Step 3: Sign In
+### Step 3: Complete Onboarding
+
+After creating your account, you'll see a welcome screen:
+
+1. Enter your name (optional)
+2. Select your primary use case (e.g., Habit Tracking, Inventory)
+3. Indicate how you heard about us (optional)
+4. Tap **Complete**
+
+*You can skip this step and go straight to the app.*
+
+### Step 4: Sign In
 
 If you already have an account:
 1. Enter your email and password
 2. Tap **Sign In**
 
-### Step 4: Pair Your Device
+### Step 5: Pair Your Device
 
 See [Connecting Your Device](#3-connecting-your-device) below.
 
@@ -70,9 +81,8 @@ See [Connecting Your Device](#3-connecting-your-device) below.
 
 ### First-Time Pairing
 
-1. **Turn on your Traxogic device**
+1. **Turn on your Traxelos device**
    - The device should be charged and powered on
-   - A light will indicate it's ready to pair
 
 2. **Open the Bluetooth tab** in the app
    - Tap the Bluetooth icon in the bottom navigation
@@ -82,24 +92,21 @@ See [Connecting Your Device](#3-connecting-your-device) below.
    - Allow Bluetooth and Location access
 
 4. **Tap "Find Device"**
-   - The app will scan for nearby devices
-   - Your device will appear in the list
+   - The app will open the search page and automatically scan for nearby devices
+   - Your device will appear in the list (e.g., "Traxelos_device")
 
 5. **Select your device**
-   - Tap the device name (e.g., "Traxogic_device")
-   - Wait for connection to establish
+   - Tap the device name to connect
+   - If this is a new device, you'll see a **"New Device Detected"** setup dialog — tap **"Set Up"** to pair
 
 6. **You're connected!**
-   - The status will show "Connected"
-   - You can now start tracking
+   - The app returns to the home screen
+   - Check the Bluetooth tab to verify — it will show "Connected"
 
 ### Reconnecting
 
-Your device will automatically reconnect when:
-- You open the app near your device
-- Bluetooth is enabled on your phone
+If your device disconnects unexpectedly during a session, the app will automatically try to reconnect. If it doesn't reconnect:
 
-If it doesn't connect automatically:
 1. Go to the **Bluetooth tab**
 2. Tap **"Find Device"**
 3. Select your device from the list
@@ -107,56 +114,73 @@ If it doesn't connect automatically:
 ### Disconnecting
 
 To manually disconnect:
-1. Go to **Bluetooth tab**
-2. Tap **"Manage Device"**
-3. Tap **"Disconnect"**
+1. Go to the **Bluetooth tab**
+2. Tap **"Disconnect"**
 
 ---
 
 ## 4. Creating & Managing Items
+
+> **Note:** Your Traxelos device must be connected via Bluetooth to create, edit, or delete items.
 
 ### Creating Your First Item
 
 1. Go to the **Home tab** (Items)
 2. Tap the **+ button** in the top right
 3. Fill in the details:
-   - **Item Name** (required) - e.g., "Push-ups"
+   - **Item Name** (required, max 30 characters) - e.g., "Push-ups"
    - **Category** (optional) - e.g., "Fitness"
-   - **Initial Value** - Starting count (usually 0)
-   - **Increment By** - How much to add per press (default: 1)
+   - **Initial Value** (create only) - Starting count (default: 0)
    - **Goal** (optional) - Target count
-   - **Reminder** (optional) - Get notified at milestones
+   - **Count Per Press** - How much to add per button press (default: 1)
+   - **Reminder (Vibration)** (optional) - Choose a vibration alert type:
+     - "None" - No vibration
+     - "At Target Count" - Vibrate when reaching your goal
+     - "Every X Increments" - Vibrate at regular intervals
+   - **Reminder Value** - The count that triggers the vibration
 4. Tap **Create**
+
+You can track up to **100 items**.
 
 ### Editing an Item
 
-1. Tap the item from your list
-2. Tap the **edit button** (pencil icon)
+1. On the items list, **swipe left** on the item
+2. Tap the **edit icon** (pencil)
 3. Make your changes
-4. Tap **Save**
+4. Tap **Update**
 
 *Note: You cannot change the initial value after creation.*
 
 ### Deleting an Item
 
-**Option 1: Swipe to delete**
-1. On the items list, swipe left on the item
-2. Tap **Delete**
-
-**Option 2: From item detail**
-1. Tap the item to open it
-2. Tap the delete button
+1. On the items list, **swipe left** on the item
+2. Tap the **delete icon** (trash)
 3. Confirm deletion
 
-**Don't worry!** Deleted items go to "Recently Deleted" for 90 days. You can restore them anytime.
+**Don't worry!** Deleted items go to "Recently Deleted" for 90 days. You can restore them anytime (device connection required).
+
+### Swipe Actions
+
+Swiping left on any item reveals four actions:
+
+| Icon | Action | Description |
+|------|--------|-------------|
+| **Pin** | Activate | Set as the active item on your physical device |
+| **Arrow up** | Move to Top | Move item to the top of its category |
+| **Pencil** | Edit | Open the item edit form |
+| **Trash** | Delete | Delete the item (with confirmation) |
+
+### Searching Items
+
+Tap the **search icon** in the top right to filter items by name.
 
 ### Reordering Items
 
 1. **Long press** on an item
-2. **Drag** it to the new position
+2. **Drag** it to the new position within its category
 3. **Release** to save
 
-Your custom order syncs to your device.
+Your custom order is saved and synced to your device.
 
 ---
 
@@ -166,16 +190,17 @@ Your custom order syncs to your device.
 
 1. Make sure your device is connected (check the Bluetooth tab)
 2. Press the **count button** on your device
-3. You'll feel a vibration confirming the count
-4. The app updates automatically
+3. The app updates automatically
+
+*If you have a reminder configured (see Section 7), you'll feel a vibration when the reminder condition is met.*
 
 ### What the Buttons Do
 
 | Button | Action |
 |--------|--------|
-| **Count** | Add to your current item's count |
+| **Count (Increment)** | Add to your current item's count |
 | **Switch** | Change to the next item |
-| **Reset** | Reset current item to zero |
+| **Reset** | Reset current item to zero and start a new tracking cycle |
 
 ### Understanding Your Counts
 
@@ -198,6 +223,8 @@ Your device works independently! You can:
 - Counts are stored on the device
 - Everything syncs when you reconnect
 
+For best results, sync regularly by opening the app near your device — this backs up your data to the cloud and keeps everything up to date.
+
 ---
 
 ## 6. Organizing with Categories
@@ -206,11 +233,11 @@ Categories help you group related items together.
 
 ### Creating a Category
 
-1. Go to **Profile tab**
+1. Go to **Account tab**
 2. Tap **"Manage Categories"**
-3. Tap the **+ button**
+3. Tap the **+ Add** icon in the top right
 4. Enter a name (e.g., "Fitness", "Work", "Health")
-5. Tap **Save**
+5. Tap **Create**
 
 ### Assigning Items to Categories
 
@@ -219,6 +246,8 @@ When creating or editing an item:
 2. Select a category
 3. Save your item
 
+*Tip: The category dropdown also has a "Manage Categories" shortcut at the bottom.*
+
 ### Reordering Categories
 
 1. Go to **Manage Categories**
@@ -226,12 +255,13 @@ When creating or editing an item:
 3. **Drag** to reorder
 4. Release to save
 
-### Deleting a Category
+### Renaming or Deleting a Category
 
-1. Tap the **trash icon** next to the category
-2. Confirm deletion
+1. Tap the **three-dot menu** next to the category
+2. Choose **Rename** or **Delete**
+3. Confirm if deleting
 
-*Items in that category become "Uncategorized" (they're not deleted).*
+*Items in a deleted category become "Uncategorized" (they're not deleted).*
 
 ---
 
@@ -243,16 +273,16 @@ Reminders make your device vibrate to keep you on track.
 
 | Type | How It Works | Example |
 |------|--------------|---------|
-| **No Reminder** | No vibration alerts | - |
-| **Target Count** | Vibrates when you reach your goal | Vibrate at 100 push-ups |
+| **None** | No vibration alerts | - |
+| **At Target Count** | Vibrates when you reach your goal | Vibrate at 100 push-ups |
 | **Every X Increments** | Vibrates every N counts | Vibrate every 10 counts |
 
 ### Setting Up a Reminder
 
 1. Create or edit an item
 2. Set a **Goal** (optional but recommended)
-3. Choose **Reminder Type**:
-   - "Target Count" - vibrates when goal reached
+3. Choose **Reminder (Vibration)** type:
+   - "At Target Count" - vibrates when goal reached
    - "Every X Increments" - vibrates at intervals
 4. Enter the **Reminder Value**
 5. Save
@@ -260,7 +290,7 @@ Reminders make your device vibrate to keep you on track.
 ### How Reminders Work
 
 - Your **device vibrates** (not your phone)
-- Happens instantly when you press the button
+- Vibration triggers when the reminder condition is met (reaching target or hitting interval)
 - Works even without your phone nearby
 
 ---
@@ -269,12 +299,12 @@ Reminders make your device vibrate to keep you on track.
 
 ### Item Detail Page
 
-Tap any item to see detailed analytics:
+Tap any item to see detailed analytics (the page title shows the item name):
 
 - **Current Count** - Your total and today's count
 - **Goal Progress** - Visual progress bar (if goal set)
 - **Charts** - Visual trends over time
-- **Statistics** - Average, min, max values
+- **Statistics** - Period total, percent change vs prior period
 - **Reset History** - All your tracking periods (cycles)
 
 ### Understanding Reset Cycles
@@ -331,14 +361,14 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 
 ### How to Export
 
-1. Go to **Profile tab**
+1. Go to **Account tab**
 2. Tap **"Export My Data"**
 3. Configure your export:
-   - **Date Range** - Select start and end dates
-   - **Aggregation** - Raw, Daily, Weekly, or Monthly
+   - **Date Range** - Select start and end dates (default: last 30 days)
+   - **Aggregation** - Raw, Daily, Weekly, or Monthly (default: Daily)
    - **Data Scope** - Total (all data) or Latest Cycle only
 4. Enter your **email address**
-5. Tap **"Send Export"**
+5. Tap **"Export to Email"**
 
 ### Aggregation Options
 
@@ -363,47 +393,63 @@ Your CSV file includes:
 
 ### Editing Your Profile
 
-1. Go to **Profile tab**
+1. Go to **Account tab**
 2. Tap **"Edit Profile"**
-3. Update your name or other info
-4. Save changes
+3. Update your name
+4. Tap **Save**
+
+### Managing Paired Devices
+
+View and manage all devices paired to your account:
+
+1. Go to **Account tab**
+2. Tap **"Paired Devices"**
+
+On this page you can:
+- See all paired devices and their pairing date
+- Identify the currently connected device (green indicator)
+- **Rename a device** - Tap the three-dot menu > Rename
+- **Unpair a device** - Tap the three-dot menu > Unpair
+
+*After unpairing, factory reset the device before pairing it to another account.*
 
 ### Starting a New Cycle
 
 Reset all your counts to start fresh:
 
-1. Connect your device
-2. Go to **Profile tab**
+1. Connect your device (required — this option is disabled without a connection)
+2. Go to **Account tab**
 3. Tap **"Start New Cycle"**
-4. Confirm
+4. Tap **"Start New Cycle"** to confirm
 
 *This resets all counts to 0 on both app and device.*
 
 ### Restoring Deleted Items
 
-1. Go to **Profile tab**
+1. Go to **Account tab**
 2. Tap **"Recently Deleted"**
 3. Find the item you want back
-4. Tap **"Restore"**
+4. Tap **"Restore"** (device connection required)
 
 Items stay in Recently Deleted for 90 days before permanent deletion.
 
 ### Logging Out
 
-1. Go to **Profile tab**
+1. Go to **Account tab**
 2. Scroll to bottom
-3. Tap **"Logout"**
+3. Tap **"Log Out"**
+4. Confirm by tapping **"Sign Out"**
 
 ### Deleting Your Account
 
 **Warning: This is permanent!**
 
-1. Go to **Profile tab**
+1. Go to **Account tab**
 2. Scroll to "Danger Zone"
 3. Tap **"Delete Account"**
 4. Read the device notice and tap **"Delete"**
 5. Type **DELETE** to confirm
-6. All your data will be permanently deleted
+6. Tap **"Delete Account"** — all your data will be permanently deleted
 
 **Device behavior:**
 - **Connected:** The device is automatically unpaired and can be paired to a new account immediately.
@@ -413,11 +459,11 @@ Items stay in Recently Deleted for 90 days before permanent deletion.
 
 ## 11. Tips & Tricks
 
-### Get the Most Out of Traxogic
+### Get the Most Out of Traxelos
 
 1. **Keep your device charged** - Low battery can cause connection issues
 
-2. **Sync your time regularly** - Go to Manage Device > Sync Time to ensure accurate timestamps
+2. **Time syncs automatically** - Your device syncs its clock when it connects via Bluetooth. Keep your phone's clock accurate for correct timestamps.
 
 3. **Use categories** - Organize items for easier filtering
 
@@ -426,11 +472,6 @@ Items stay in Recently Deleted for 90 days before permanent deletion.
 5. **Check your charts weekly** - Spot patterns and trends
 
 6. **Export monthly** - Keep a backup of your data
-
-### Keyboard Shortcuts (Device)
-
-- **Quick double-press** - Some devices support quick actions
-- **Long press** - May trigger different functions (check your device manual)
 
 ### Battery Saving
 
@@ -457,14 +498,13 @@ The device switches automatically - no action needed!
 1. Check battery level on your device
 2. Stay within range (Bluetooth has limited distance)
 3. Close other Bluetooth-heavy apps
-4. On Android: Disable battery optimization for Traxogic
+4. On Android: Disable battery optimization for Traxelos
 
 ### "My counts aren't syncing"
 
 1. Check connection status in the Bluetooth tab
-2. Try manual sync: Manage Device > Sync Items
+2. Disconnect and reconnect your device to trigger a fresh sync
 3. Pull-to-refresh on the Items page
-4. Disconnect and reconnect your device
 
 ### "I lost my counts!"
 
@@ -480,22 +520,22 @@ Try:
 
 ### "The time on my device is wrong"
 
-1. Connect to your device
-2. Go to **Bluetooth > Manage Device**
-3. Tap **"Sync Time"**
-4. Your device will update to your phone's time
+Time syncs automatically when your device connects via Bluetooth. If the time seems wrong:
+1. Disconnect your device
+2. Reconnect — time will sync automatically
+3. Your device will update to your phone's time
 
 ### "I forgot my password"
 
-1. On the login screen, tap **"Forgot Password?"**
+1. On the login screen, tap **"Forgot password?"**
 2. Enter your email
 3. Check your inbox for a reset link
 4. Create a new password
 
 ### Still Need Help?
 
-1. Go to **Profile > Help & Support**
-2. Review the FAQ section
+1. Go to **Account > Help & Support**
+2. Review the Quick Tips section
 3. Tap **"Email Support"** to contact us
 
 **Support Email:** support@digi1st.com
@@ -506,36 +546,39 @@ Try:
 
 ### Navigation
 
-| Tab | What It Does |
-|-----|--------------|
-| **Home** | View and manage all items |
-| **Bluetooth** | Connect and manage your device |
-| **Profile** | Account, settings, export, support |
+| Tab | Icon | What It Does |
+|-----|------|--------------|
+| **Home** | House | View and manage all items |
+| **Bluetooth** | Bluetooth | Connect and manage your device |
+| **Account** | Person | Account, settings, export, support |
 
 ### Device Buttons
 
 | Button | Action |
 |--------|--------|
-| Count | Add to count |
+| Count (Increment) | Add to count |
 | Switch | Change item |
-| Reset | Reset to zero |
+| Reset | Reset to zero, start new cycle |
 
 ### Key Features
 
 | Feature | Where to Find It |
 |---------|------------------|
-| Create item | Home > + button |
-| Edit item | Tap item > Edit |
-| Delete item | Swipe left on item |
+| Create item | Home > + button (requires device) |
+| Edit item | Swipe left on item > Edit icon |
+| Delete item | Swipe left on item > Trash icon |
+| Activate item | Swipe left on item > Pin icon |
+| Search items | Home > Search icon (top right) |
 | Reorder | Long press & drag |
-| Categories | Profile > Manage Categories |
-| Export | Profile > Export My Data |
-| Restore deleted | Profile > Recently Deleted |
+| Categories | Account > Manage Categories |
+| Paired Devices | Account > Paired Devices |
+| Export | Account > Export My Data |
+| Restore deleted | Account > Recently Deleted (requires device) |
 | Connect device | Bluetooth > Find Device |
-| Sync time | Bluetooth > Manage Device > Sync Time |
+| Sync time | Automatic on device connect |
 
 ---
 
-**Thank you for using Traxogic!**
+**Thank you for using Traxelos!**
 
 One button. Instant count. Full insights.
