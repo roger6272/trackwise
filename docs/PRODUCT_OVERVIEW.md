@@ -1,8 +1,8 @@
-# Traxelos Product Overview
+# Traxelos One Product Overview
 
-## What is Traxelos?
+## What is Traxelos One?
 
-Traxelos is a **physical counter device with companion mobile app** that enables hands-free tracking of habits, inventory, or any countable activity. Unlike app-only solutions, Traxelos combines a dedicated ESP32-based hardware counter with a feature-rich Flutter app, allowing users to track with a physical button press while maintaining full analytics and cloud synchronization.
+Traxelos One is a **physical counter device with companion mobile app** that enables hands-free tracking of habits, inventory, or any countable activity. Unlike app-only solutions, Traxelos One combines a dedicated ESP32-based hardware counter with a feature-rich Flutter app, allowing users to track with a physical button press while maintaining full analytics and cloud synchronization.
 
 ---
 
@@ -18,7 +18,7 @@ Traditional counting and habit tracking solutions have significant limitations:
 
 ## The Solution
 
-Traxelos bridges the gap between physical simplicity and digital intelligence:
+Traxelos One bridges the gap between physical simplicity and digital intelligence:
 
 | Physical Device | Mobile App |
 |----------------|------------|
@@ -114,4 +114,4 @@ Traxelos bridges the gap between physical simplicity and digital intelligence:
 
 **One button. Instant count. Full insights.**
 
-Traxelos solves the friction problem in habit and inventory tracking by combining the simplicity of a physical button with the intelligence of a modern app.
+Traxelos One solves the friction problem in habit and inventory tracking by combining the simplicity of a physical button with the intelligence of a modern app.

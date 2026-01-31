@@ -1,29 +1,30 @@
-# Traxelos User Guide
+# Traxelos One User Guide
 
-Welcome to Traxelos! This guide will help you get the most out of your physical counter device and companion app.
+Welcome to Traxelos One! This guide will help you get the most out of your physical counter device and companion app.
 
 ---
 
 ## Table of Contents
 
-1. [What is Traxelos?](#1-what-is-traxelos)
+1. [What is Traxelos One?](#1-what-is-traxelos-one)
 2. [Getting Started](#2-getting-started)
 3. [Connecting Your Device](#3-connecting-your-device)
 4. [Creating & Managing Items](#4-creating--managing-items)
-5. [Using Your Physical Counter](#5-using-your-physical-counter)
+5. [Using Your Traxelos One Counter](#5-using-your-traxelos-one-counter)
 6. [Organizing with Categories](#6-organizing-with-categories)
-7. [Setting Reminders & Goals](#7-setting-reminders--goals)
-8. [Viewing Your Data](#8-viewing-your-data)
-9. [Exporting Your Data](#9-exporting-your-data)
-10. [Managing Your Account](#10-managing-your-account)
-11. [Tips & Tricks](#11-tips--tricks)
-12. [Troubleshooting](#12-troubleshooting)
+7. [Setting Goals](#7-setting-goals)
+8. [Setting Reminders](#8-setting-reminders)
+9. [Viewing Your Data](#9-viewing-your-data)
+10. [Exporting Your Data](#10-exporting-your-data)
+11. [Managing Your Account](#11-managing-your-account)
+12. [Tips & Tricks](#12-tips--tricks)
+13. [Troubleshooting](#13-troubleshooting)
 
 ---
 
-## 1. What is Traxelos?
+## 1. What is Traxelos One?
 
-Traxelos is a **physical counter device** paired with a **mobile app** that makes tracking habits, inventory, or any countable activity effortless.
+Traxelos One is a **physical counter device** paired with a **mobile app** that makes tracking habits, inventory, or any countable activity effortless.
 
 **How it works:**
 - Press the button on your device to count
@@ -42,7 +43,7 @@ Traxelos is a **physical counter device** paired with a **mobile app** that make
 
 ### Step 1: Download the App
 
-Download Traxelos from the App Store (iOS) or Google Play (Android).
+Download Traxelos One from the App Store (iOS) or Google Play (Android).
 
 ### Step 2: Create an Account
 
@@ -81,7 +82,7 @@ See [Connecting Your Device](#3-connecting-your-device) below.
 
 ### First-Time Pairing
 
-1. **Turn on your Traxelos device**
+1. **Turn on your Traxelos One device**
    - The device should be charged and powered on
 
 2. **Open the Bluetooth tab** in the app
@@ -121,7 +122,7 @@ To manually disconnect:
 
 ## 4. Creating & Managing Items
 
-> **Note:** Your Traxelos device must be connected via Bluetooth to create, edit, or delete items.
+> **Note:** Your Traxelos One device must be connected via Bluetooth to create, edit, or delete items.
 
 ### Creating Your First Item
 
@@ -129,7 +130,7 @@ To manually disconnect:
 2. Tap the **+ button** in the top right
 3. Fill in the details:
    - **Item Name** (required, max 30 characters) - e.g., "Push-ups"
-   - **Category** (optional) - e.g., "Fitness"
+   - **Category** (optional) - Select from the dropdown (see [Organizing with Categories](#6-organizing-with-categories))
    - **Initial Value** (create only) - Starting count (default: 0)
    - **Goal** (optional) - Target count
    - **Count Per Press** - How much to add per button press (default: 1)
@@ -184,7 +185,7 @@ Your custom order is saved and synced to your device.
 
 ---
 
-## 5. Using Your Physical Counter
+## 5. Using Your Traxelos One Counter
 
 ### Basic Counting
 
@@ -192,15 +193,57 @@ Your custom order is saved and synced to your device.
 2. Press the **count button** on your device
 3. The app updates automatically
 
-*If you have a reminder configured (see Section 7), you'll feel a vibration when the reminder condition is met.*
+*If you have a reminder configured (see [Setting Reminders](#8-setting-reminders)), you'll feel a vibration when the reminder condition is met.*
 
-### What the Buttons Do
+### Device Buttons
 
-| Button | Action |
-|--------|--------|
-| **Count (Increment)** | Add to your current item's count |
-| **Switch** | Change to the next item |
-| **Reset** | Reset current item to zero and start a new tracking cycle |
+#### Arduino IDE (Serial Monitor)
+
+| Key | Action |
+|-----|--------|
+| **U** | Increment — Add to your current item's count |
+| **S** | Switch — Change to the next item |
+| **R** | Reset — Reset current item to zero and start a new tracking cycle |
+| **F** | Factory Reset — Erase all data and restore device to factory settings |
+
+#### Traxelos One Device
+
+**Button A**
+
+| Interaction | Location | Action |
+|-------------|----------|--------|
+| Press | Main Item View | Add to your current item's count |
+| Press | Item Menu View | Confirm item selection (Menu view) |
+| Press | Sleep Mode | Awake the device |
+| Press & Hold 3 seconds | Main Item View | Display time, Current Category, and Current Item for 10 seconds or until a button is pressed |
+
+**Button B**
+
+| Interaction | Location | Action |
+|-------------|----------|--------|
+| Press | Main Item View | Enter item menu view |
+| Press | Item Menu View | Next item in the menu |
+| Press & Hold | Item Menu View | Rapidly loop through the items in the menu |
+| Press & Hold 3 seconds | Main Item View | Reset the selected item's count (Enter the next cycle) |
+
+**Automatic Behaviors**
+
+| Trigger | Location | Action |
+|---------|----------|--------|
+| 5 secs of inactivity | Item Menu View | Leave the menu to the Main Item View |
+| 5 mins of inactivity | Main Item View | Enter Power Saving mode (Display Off) |
+| Turn on device | When device is on before pairing | Show "Welcome" on the display |
+
+**Factory Reset**
+
+To erase all data and restore the device to its original state, hold **both A and B buttons for 7 seconds**. The device will clear all items, counts, and pairing information.
+
+**When to factory reset:**
+- Before pairing a device to a different account
+- After unpairing or deleting your account while the device was not connected
+- If the device is behaving unexpectedly and reconnecting doesn't resolve it
+
+*After a factory reset, the device will show "Welcome" and is ready to be paired as a new device.*
 
 ### Understanding Your Counts
 
@@ -265,9 +308,29 @@ When creating or editing an item:
 
 ---
 
-## 7. Setting Reminders & Goals
+## 7. Setting Goals
 
-Reminders make your device vibrate to keep you on track.
+Goals let you set a target count for any item and track your progress visually.
+
+### Adding a Goal
+
+1. Create or edit an item
+2. Enter a number in the **Goal** field (e.g., 100)
+3. Save
+
+### Viewing Goal Progress
+
+On the **Item Detail Page** (tap any item), you'll see:
+- A **progress ring** showing how close you are to your goal
+- Your current count vs. your target
+
+*Tip: Goals pair well with reminders — set a goal and add a vibration alert to know when you've reached it (see [Setting Reminders](#8-setting-reminders)).*
+
+---
+
+## 8. Setting Reminders
+
+Reminders make your physical device vibrate to keep you on track — no need to check your phone.
 
 ### Types of Reminders
 
@@ -280,12 +343,11 @@ Reminders make your device vibrate to keep you on track.
 ### Setting Up a Reminder
 
 1. Create or edit an item
-2. Set a **Goal** (optional but recommended)
-3. Choose **Reminder (Vibration)** type:
-   - "At Target Count" - vibrates when goal reached
-   - "Every X Increments" - vibrates at intervals
-4. Enter the **Reminder Value**
-5. Save
+2. Choose **Reminder (Vibration)** type:
+   - "At Target Count" — vibrates when goal reached
+   - "Every X Increments" — vibrates at intervals
+3. Enter the **Reminder Value** (the count that triggers vibration)
+4. Save
 
 ### How Reminders Work
 
@@ -295,14 +357,14 @@ Reminders make your device vibrate to keep you on track.
 
 ---
 
-## 8. Viewing Your Data
+## 9. Viewing Your Data
 
 ### Item Detail Page
 
 Tap any item to see detailed analytics (the page title shows the item name):
 
 - **Current Count** - Your total and today's count
-- **Goal Progress** - Visual progress bar (if goal set)
+- **Goal Progress** - Visual progress ring (if goal set)
 - **Charts** - Visual trends over time
 - **Statistics** - Period total, percent change vs prior period
 - **Reset History** - All your tracking periods (cycles)
@@ -355,7 +417,7 @@ Pull down on the screen to refresh and get the latest data.
 
 ---
 
-## 9. Exporting Your Data
+## 10. Exporting Your Data
 
 Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 
@@ -389,7 +451,7 @@ Your CSV file includes:
 
 ---
 
-## 10. Managing Your Account
+## 11. Managing Your Account
 
 ### Editing Your Profile
 
@@ -413,6 +475,17 @@ On this page you can:
 
 *After unpairing, factory reset the device before pairing it to another account.*
 
+### How Multi-Device Works
+
+You can pair multiple Traxelos One devices to your account, but only **one device can be connected at a time**.
+
+**Key points:**
+- All your items automatically sync to whichever device is currently connected
+- Items are tied to your **account**, not to a specific device — switching devices gives you the same items
+- When you connect a different device, it receives the latest data from the app
+
+> **Important:** If you count on Device A while offline, then connect Device B instead, Device A's offline counts become stale. The next time Device A connects, the app's data will overwrite Device A's local data. To avoid losing counts, always **sync your current device before switching to another one**.
+
 ### Starting a New Cycle
 
 Reset all your counts to start fresh:
@@ -433,6 +506,19 @@ Reset all your counts to start fresh:
 
 Items stay in Recently Deleted for 90 days before permanent deletion.
 
+*Note: Restored items are placed in "Uncategorized" regardless of their original category. You can reassign them to a category by editing the item after restoring.*
+
+### Help & Support
+
+1. Go to **Account tab**
+2. Tap **"Help & Support"**
+
+On this page you can:
+- Review **Quick Tips** for getting the most out of your device
+- Tap **"Email Support"** to contact us directly
+
+**Support Email:** support@digi1st.com
+
 ### Logging Out
 
 1. Go to **Account tab**
@@ -452,14 +538,14 @@ Items stay in Recently Deleted for 90 days before permanent deletion.
 6. Tap **"Delete Account"** — all your data will be permanently deleted
 
 **Device behavior:**
-- **Connected:** The device is automatically unpaired and can be paired to a new account immediately.
-- **Not connected:** You must factory reset the device before it can be paired to another account. On device: hold the **B button for 10 seconds**.
+- **Connected:** The device is automatically unpaired and reset, and can be paired to a new account immediately.
+- **Not connected:** You must factory reset the device before it can be paired to another account. On device: hold **both A and B buttons for 7 seconds**.
 
 ---
 
-## 11. Tips & Tricks
+## 12. Tips & Tricks
 
-### Get the Most Out of Traxelos
+### Get the Most Out of Traxelos One
 
 1. **Keep your device charged** - Low battery can cause connection issues
 
@@ -483,7 +569,7 @@ The device switches automatically - no action needed!
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### "I can't find my device"
 
@@ -498,7 +584,7 @@ The device switches automatically - no action needed!
 1. Check battery level on your device
 2. Stay within range (Bluetooth has limited distance)
 3. Close other Bluetooth-heavy apps
-4. On Android: Disable battery optimization for Traxelos
+4. On Android: Disable battery optimization for Traxelos One
 
 ### "My counts aren't syncing"
 
@@ -552,13 +638,24 @@ Time syncs automatically when your device connects via Bluetooth. If the time se
 | **Bluetooth** | Bluetooth | Connect and manage your device |
 | **Account** | Person | Account, settings, export, support |
 
-### Device Buttons
+### Device Buttons — Arduino IDE (Serial Monitor)
 
-| Button | Action |
-|--------|--------|
-| Count (Increment) | Add to count |
-| Switch | Change item |
-| Reset | Reset to zero, start new cycle |
+| Key | Action |
+|-----|--------|
+| U | Increment — Add to count |
+| S | Switch — Change item |
+| R | Reset — Reset to zero, start new cycle |
+| F | Factory Reset — Restore to factory settings |
+
+### Device Buttons — Traxelos One Device
+
+| Button | Interaction | Action |
+|--------|-------------|--------|
+| A | Press | Add to count / Confirm selection / Wake device |
+| A | Hold 3s | Show time, category, and item info |
+| B | Press | Enter menu / Next item |
+| B | Hold | Rapidly loop through items |
+| B | Hold 3s | Reset item count (new cycle) |
 
 ### Key Features
 
@@ -579,6 +676,6 @@ Time syncs automatically when your device connects via Bluetooth. If the time se
 
 ---
 
-**Thank you for using Traxelos!**
+**Thank you for using Traxelos One!**
 
 One button. Instant count. Full insights.

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traxelos One Device Display Reference</title>
+    <style>
+        :root {
+            --primary-color: #0f172a;
+            --secondary-color: #334155;
+            --accent-color: #3b82f6;
+            --accent-light: #dbeafe;
+            --accent-border: #93c5fd;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --table-header: #f1f5f9;
+            --todo-bg: #fefce8;
+            --todo-border: #fde68a;
+            --todo-text: #92400e;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --tag-bg: #e0f2fe;
+            --tag-text: #0369a1;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 48px 56px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2em;
+            border-bottom: 3px solid var(--accent-color);
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.05em;
+            margin-bottom: 32px;
+        }
+
+        .subtitle a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .subtitle a:hover {
+            text-decoration: underline;
+        }
+
+        h2 {
+            color: var(--primary-color);
+            font-size: 1.5em;
+            margin-top: 48px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        h3 {
+            color: var(--secondary-color);
+            font-size: 1.2em;
+            margin-top: 32px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.95em;
+        }
+
+        th {
+            background-color: var(--table-header);
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .state-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+            margin: 24px 0;
+            background: var(--card-bg);
+        }
+
+        .state-card h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+            font-size: 1.25em;
+        }
+
+        .state-label {
+            display: inline-block;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: var(--tag-text);
+            background: var(--tag-bg);
+            padding: 2px 10px;
+            border-radius: 12px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-top: 16px;
+            margin-bottom: 4px;
+        }
+
+        .field-label:first-of-type {
+            margin-top: 12px;
+        }
+
+        .todo {
+            background: var(--todo-bg);
+            border: 1px solid var(--todo-border);
+            border-left: 4px solid var(--warning-color);
+            border-radius: 6px;
+            padding: 10px 16px;
+            color: var(--todo-text);
+            font-size: 0.92em;
+            margin: 8px 0;
+        }
+
+        .exits-to {
+            color: var(--text-muted);
+            font-size: 0.93em;
+            margin-top: 12px;
+        }
+
+        .exits-to a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .exits-to a:hover {
+            text-decoration: underline;
+        }
+
+        pre {
+            background: var(--primary-color);
+            color: #e2e8f0;
+            padding: 24px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.82em;
+            line-height: 1.5;
+        }
+
+        .checklist {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            padding-left: 28px;
+        }
+
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+
+        .checklist li::before {
+            content: "☐";
+            position: absolute;
+            left: 0;
+            color: var(--text-muted);
+            font-size: 1.1em;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        ul li {
+            margin-bottom: 4px;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                padding: 24px 20px;
+            }
+            pre {
+                font-size: 0.7em;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>Traxelos One Device Display Reference</h1>
+    <p class="subtitle"><strong>For developers:</strong> This document describes the physical device's display states, layouts, and transitions. For app-device communication, see <a href="BLE_PROTOCOL.md">BLE_PROTOCOL.md</a>. For end-user instructions, see <a href="USER_GUIDE.html">USER_GUIDE.html</a>.</p>
+
+    <h2>Device Layout</h2>
+
+    <p>The Traxelos One is a handheld device with a large front-facing display and two buttons.</p>
+
+<pre>
+        ┌──────────────────────┐
+        │  ┌────────────────┐  │
+        │  │   [Button A]   │  │  ← Front face, above display
+        │  │  (Count/Main)  │  │     Large, primary action button
+        │  └────────────────┘  │
+        │                      │
+  [B] ──┤  ┌────────────────┐  │
+        │  │                │  │
+        │  │                │  │
+        │  │    DISPLAY     │  │
+        │  │                │  │
+        │  │                │  │
+        │  └────────────────┘  │
+        │                      │
+        └──────────────────────┘
+</pre>
+
+    <h3>Button A &mdash; Front Face (Above Display)</h3>
+    <ul>
+        <li><strong>Position:</strong> Large button on the front face, above the display</li>
+        <li><strong>Purpose:</strong> Primary action &mdash; counting, confirming, waking</li>
+        <li><strong>Design:</strong> Big, tactile, satisfying to press repeatedly</li>
+        <li><strong>Why here:</strong> Thumb lands naturally on the front face when gripping the device. Direct downward press is ergonomic for high-frequency use (hundreds of presses per day).</li>
+    </ul>
+
+    <h3>Button B &mdash; Left Side (Upper Edge)</h3>
+    <ul>
+        <li><strong>Position:</strong> Upper left side of the device (from the user's perspective)</li>
+        <li><strong>Purpose:</strong> Secondary action &mdash; menu navigation, reset</li>
+        <li><strong>Design:</strong> Slightly recessed/flush to prevent accidental presses</li>
+        <li><strong>Why here:</strong> Right-handed grip places the index finger naturally on the upper left edge. Distinct from A by feel. Recessed profile avoids accidental resets (B hold 3s triggers reset).</li>
+    </ul>
+
+    <h3>Ergonomic Grip</h3>
+    <p>When holding with the right hand:</p>
+    <ul>
+        <li><strong>Thumb</strong> &rarr; Button A (front face)</li>
+        <li><strong>Index finger</strong> &rarr; Button B (left side)</li>
+        <li>Both buttons operable without shifting grip</li>
+    </ul>
+
+    <h2>Display States</h2>
+
+    <!-- State 1 -->
+    <div class="state-card">
+        <h3>1. Welcome / Pairing Screen <span class="state-label">Initial</span></h3>
+        <p class="field-label">When:</p>
+        <p>Device powers on before pairing.</p>
+        <p class="field-label">Display sequence:</p>
+        <ol>
+            <li><strong>"Welcome"</strong> text &mdash; shown for 2-3 seconds as a greeting</li>
+            <li><strong>Bluetooth icon + "Pairing..."</strong> &mdash; stays on screen until a Bluetooth connection is made</li>
+        </ol>
+        <p class="field-label">Exits to:</p>
+        <ul>
+            <li>Main Item View (on successful BLE connection)</li>
+            <li>Sleep Mode (after 5 mins of inactivity if no connection is made)</li>
+        </ul>
+    </div>
+
+    <!-- State 2 -->
+    <div class="state-card">
+        <h3>2. Main Item View <span class="state-label">Default</span></h3>
+        <p class="field-label">When:</p>
+        <p>Default view after pairing/connecting. Returns here after menu timeout.</p>
+        <p class="field-label">Display layout:</p>
+<pre>
+┌──────────────────────────┐
+│ Push..     🎯 📶 🔋       │  ← Top bar
+│                          │
+│                     x5   │  ← Count per press (small, right)
+│          247             │  ← Count (large, centered)
+│                          │
+│                          │
+└──────────────────────────┘
+</pre>
+        <table>
+            <thead><tr><th>Element</th><th>Position</th><th>Details</th></tr></thead>
+            <tbody>
+                <tr><td>Item name</td><td>Top left</td><td>Truncated to 10 characters + dot if longer (e.g., "Push..", "Water", "Squat")</td></tr>
+                <tr><td>Battery icon</td><td>Top right</td><td>Battery level indicator</td></tr>
+                <tr><td>Bluetooth icon</td><td>Top right</td><td>Shown when connected</td></tr>
+                <tr><td>Reminder icon</td><td>Top right</td><td>Indicates reminder type: none / target / interval</td></tr>
+                <tr><td>Count per press</td><td>Upper right (count area)</td><td>Shown as "x5" &mdash; hidden when default (1)</td></tr>
+                <tr><td>Count</td><td>Center</td><td>Large, takes up most of the display</td></tr>
+            </tbody>
+        </table>
+        <p class="field-label">States:</p>
+        <ul>
+            <li><strong>Item active:</strong> Shows layout above with count of the current selected item</li>
+            <li><strong>No item active:</strong> "Select an item" &mdash; shown when no item has been activated in the app yet (e.g., fresh pair, no items created)</li>
+        </ul>
+        <p class="tip">Only items from the active item's category are synced to the device. The user selects an item in the app, which triggers the category's items to sync over.</p>
+        <p class="field-label">Interactions:</p>
+        <table>
+            <thead><tr><th>Input</th><th>Result</th></tr></thead>
+            <tbody>
+                <tr><td>A press</td><td>Increment count &rarr; display updates</td></tr>
+                <tr><td>A hold 3s</td><td>Switch to <a href="#info-display">Info Display</a></td></tr>
+                <tr><td>B press</td><td>Enter <a href="#item-menu-view">Item Menu View</a></td></tr>
+                <tr><td>B hold 3s</td><td>Reset current item count (new cycle)</td></tr>
+                <tr><td>5 mins inactivity</td><td>Enter <a href="#sleep-mode">Sleep Mode</a></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- State 3 -->
+    <div class="state-card">
+        <h3 id="item-menu-view">3. Item Menu View <span class="state-label">Navigation</span></h3>
+        <p class="field-label">When:</p>
+        <p>B pressed from Main Item View.</p>
+        <p class="field-label">Display layout:</p>
+<pre>
+┌──────────────────────────┐
+│ Fitness..            3/5 │  ← Category (10 char + dot) + position
+│──────────────────────────│
+│   Water                  │
+│ ▸ Push-ups               │  ← Selected (arrow)
+│   Squats                 │
+│   Bench Press            │
+│   Pull-ups               │
+└──────────────────────────┘
+</pre>
+        <table>
+            <thead><tr><th>Element</th><th>Position</th><th>Details</th></tr></thead>
+            <tbody>
+                <tr><td>Category name</td><td>Top left</td><td>Truncated to 10 characters + dot if longer</td></tr>
+                <tr><td>Position counter</td><td>Top right</td><td>Current item / total items (e.g., "3/5")</td></tr>
+                <tr><td>Item list</td><td>Center</td><td>Up to 5 items visible at a time</td></tr>
+                <tr><td>Selected item</td><td>Center</td><td>Indicated by a small arrow (▸) at the start</td></tr>
+                <tr><td>Long item names</td><td>&mdash;</td><td>Carousel/scroll effect if name exceeds display width</td></tr>
+            </tbody>
+        </table>
+        <p class="field-label">Interactions:</p>
+        <table>
+            <thead><tr><th>Input</th><th>Result</th></tr></thead>
+            <tbody>
+                <tr><td>A press</td><td>Confirm selection &rarr; return to Main Item View with selected item</td></tr>
+                <tr><td>B press</td><td>Next item in menu (loops through list)</td></tr>
+                <tr><td>B hold</td><td>Rapidly loop through items</td></tr>
+                <tr><td>5 secs inactivity</td><td>Auto-return to Main Item View</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- State 4 -->
+    <div class="state-card">
+        <h3 id="info-display">4. Info Display <span class="state-label">Temporary</span></h3>
+        <p class="field-label">When:</p>
+        <p>A held for 3 seconds from Main Item View.</p>
+        <p class="field-label">Display layout:</p>
+<pre>
+┌──────────────────────────┐
+│ 12:30 PM                 │
+│ Cat: Fitness             │
+│ Item: Push-ups           │
+│ Goal: 100  Today: 45     │
+│ Remind: 🎯 100           │
+└──────────────────────────┘
+</pre>
+        <table>
+            <thead><tr><th>Element</th><th>Details</th></tr></thead>
+            <tbody>
+                <tr><td>Time</td><td>Current time</td></tr>
+                <tr><td>Category</td><td>Full name, carousel if too long</td></tr>
+                <tr><td>Item</td><td>Full name, carousel if too long</td></tr>
+                <tr><td>Goal</td><td>Target count (if set)</td></tr>
+                <tr><td>Today</td><td>Today's count</td></tr>
+                <tr><td>Reminder</td><td>Icon + value: 🎯 100 (target), 🔄 10 (interval), or "None"</td></tr>
+            </tbody>
+        </table>
+        <p class="field-label">Duration:</p>
+        <p>10 seconds or until any button is pressed.</p>
+        <p class="exits-to">Exits to: <a href="#main-item-view">Main Item View</a></p>
+    </div>
+
+    <!-- State 5 -->
+    <div class="state-card">
+        <h3 id="sleep-mode">5. Sleep Mode (Power Saving) <span class="state-label">Idle</span></h3>
+        <p class="field-label">When:</p>
+        <p>5 minutes of inactivity from Main Item View.</p>
+        <p class="field-label">Display:</p>
+        <p>Off</p>
+        <p class="field-label">Interactions:</p>
+        <table>
+            <thead><tr><th>Input</th><th>Result</th></tr></thead>
+            <tbody>
+                <tr><td>A press</td><td>Wake &rarr; return to Main Item View</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- State 6 -->
+    <div class="state-card">
+        <h3>6. Factory Reset <span class="state-label">Destructive</span></h3>
+        <p class="field-label">When:</p>
+        <p>Both A and B held for 7 seconds.</p>
+        <p class="field-label">Display:</p>
+        <div class="todo">TODO: Any confirmation or countdown shown?</div>
+        <p class="field-label">Result:</p>
+        <p>All data erased. Returns to <a href="#welcome-screen">Welcome / Pairing Screen</a>.</p>
+    </div>
+
+    <h2>State Transition Diagram</h2>
+
+<pre>
+                    ┌─────────────┐
+                    │  Welcome /  │
+                    │  Pairing    │
+                    └──┬───────┬──┘
+              BLE pair │       │ 5min inact.
+                       ▼       ▼
+    ┌───────────────────────┐  ┌──────────┐
+    │    Main Item View     │  │  Sleep   │
+    │                       │◄─│  Mode    │ (A press = wake)
+    └──┬──────┬─────────┬───┘  └──────────┘
+       │      │         │            ▲
+A hold │  B   │   5min  │            │
+  3s   │press │  inact. │            │
+       │      │         └────────────┘
+       ▼      ▼
+┌──────────┐  ┌─────────────────┐
+│   Info    │  │   Item Menu     │
+│ Display   │  │     View        │
+└──────────┘  └────────┬────────┘
+ (10s/press)     B press/hold
+       │        (cycle items)
+       │              │
+       │         A press (confirm)
+       │         or 5s timeout
+       │              │
+       └──────┬───────┘
+              ▼
+       Back to Main Item View
+
+  A+B hold 7s (from any state)
+              │
+              ▼
+       ┌─────────────┐
+       │  Factory    │──────► Welcome / Pairing
+       │  Reset      │
+       └─────────────┘
+</pre>
+
+    <h2>Open Questions</h2>
+
+    <ul class="checklist">
+        <li>Main Item View layout &mdash; what exactly is shown on screen? (item name, count, category?)</li>
+        <li>Item Menu View layout &mdash; how are items displayed? (list, one at a time, scrolling?)</li>
+        <li>Does the display show any feedback on increment? (count animation, flash?)</li>
+        <li>Does the display show feedback on reset? (confirmation text?)</li>
+        <li>What does the display show during factory reset? (countdown, progress?)</li>
+        <li>What does the display show during BLE pairing/connection?</li>
+        <li>Are there any error states shown on the display? (low battery, BLE disconnect?)</li>
+        <li>What is the display resolution/size? (affects layout documentation)</li>
+        <li>Does the count update on-screen in real time, or only on next interaction?</li>
+    </ul>
+
+</div>
+</body>
+</html>

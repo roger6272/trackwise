@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traxelos User Guide</title>
+    <title>Traxelos One User Guide</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -223,19 +223,20 @@
 <body>
 <div class="container">
 
-    <h1>Traxelos User Guide</h1>
-    <p class="subtitle">Welcome to Traxelos! This guide will help you get the most out of your physical counter device and companion app.</p>
+    <h1>Traxelos One User Guide</h1>
+    <p class="subtitle">Welcome to Traxelos One! This guide will help you get the most out of your physical counter device and companion app.</p>
 
     <div class="toc">
         <h3>Table of Contents</h3>
         <ol>
-            <li><a href="#what-is-traxelos">What is Traxelos?</a></li>
+            <li><a href="#what-is-traxelos">What is Traxelos One?</a></li>
             <li><a href="#getting-started">Getting Started</a></li>
             <li><a href="#connecting-your-device">Connecting Your Device</a></li>
             <li><a href="#creating-managing-items">Creating &amp; Managing Items</a></li>
-            <li><a href="#using-your-physical-counter">Using Your Physical Counter</a></li>
+            <li><a href="#using-your-traxelos-one-counter">Using Your Traxelos One Counter</a></li>
             <li><a href="#organizing-with-categories">Organizing with Categories</a></li>
-            <li><a href="#setting-reminders-goals">Setting Reminders &amp; Goals</a></li>
+            <li><a href="#setting-goals">Setting Goals</a></li>
+            <li><a href="#setting-reminders">Setting Reminders</a></li>
             <li><a href="#viewing-your-data">Viewing Your Data</a></li>
             <li><a href="#exporting-your-data">Exporting Your Data</a></li>
             <li><a href="#managing-your-account">Managing Your Account</a></li>
@@ -245,9 +246,9 @@
     </div>
 
     <!-- Section 1 -->
-    <h2 id="what-is-traxelos">1. What is Traxelos?</h2>
+    <h2 id="what-is-traxelos">1. What is Traxelos One?</h2>
 
-    <p>Traxelos is a <strong>physical counter device</strong> paired with a <strong>mobile app</strong> that makes tracking habits, inventory, or any countable activity effortless.</p>
+    <p>Traxelos One is a <strong>physical counter device</strong> paired with a <strong>mobile app</strong> that makes tracking habits, inventory, or any countable activity effortless.</p>
 
     <h3>How it works</h3>
     <ul>
@@ -268,7 +269,7 @@
     <h2 id="getting-started">2. Getting Started</h2>
 
     <h3>Step 1: Download the App</h3>
-    <p>Download Traxelos from the App Store (iOS) or Google Play (Android).</p>
+    <p>Download Traxelos One from the App Store (iOS) or Google Play (Android).</p>
 
     <h3>Step 2: Create an Account</h3>
     <div class="steps">
@@ -312,7 +313,7 @@
     <h3>First-Time Pairing</h3>
     <div class="steps">
         <ol>
-            <li><strong>Turn on your Traxelos device</strong>
+            <li><strong>Turn on your Traxelos One device</strong>
                 <ul><li>The device should be charged and powered on</li></ul>
             </li>
             <li><strong>Open the Bluetooth tab</strong> in the app
@@ -368,7 +369,7 @@
     <h2 id="creating-managing-items">4. Creating &amp; Managing Items</h2>
 
     <div class="note">
-        <strong>Note:</strong> Your Traxelos device must be connected via Bluetooth to create, edit, or delete items.
+        <strong>Note:</strong> Your Traxelos One device must be connected via Bluetooth to create, edit, or delete items.
     </div>
 
     <h3>Creating Your First Item</h3>
@@ -379,7 +380,7 @@
             <li>Fill in the details:
                 <ul>
                     <li><strong>Item Name</strong> (required, max 30 characters) &mdash; e.g., "Push-ups"</li>
-                    <li><strong>Category</strong> (optional) &mdash; e.g., "Fitness"</li>
+                    <li><strong>Category</strong> (optional) &mdash; Select from the dropdown (see <a href="#organizing-with-categories">Organizing with Categories</a>)</li>
                     <li><strong>Initial Value</strong> (create only) &mdash; Starting count (default: 0)</li>
                     <li><strong>Goal</strong> (optional) &mdash; Target count</li>
                     <li><strong>Count Per Press</strong> &mdash; How much to add per button press (default: 1)</li>
@@ -445,7 +446,7 @@
     <p>Your custom order is saved and synced to your device.</p>
 
     <!-- Section 5 -->
-    <h2 id="using-your-physical-counter">5. Using Your Physical Counter</h2>
+    <h2 id="using-your-traxelos-one-counter">5. Using Your Traxelos One Counter</h2>
 
     <h3>Basic Counting</h3>
     <div class="steps">
@@ -455,17 +456,64 @@
             <li>The app updates automatically</li>
         </ol>
     </div>
-    <p class="tip">If you have a reminder configured (see Section 7), you'll feel a vibration when the reminder condition is met.</p>
+    <p class="tip">If you have a reminder configured (see <a href="#setting-reminders">Setting Reminders</a>), you'll feel a vibration when the reminder condition is met.</p>
 
-    <h3>What the Buttons Do</h3>
+    <h3>Device Buttons</h3>
+
+    <h4>Arduino IDE (Serial Monitor)</h4>
     <table>
-        <thead><tr><th>Button</th><th>Action</th></tr></thead>
+        <thead><tr><th>Key</th><th>Action</th></tr></thead>
         <tbody>
-            <tr><td><strong>Count (Increment)</strong></td><td>Add to your current item's count</td></tr>
-            <tr><td><strong>Switch</strong></td><td>Change to the next item</td></tr>
-            <tr><td><strong>Reset</strong></td><td>Reset current item to zero and start a new tracking cycle</td></tr>
+            <tr><td><strong>U</strong></td><td>Increment &mdash; Add to your current item's count</td></tr>
+            <tr><td><strong>S</strong></td><td>Switch &mdash; Change to the next item</td></tr>
+            <tr><td><strong>R</strong></td><td>Reset &mdash; Reset current item to zero and start a new tracking cycle</td></tr>
+            <tr><td><strong>F</strong></td><td>Factory Reset &mdash; Erase all data and restore device to factory settings</td></tr>
         </tbody>
     </table>
+
+    <h4>Traxelos One Device</h4>
+
+    <p><strong>Button A</strong></p>
+    <table>
+        <thead><tr><th>Interaction</th><th>Location</th><th>Action</th></tr></thead>
+        <tbody>
+            <tr><td>Press</td><td>Main Item View</td><td>Add to your current item's count</td></tr>
+            <tr><td>Press</td><td>Item Menu View</td><td>Confirm item selection (Menu view)</td></tr>
+            <tr><td>Press</td><td>Sleep Mode</td><td>Awake the device</td></tr>
+            <tr><td>Press &amp; Hold 3 seconds</td><td>Main Item View</td><td>Display time, Current Category, and Current Item for 10 seconds or until a button is pressed</td></tr>
+        </tbody>
+    </table>
+
+    <p><strong>Button B</strong></p>
+    <table>
+        <thead><tr><th>Interaction</th><th>Location</th><th>Action</th></tr></thead>
+        <tbody>
+            <tr><td>Press</td><td>Main Item View</td><td>Enter item menu view</td></tr>
+            <tr><td>Press</td><td>Item Menu View</td><td>Next item in the menu</td></tr>
+            <tr><td>Press &amp; Hold</td><td>Item Menu View</td><td>Rapidly loop through the items in the menu</td></tr>
+            <tr><td>Press &amp; Hold 3 seconds</td><td>Main Item View</td><td>Reset the selected item's count (Enter the next cycle)</td></tr>
+        </tbody>
+    </table>
+
+    <p><strong>Automatic Behaviors</strong></p>
+    <table>
+        <thead><tr><th>Trigger</th><th>Location</th><th>Action</th></tr></thead>
+        <tbody>
+            <tr><td>5 secs of inactivity</td><td>Item Menu View</td><td>Leave the menu to the Main Item View</td></tr>
+            <tr><td>5 mins of inactivity</td><td>Main Item View</td><td>Enter Power Saving mode (Display Off)</td></tr>
+            <tr><td>Turn on device</td><td>When device is on before pairing</td><td>Show "Welcome" on the display</td></tr>
+        </tbody>
+    </table>
+
+    <p><strong>Factory Reset</strong></p>
+    <p>To erase all data and restore the device to its original state, hold <strong>both A and B buttons for 7 seconds</strong>. The device will clear all items, counts, and pairing information.</p>
+    <p><strong>When to factory reset:</strong></p>
+    <ul>
+        <li>Before pairing a device to a different account</li>
+        <li>After unpairing or deleting your account while the device was not connected</li>
+        <li>If the device is behaving unexpectedly and reconnecting doesn't resolve it</li>
+    </ul>
+    <p class="tip">After a factory reset, the device will show "Welcome" and is ready to be paired as a new device.</p>
 
     <h3>Understanding Your Counts</h3>
     <p>Each item tracks two numbers:</p>
@@ -539,9 +587,31 @@
     <p class="tip">Items in a deleted category become "Uncategorized" (they're not deleted).</p>
 
     <!-- Section 7 -->
-    <h2 id="setting-reminders-goals">7. Setting Reminders &amp; Goals</h2>
+    <h2 id="setting-goals">7. Setting Goals</h2>
 
-    <p>Reminders make your device vibrate to keep you on track.</p>
+    <p>Goals let you set a target count for any item and track your progress visually.</p>
+
+    <h3>Adding a Goal</h3>
+    <div class="steps">
+        <ol>
+            <li>Create or edit an item</li>
+            <li>Enter a number in the <strong>Goal</strong> field (e.g., 100)</li>
+            <li>Save</li>
+        </ol>
+    </div>
+
+    <h3>Viewing Goal Progress</h3>
+    <p>On the <strong>Item Detail Page</strong> (tap any item), you'll see:</p>
+    <ul>
+        <li>A <strong>progress ring</strong> showing how close you are to your goal</li>
+        <li>Your current count vs. your target</li>
+    </ul>
+    <p class="tip">Goals pair well with reminders &mdash; set a goal and add a vibration alert to know when you've reached it (see <a href="#setting-reminders">Setting Reminders</a>).</p>
+
+    <!-- Section 8 -->
+    <h2 id="setting-reminders">8. Setting Reminders</h2>
+
+    <p>Reminders make your physical device vibrate to keep you on track &mdash; no need to check your phone.</p>
 
     <h3>Types of Reminders</h3>
     <table>
@@ -557,14 +627,13 @@
     <div class="steps">
         <ol>
             <li>Create or edit an item</li>
-            <li>Set a <strong>Goal</strong> (optional but recommended)</li>
             <li>Choose <strong>Reminder (Vibration)</strong> type:
                 <ul>
                     <li>"At Target Count" &mdash; vibrates when goal reached</li>
                     <li>"Every X Increments" &mdash; vibrates at intervals</li>
                 </ul>
             </li>
-            <li>Enter the <strong>Reminder Value</strong></li>
+            <li>Enter the <strong>Reminder Value</strong> (the count that triggers vibration)</li>
             <li>Save</li>
         </ol>
     </div>
@@ -576,14 +645,14 @@
         <li>Works even without your phone nearby</li>
     </ul>
 
-    <!-- Section 8 -->
-    <h2 id="viewing-your-data">8. Viewing Your Data</h2>
+    <!-- Section 9 -->
+    <h2 id="viewing-your-data">9. Viewing Your Data</h2>
 
     <h3>Item Detail Page</h3>
     <p>Tap any item to see detailed analytics (the page title shows the item name):</p>
     <ul>
         <li><strong>Current Count</strong> &mdash; Your total and today's count</li>
-        <li><strong>Goal Progress</strong> &mdash; Visual progress bar (if goal set)</li>
+        <li><strong>Goal Progress</strong> &mdash; Visual progress ring (if goal set)</li>
         <li><strong>Charts</strong> &mdash; Visual trends over time</li>
         <li><strong>Statistics</strong> &mdash; Period total, percent change vs prior period</li>
         <li><strong>Reset History</strong> &mdash; All your tracking periods (cycles)</li>
@@ -638,8 +707,8 @@
     <h3>Refreshing Data</h3>
     <p>Pull down on the screen to refresh and get the latest data.</p>
 
-    <!-- Section 9 -->
-    <h2 id="exporting-your-data">9. Exporting Your Data</h2>
+    <!-- Section 10 -->
+    <h2 id="exporting-your-data">10. Exporting Your Data</h2>
 
     <p>Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).</p>
 
@@ -680,8 +749,8 @@
         <li>Category information</li>
     </ul>
 
-    <!-- Section 10 -->
-    <h2 id="managing-your-account">10. Managing Your Account</h2>
+    <!-- Section 11 -->
+    <h2 id="managing-your-account">11. Managing Your Account</h2>
 
     <h3>Editing Your Profile</h3>
     <div class="steps">
@@ -710,6 +779,18 @@
     </ul>
     <p class="tip">After unpairing, factory reset the device before pairing it to another account.</p>
 
+    <h3>How Multi-Device Works</h3>
+    <p>You can pair multiple Traxelos One devices to your account, but only <strong>one device can be connected at a time</strong>.</p>
+    <p><strong>Key points:</strong></p>
+    <ul>
+        <li>All your items automatically sync to whichever device is currently connected</li>
+        <li>Items are tied to your <strong>account</strong>, not to a specific device &mdash; switching devices gives you the same items</li>
+        <li>When you connect a different device, it receives the latest data from the app</li>
+    </ul>
+    <div class="danger">
+        <strong>Important:</strong> If you count on Device A while offline, then connect Device B instead, Device A's offline counts become stale. The next time Device A connects, the app's data will overwrite Device A's local data. To avoid losing counts, always <strong>sync your current device before switching to another one</strong>.
+    </div>
+
     <h3>Starting a New Cycle</h3>
     <p>Reset all your counts to start fresh:</p>
     <div class="steps">
@@ -732,6 +813,21 @@
         </ol>
     </div>
     <p>Items stay in Recently Deleted for 90 days before permanent deletion.</p>
+    <p class="tip">Restored items are placed in "Uncategorized" regardless of their original category. You can reassign them to a category by editing the item after restoring.</p>
+
+    <h3>Help &amp; Support</h3>
+    <div class="steps">
+        <ol>
+            <li>Go to <strong>Account tab</strong></li>
+            <li>Tap <span class="ui">Help &amp; Support</span></li>
+        </ol>
+    </div>
+    <p>On this page you can:</p>
+    <ul>
+        <li>Review <strong>Quick Tips</strong> for getting the most out of your device</li>
+        <li>Tap <span class="ui">Email Support</span> to contact us directly</li>
+    </ul>
+    <p><strong>Support Email:</strong> support@digi1st.com</p>
 
     <h3>Logging Out</h3>
     <div class="steps">
@@ -759,14 +855,14 @@
     </div>
     <p><strong>Device behavior:</strong></p>
     <ul>
-        <li><strong>Connected:</strong> The device is automatically unpaired and can be paired to a new account immediately.</li>
-        <li><strong>Not connected:</strong> You must factory reset the device before it can be paired to another account. On device: hold the <strong>B button for 10 seconds</strong>.</li>
+        <li><strong>Connected:</strong> The device is automatically unpaired and reset, and can be paired to a new account immediately.</li>
+        <li><strong>Not connected:</strong> You must factory reset the device before it can be paired to another account. On device: hold <strong>both A and B buttons for 7 seconds</strong>.</li>
     </ul>
 
-    <!-- Section 11 -->
-    <h2 id="tips-tricks">11. Tips &amp; Tricks</h2>
+    <!-- Section 12 -->
+    <h2 id="tips-tricks">12. Tips &amp; Tricks</h2>
 
-    <h3>Get the Most Out of Traxelos</h3>
+    <h3>Get the Most Out of Traxelos One</h3>
     <ol>
         <li><strong>Keep your device charged</strong> &mdash; Low battery can cause connection issues</li>
         <li><strong>Time syncs automatically</strong> &mdash; Your device syncs its clock when it connects via Bluetooth. Keep your phone's clock accurate for correct timestamps.</li>
@@ -784,8 +880,8 @@
     </ul>
     <p>The device switches automatically &mdash; no action needed!</p>
 
-    <!-- Section 12 -->
-    <h2 id="troubleshooting">12. Troubleshooting</h2>
+    <!-- Section 13 -->
+    <h2 id="troubleshooting">13. Troubleshooting</h2>
 
     <h3>"I can't find my device"</h3>
     <ol>
@@ -801,7 +897,7 @@
         <li>Check battery level on your device</li>
         <li>Stay within range (Bluetooth has limited distance)</li>
         <li>Close other Bluetooth-heavy apps</li>
-        <li>On Android: Disable battery optimization for Traxelos</li>
+        <li>On Android: Disable battery optimization for Traxelos One</li>
     </ol>
 
     <h3>"My counts aren't syncing"</h3>
@@ -863,13 +959,26 @@
             </tbody>
         </table>
 
-        <h3>Device Buttons</h3>
+        <h3>Device Buttons &mdash; Arduino IDE (Serial Monitor)</h3>
         <table>
-            <thead><tr><th>Button</th><th>Action</th></tr></thead>
+            <thead><tr><th>Key</th><th>Action</th></tr></thead>
             <tbody>
-                <tr><td>Count (Increment)</td><td>Add to count</td></tr>
-                <tr><td>Switch</td><td>Change item</td></tr>
-                <tr><td>Reset</td><td>Reset to zero, start new cycle</td></tr>
+                <tr><td>U</td><td>Increment &mdash; Add to count</td></tr>
+                <tr><td>S</td><td>Switch &mdash; Change item</td></tr>
+                <tr><td>R</td><td>Reset &mdash; Reset to zero, start new cycle</td></tr>
+                <tr><td>F</td><td>Factory Reset &mdash; Restore to factory settings</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Device Buttons &mdash; Traxelos One Device</h3>
+        <table>
+            <thead><tr><th>Button</th><th>Interaction</th><th>Action</th></tr></thead>
+            <tbody>
+                <tr><td>A</td><td>Press</td><td>Add to count / Confirm selection / Wake device</td></tr>
+                <tr><td>A</td><td>Hold 3s</td><td>Show time, category, and item info</td></tr>
+                <tr><td>B</td><td>Press</td><td>Enter menu / Next item</td></tr>
+                <tr><td>B</td><td>Hold</td><td>Rapidly loop through items</td></tr>
+                <tr><td>B</td><td>Hold 3s</td><td>Reset item count (new cycle)</td></tr>
             </tbody>
         </table>
 
@@ -895,7 +1004,7 @@
 
     <!-- Footer -->
     <div class="footer">
-        <p><strong>Thank you for using Traxelos!</strong></p>
+        <p><strong>Thank you for using Traxelos One!</strong></p>
         <p class="tagline">One button. Instant count. Full insights.</p>
     </div>
 
