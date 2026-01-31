@@ -152,22 +152,23 @@ When holding with the right hand:
 
 ```
 ┌──────────────────────────┐
-│ 12:30 PM                 │
 │ Cat: Fitness             │
 │ Item: Push-ups           │
 │ Goal: 100  Today: 45     │
 │ Remind: 🎯 100           │
+│ Cycle: 3        12:30 PM │
 └──────────────────────────┘
 ```
 
 | Element | Details |
 |---------|---------|
-| Time | Current time |
 | Category | Full name, carousel if too long |
 | Item | Full name, carousel if too long |
 | Goal | Target count (if set) |
 | Today | Today's count |
 | Reminder | Icon + value: 🎯 100 (target), 🔄 10 (interval), or "None" |
+| Cycle | Current reset cycle number |
+| Time | Current time (bottom right) |
 
 **Duration:** 10 seconds or until any button is pressed.
 

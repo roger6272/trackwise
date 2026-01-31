@@ -181,6 +181,344 @@
             line-height: 1.5;
         }
 
+        /* OLED Display Mockup */
+        .device-frame {
+            display: inline-block;
+            background: #2a2a2a;
+            border-radius: 20px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+            margin: 16px auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .oled-screen {
+            background: #000;
+            border: 2px solid #1a1a1a;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+            color: #fff;
+            width: 180px;
+            min-height: 180px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .oled-screen .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.65em;
+            margin-bottom: 2px;
+            opacity: 0.95;
+        }
+
+        .oled-screen .top-bar .item-name {
+            color: #e0e0e0;
+        }
+
+        .oled-screen .top-bar .icons {
+            display: flex;
+            gap: 6px;
+            font-size: 0.9em;
+        }
+
+        .oled-screen .count-area {
+            text-align: center;
+            padding: 8px 0;
+            position: relative;
+        }
+
+        .oled-screen .count-area .multiplier {
+            position: absolute;
+            right: 0;
+            top: 0;
+            font-size: 0.65em;
+            color: #aaa;
+        }
+
+        .oled-screen .count-value {
+            font-size: 2.2em;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #fff;
+            text-shadow: 0 0 8px rgba(255,255,255,0.15);
+        }
+
+        .oled-screen .menu-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65em;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #333;
+            margin-bottom: 4px;
+            color: #ccc;
+        }
+
+        .oled-screen .menu-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 0.7em;
+            line-height: 1.7;
+        }
+
+        .oled-screen .menu-list li {
+            color: #bbb;
+            padding: 1px 0;
+            margin: 0;
+            border: none;
+        }
+
+        .oled-screen .menu-list li.selected {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .oled-screen .menu-list li.selected::before {
+            content: "▸ ";
+            color: #fff;
+        }
+
+        .oled-screen .info-row {
+            font-size: 0.65em;
+            color: #ccc;
+            padding: 1px 0;
+            line-height: 1.5;
+        }
+
+        .oled-screen .info-row .label {
+            color: #888;
+        }
+
+        .oled-screen .centered-text {
+            text-align: center;
+            padding: 16px 0;
+        }
+
+        .oled-screen .centered-text .title {
+            font-size: 0.85em;
+            margin-bottom: 6px;
+        }
+
+        .oled-screen .centered-text .options {
+            font-size: 0.7em;
+            color: #aaa;
+        }
+
+        .screen-caption {
+            text-align: center;
+            font-size: 0.82em;
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        /* Device body mockup */
+        .device-body {
+            display: inline-block;
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            border-radius: 28px;
+            padding: 20px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+            margin: 16px auto;
+            position: relative;
+            text-align: center;
+        }
+
+        .device-body .btn-a {
+            background: linear-gradient(180deg, #555, #444);
+            border: 1px solid #666;
+            border-radius: 12px;
+            padding: 10px 40px;
+            color: #ccc;
+            font-family: inherit;
+            font-size: 0.8em;
+            margin-bottom: 14px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        .device-body .btn-a .btn-label {
+            font-size: 0.75em;
+            color: #999;
+        }
+
+        .device-body .btn-b {
+            position: absolute;
+            left: -32px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(90deg, #555, #444);
+            border: 1px solid #666;
+            border-radius: 6px;
+            padding: 16px 6px;
+            color: #999;
+            font-size: 0.65em;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            box-shadow: -2px 0 4px rgba(0,0,0,0.3), inset 1px 0 0 rgba(255,255,255,0.1);
+        }
+
+        /* State Transition Diagram */
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            padding: 24px 0;
+        }
+
+        .flow-node {
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .flow-node.initial {
+            background: var(--accent-light);
+            border: 2px solid var(--accent-border);
+            color: #1e40af;
+        }
+
+        .flow-node.default {
+            background: #dcfce7;
+            border: 2px solid #86efac;
+            color: #166534;
+        }
+
+        .flow-node.navigation {
+            background: #fef3c7;
+            border: 2px solid #fcd34d;
+            color: #92400e;
+        }
+
+        .flow-node.temporary {
+            background: #e0e7ff;
+            border: 2px solid #a5b4fc;
+            color: #3730a3;
+        }
+
+        .flow-node.idle {
+            background: #f3f4f6;
+            border: 2px solid #d1d5db;
+            color: #374151;
+        }
+
+        .flow-node.destructive {
+            background: #fee2e2;
+            border: 2px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .flow-arrow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.75em;
+            padding: 2px 0;
+        }
+
+        .flow-arrow .arrow-line {
+            width: 2px;
+            height: 18px;
+            background: #94a3b8;
+        }
+
+        .flow-arrow .arrow-head {
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid #94a3b8;
+        }
+
+        .flow-arrow .arrow-label {
+            color: var(--text-muted);
+            font-size: 1em;
+            padding: 2px 0;
+            white-space: nowrap;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .flow-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .flow-branch {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .flow-return {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.75em;
+            padding: 2px 0;
+        }
+
+        .flow-return .return-arrow {
+            font-size: 1.2em;
+            color: #94a3b8;
+        }
+
+        .flow-separator {
+            width: 100%;
+            border-top: 1px dashed #cbd5e1;
+            margin: 16px 0;
+        }
+
+        .flow-note {
+            font-size: 0.75em;
+            color: var(--text-muted);
+            text-align: center;
+            font-style: italic;
+        }
+
+        .flow-horizontal-arrow {
+            display: flex;
+            align-items: center;
+            color: #94a3b8;
+            font-size: 0.75em;
+            gap: 4px;
+        }
+
+        .flow-horizontal-arrow .h-line {
+            width: 30px;
+            height: 2px;
+            background: #94a3b8;
+        }
+
+        .flow-horizontal-arrow .h-head {
+            width: 0;
+            height: 0;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            border-left: 6px solid #94a3b8;
+        }
+
         .checklist {
             list-style: none;
             padding-left: 0;
@@ -233,23 +571,16 @@
 
     <p>The Traxelos One is a handheld device with a large front-facing display and two buttons.</p>
 
-<pre>
-        ┌──────────────────────┐
-        │  ┌────────────────┐  │
-        │  │   [Button A]   │  │  ← Front face, above display
-        │  │  (Count/Main)  │  │     Large, primary action button
-        │  └────────────────┘  │
-        │                      │
-  [B] ──┤  ┌────────────────┐  │
-        │  │                │  │
-        │  │                │  │
-        │  │    DISPLAY     │  │
-        │  │                │  │
-        │  │                │  │
-        │  └────────────────┘  │
-        │                      │
-        └──────────────────────┘
-</pre>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-body">
+            <div class="btn-b">[B]</div>
+            <div class="btn-a">[ Button A ]<br><span class="btn-label">Count / Main</span></div>
+            <div class="oled-screen" style="width: 160px; min-height: 160px; align-items: center; justify-content: center;">
+                <span style="color: #555; font-size: 0.9em; letter-spacing: 2px;">DISPLAY</span>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Traxelos One &mdash; front view with Button A above the display, Button B on left side</p>
 
     <h3>Button A &mdash; Front Face (Above Display)</h3>
     <ul>
@@ -300,16 +631,21 @@
         <p class="field-label">When:</p>
         <p>Default view after pairing/connecting. Returns here after menu timeout.</p>
         <p class="field-label">Display layout:</p>
-<pre>
-┌──────────────────────────┐
-│ Push..     🎯 📶 🔋       │  ← Top bar
-│                          │
-│                     x5   │  ← Count per press (small, right)
-│          247             │  ← Count (large, centered)
-│                          │
-│                          │
-└──────────────────────────┘
-</pre>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="top-bar">
+                    <span class="item-name">Push..</span>
+                    <span class="icons">🎯 📶 🔋</span>
+                </div>
+                <div class="count-area">
+                    <span class="multiplier">x5</span>
+                    <div class="count-value">247</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Main Item View &mdash; item name, status icons, count per press, and large count</p>
         <table>
             <thead><tr><th>Element</th><th>Position</th><th>Details</th></tr></thead>
             <tbody>
@@ -346,17 +682,24 @@
         <p class="field-label">When:</p>
         <p>B pressed from Main Item View.</p>
         <p class="field-label">Display layout:</p>
-<pre>
-┌──────────────────────────┐
-│ Fitness..            3/5 │  ← Category (10 char + dot) + position
-│──────────────────────────│
-│   Water                  │
-│ ▸ Push-ups               │  ← Selected (arrow)
-│   Squats                 │
-│   Bench Press            │
-│   Pull-ups               │
-└──────────────────────────┘
-</pre>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="menu-header">
+                    <span>Fitness..</span>
+                    <span>3/5</span>
+                </div>
+                <ul class="menu-list">
+                    <li>&nbsp;&nbsp; Water</li>
+                    <li class="selected">Push-ups</li>
+                    <li>&nbsp;&nbsp; Squats</li>
+                    <li>&nbsp;&nbsp; Bench Press</li>
+                    <li>&nbsp;&nbsp; Pull-ups</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Item Menu View &mdash; category name, position counter, item list with selection arrow</p>
         <table>
             <thead><tr><th>Element</th><th>Position</th><th>Details</th></tr></thead>
             <tbody>
@@ -385,24 +728,28 @@
         <p class="field-label">When:</p>
         <p>A held for 3 seconds from Main Item View.</p>
         <p class="field-label">Display layout:</p>
-<pre>
-┌──────────────────────────┐
-│ 12:30 PM                 │
-│ Cat: Fitness             │
-│ Item: Push-ups           │
-│ Goal: 100  Today: 45     │
-│ Remind: 🎯 100           │
-└──────────────────────────┘
-</pre>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="info-row"><span class="label">Cat:</span> Fitness</div>
+                <div class="info-row"><span class="label">Item:</span> Push-ups</div>
+                <div class="info-row"><span class="label">Goal:</span> 100 &nbsp;&nbsp;<span class="label">Today:</span> 45</div>
+                <div class="info-row"><span class="label">Remind:</span> 🎯 100</div>
+                <div class="info-row" style="display: flex; justify-content: space-between;"><span><span class="label">Cycle:</span> 3</span><span>12:30 PM</span></div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Info Display &mdash; full details shown on A hold (3s)</p>
         <table>
             <thead><tr><th>Element</th><th>Details</th></tr></thead>
             <tbody>
-                <tr><td>Time</td><td>Current time</td></tr>
                 <tr><td>Category</td><td>Full name, carousel if too long</td></tr>
                 <tr><td>Item</td><td>Full name, carousel if too long</td></tr>
                 <tr><td>Goal</td><td>Target count (if set)</td></tr>
                 <tr><td>Today</td><td>Today's count</td></tr>
                 <tr><td>Reminder</td><td>Icon + value: 🎯 100 (target), 🔄 10 (interval), or "None"</td></tr>
+                <tr><td>Cycle</td><td>Current reset cycle number</td></tr>
+                <tr><td>Time</td><td>Current time (bottom right)</td></tr>
             </tbody>
         </table>
         <p class="field-label">Duration:</p>
@@ -432,14 +779,17 @@
         <p class="field-label">When:</p>
         <p>Both A and B held for 7 seconds.</p>
         <p class="field-label">Display:</p>
-<pre>
-┌──────────────────────────┐
-│                          │
-│   Factory Reset?         │
-│   A=Yes  B=No            │
-│                          │
-└──────────────────────────┘
-</pre>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="centered-text">
+                    <div class="title">Factory Reset?</div>
+                    <div class="options">A=Yes &nbsp;&nbsp; B=No</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Factory Reset confirmation &mdash; A+B hold 7s to trigger</p>
         <table>
             <thead><tr><th>Input</th><th>Result</th></tr></thead>
             <tbody>
@@ -454,44 +804,98 @@
 
     <h2>State Transition Diagram</h2>
 
-<pre>
-                    ┌─────────────┐
-                    │  Welcome /  │
-                    │  Pairing    │
-                    └──┬───────┬──┘
-              BLE pair │       │ 5min inact.
-                       ▼       ▼
-    ┌───────────────────────┐  ┌──────────┐
-    │    Main Item View     │  │  Sleep   │
-    │                       │◄─│  Mode    │ (A/B press = wake)
-    └──┬──────┬─────────┬───┘  └──────────┘
-       │      │         │            ▲
-A hold │  B   │   5min  │            │
-  3s   │press │  inact. │            │
-       │      │         └────────────┘
-       ▼      ▼
-┌──────────┐  ┌─────────────────┐
-│   Info    │  │   Item Menu     │
-│ Display   │  │     View        │
-└──────────┘  └────────┬────────┘
- (10s/press)     B press/hold
-       │        (cycle items)
-       │              │
-       │         A press (confirm)
-       │         or 5s timeout
-       │              │
-       └──────┬───────┘
-              ▼
-       Back to Main Item View
+    <div class="flow-diagram">
+        <!-- Welcome / Pairing -->
+        <div class="flow-node initial">Welcome / Pairing</div>
+        <div class="flow-arrow">
+            <div class="arrow-line"></div>
+            <div class="arrow-label">BLE pair</div>
+            <div class="arrow-line"></div>
+            <div class="arrow-head"></div>
+        </div>
 
-  A+B hold 7s (from any state)
-              │
-              ▼
-       ┌─────────────┐
-       │  Factory    │──────► Welcome / Pairing
-       │  Reset      │
-       └─────────────┘
-</pre>
+        <!-- Main Item View (center hub) with Sleep far right -->
+        <div style="position: relative; width: 100%;">
+            <!-- Main Item View centered -->
+            <div style="display: flex; justify-content: center;">
+                <div class="flow-node default" style="font-size: 1em; padding: 14px 48px;">Main Item View</div>
+            </div>
+            <!-- Sleep Mode positioned to the far right -->
+            <div style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 0;">
+                <div class="flow-col" style="align-items: center;">
+                    <div style="display: flex; align-items: center;">
+                        <div class="h-line" style="width: 24px; height: 2px; background: #94a3b8;"></div>
+                        <span style="font-size: 0.7em; color: #64748b; white-space: nowrap; padding: 0 4px;">5 min idle &rarr;</span>
+                    </div>
+                    <div style="display: flex; align-items: center; margin-top: 2px;">
+                        <div class="h-line" style="width: 24px; height: 2px; background: #94a3b8;"></div>
+                        <span style="font-size: 0.7em; color: #64748b; white-space: nowrap; padding: 0 4px;">&larr; A/B wake</span>
+                    </div>
+                </div>
+                <div class="flow-node idle" style="font-size: 0.8em; padding: 8px 14px;">Sleep Mode</div>
+            </div>
+        </div>
+
+        <!-- Two branches down from Main -->
+        <div class="flow-row" style="gap: 48px; margin-top: 0;">
+            <!-- Left: Info Display -->
+            <div class="flow-col">
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">A hold 3s</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node temporary">Info Display</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">10s / press</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+            </div>
+
+            <!-- Right: Item Menu -->
+            <div class="flow-col">
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">B press</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node navigation">Item Menu View</div>
+                <div class="flow-note" style="margin: 4px 0;">B = cycle items</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">A press / 5s timeout</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Return to Main -->
+        <div class="flow-node default" style="padding: 6px 16px; font-size: 0.8em;">&#8593; Back to Main Item View</div>
+
+        <!-- Separator -->
+        <div class="flow-separator"></div>
+
+        <!-- Factory Reset -->
+        <div class="flow-note">A+B hold 7s (from any state)</div>
+        <div class="flow-arrow">
+            <div class="arrow-line"></div>
+            <div class="arrow-head"></div>
+        </div>
+        <div class="flow-node destructive">Factory Reset</div>
+        <div class="flow-arrow">
+            <div class="arrow-line"></div>
+            <div class="arrow-label">A = confirm</div>
+            <div class="arrow-line"></div>
+            <div class="arrow-head"></div>
+        </div>
+        <div class="flow-node initial" style="padding: 6px 16px; font-size: 0.8em;">Welcome / Pairing</div>
+        <div class="flow-note" style="margin-top: 8px;">B press or 5s timeout = cancel &rarr; Main Item View</div>
+    </div>
 
     <h2>Display Hardware</h2>
 

@@ -369,6 +369,18 @@ final offset = DateTime.now().timeZoneOffset.inMinutes;
 
 ---
 
+### 5.3 "timezone offset always reads as 0"
+
+**Symptoms:** Daily reset always happens at UTC midnight regardless of timezone sent by app. Device `localTime` is always UTC.
+
+**Root Cause:** NVS key mismatch — `set_time` handler wrote the offset to `"tz_offset"` but `updateLocalTime()` read from `"timezone_offset"`. The read always returned the default (0).
+
+**Fix:** Changed `updateLocalTime()` to read from `"tz_offset"` to match the write key (commit fixing this).
+
+**Key Lesson:** When using NVS key-value storage, grep for the key string across the entire firmware to ensure reads and writes use the same key. A typo in either location silently returns the default value with no error.
+
+---
+
 ## 6. Device State Issues
 
 ### 6.1 "Device stuck showing 'SEE APP'"

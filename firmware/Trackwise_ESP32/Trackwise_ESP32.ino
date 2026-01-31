@@ -2355,7 +2355,7 @@ void updateLocalTime() {
 
   int offsetMin = 0;
   if (nvsBeginSafe("counter", true)) {  // Read-only
-    offsetMin = prefs.getInt("timezone_offset", 0);
+    offsetMin = prefs.getInt("tz_offset", 0);
     nvsEndSafe();
   }
 
