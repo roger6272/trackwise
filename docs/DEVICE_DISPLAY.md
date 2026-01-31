@@ -184,7 +184,7 @@ When holding with the right hand:
 **Interactions:**
 | Input | Result |
 |-------|--------|
-| A press | Wake → return to [Main Item View](#2-main-item-view) |
+| A or B press | Wake → return to [Main Item View](#2-main-item-view) |
 
 ---
 
@@ -193,9 +193,23 @@ When holding with the right hand:
 **When:** Both A and B held for 7 seconds.
 
 **Display:**
-- <!-- TODO: Any confirmation or countdown shown? -->
 
-**Result:** All data erased. Returns to [Welcome Screen](#1-welcome-screen).
+```
+┌──────────────────────────┐
+│                          │
+│   Factory Reset?         │
+│   A=Yes  B=No            │
+│                          │
+└──────────────────────────┘
+```
+
+| Input | Result |
+|-------|--------|
+| A press | Confirm — erase all data, return to [Welcome / Pairing Screen](#1-welcome--pairing-screen) |
+| B press | Cancel — return to [Main Item View](#2-main-item-view) |
+| 5 secs inactivity | Auto-cancel — return to [Main Item View](#2-main-item-view) |
+
+**Result (if confirmed):** All items, counts, and pairing information erased. Device returns to Welcome / Pairing Screen.
 
 ---
 
@@ -210,7 +224,7 @@ When holding with the right hand:
                        ▼       ▼
     ┌───────────────────────┐  ┌──────────┐
     │    Main Item View     │  │  Sleep   │
-    │                       │◄─│  Mode    │ (A press = wake)
+    │                       │◄─│  Mode    │ (A/B press = wake)
     └──┬──────┬─────────┬───┘  └──────────┘
        │      │         │            ▲
 A hold │  B   │   5min  │            │
@@ -242,16 +256,46 @@ A hold │  B   │   5min  │            │
 
 ---
 
-## Open Questions
+## Display Hardware
 
-<!-- Fill these in as the display design is finalized -->
+| Spec | Value |
+|------|-------|
+| Type | OLED (SSD1306) |
+| Size | ~1.3" |
+| Resolution | 128×64 pixels |
+| Color | Monochrome (white on black) |
 
-- [ ] Main Item View layout — what exactly is shown on screen? (item name, count, category?)
-- [ ] Item Menu View layout — how are items displayed? (list, one at a time, scrolling?)
-- [ ] Does the display show any feedback on increment? (count animation, flash?)
-- [ ] Does the display show feedback on reset? (confirmation text?)
-- [ ] What does the display show during factory reset? (countdown, progress?)
-- [ ] What does the display show during BLE pairing/connection?
-- [ ] Are there any error states shown on the display? (low battery, BLE disconnect?)
-- [ ] What is the display resolution/size? (affects layout documentation)
-- [ ] Does the count update on-screen in real time, or only on next interaction?
+---
+
+## Behavior Notes
+
+### Increment Feedback
+No animation or flash — the count simply updates on the display immediately.
+
+### Reset Feedback
+No confirmation message — the count drops to 0 on the display immediately.
+
+### Item Menu with Fewer Than 5 Items
+Items are top-aligned. If the category has only 2 items, 2 rows are shown at the top with empty space below.
+
+---
+
+### BLE Connection / Disconnection
+
+- **Connected:** Brief vibration + Bluetooth icon appears + "Connected" shown for 3 seconds, then auto-dismisses back to normal display.
+- **Disconnected:** Brief vibration + crossed-out Bluetooth icon + "Disconnected" shown for 3 seconds, then auto-dismisses. Same behavior for both user-initiated and unexpected disconnects. Device continues working offline.
+
+### Low Battery
+
+No special warning or flashing. The battery icon on the main display already shows the current level — the user can see when it's low. The device powers off when the battery is depleted.
+
+### Storage Warnings
+
+The device has limited storage (NVS). Two warning tiers prevent silent data loss:
+
+| Threshold | Message | Behavior |
+|-----------|---------|----------|
+| **90%** | "Memory almost full. Please sync." | Brief vibration + shown once per wake (3 seconds, auto-dismisses). Counting continues normally. |
+| **100%** | "Storage full. Sync now." | Brief vibration + shown on every A press instead of counting. User is blocked from counting until synced. |
+
+*Syncing the device to the app via Bluetooth clears the local storage and resolves both warnings.*

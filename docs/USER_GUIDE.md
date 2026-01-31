@@ -223,6 +223,7 @@ Your custom order is saved and synced to your device.
 |-------------|----------|--------|
 | Press | Main Item View | Enter item menu view |
 | Press | Item Menu View | Next item in the menu |
+| Press | Sleep Mode | Awake the device |
 | Press & Hold | Item Menu View | Rapidly loop through the items in the menu |
 | Press & Hold 3 seconds | Main Item View | Reset the selected item's count (Enter the next cycle) |
 
