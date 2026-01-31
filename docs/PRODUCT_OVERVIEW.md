@@ -45,7 +45,7 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
   - **Cumulative count** (total across all time)
   - **Today count** (auto-resets at midnight)
   - **Reset history** with timestamps
-  - **Custom increment value** (1-100 per press)
+  - **Custom increment value** (1-9999 per press)
 
 ### 3. Smart Reminders
 - **Target reminders** - vibrate when reaching a goal count

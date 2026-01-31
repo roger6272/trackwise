@@ -12,9 +12,9 @@ class AppConstants {
   // Item Constraints
   static const int maxItemNameLength = 30;
   static const int minIncrementValue = 1;
-  static const int maxIncrementValue = 100;
+  static const int maxIncrementValue = 9999;
   static const int minReminderValue = 0;
-  static const int maxReminderValue = 1000;
+  static const int maxReminderValue = 9999;
 
   // Category Constraints
   static const int maxCategoryNameLength = 30;

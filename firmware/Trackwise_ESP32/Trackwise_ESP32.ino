@@ -118,7 +118,7 @@ struct CountLog {
   int32_t count;            // 4 bytes
   uint8_t deviceItemId;     // 1 byte (0-99)
   uint8_t eventType;        // 1 byte (EVENT_INCREMENT, EVENT_RESET, EVENT_SWITCH)
-  int16_t increment;        // 2 bytes (max 1000)
+  int16_t increment;        // 2 bytes (max 9999)
   uint16_t resetNumber;     // 2 bytes
 };  // Total: 14 bytes (app looks up itemName from deviceItemId)
 
@@ -237,7 +237,7 @@ inline bool isValidReminder(int r) {
 }
 
 // Safe string extraction with length limit
-String safeString(const char* str, size_t maxLen = 32) {
+String safeString(const char* str, size_t maxLen = 30) {
   if (!str) return "";
   String s(str);
   return (s.length() > maxLen) ? s.substring(0, maxLen) : s;
@@ -530,14 +530,14 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   snprintf(key, sizeof(key), "did_%d", slotId);
   prefs.putUChar(key, (uint8_t)deviceItemId);
 
-  // Store name (max 32 chars)
+  // Store name (max 30 chars)
   snprintf(key, sizeof(key), "n_%d", slotId);
-  String name = safeString(item["name"] | "", 32);
+  String name = safeString(item["name"] | "", 30);
   prefs.putString(key, name);
 
-  // Store category (max 32 chars)
+  // Store category (max 30 chars)
   snprintf(key, sizeof(key), "cat_%d", slotId);
-  String category = safeString(item["category"] | "", 32);
+  String category = safeString(item["category"] | "", 30);
   prefs.putString(key, category);
 
   // Store count
@@ -548,9 +548,9 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   snprintf(key, sizeof(key), "tc_%d", slotId);
   prefs.putInt(key, item["todaycount"] | 0);
 
-  // Store increment (1-1000)
+  // Store increment (1-9999)
   snprintf(key, sizeof(key), "i_%d", slotId);
-  int increment = clampInt(item["increment"] | 1, 1, 1000);
+  int increment = clampInt(item["increment"] | 1, 1, 9999);
   prefs.putInt(key, increment);
 
   // Store reminder type
@@ -561,7 +561,7 @@ void saveItemToSlot(int slotId, JsonObject& item) {
 
   // Store reminder value
   snprintf(key, sizeof(key), "rv_%d", slotId);
-  int reminderVal = clampInt(item["reminder_value"] | 0, 0, 1000000);
+  int reminderVal = clampInt(item["reminder_value"] | 0, 0, 9999);
   prefs.putInt(key, reminderVal);
 
   // Store lastResetTime
@@ -981,7 +981,7 @@ bool processBleTransmit() {
 
 // ============== POWER MANAGEMENT ==============
 // CPU frequency scaling and BLE advertising interval adjustment for power savings
-#define IDLE_TIMEOUT_MS 30000
+#define IDLE_TIMEOUT_MS 300000  // 5 minutes
 #define BLE_ADV_INTERVAL_IDLE 0x320   // 500ms (in 0.625ms units)
 #define BLE_ADV_INTERVAL_ACTIVE 0x40  // 40ms (in 0.625ms units)
 
@@ -1356,13 +1356,13 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         int deviceItemId = item["id"] | index;
         if (!isValidDeviceItemId(deviceItemId)) deviceItemId = index;  // Clamp to valid range
 
-        String name = safeString(item["name"] | "", 32);  // Max 32 chars
-        String category = safeString(item["category"] | "", 32);  // Max 32 chars
+        String name = safeString(item["name"] | "", 30);  // Max 30 chars
+        String category = safeString(item["category"] | "", 30);  // Max 30 chars
 
-        int increment = clampInt(item["increment"] | 1, 1, 1000);  // 1-1000
+        int increment = clampInt(item["increment"] | 1, 1, 9999);  // 1-9999
         int reminder = item["reminder"] | REMINDER_NONE;
         if (!isValidReminder(reminder)) reminder = REMINDER_NONE;
-        int reminderValue = clampInt(item["reminder_value"] | 0, 0, 1000000);  // 0-1M
+        int reminderValue = clampInt(item["reminder_value"] | 0, 0, 9999);  // 0-9999
 
         // Find existing data for this deviceItemId (device is source of truth)
         int count = 0;

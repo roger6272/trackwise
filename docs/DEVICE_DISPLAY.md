@@ -208,7 +208,7 @@ When holding with the right hand:
 |-------|--------|
 | A press | Confirm — erase all data, return to [Welcome / Pairing Screen](#1-welcome--pairing-screen) |
 | B press | Cancel — return to [Main Item View](#2-main-item-view) |
-| 5 secs inactivity | Auto-cancel — return to [Main Item View](#2-main-item-view) |
+| 10 secs inactivity | Auto-cancel — return to [Main Item View](#2-main-item-view) |
 
 **Result (if confirmed):** All items, counts, and pairing information erased. Device returns to Welcome / Pairing Screen.
 

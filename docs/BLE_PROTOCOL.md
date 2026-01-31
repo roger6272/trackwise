@@ -355,13 +355,13 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | Field | Type | Required | Range | Description |
 |-------|------|----------|-------|-------------|
 | `id` | int | Yes | 0-99 | `deviceItemId` |
-| `name` | string | Yes | max 32 chars | Item display name |
-| `category` | string | Yes | max 32 chars | Category name |
+| `name` | string | Yes | max 30 chars | Item display name |
+| `category` | string | Yes | max 30 chars | Category name |
 | `count` | int | Yes | 0 to 2^31 | Total count |
 | `todaycount` | int | Yes | 0 to 2^31 | Count since daily reset |
-| `increment` | int | Yes | 1-1000 | Increment per button press |
+| `increment` | int | Yes | 1-9999 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
-| `reminder_value` | int | Yes | 0-1000000 | Target/interval value |
+| `reminder_value` | int | Yes | 0-9999 | Target/interval value |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
 | `reset_number` | int | Yes | 0+ | Reset counter |
 
@@ -370,11 +370,11 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | Field | Validation | Default |
 |-------|------------|---------|
 | `id` | Clamped to 0-99 | Array index |
-| `name` | Truncated to 32 chars | Empty string |
-| `category` | Truncated to 32 chars | Empty string |
-| `increment` | Clamped to 1-1000 | 1 |
+| `name` | Truncated to 30 chars | Empty string |
+| `category` | Truncated to 30 chars | Empty string |
+| `increment` | Clamped to 1-9999 | 1 |
 | `reminder` | Clamped to 0-2 | 0 |
-| `reminder_value` | Clamped to 0-1000000 | 0 |
+| `reminder_value` | Clamped to 0-9999 | 0 |
 
 **Critical Behavior - Count Preservation:**
 
@@ -664,13 +664,13 @@ Device: {"status": "seq_updated"}
 | Field | Type | Required | Range | Description |
 |-------|------|----------|-------|-------------|
 | `device_item_id` | int | Yes | 0-99 | ID that maps back to Firestore document |
-| `name` | string | Yes | max 32 chars | Item display name |
-| `category` | string | Yes | max 32 chars | Category name |
+| `name` | string | Yes | max 30 chars | Item display name |
+| `category` | string | Yes | max 30 chars | Category name |
 | `count` | int | Yes | 0 to 2^31 | Total count |
 | `todaycount` | int | Yes | 0 to 2^31 | Count since daily reset |
-| `increment` | int | Yes | 1-1000 | Increment per button press |
+| `increment` | int | Yes | 1-9999 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
-| `reminder_value` | int | Yes | 0-1000000 | Target/interval value |
+| `reminder_value` | int | Yes | 0-9999 | Target/interval value |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
 | `reset_number` | int | Yes | 0+ | Reset counter |
 
@@ -1196,7 +1196,7 @@ Formula: `100ms × 2^(attempt+2)` (capped at 3 attempts)
 | Constant | Value | Purpose |
 |----------|-------|---------|
 | `CHUNK_TIMEOUT_MS` | 5000ms | Clear incomplete JSON buffer |
-| `IDLE_TIMEOUT_MS` | 30000ms | Enter low power mode |
+| `IDLE_TIMEOUT_MS` | 300000ms (5 min) | Enter low power mode |
 | `WDT_TIMEOUT_SEC` | 30s | Watchdog reboot timeout |
 | Chunk transmission delay | 20ms | Between chunks during send |
 | Periodic NVS flush | 5 minutes | Ensure dirty data persists |
@@ -1562,13 +1562,13 @@ Index-based storage where `<i>` = 0 to 99:
 | Key | Type | Description |
 |-----|------|-------------|
 | `did_<i>` | uint8_t | `deviceItemId` (0-99) |
-| `n_<i>` | string | Item name (max 32 chars) |
-| `cat_<i>` | string | Category (max 32 chars) |
+| `n_<i>` | string | Item name (max 30 chars) |
+| `cat_<i>` | string | Category (max 30 chars) |
 | `c_<i>` | int | Total count |
 | `tc_<i>` | int | Today's count |
-| `i_<i>` | int | Increment value (1-1000) |
+| `i_<i>` | int | Increment value (1-9999) |
 | `r_<i>` | int | Reminder type (0-2) |
-| `rv_<i>` | int | Reminder value (0-1000000) |
+| `rv_<i>` | int | Reminder value (0-9999) |
 | `lr_<i>` | ulong | Last reset time (UTC timestamp) |
 | `rn_<i>` | int | Reset number |
 
@@ -1945,11 +1945,11 @@ for (final uuid in required) {
 | Limit | Value | Enforced By |
 |-------|-------|-------------|
 | Max items | 100 | `maxPrefsSlots` constant |
-| Max item name | 32 characters | Truncation |
-| Max category | 32 characters | Truncation |
-| Max increment | 1000 | Clamping |
+| Max item name | 30 characters | Truncation |
+| Max category | 30 characters | Truncation |
+| Max increment | 9999 | Clamping |
 | Min increment | 1 | Clamping |
-| Max reminder value | 1,000,000 | Clamping |
+| Max reminder value | 9999 | Clamping |
 | Max count value | 2,147,483,647 | int32 limit |
 | Max log entries | 1000 | Circular buffer |
 | Max set_items payload | 32KB | CHAR_SET_ITEMS buffer |

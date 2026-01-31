@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/utils/constants.dart';
 import '../../../../core/di/injection.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
@@ -203,7 +204,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
-                            maxLength: 30,
+                            maxLength: AppConstants.maxItemNameLength,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Name is required';

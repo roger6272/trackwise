@@ -544,13 +544,13 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
 <table>
     <tr><th>Field</th><th>Type</th><th>Required</th><th>Range</th><th>Description</th></tr>
     <tr><td><code>id</code></td><td>int</td><td>Yes</td><td>0-99</td><td><code>deviceItemId</code></td></tr>
-    <tr><td><code>name</code></td><td>string</td><td>Yes</td><td>max 32 chars</td><td>Item display name</td></tr>
-    <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 32 chars</td><td>Category name</td></tr>
+    <tr><td><code>name</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Item display name</td></tr>
+    <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Category name</td></tr>
     <tr><td><code>count</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Total count</td></tr>
     <tr><td><code>todaycount</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Count since daily reset</td></tr>
-    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
+    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-9999</td><td>Increment per button press</td></tr>
     <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
-    <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-1000000</td><td>Target/interval value</td></tr>
+    <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
     <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
     <tr><td><code>reset_number</code></td><td>int</td><td>Yes</td><td>0+</td><td>Reset counter</td></tr>
 </table>
@@ -561,9 +561,9 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
     <tr><td><code>id</code></td><td>Clamped to 0-99</td><td>Array index</td></tr>
     <tr><td><code>name</code></td><td>Truncated to 32 chars</td><td>Empty string</td></tr>
     <tr><td><code>category</code></td><td>Truncated to 32 chars</td><td>Empty string</td></tr>
-    <tr><td><code>increment</code></td><td>Clamped to 1-1000</td><td>1</td></tr>
+    <tr><td><code>increment</code></td><td>Clamped to 1-9999</td><td>1</td></tr>
     <tr><td><code>reminder</code></td><td>Clamped to 0-2</td><td>0</td></tr>
-    <tr><td><code>reminder_value</code></td><td>Clamped to 0-1000000</td><td>0</td></tr>
+    <tr><td><code>reminder_value</code></td><td>Clamped to 0-9999</td><td>0</td></tr>
 </table>
 
 <p><strong>Critical Behavior - Count Preservation:</strong></p>
@@ -724,13 +724,13 @@ Device: {"status": "seq_updated"}</code></pre>
 <table>
     <tr><th>Field</th><th>Type</th><th>Required</th><th>Range</th><th>Description</th></tr>
     <tr><td><code>device_item_id</code></td><td>int</td><td>Yes</td><td>0-99</td><td>ID that maps back to Firestore document</td></tr>
-    <tr><td><code>name</code></td><td>string</td><td>Yes</td><td>max 32 chars</td><td>Item display name</td></tr>
-    <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 32 chars</td><td>Category name</td></tr>
+    <tr><td><code>name</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Item display name</td></tr>
+    <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Category name</td></tr>
     <tr><td><code>count</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Total count</td></tr>
     <tr><td><code>todaycount</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Count since daily reset</td></tr>
-    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
+    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-9999</td><td>Increment per button press</td></tr>
     <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
-    <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-1000000</td><td>Target/interval value</td></tr>
+    <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
     <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
     <tr><td><code>reset_number</code></td><td>int</td><td>Yes</td><td>0+</td><td>Reset counter</td></tr>
 </table>
@@ -1174,7 +1174,7 @@ Device: {"status": "seq_updated"}</code></pre>
 <table>
     <tr><th>Constant</th><th>Value</th><th>Purpose</th></tr>
     <tr><td><code>CHUNK_TIMEOUT_MS</code></td><td>5000ms</td><td>Clear incomplete JSON buffer</td></tr>
-    <tr><td><code>IDLE_TIMEOUT_MS</code></td><td>30000ms</td><td>Enter low power mode</td></tr>
+    <tr><td><code>IDLE_TIMEOUT_MS</code></td><td>300000ms (5 min)</td><td>Enter low power mode</td></tr>
     <tr><td><code>WDT_TIMEOUT_SEC</code></td><td>30s</td><td>Watchdog reboot timeout</td></tr>
     <tr><td>Chunk transmission delay</td><td>20ms</td><td>Between chunks during send</td></tr>
     <tr><td>Periodic NVS flush</td><td>5 minutes</td><td>Ensure dirty data persists</td></tr>
@@ -1422,13 +1422,13 @@ Device: {"status": "seq_updated"}</code></pre>
 <table>
     <tr><th>Key</th><th>Type</th><th>Description</th></tr>
     <tr><td><code>did_&lt;i&gt;</code></td><td>uint8_t</td><td><code>deviceItemId</code> (0-99)</td></tr>
-    <tr><td><code>n_&lt;i&gt;</code></td><td>string</td><td>Item name (max 32 chars)</td></tr>
-    <tr><td><code>cat_&lt;i&gt;</code></td><td>string</td><td>Category (max 32 chars)</td></tr>
+    <tr><td><code>n_&lt;i&gt;</code></td><td>string</td><td>Item name (max 30 chars)</td></tr>
+    <tr><td><code>cat_&lt;i&gt;</code></td><td>string</td><td>Category (max 30 chars)</td></tr>
     <tr><td><code>c_&lt;i&gt;</code></td><td>int</td><td>Total count</td></tr>
     <tr><td><code>tc_&lt;i&gt;</code></td><td>int</td><td>Today's count</td></tr>
-    <tr><td><code>i_&lt;i&gt;</code></td><td>int</td><td>Increment value (1-1000)</td></tr>
+    <tr><td><code>i_&lt;i&gt;</code></td><td>int</td><td>Increment value (1-9999)</td></tr>
     <tr><td><code>r_&lt;i&gt;</code></td><td>int</td><td>Reminder type (0-2)</td></tr>
-    <tr><td><code>rv_&lt;i&gt;</code></td><td>int</td><td>Reminder value (0-1000000)</td></tr>
+    <tr><td><code>rv_&lt;i&gt;</code></td><td>int</td><td>Reminder value (0-9999)</td></tr>
     <tr><td><code>lr_&lt;i&gt;</code></td><td>ulong</td><td>Last reset time (UTC timestamp)</td></tr>
     <tr><td><code>rn_&lt;i&gt;</code></td><td>int</td><td>Reset number</td></tr>
 </table>
@@ -1691,11 +1691,11 @@ debugPrint('BLE MSG: ${message.type} - ${message.data}');</code></pre>
 <table>
     <tr><th>Limit</th><th>Value</th><th>Enforced By</th></tr>
     <tr><td>Max items</td><td>100</td><td><code>maxPrefsSlots</code> constant</td></tr>
-    <tr><td>Max item name</td><td>32 characters</td><td>Truncation</td></tr>
-    <tr><td>Max category</td><td>32 characters</td><td>Truncation</td></tr>
-    <tr><td>Max increment</td><td>1000</td><td>Clamping</td></tr>
+    <tr><td>Max item name</td><td>30 characters</td><td>Truncation</td></tr>
+    <tr><td>Max category</td><td>30 characters</td><td>Truncation</td></tr>
+    <tr><td>Max increment</td><td>9999</td><td>Clamping</td></tr>
     <tr><td>Min increment</td><td>1</td><td>Clamping</td></tr>
-    <tr><td>Max reminder value</td><td>1,000,000</td><td>Clamping</td></tr>
+    <tr><td>Max reminder value</td><td>9,999</td><td>Clamping</td></tr>
     <tr><td>Max count value</td><td>2,147,483,647</td><td>int32 limit</td></tr>
     <tr><td>Max log entries</td><td>1000</td><td>Circular buffer</td></tr>
     <tr><td>Max set_items payload</td><td>32KB</td><td>CHAR_SET_ITEMS buffer</td></tr>
