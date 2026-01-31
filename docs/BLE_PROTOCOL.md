@@ -359,7 +359,7 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | `category` | string | Yes | max 30 chars | Category name |
 | `count` | int | Yes | 0 to 2^31 | Total count |
 | `todaycount` | int | Yes | 0 to 2^31 | Count since daily reset |
-| `increment` | int | Yes | 1-9999 | Increment per button press |
+| `increment` | int | Yes | 1-1000 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
 | `reminder_value` | int | Yes | 0-9999 | Target/interval value |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
@@ -372,7 +372,7 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | `id` | Clamped to 0-99 | Array index |
 | `name` | Truncated to 30 chars | Empty string |
 | `category` | Truncated to 30 chars | Empty string |
-| `increment` | Clamped to 1-9999 | 1 |
+| `increment` | Clamped to 1-1000 | 1 |
 | `reminder` | Clamped to 0-2 | 0 |
 | `reminder_value` | Clamped to 0-9999 | 0 |
 
@@ -668,7 +668,7 @@ Device: {"status": "seq_updated"}
 | `category` | string | Yes | max 30 chars | Category name |
 | `count` | int | Yes | 0 to 2^31 | Total count |
 | `todaycount` | int | Yes | 0 to 2^31 | Count since daily reset |
-| `increment` | int | Yes | 1-9999 | Increment per button press |
+| `increment` | int | Yes | 1-1000 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
 | `reminder_value` | int | Yes | 0-9999 | Target/interval value |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
@@ -1566,7 +1566,7 @@ Index-based storage where `<i>` = 0 to 99:
 | `cat_<i>` | string | Category (max 30 chars) |
 | `c_<i>` | int | Total count |
 | `tc_<i>` | int | Today's count |
-| `i_<i>` | int | Increment value (1-9999) |
+| `i_<i>` | int | Increment value (1-1000) |
 | `r_<i>` | int | Reminder type (0-2) |
 | `rv_<i>` | int | Reminder value (0-9999) |
 | `lr_<i>` | ulong | Last reset time (UTC timestamp) |
@@ -1947,7 +1947,7 @@ for (final uuid in required) {
 | Max items | 100 | `maxPrefsSlots` constant |
 | Max item name | 30 characters | Truncation |
 | Max category | 30 characters | Truncation |
-| Max increment | 9999 | Clamping |
+| Max increment | 1000 | Clamping |
 | Min increment | 1 | Clamping |
 | Max reminder value | 9999 | Clamping |
 | Max count value | 2,147,483,647 | int32 limit |

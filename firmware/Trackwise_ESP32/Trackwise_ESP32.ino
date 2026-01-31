@@ -118,7 +118,7 @@ struct CountLog {
   int32_t count;            // 4 bytes
   uint8_t deviceItemId;     // 1 byte (0-99)
   uint8_t eventType;        // 1 byte (EVENT_INCREMENT, EVENT_RESET, EVENT_SWITCH)
-  int16_t increment;        // 2 bytes (max 9999)
+  int16_t increment;        // 2 bytes (max 1000)
   uint16_t resetNumber;     // 2 bytes
 };  // Total: 14 bytes (app looks up itemName from deviceItemId)
 
@@ -548,9 +548,9 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   snprintf(key, sizeof(key), "tc_%d", slotId);
   prefs.putInt(key, item["todaycount"] | 0);
 
-  // Store increment (1-9999)
+  // Store increment (1-1000)
   snprintf(key, sizeof(key), "i_%d", slotId);
-  int increment = clampInt(item["increment"] | 1, 1, 9999);
+  int increment = clampInt(item["increment"] | 1, 1, 1000);
   prefs.putInt(key, increment);
 
   // Store reminder type
@@ -1359,7 +1359,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         String name = safeString(item["name"] | "", 30);  // Max 30 chars
         String category = safeString(item["category"] | "", 30);  // Max 30 chars
 
-        int increment = clampInt(item["increment"] | 1, 1, 9999);  // 1-9999
+        int increment = clampInt(item["increment"] | 1, 1, 1000);  // 1-1000
         int reminder = item["reminder"] | REMINDER_NONE;
         if (!isValidReminder(reminder)) reminder = REMINDER_NONE;
         int reminderValue = clampInt(item["reminder_value"] | 0, 0, 9999);  // 0-9999

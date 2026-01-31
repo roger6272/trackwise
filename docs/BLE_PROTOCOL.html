@@ -548,7 +548,7 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
     <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Category name</td></tr>
     <tr><td><code>count</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Total count</td></tr>
     <tr><td><code>todaycount</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Count since daily reset</td></tr>
-    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-9999</td><td>Increment per button press</td></tr>
+    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
     <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
     <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
     <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
@@ -561,7 +561,7 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
     <tr><td><code>id</code></td><td>Clamped to 0-99</td><td>Array index</td></tr>
     <tr><td><code>name</code></td><td>Truncated to 32 chars</td><td>Empty string</td></tr>
     <tr><td><code>category</code></td><td>Truncated to 32 chars</td><td>Empty string</td></tr>
-    <tr><td><code>increment</code></td><td>Clamped to 1-9999</td><td>1</td></tr>
+    <tr><td><code>increment</code></td><td>Clamped to 1-1000</td><td>1</td></tr>
     <tr><td><code>reminder</code></td><td>Clamped to 0-2</td><td>0</td></tr>
     <tr><td><code>reminder_value</code></td><td>Clamped to 0-9999</td><td>0</td></tr>
 </table>
@@ -728,7 +728,7 @@ Device: {"status": "seq_updated"}</code></pre>
     <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Category name</td></tr>
     <tr><td><code>count</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Total count</td></tr>
     <tr><td><code>todaycount</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Count since daily reset</td></tr>
-    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-9999</td><td>Increment per button press</td></tr>
+    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
     <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
     <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
     <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
@@ -1426,7 +1426,7 @@ Device: {"status": "seq_updated"}</code></pre>
     <tr><td><code>cat_&lt;i&gt;</code></td><td>string</td><td>Category (max 30 chars)</td></tr>
     <tr><td><code>c_&lt;i&gt;</code></td><td>int</td><td>Total count</td></tr>
     <tr><td><code>tc_&lt;i&gt;</code></td><td>int</td><td>Today's count</td></tr>
-    <tr><td><code>i_&lt;i&gt;</code></td><td>int</td><td>Increment value (1-9999)</td></tr>
+    <tr><td><code>i_&lt;i&gt;</code></td><td>int</td><td>Increment value (1-1000)</td></tr>
     <tr><td><code>r_&lt;i&gt;</code></td><td>int</td><td>Reminder type (0-2)</td></tr>
     <tr><td><code>rv_&lt;i&gt;</code></td><td>int</td><td>Reminder value (0-9999)</td></tr>
     <tr><td><code>lr_&lt;i&gt;</code></td><td>ulong</td><td>Last reset time (UTC timestamp)</td></tr>
@@ -1693,7 +1693,7 @@ debugPrint('BLE MSG: ${message.type} - ${message.data}');</code></pre>
     <tr><td>Max items</td><td>100</td><td><code>maxPrefsSlots</code> constant</td></tr>
     <tr><td>Max item name</td><td>30 characters</td><td>Truncation</td></tr>
     <tr><td>Max category</td><td>30 characters</td><td>Truncation</td></tr>
-    <tr><td>Max increment</td><td>9999</td><td>Clamping</td></tr>
+    <tr><td>Max increment</td><td>1000</td><td>Clamping</td></tr>
     <tr><td>Min increment</td><td>1</td><td>Clamping</td></tr>
     <tr><td>Max reminder value</td><td>9,999</td><td>Clamping</td></tr>
     <tr><td>Max count value</td><td>2,147,483,647</td><td>int32 limit</td></tr>

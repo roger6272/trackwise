@@ -290,7 +290,7 @@ Override messages are chunked to fit within BLE MTU limits.
 | `category` | string | Category name (max 30 chars) |
 | `count` | int | Total count |
 | `todaycount` | int | Today's count |
-| `increment` | int | Count per press (1-9999) |
+| `increment` | int | Count per press (1-1000) |
 | `reminder` | int | Reminder type |
 | `reminder_value` | int | Reminder threshold |
 | `lastResetTime` | long | Last reset timestamp (UTC) |
