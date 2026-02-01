@@ -720,6 +720,28 @@ When items aren't syncing correctly, check in this order:
 8. **Was `_lastSyncedSignature` updated without syncing?** (debounce bug pattern)
 9. **Was tracking updated after an explicit sync?** (explicit sync + stream sync = duplicate; update `_lastSyncedSignature`/`_lastSyncedCategoryId`/`_lastSyncTime` after every explicit `_syncDeviceWithSelectedCategory` call)
 
+### 9.12 "Stream errors crash categories watcher"
+
+**Symptoms:** Categories stop updating after a transient Firestore error. App may show stale category list or empty state.
+
+**Root Cause:** `watchCategories()` in `category_repository_impl.dart` used `.handleError()` + `throw error`, which terminates the stream. Unlike `watchItems()` which used `.onErrorResume()` to wrap errors in `Left(ServerFailure(...))` and keep the stream alive.
+
+**Fix Applied:** Changed `watchCategories()` to use `.onErrorResume()` matching the items pattern, so errors are emitted as `Left` values instead of killing the stream.
+
+**Key Lesson:** Repository stream methods should always use `onErrorResume` (not `handleError` + rethrow) to convert exceptions into `Left` values. Rethrowing terminates the stream permanently.
+
+---
+
+### 9.13 "Email empty on Edit Profile after Google sign-in"
+
+**Symptoms:** Edit Profile page shows empty email field even though user signed in with Google.
+
+**Root Cause:** `getProfile()` in `profile_remote_datasource_impl.dart` merges Firebase Auth data into the Firestore profile using `copyWith()`, but only merged `displayName` and `photoUrl` — not `email`. If Firestore had a blank email field, the Firebase Auth email was ignored.
+
+**Fix Applied:** Added `email: user.email ?? firestoreProfile.email` to the `copyWith()` call.
+
+**Key Lesson:** When merging data from two sources (Firebase Auth + Firestore), ensure all fields are included in the merge. Missing a field silently returns the empty/default value.
+
 ---
 
 ## Quick Reference: Error → Solution
@@ -748,3 +770,5 @@ When items aren't syncing correctly, check in this order:
 | Duplicate device sync | Explicit sync missing tracking update — `buildWhen` re-syncs on stream |
 | Sync silently lost | Check debounce signature update logic |
 | S button crosses categories | Check if sync path filters by selected category |
+| Categories stop updating | Stream killed by rethrow — use `onErrorResume` not `handleError` |
+| Email empty after Google sign-in | `getProfile()` missing email in `copyWith()` merge |
