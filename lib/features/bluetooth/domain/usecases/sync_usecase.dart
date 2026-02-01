@@ -194,7 +194,7 @@ class PerformSyncUseCase {
       await _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: deviceInstanceId,
-          deviceName: 'Traxelos Device',
+          deviceName: 'Traxelos One',
           pairedAt: DateTime.now(),
         ),
       );
@@ -575,7 +575,7 @@ class PerformOverrideUseCase {
       await _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: params.deviceInstanceId!,
-          deviceName: params.deviceName ?? 'Traxelos Device',
+          deviceName: params.deviceName ?? 'Traxelos One',
           pairedAt: DateTime.now(),
         ),
       );

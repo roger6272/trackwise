@@ -20,7 +20,7 @@ class PairedDevice extends Equatable {
 
   /// User-friendly name for this device.
   ///
-  /// Defaults to "Traxelos Device" on first pairing.
+  /// Defaults to "Traxelos One" on first pairing.
   /// Can be customized by user in settings.
   final String deviceName;
 
@@ -50,7 +50,7 @@ class PairedDevice extends Equatable {
   factory PairedDevice.fromFirestore(Map<String, dynamic> data) {
     return PairedDevice(
       deviceInstanceId: data['device_instance_id'] as String? ?? '',
-      deviceName: data['device_name'] as String? ?? 'Traxelos Device',
+      deviceName: data['device_name'] as String? ?? 'Traxelos One',
       pairedAt: _parseTimestamp(data['paired_at']),
     );
   }

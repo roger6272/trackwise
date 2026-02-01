@@ -25,13 +25,13 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   List<BleDeviceModel> mockDevices = [
     const BleDeviceModel(
       id: 'MOCK-ESP32-001',
-      name: 'Traxelos_device',
+      name: 'Traxelos_One',
       rssi: -65,
       isConnectable: true,
     ),
     const BleDeviceModel(
       id: 'MOCK-ESP32-002',
-      name: 'Traxelos_device 2',
+      name: 'Traxelos_One 2',
       rssi: -78,
       isConnectable: true,
     ),
