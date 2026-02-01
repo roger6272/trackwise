@@ -251,6 +251,10 @@ void main() {
         'Test Item',
       );
 
+      // Scroll down to make increment field and Create button visible
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
       // TextFormField order (DropdownButtonFormField is separate):
       // 0=name, 1=initialValue, 2=goal, 3=incrementBy
       final incrementField = find.byType(TextFormField).at(3);

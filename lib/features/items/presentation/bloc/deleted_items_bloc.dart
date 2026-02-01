@@ -23,18 +23,18 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
     LoadDeletedItems event,
     Emitter<DeletedItemsState> emit,
   ) async {
-    AppLogger.debug(' DeletedItemsBloc: Loading deleted items for user ${event.userId}');
+    AppLogger.debug('DeletedItemsBloc: Loading deleted items for user ${event.userId}');
     emit(const DeletedItemsLoading());
 
     final result = await _repository.getDeletedItems(event.userId);
 
     result.fold(
       (failure) {
-        AppLogger.debug(' DeletedItemsBloc: Error - ${failure.message}');
+        AppLogger.debug('DeletedItemsBloc: Error - ${failure.message}');
         emit(DeletedItemsError(message: failure.message));
       },
       (items) {
-        AppLogger.debug(' DeletedItemsBloc: Loaded ${items.length} deleted items');
+        AppLogger.debug('DeletedItemsBloc: Loaded ${items.length} deleted items');
         // Sort by deletedAt descending (most recently deleted first)
         items.sort((a, b) {
           final aDeleted = a.deletedAt ?? DateTime(1970);
@@ -51,7 +51,7 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
     RestoreDeletedItem event,
     Emitter<DeletedItemsState> emit,
   ) async {
-    AppLogger.debug(' DeletedItemsBloc: Restoring item ${event.itemId}');
+    AppLogger.debug('DeletedItemsBloc: Restoring item ${event.itemId}');
     emit(ItemRestoring(itemId: event.itemId, items: _currentItems));
 
     try {
@@ -59,13 +59,13 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
 
       result.fold(
         (failure) {
-          AppLogger.debug(' DeletedItemsBloc: Restore failed - ${failure.message}');
+          AppLogger.debug('DeletedItemsBloc: Restore failed - ${failure.message}');
           emit(DeletedItemsError(message: failure.message));
           // Re-emit loaded state so UI doesn't stay in error state
           emit(DeletedItemsLoaded(items: _currentItems));
         },
         (_) {
-          AppLogger.debug(' DeletedItemsBloc: Item restored successfully');
+          AppLogger.debug('DeletedItemsBloc: Item restored successfully');
           // Remove the restored item from the list
           _currentItems = _currentItems
               .where((item) => item.id != event.itemId)
@@ -76,8 +76,8 @@ class DeletedItemsBloc extends Bloc<DeletedItemsEvent, DeletedItemsState> {
         },
       );
     } catch (e, stackTrace) {
-      AppLogger.debug(' DeletedItemsBloc: Unexpected error - $e');
-      AppLogger.debug(' StackTrace: $stackTrace');
+      AppLogger.debug('DeletedItemsBloc: Unexpected error - $e');
+      AppLogger.debug('StackTrace: $stackTrace');
       emit(DeletedItemsError(message: 'Failed to restore item: $e'));
       // Re-emit loaded state so UI doesn't stay in error/loading state
       emit(DeletedItemsLoaded(items: _currentItems));

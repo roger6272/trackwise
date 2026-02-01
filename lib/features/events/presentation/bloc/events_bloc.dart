@@ -53,23 +53,23 @@ class EventsBloc extends Bloc<EventsEvent, EventsState> {
     LoadEvents event,
     Emitter<EventsState> emit,
   ) async {
-    AppLogger.debug(' EventsBloc: LoadEvents called with itemId=${event.itemId}');
+    AppLogger.debug('EventsBloc: LoadEvents called with itemId=${event.itemId}');
     emit(const EventsLoading());
 
     // If filtering by item, use item-specific query
     if (event.itemId != null) {
-      AppLogger.debug(' EventsBloc: Fetching events for item ${event.itemId}');
+      AppLogger.debug('EventsBloc: Fetching events for item ${event.itemId}');
       final result = await getEventsByItemUseCase(
         GetEventsByItemParams(event.itemId!),
       );
 
       result.fold(
         (failure) {
-          AppLogger.debug(' EventsBloc: Failed to load events: ${failure.message}');
+          AppLogger.debug('EventsBloc: Failed to load events: ${failure.message}');
           emit(EventsError(failure.message));
         },
         (events) {
-          AppLogger.debug(' EventsBloc: Loaded ${events.length} events for item ${event.itemId}');
+          AppLogger.debug('EventsBloc: Loaded ${events.length} events for item ${event.itemId}');
           emit(EventsLoaded(
             events: events,
             itemId: event.itemId,

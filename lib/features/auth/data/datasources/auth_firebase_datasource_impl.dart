@@ -36,12 +36,12 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
   /// New documents always have onboarding_completed=false.
   /// Existing documents without onboarding_completed field also get it set to false.
   Future<Map<String, dynamic>?> _ensureUserDocument(firebase.User user) async {
-    AppLogger.debug(' _ensureUserDocument: checking for ${user.uid}');
+    AppLogger.debug('_ensureUserDocument: checking for ${user.uid}');
     final userDoc = _firestore.collection('users').doc(user.uid);
     final docSnapshot = await userDoc.get();
 
     if (!docSnapshot.exists) {
-      AppLogger.debug(' _ensureUserDocument: document MISSING, creating...');
+      AppLogger.debug('_ensureUserDocument: document MISSING, creating...');
       // Create new user document - always require onboarding for new documents
       final newDocData = {
         'uid': user.uid,
@@ -52,17 +52,17 @@ class AuthFirebaseDataSourceImpl implements AuthFirebaseDataSource {
         'onboarding_completed': false,
       };
       await userDoc.set(newDocData);
-      AppLogger.debug(' Created user document for ${user.uid} with onboarding_completed=false');
+      AppLogger.debug('Created user document for ${user.uid} with onboarding_completed=false');
       return newDocData;
     } else {
-      AppLogger.debug(' _ensureUserDocument: document EXISTS');
+      AppLogger.debug('_ensureUserDocument: document EXISTS');
       final data = docSnapshot.data() as Map<String, dynamic>?;
 
       // If document exists but doesn't have onboarding_completed, set it to true
       // These are existing users who signed up before onboarding was implemented
       // They don't need to go through onboarding again
       if (data != null && !data.containsKey('onboarding_completed')) {
-        AppLogger.debug(' _ensureUserDocument: legacy user, setting onboarding_completed=true');
+        AppLogger.debug('_ensureUserDocument: legacy user, setting onboarding_completed=true');
         await userDoc.update({'onboarding_completed': true});
         return {...data, 'onboarding_completed': true};
       }

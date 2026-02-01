@@ -142,15 +142,15 @@ class CreateItemUseCase extends UseCase<Item, CreateItemParams> {
           userId: params.userId,
         );
 
-        AppLogger.debug(' CreateItemUseCase: Inserting created event for ${createdItem.id}');
+        AppLogger.debug('CreateItemUseCase: Inserting created event for ${createdItem.id}');
         AppLogger.debug('Event ID: ${createdEvent.id}');
         AppLogger.debug('Event time: ${createdEvent.createdTime}');
 
         // Insert the created event
         final insertResult = await eventLogRepository.insertEvents([createdEvent]);
         insertResult.fold(
-          (failure) => AppLogger.debug(' Failed to insert created event: ${failure.message}'),
-          (_) => AppLogger.debug(' Created event inserted successfully'),
+          (failure) => AppLogger.debug('Failed to insert created event: ${failure.message}'),
+          (_) => AppLogger.debug('Created event inserted successfully'),
         );
 
         return Right(createdItem);

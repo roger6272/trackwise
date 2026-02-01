@@ -631,10 +631,10 @@ class _ItemFormPageState extends State<ItemFormPage> {
   /// Returns true if duplicate exists, false otherwise.
   Future<bool> _checkDuplicateName(String name) async {
     final userId = _getUserId();
-    AppLogger.debug(' _checkDuplicateName: userId=$userId, name=$name');
+    AppLogger.debug('_checkDuplicateName: userId=$userId, name=$name');
 
     if (userId.isEmpty) {
-      AppLogger.debug(' _checkDuplicateName: userId is empty, skipping check');
+      AppLogger.debug('_checkDuplicateName: userId is empty, skipping check');
       return false;
     }
 
@@ -642,36 +642,36 @@ class _ItemFormPageState extends State<ItemFormPage> {
     final normalizedName = name.toLowerCase();
 
     // Fetch active items
-    AppLogger.debug(' _checkDuplicateName: fetching active items...');
+    AppLogger.debug('_checkDuplicateName: fetching active items...');
     final activeResult = await itemRepository.getItems(userId);
     final activeItems = activeResult.fold(
       (failure) {
-        AppLogger.debug(' _checkDuplicateName: failed to fetch active items: ${failure.message}');
+        AppLogger.debug('_checkDuplicateName: failed to fetch active items: ${failure.message}');
         return <Item>[];
       },
       (items) {
-        AppLogger.debug(' _checkDuplicateName: got ${items.length} active items');
+        AppLogger.debug('_checkDuplicateName: got ${items.length} active items');
         return items;
       },
     );
 
     // Fetch deleted items
-    AppLogger.debug(' _checkDuplicateName: fetching deleted items...');
+    AppLogger.debug('_checkDuplicateName: fetching deleted items...');
     final deletedResult = await itemRepository.getDeletedItems(userId);
     final deletedItems = deletedResult.fold(
       (failure) {
-        AppLogger.debug(' _checkDuplicateName: failed to fetch deleted items: ${failure.message}');
+        AppLogger.debug('_checkDuplicateName: failed to fetch deleted items: ${failure.message}');
         return <Item>[];
       },
       (items) {
-        AppLogger.debug(' _checkDuplicateName: got ${items.length} deleted items');
+        AppLogger.debug('_checkDuplicateName: got ${items.length} deleted items');
         return items;
       },
     );
 
     // Combine all items
     final allItems = [...activeItems, ...deletedItems];
-    AppLogger.debug(' _checkDuplicateName: checking ${allItems.length} total items');
+    AppLogger.debug('_checkDuplicateName: checking ${allItems.length} total items');
 
     // Check for duplicate (excluding current item if editing)
     for (final item in allItems) {
@@ -679,7 +679,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
       if (isEditMode && item.id == widget.item!.id) continue;
 
       if (item.name.toLowerCase() == normalizedName) {
-        AppLogger.debug(' _checkDuplicateName: DUPLICATE FOUND - ${item.name}');
+        AppLogger.debug('_checkDuplicateName: DUPLICATE FOUND - ${item.name}');
         return true; // Duplicate found
       }
     }
@@ -688,29 +688,29 @@ class _ItemFormPageState extends State<ItemFormPage> {
   }
 
   Future<void> _handleSave(BuildContext blocContext) async {
-    AppLogger.debug(' _handleSave called');
+    AppLogger.debug('_handleSave called');
 
     // Prevent double-tap by checking and setting loading state immediately
     if (_isLoading) {
-      AppLogger.debug(' Already saving, ignoring duplicate tap');
+      AppLogger.debug('Already saving, ignoring duplicate tap');
       return;
     }
 
     if (!formKey.currentState!.validate()) {
-      AppLogger.debug(' Form validation failed');
+      AppLogger.debug('Form validation failed');
       return;
     }
-    AppLogger.debug(' Form validation passed');
+    AppLogger.debug('Form validation passed');
 
     // Set loading state to prevent further taps
     setState(() => _isLoading = true);
 
     final name = nameController.text.trim();
-    AppLogger.debug(' Checking for duplicate name: $name');
+    AppLogger.debug('Checking for duplicate name: $name');
 
     // Check for duplicate item name
     final duplicateExists = await _checkDuplicateName(name);
-    AppLogger.debug(' Duplicate check result: $duplicateExists');
+    AppLogger.debug('Duplicate check result: $duplicateExists');
     if (duplicateExists) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -742,17 +742,17 @@ class _ItemFormPageState extends State<ItemFormPage> {
         categoryId: selectedCategoryId, // '' for uncategorized
       );
 
-      AppLogger.debug(' Updating item: id=${updatedItem.id}, name=$name');
-      AppLogger.debug(' Original: incrementBy=${widget.item!.incrementBy}, reminder=${widget.item!.reminder}');
-      AppLogger.debug(' Form values: incrementBy=$incrementBy, reminder=$reminder');
-      AppLogger.debug(' Updated item: incrementBy=${updatedItem.incrementBy}, reminder=${updatedItem.reminder}');
+      AppLogger.debug('Updating item: id=${updatedItem.id}, name=$name');
+      AppLogger.debug('Original: incrementBy=${widget.item!.incrementBy}, reminder=${widget.item!.reminder}');
+      AppLogger.debug('Form values: incrementBy=$incrementBy, reminder=$reminder');
+      AppLogger.debug('Updated item: incrementBy=${updatedItem.incrementBy}, reminder=${updatedItem.reminder}');
 
       final itemRepository = sl<ItemRepository>();
       final result = await itemRepository.updateItem(updatedItem);
 
       result.fold(
         (failure) {
-          AppLogger.debug(' Failed to update item: ${failure.message}');
+          AppLogger.debug('Failed to update item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -761,7 +761,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           }
         },
         (item) async {
-          AppLogger.debug(' Item updated: ${item.id}');
+          AppLogger.debug('Item updated: ${item.id}');
           // Note: Device sync for updates is handled by items_list_page.dart's
           // BlocBuilder buildWhen callback to avoid duplicate syncs
           if (mounted) context.pop();
@@ -770,11 +770,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
     } else {
       // Create new item directly via repository to ensure we wait for completion
       final userId = _getUserId();
-      AppLogger.debug(' Creating item: name=$name, initialValue=$initialValue, userId=$userId');
+      AppLogger.debug('Creating item: name=$name, initialValue=$initialValue, userId=$userId');
 
       // Guard against empty userId
       if (userId.isEmpty) {
-        AppLogger.debug(' Cannot create item: userId is empty (not authenticated)');
+        AppLogger.debug('Cannot create item: userId is empty (not authenticated)');
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -809,7 +809,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
       result.fold(
         (failure) {
-          AppLogger.debug(' Failed to create item: ${failure.message}');
+          AppLogger.debug('Failed to create item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -818,7 +818,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           }
         },
         (createdItem) async {
-          AppLogger.debug(' Item created with ID: ${createdItem.id}, deviceItemId: ${createdItem.deviceItemId}');
+          AppLogger.debug('Item created with ID: ${createdItem.id}, deviceItemId: ${createdItem.deviceItemId}');
 
           // Don't auto-select the item - let user learn to activate it via swipe
           // The items_list_page will show an activation hint for the first item

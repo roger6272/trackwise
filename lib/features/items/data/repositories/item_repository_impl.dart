@@ -118,11 +118,11 @@ class ItemRepositoryImpl implements ItemRepository {
         userId: item.userId,
       );
 
-      AppLogger.debug(' ItemRepository: Inserting created event for ${created.id}');
+      AppLogger.debug('ItemRepository: Inserting created event for ${created.id}');
       final insertResult = await eventLogRepository.insertEvents([createdEvent]);
       insertResult.fold(
-        (failure) => AppLogger.debug(' Failed to insert created event: ${failure.message}'),
-        (_) => AppLogger.debug(' Created event inserted successfully'),
+        (failure) => AppLogger.debug('Failed to insert created event: ${failure.message}'),
+        (_) => AppLogger.debug('Created event inserted successfully'),
       );
 
       return Right(created);

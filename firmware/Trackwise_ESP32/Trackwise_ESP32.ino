@@ -15,9 +15,7 @@
 
 // Debug logging macro - compiles out when DEBUG is not defined
 // To enable: add -DDEBUG to build flags (Arduino IDE: Tools > Compiler Warnings)
-#ifndef DEBUG
-  #define DEBUG  // Remove this line for production builds
-#endif
+// #define DEBUG  // Uncomment for serial debug logging
 
 #ifdef DEBUG
   #define DEBUG_LOG(...) Serial.printf(__VA_ARGS__)
@@ -1012,18 +1010,18 @@ bool processBleTransmit() {
     if (bleTransmit.queueCount > 0 && isConnected) {
       char* queued = bleTransmit.queue[bleTransmit.queueTail];
       int len = strlen(queued);
-      if (len >= BLE_TX_BUF_SIZE) {
-        DEBUG_PRINTLN("⚠️ Queued message too large!");
-        free(queued);
-      } else {
-        memcpy(bleTransmit.buffer, queued, len);
-        bleTransmit.buffer[len] = '\0';
-        bleTransmit.bufferLen = len;
-        free(queued);
-      }
       bleTransmit.queue[bleTransmit.queueTail] = NULL;
       bleTransmit.queueTail = (bleTransmit.queueTail + 1) % BLE_TX_QUEUE_SIZE;
       bleTransmit.queueCount--;
+      if (len >= BLE_TX_BUF_SIZE) {
+        DEBUG_PRINTLN("⚠️ Queued message too large, dropping");
+        free(queued);
+        return false;  // Skip this message, try next on next call
+      }
+      memcpy(bleTransmit.buffer, queued, len);
+      bleTransmit.buffer[len] = '\0';
+      bleTransmit.bufferLen = len;
+      free(queued);
       bleTransmit.offset = 0;
       bleTransmit.lastChunkTime = 0;
       bleTransmit.inProgress = true;

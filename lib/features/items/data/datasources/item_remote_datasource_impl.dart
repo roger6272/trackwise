@@ -35,12 +35,12 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   /// This handles the case where a user was authenticated via cached session
   /// and the user document was never created.
   Future<void> _ensureUserDocument(String userId) async {
-    AppLogger.debug(' _ensureUserDocument: checking for $userId');
+    AppLogger.debug('_ensureUserDocument: checking for $userId');
     final userDoc = firestore.collection('users').doc(userId);
     final docSnapshot = await userDoc.get();
 
     if (!docSnapshot.exists) {
-      AppLogger.debug(' _ensureUserDocument: document MISSING, creating...');
+      AppLogger.debug('_ensureUserDocument: document MISSING, creating...');
       // Try to get current user from Firebase Auth to populate the document
       // Wrapped in try-catch for test environments where Firebase may not be initialized
       User? currentUser;
@@ -59,17 +59,17 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           'photo_url': currentUser.photoURL,
           'created_time': FieldValue.serverTimestamp(),
         });
-        AppLogger.debug(' Created user document for $userId from items datasource');
+        AppLogger.debug('Created user document for $userId from items datasource');
       } else {
         // Fallback: create minimal document
         await userDoc.set({
           'uid': userId,
           'created_time': FieldValue.serverTimestamp(),
         });
-        AppLogger.debug(' Created minimal user document for $userId');
+        AppLogger.debug('Created minimal user document for $userId');
       }
     } else {
-      AppLogger.debug(' _ensureUserDocument: document EXISTS');
+      AppLogger.debug('_ensureUserDocument: document EXISTS');
     }
   }
 
@@ -184,7 +184,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Future<ItemModel> createItem(ItemModel item) async {
     try {
-      AppLogger.debug(' createItem: userId=${item.userId}, name=${item.name}');
+      AppLogger.debug('createItem: userId=${item.userId}, name=${item.name}');
 
       // Ensure user document exists before creating item
       await _ensureUserDocument(item.userId);
@@ -198,14 +198,14 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
       // Generate deviceItemId for BLE communication (0-99)
       final deviceItemId = await _getNextDeviceItemId(userRef);
-      AppLogger.debug(' createItem: id=$id, deviceItemId=$deviceItemId, userRef=${userRef.path}');
+      AppLogger.debug('createItem: id=$id, deviceItemId=$deviceItemId, userRef=${userRef.path}');
 
       // Get existing items to shift their order
       final existingItems = await firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
-      AppLogger.debug(' createItem: ${existingItems.docs.length} existing items');
+      AppLogger.debug('createItem: ${existingItems.docs.length} existing items');
 
       // Use batch to atomically create new item and shift existing items
       final batch = firestore.batch();
@@ -245,14 +245,14 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
       batch.set(firestore.collection('Item').doc(id), data);
       await batch.commit();
-      AppLogger.debug(' createItem: SUCCESS - item $id created');
+      AppLogger.debug('createItem: SUCCESS - item $id created');
 
       return newItem;
     } on FirebaseException catch (e) {
-      AppLogger.debug(' createItem: FIREBASE ERROR - ${e.message}');
+      AppLogger.debug('createItem: FIREBASE ERROR - ${e.message}');
       throw ServerException('Failed to create item: ${e.message}');
     } catch (e) {
-      AppLogger.debug(' createItem: ERROR - $e');
+      AppLogger.debug('createItem: ERROR - $e');
       throw ServerException('Unexpected error creating item: $e');
     }
   }
@@ -285,7 +285,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       data.remove('user_id'); // Remove string version
       data['uid'] = userRef; // Add DocumentReference version
 
-      AppLogger.debug(' Firestore update data: $data');
+      AppLogger.debug('Firestore update data: $data');
       await firestore.collection('Item').doc(item.id).update(data);
 
       return updatedItem;
@@ -439,26 +439,26 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Future<List<ItemModel>> getDeletedItems(String userId) async {
     try {
-      AppLogger.debug(' Datasource: getDeletedItems called for user $userId');
+      AppLogger.debug('Datasource: getDeletedItems called for user $userId');
       final userRef = firestore.collection('users').doc(userId);
-      AppLogger.debug(' Datasource: Querying Firestore...');
+      AppLogger.debug('Datasource: Querying Firestore...');
       final snapshot = await firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
-      AppLogger.debug(' Datasource: Got ${snapshot.docs.length} total items');
+      AppLogger.debug('Datasource: Got ${snapshot.docs.length} total items');
 
       final deletedItems = snapshot.docs
           .map((doc) => ItemModel.fromFirestore(doc))
           .where((item) => item.deletedAt != null) // Only soft-deleted items
           .toList();
-      AppLogger.debug(' Datasource: Found ${deletedItems.length} deleted items');
+      AppLogger.debug('Datasource: Found ${deletedItems.length} deleted items');
       return deletedItems;
     } on FirebaseException catch (e) {
-      AppLogger.debug(' Datasource: FirebaseException - ${e.message}');
+      AppLogger.debug('Datasource: FirebaseException - ${e.message}');
       throw ServerException('Failed to fetch deleted items: ${e.message}');
     } catch (e) {
-      AppLogger.debug(' Datasource: Exception - $e');
+      AppLogger.debug('Datasource: Exception - $e');
       throw ServerException('Unexpected error fetching deleted items: $e');
     }
   }
@@ -477,7 +477,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
       // Get a new deviceItemId for the restored item (old one may be recycled)
       final newDeviceItemId = await _getNextDeviceItemId(userRef);
-      AppLogger.debug(' restoreItem: $itemId, new deviceItemId=$newDeviceItemId');
+      AppLogger.debug('restoreItem: $itemId, new deviceItemId=$newDeviceItemId');
 
       // Get existing non-deleted items to shift their order
       final existingItems = await firestore
@@ -756,11 +756,11 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           .toList();
 
       if (itemsNeedingId.isEmpty) {
-        AppLogger.debug(' All items have deviceItemId assigned');
+        AppLogger.debug('All items have deviceItemId assigned');
         return 0;
       }
 
-      AppLogger.debug(' Found ${itemsNeedingId.length} items without deviceItemId');
+      AppLogger.debug('Found ${itemsNeedingId.length} items without deviceItemId');
 
       // Assign IDs to items that need them
       final batch = firestore.batch();
@@ -777,14 +777,14 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         }
 
         final itemName = doc.data()?['item_name'] ?? 'unknown';
-        AppLogger.debug(' Assigning deviceItemId=$nextId to $itemName');
+        AppLogger.debug('Assigning deviceItemId=$nextId to $itemName');
         batch.update(doc.reference, {'device_item_id': nextId});
         usedIds.add(nextId);
         nextId++;
       }
 
       await batch.commit();
-      AppLogger.debug(' Assigned deviceItemId to ${itemsNeedingId.length} items');
+      AppLogger.debug('Assigned deviceItemId to ${itemsNeedingId.length} items');
       return itemsNeedingId.length;
     } on FirebaseException catch (e) {
       throw ServerException('Failed to ensure device item IDs: ${e.message}');

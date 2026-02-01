@@ -115,10 +115,10 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     // This is a no-op if all items already have deviceItemId assigned
     final migrationResult = await itemRepository.ensureDeviceItemIds(event.userId);
     migrationResult.fold(
-      (failure) => AppLogger.debug(' Failed to ensure device item IDs: ${failure.message}'),
+      (failure) => AppLogger.debug('Failed to ensure device item IDs: ${failure.message}'),
       (count) {
         if (count > 0) {
-          AppLogger.debug(' Migrated $count items with missing deviceItemId');
+          AppLogger.debug('Migrated $count items with missing deviceItemId');
         }
       },
     );
