@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/logger.dart';
 
 /// Global navigator key for GoRouter.
 GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
@@ -51,7 +52,7 @@ class AuthStateNotifier extends ChangeNotifier {
     required bool isLoggedIn,
     bool? onboardingCompleted,
   }) {
-    debugPrint('🔐 AuthStateNotifier.updateAuthState: uid=$uid, loggedIn=$isLoggedIn, onboardingCompleted=$onboardingCompleted (current: $_onboardingCompleted)');
+    AppLogger.debug('AuthStateNotifier.updateAuthState: uid=$uid, loggedIn=$isLoggedIn, onboardingCompleted=$onboardingCompleted (current: $_onboardingCompleted)');
     final shouldUpdate = _uid != uid || _isLoggedIn != isLoggedIn ||
         (onboardingCompleted != null && _onboardingCompleted != onboardingCompleted);
 

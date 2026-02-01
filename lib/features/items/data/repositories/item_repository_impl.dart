@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
+
+import '../../../../core/utils/logger.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -117,11 +118,11 @@ class ItemRepositoryImpl implements ItemRepository {
         userId: item.userId,
       );
 
-      debugPrint('📝 ItemRepository: Inserting created event for ${created.id}');
+      AppLogger.debug(' ItemRepository: Inserting created event for ${created.id}');
       final insertResult = await eventLogRepository.insertEvents([createdEvent]);
       insertResult.fold(
-        (failure) => debugPrint('❌ Failed to insert created event: ${failure.message}'),
-        (_) => debugPrint('✅ Created event inserted successfully'),
+        (failure) => AppLogger.debug(' Failed to insert created event: ${failure.message}'),
+        (_) => AppLogger.debug(' Created event inserted successfully'),
       );
 
       return Right(created);

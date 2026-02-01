@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/utils/logger.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failures.dart';
@@ -114,10 +115,10 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
     // This is a no-op if all items already have deviceItemId assigned
     final migrationResult = await itemRepository.ensureDeviceItemIds(event.userId);
     migrationResult.fold(
-      (failure) => debugPrint('⚠️ Failed to ensure device item IDs: ${failure.message}'),
+      (failure) => AppLogger.debug(' Failed to ensure device item IDs: ${failure.message}'),
       (count) {
         if (count > 0) {
-          debugPrint('✅ Migrated $count items with missing deviceItemId');
+          AppLogger.debug(' Migrated $count items with missing deviceItemId');
         }
       },
     );
@@ -413,12 +414,12 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       result.fold(
         (failure) {
           // Revert on error
-          debugPrint('Failed to reorder items: ${failure.message}');
+          AppLogger.debug('Failed to reorder items: ${failure.message}');
           emit(currentState);
           emit(ItemsError(failure.message));
         },
         (_) {
-          debugPrint('Items reordered successfully');
+          AppLogger.debug('Items reordered successfully');
           // If watching, stream will confirm the update
           // If not, keep optimistic reorder
           if (!currentState.isWatching) {
@@ -503,12 +504,12 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       result.fold(
         (failure) {
           // Revert on error
-          debugPrint('Failed to reorder items in category: ${failure.message}');
+          AppLogger.debug('Failed to reorder items in category: ${failure.message}');
           emit(currentState);
           emit(ItemsError(failure.message));
         },
         (_) {
-          debugPrint('Items reordered in category successfully');
+          AppLogger.debug('Items reordered in category successfully');
           // If watching, stream will confirm the update
           // If not, keep optimistic reorder
           if (!currentState.isWatching) {
@@ -615,12 +616,12 @@ class ItemsBloc extends Bloc<ItemsEvent, ItemsState> {
       result.fold(
         (failure) {
           // Revert on error
-          debugPrint('Failed to move item to category: ${failure.message}');
+          AppLogger.debug('Failed to move item to category: ${failure.message}');
           emit(currentState);
           emit(ItemsError(failure.message));
         },
         (_) {
-          debugPrint('Item moved to category successfully');
+          AppLogger.debug('Item moved to category successfully');
           // If watching, stream will confirm the update
           // If not, keep optimistic update
           if (!currentState.isWatching) {

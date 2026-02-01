@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
+
+import '../../../../core/utils/logger.dart';
 
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/repositories/user_repository.dart';
@@ -71,18 +72,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     // Check if there's a logged-in user
     final currentUser = _watchAuthState.currentUser;
-    debugPrint('🔐 AuthBloc._onCheckAuthStatus: currentUser=${currentUser?.id}');
+    AppLogger.debug(' AuthBloc._onCheckAuthStatus: currentUser=${currentUser?.id}');
     if (currentUser != null) {
       // Fetch full user data from Firestore (includes onboarding_completed)
       final result = await _userRepository.getCurrentUser();
       result.fold(
         // If fetch fails, use basic user data
         (failure) {
-          debugPrint('🔐 AuthBloc: Firestore fetch FAILED: ${failure.message}, using basic user (onboardingCompleted=${currentUser.onboardingCompleted})');
+          AppLogger.debug(' AuthBloc: Firestore fetch FAILED: ${failure.message}, using basic user (onboardingCompleted=${currentUser.onboardingCompleted})');
           emit(Authenticated(currentUser));
         },
         (fullUser) {
-          debugPrint('🔐 AuthBloc: Firestore fetch SUCCESS, onboardingCompleted=${fullUser.onboardingCompleted}');
+          AppLogger.debug(' AuthBloc: Firestore fetch SUCCESS, onboardingCompleted=${fullUser.onboardingCompleted}');
           emit(Authenticated(fullUser));
         },
       );
@@ -105,11 +106,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       result.fold(
         (failure) {
           // If Firestore fetch fails, use basic user data
-          debugPrint('🔐 AuthBloc._onAuthStateChanged: Firestore fetch failed, using basic user');
+          AppLogger.debug(' AuthBloc._onAuthStateChanged: Firestore fetch failed, using basic user');
           emit(Authenticated(event.user!));
         },
         (fullUser) {
-          debugPrint('🔐 AuthBloc._onAuthStateChanged: Firestore user onboardingCompleted=${fullUser.onboardingCompleted}');
+          AppLogger.debug(' AuthBloc._onAuthStateChanged: Firestore user onboardingCompleted=${fullUser.onboardingCompleted}');
           emit(Authenticated(fullUser));
         },
       );

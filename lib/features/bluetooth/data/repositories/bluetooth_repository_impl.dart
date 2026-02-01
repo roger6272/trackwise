@@ -1,11 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/error/failures.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
@@ -33,8 +35,12 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       await for (final devices in dataSource.scanDevices(timeout: timeout)) {
         yield Right(devices.map((m) => m.toEntity()).toList());
       }
+    } on FlutterBluePlusException catch (e) {
+      yield Left(BluetoothFailure('Scan failed: ${e.description}'));
+    } on TimeoutException catch (e) {
+      yield Left(BluetoothFailure('Scan timed out: ${e.message}'));
     } catch (e) {
-      yield Left(BluetoothFailure('Scan failed: ${e.toString()}'));
+      yield Left(BluetoothFailure('Scan failed: $e'));
     }
   }
 
@@ -43,8 +49,10 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     try {
       await dataSource.stopScan();
       return const Right(null);
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to stop scan: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure('Failed to stop scan: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to stop scan: $e'));
     }
   }
 
@@ -57,8 +65,14 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       // This ensures characteristics are cached before any listeners react
       dataSource.emitConnectedState();
       return const Right(true);
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Connection failed: ${e.description}'));
+    } on TimeoutException catch (e) {
+      return Left(BluetoothFailure('Connection timed out: ${e.message}'));
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Connection failed: ${e.message}'));
     } catch (e) {
-      return Left(BluetoothFailure( 'Connection failed: ${e.toString()}'));
+      return Left(BluetoothFailure('Connection failed: $e'));
     }
   }
 
@@ -67,8 +81,10 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     try {
       await dataSource.disconnect(deviceId);
       return const Right(null);
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Disconnect failed: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure( 'Disconnect failed: ${e.toString()}'));
+      return Left(BluetoothFailure('Disconnect failed: $e'));
     }
   }
 
@@ -77,7 +93,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     try {
       return Right(dataSource.connectedDevice?.toEntity());
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to get connected device: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to get connected device: $e'));
     }
   }
 
@@ -99,11 +115,15 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }) async {
     try {
       final jsonData = _formatItemsForEsp32(items, categoryNames);
-      if (kDebugMode) print('JSON sent to device: $jsonData');
+      AppLogger.debug('JSON sent to device: $jsonData');
       await dataSource.writeItems(deviceId, jsonData);
       return const Right(null);
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Failed to send items: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to send items: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to send items: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to send items: $e'));
     }
   }
 
@@ -178,8 +198,12 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Failed to send selected item: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to send selected item: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to send selected item: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to send selected item: $e'));
     }
   }
 
@@ -196,8 +220,12 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Failed to send time sync: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to send time sync: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure('Failed to send time sync: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to send time sync: $e'));
     }
   }
 
@@ -215,16 +243,22 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
         'page': page,
       });
 
-      debugPrint('📤 Sending prepare_read: type=$type, page=$page');
+      AppLogger.debug('Sending prepare_read: type=$type, page=$page');
 
       // Just send the command - response will arrive via notification
       // through the existing message stream (handled by BLoC's MessageReceived)
       await dataSource.writeCommand(deviceId, command);
 
       return const Right(null);
+    } on StateError catch (e) {
+      AppLogger.error('requestData failed', e);
+      return Left(BluetoothFailure('Failed to request data: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      AppLogger.error('requestData failed', e);
+      return Left(BluetoothFailure('Failed to request data: ${e.description}'));
     } catch (e) {
-      debugPrint('❌ requestData failed: $e');
-      return Left(BluetoothFailure('Failed to request data: ${e.toString()}'));
+      AppLogger.error('requestData failed', e);
+      return Left(BluetoothFailure('Failed to request data: $e'));
     }
   }
 
@@ -236,8 +270,12 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Failed to clear logs: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to clear logs: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to clear logs: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to clear logs: $e'));
     }
   }
 
@@ -249,8 +287,12 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       });
       await dataSource.writeCommand(deviceId, jsonData);
       return const Right(null);
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Failed to unpair device: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to unpair device: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure('Failed to unpair device: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to unpair device: $e'));
     }
   }
 
@@ -261,7 +303,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
         yield Right(message);
       }
     } catch (e) {
-      yield Left(BluetoothFailure( 'Message stream error: ${e.toString()}'));
+      yield Left(BluetoothFailure('Message stream error: $e'));
     }
   }
 
@@ -271,8 +313,14 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       final data = await dataSource.readData(deviceId);
       final message = BleMessageModel.fromJson(data);
       return Right(message);
+    } on FormatException catch (e) {
+      return Left(BluetoothFailure('Failed to parse device data: ${e.message}'));
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Failed to read data: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to read data: ${e.description}'));
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to read data: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to read data: $e'));
     }
   }
 
@@ -282,7 +330,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       final enabled = await dataSource.isBluetoothEnabled();
       return Right(enabled);
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to check Bluetooth state: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to check Bluetooth state: $e'));
     }
   }
 
@@ -292,7 +340,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       final granted = await dataSource.requestPermissions();
       return Right(granted);
     } catch (e) {
-      return Left(BluetoothFailure( 'Failed to request permissions: ${e.toString()}'));
+      return Left(BluetoothFailure('Failed to request permissions: $e'));
     }
   }
 
@@ -311,9 +359,18 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
         syncSeq: syncSeq,
       );
       return Right(result);
+    } on TimeoutException catch (e) {
+      AppLogger.error('Handshake timed out', e);
+      return Left(BluetoothFailure('Handshake timed out: ${e.message}'));
+    } on StateError catch (e) {
+      AppLogger.error('Handshake failed', e);
+      return Left(BluetoothFailure('Handshake failed: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      AppLogger.error('Handshake failed', e);
+      return Left(BluetoothFailure('Handshake failed: ${e.description}'));
     } catch (e) {
-      debugPrint('Handshake failed: $e');
-      return Left(BluetoothFailure('Handshake failed: ${e.toString()}'));
+      AppLogger.error('Handshake failed', e);
+      return Left(BluetoothFailure('Handshake failed: $e'));
     }
   }
 
@@ -334,9 +391,18 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
         categoryNames: categoryNames,
       );
       return Right(result);
+    } on TimeoutException catch (e) {
+      AppLogger.error('Override timed out', e);
+      return Left(BluetoothFailure('Override timed out: ${e.message}'));
+    } on StateError catch (e) {
+      AppLogger.error('Override failed', e);
+      return Left(BluetoothFailure('Override failed: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      AppLogger.error('Override failed', e);
+      return Left(BluetoothFailure('Override failed: ${e.description}'));
     } catch (e) {
-      debugPrint('Override failed: $e');
-      return Left(BluetoothFailure('Override failed: ${e.toString()}'));
+      AppLogger.error('Override failed', e);
+      return Left(BluetoothFailure('Override failed: $e'));
     }
   }
 
@@ -345,9 +411,18 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     try {
       final result = await dataSource.sendSyncComplete(syncSeq);
       return Right(result);
+    } on TimeoutException catch (e) {
+      AppLogger.error('sync_complete timed out', e);
+      return Left(BluetoothFailure('sync_complete timed out: ${e.message}'));
+    } on StateError catch (e) {
+      AppLogger.error('sync_complete failed', e);
+      return Left(BluetoothFailure('sync_complete failed: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      AppLogger.error('sync_complete failed', e);
+      return Left(BluetoothFailure('sync_complete failed: ${e.description}'));
     } catch (e) {
-      debugPrint('sync_complete failed: $e');
-      return Left(BluetoothFailure('sync_complete failed: ${e.toString()}'));
+      AppLogger.error('sync_complete failed', e);
+      return Left(BluetoothFailure('sync_complete failed: $e'));
     }
   }
 }

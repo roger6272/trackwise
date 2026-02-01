@@ -1,7 +1,8 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
+
+import '../../../../core/utils/logger.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/services/connectivity_service.dart';
@@ -424,15 +425,13 @@ class PerformOverrideUseCase {
     // Find the selected item based on priority
     Item? selectedItem;
 
-    if (kDebugMode) {
-      print('🔍 Override selection debug:');
-      print('   params.currentSelectedFirestoreId: ${params.currentSelectedFirestoreId}');
-      print('   user.lastSelectedDeviceItemId: ${user.lastSelectedDeviceItemId}');
-      print('   allItems count: ${allItems.length}');
-      print('   syncedItems count: ${syncedItems.length}');
-      for (final item in allItems) {
-        print('   - ${item.name}: firestoreId=${item.id}, deviceItemId=${item.deviceItemId}, categoryId=${item.categoryId}');
-      }
+    AppLogger.debug('Override selection debug:');
+    AppLogger.debug('   params.currentSelectedFirestoreId: ${params.currentSelectedFirestoreId}');
+    AppLogger.debug('   user.lastSelectedDeviceItemId: ${user.lastSelectedDeviceItemId}');
+    AppLogger.debug('   allItems count: ${allItems.length}');
+    AppLogger.debug('   syncedItems count: ${syncedItems.length}');
+    for (final item in allItems) {
+      AppLogger.debug('   - ${item.name}: firestoreId=${item.id}, deviceItemId=${item.deviceItemId}, categoryId=${item.categoryId}');
     }
 
     // First, try to use current app selection (Firestore ID from UI state)
@@ -448,19 +447,19 @@ class PerformOverrideUseCase {
         orElse: () => null,
       );
       if (selectedItemFromAll != null) {
-        if (kDebugMode) print('   ✓ Found in allItems: ${selectedItemFromAll.name} (deviceItemId=${selectedItemFromAll.deviceItemId})');
+        AppLogger.debug('   ✓ Found in allItems: ${selectedItemFromAll.name} (deviceItemId=${selectedItemFromAll.deviceItemId})');
         // Now check if this item is also in syncedItems (has deviceItemId)
         if (selectedItemFromAll.deviceItemId != null) {
           selectedItem = selectedItemFromAll;
           selectedItemId = selectedItemFromAll.deviceItemId!;
-          if (kDebugMode) print('   ✓ Item has deviceItemId: $selectedItemId');
+          AppLogger.debug('   ✓ Item has deviceItemId: $selectedItemId');
         } else {
           // Item exists but doesn't have deviceItemId - use its category to filter
           // and pick the first synced item in that category
-          if (kDebugMode) print('   ⚠ Item has no deviceItemId, will use its category to filter');
+          AppLogger.debug('   ⚠ Item has no deviceItemId, will use its category to filter');
         }
       } else {
-        if (kDebugMode) print('   ✗ currentSelectedFirestoreId not found in allItems');
+        AppLogger.debug('   ✗ currentSelectedFirestoreId not found in allItems');
       }
     }
 
@@ -477,9 +476,9 @@ class PerformOverrideUseCase {
         final firstInCategory = itemsInCategory.first;
         selectedItem = firstInCategory;
         selectedItemId = firstInCategory.deviceItemId ?? -1;
-        if (kDebugMode) print('   ✓ Using first synced item in same category: ${firstInCategory.name} (deviceItemId=$selectedItemId)');
+        AppLogger.debug('   ✓ Using first synced item in same category: ${firstInCategory.name} (deviceItemId=$selectedItemId)');
       } else {
-        if (kDebugMode) print('   ⚠ No synced items in category $targetCategoryId');
+        AppLogger.debug('   ⚠ No synced items in category $targetCategoryId');
       }
     }
 
@@ -491,9 +490,9 @@ class PerformOverrideUseCase {
       );
       if (selectedItem != null) {
         selectedItemId = selectedItem.deviceItemId ?? -1;
-        if (kDebugMode) print('   ✓ Found by lastSelectedDeviceItemId: ${selectedItem.name} (deviceItemId=$selectedItemId)');
+        AppLogger.debug('   ✓ Found by lastSelectedDeviceItemId: ${selectedItem.name} (deviceItemId=$selectedItemId)');
       } else {
-        if (kDebugMode) print('   ✗ lastSelectedDeviceItemId not found in syncedItems');
+        AppLogger.debug('   ✗ lastSelectedDeviceItemId not found in syncedItems');
       }
     }
 
@@ -501,7 +500,7 @@ class PerformOverrideUseCase {
     if (selectedItem == null && syncedItems.isNotEmpty) {
       selectedItem = syncedItems.first;
       selectedItemId = selectedItem.deviceItemId ?? -1;
-      if (kDebugMode) print('   ⚠ Falling back to first item: ${selectedItem.name} (deviceItemId=$selectedItemId)');
+      AppLogger.debug('   ⚠ Falling back to first item: ${selectedItem.name} (deviceItemId=$selectedItemId)');
     }
 
     if (selectedItem != null) {

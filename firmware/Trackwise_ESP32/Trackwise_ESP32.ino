@@ -13,6 +13,20 @@
 #include <esp_task_wdt.h>
 #include <esp_bt.h>           // For BLE bonding table access
 
+// Debug logging macro - compiles out when DEBUG is not defined
+// To enable: add -DDEBUG to build flags (Arduino IDE: Tools > Compiler Warnings)
+#ifndef DEBUG
+  #define DEBUG  // Remove this line for production builds
+#endif
+
+#ifdef DEBUG
+  #define DEBUG_LOG(...) Serial.printf(__VA_ARGS__)
+  #define DEBUG_PRINTLN(x) Serial.println(x)
+#else
+  #define DEBUG_LOG(...)
+  #define DEBUG_PRINTLN(x)
+#endif
+
 // Mutex for NVS access synchronization (prevents corruption from concurrent access)
 static SemaphoreHandle_t nvsMutex = NULL;
 
@@ -245,7 +259,7 @@ bool nvsBeginSafe(const char* name, bool readOnly, TickType_t timeout_ms = 1000)
     prefs.begin(name, readOnly);
     return true;
   }
-  Serial.println("⚠️ Warning: NVS mutex timeout");
+  DEBUG_PRINTLN("⚠️ Warning: NVS mutex timeout");
   return false;
 }
 
@@ -301,7 +315,7 @@ void setPairedUid(const String& uid) {
   if (!nvsBeginSafe("counter", false)) return;
   prefs.putString(NVS_KEY_PAIRED_UID, uid);
   nvsEndSafe();
-  Serial.printf("🔗 Paired to UID: %s\n", uid.c_str());
+  DEBUG_LOG("🔗 Paired to UID: %s\n", uid.c_str());
 }
 
 // Get the sync sequence number from NVS
@@ -318,7 +332,7 @@ void setSyncSeqNo(int seq) {
   if (!nvsBeginSafe("counter", false)) return;
   prefs.putInt(NVS_KEY_SYNC_SEQ_NO, seq);
   nvsEndSafe();
-  Serial.printf("📊 Sync sequence updated: %d\n", seq);
+  DEBUG_LOG("📊 Sync sequence updated: %d\n", seq);
 }
 
 // Check if the device is paired (has a paired_uid set)
@@ -330,29 +344,29 @@ bool isDevicePaired() {
 // Enter pairing mode - device is waiting for first pairing
 void enterPairingMode() {
   isPairingMode = true;
-  Serial.println("🔓 Entering pairing mode - waiting for app connection");
+  DEBUG_PRINTLN("🔓 Entering pairing mode - waiting for app connection");
 }
 
 // Enter normal mode - device is paired and operational
 void enterNormalMode() {
   isPairingMode = false;
-  Serial.println("✅ Entering normal mode - device is paired");
+  DEBUG_PRINTLN("✅ Entering normal mode - device is paired");
 }
 
 // Display welcome screen on device (called when unpaired)
 // This is a placeholder - actual display code depends on hardware
 void displayWelcomeScreen() {
-  Serial.println("═══════════════════════════════════════");
-  Serial.println("║       WELCOME TO TRAXELOS           ║");
-  Serial.println("║                                     ║");
-  Serial.println("║  Please connect via the app to      ║");
-  Serial.println("║  pair this device to your account   ║");
-  Serial.println("═══════════════════════════════════════");
+  DEBUG_PRINTLN("═══════════════════════════════════════");
+  DEBUG_PRINTLN("║       WELCOME TO TRAXELOS           ║");
+  DEBUG_PRINTLN("║                                     ║");
+  DEBUG_PRINTLN("║  Please connect via the app to      ║");
+  DEBUG_PRINTLN("║  pair this device to your account   ║");
+  DEBUG_PRINTLN("═══════════════════════════════════════");
 }
 
 // Display a message on device (placeholder for actual display)
 void displayMessage(const char* msg) {
-  Serial.printf("📺 DISPLAY: %s\n", msg);
+  DEBUG_LOG("📺 DISPLAY: %s\n", msg);
 }
 
 // ============== CONFLICT STATE HANDLING ==============
@@ -362,7 +376,7 @@ void displayMessage(const char* msg) {
 void enterConflictState() {
   inConflictState = true;
   displayMessage("SEE APP");
-  Serial.println("⚠️ Entered conflict state - buttons disabled, waiting for app override");
+  DEBUG_PRINTLN("⚠️ Entered conflict state - buttons disabled, waiting for app override");
 }
 
 // Exit conflict state - restore normal operation
@@ -370,7 +384,7 @@ void enterConflictState() {
 void exitConflictState() {
   if (!inConflictState) return;  // Already not in conflict
   inConflictState = false;
-  Serial.println("✅ Exited conflict state - buttons re-enabled");
+  DEBUG_PRINTLN("✅ Exited conflict state - buttons re-enabled");
   // Clear display message (actual implementation depends on hardware)
   displayMessage("");  // Clear the "SEE APP" message
 }
@@ -394,7 +408,7 @@ void sendJsonResponse(const String& jsonStr) {
     NotifyChar->setValue(response.c_str());
     NotifyChar->notify();
   }
-  Serial.printf("📤 Sent response: %s\n", jsonStr.c_str());
+  DEBUG_LOG("📤 Sent response: %s\n", jsonStr.c_str());
 }
 
 // Send acknowledgment response for fire-and-forget commands
@@ -422,8 +436,8 @@ void handleHandshake(const String& uid, int appSyncSeq) {
   String pairedUid = getPairedUid();
   String deviceInstanceId = getDeviceInstanceId();
 
-  Serial.printf("🤝 Handshake: uid=%s, app_sync_seq=%d\n", uid.c_str(), appSyncSeq);
-  Serial.printf("   Device paired_uid=%s, device_sync_seq=%d\n",
+  DEBUG_LOG("🤝 Handshake: uid=%s, app_sync_seq=%d\n", uid.c_str(), appSyncSeq);
+  DEBUG_LOG("   Device paired_uid=%s, device_sync_seq=%d\n",
                 pairedUid.isEmpty() ? "(empty)" : pairedUid.c_str(), getSyncSeqNo());
 
   // Step 1: Account lock check
@@ -443,7 +457,7 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     delay(100);  // Small delay between display messages
     displayMessage("OTHER ACCOUNT");
 
-    Serial.println("❌ Handshake rejected: device paired to different account");
+    DEBUG_PRINTLN("❌ Handshake rejected: device paired to different account");
     return;
   }
 
@@ -464,7 +478,7 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     delay(100);
     displayMessage("SETUP");
 
-    Serial.println("📱 Handshake: device uninitialized, awaiting setup from app");
+    DEBUG_PRINTLN("📱 Handshake: device uninitialized, awaiting setup from app");
     return;
   }
 
@@ -483,7 +497,7 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     serializeJson(doc, response);
     sendJsonResponse(response);
 
-    Serial.printf("✅ Handshake: in_sync (seq=%d)\n", deviceSyncSeq);
+    DEBUG_LOG("✅ Handshake: in_sync (seq=%d)\n", deviceSyncSeq);
 
     // Automatically send prefs+logs after successful handshake
     // (App expects these to arrive via notification stream)
@@ -506,7 +520,7 @@ void handleHandshake(const String& uid, int appSyncSeq) {
 
     enterConflictState();
 
-    Serial.printf("⚠️ Handshake: conflict (device_seq=%d, app_seq=%d)\n", deviceSyncSeq, appSyncSeq);
+    DEBUG_LOG("⚠️ Handshake: conflict (device_seq=%d, app_seq=%d)\n", deviceSyncSeq, appSyncSeq);
   }
 }
 
@@ -546,7 +560,7 @@ void clearAllItemSlots() {
   }
   // Reset item_total
   prefs.putInt("item_total", 0);
-  Serial.println("🗑️ Cleared all item slots");
+  DEBUG_PRINTLN("🗑️ Cleared all item slots");
 }
 
 // ============== OVERRIDE PROTOCOL FUNCTIONS ==============
@@ -557,7 +571,7 @@ void clearAllItemSlots() {
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void saveItemToSlot(int slotId, JsonObject& item) {
   if (slotId < 0 || slotId >= maxPrefsSlots) {
-    Serial.printf("❌ Invalid slot ID: %d (must be 0-%d)\n", slotId, maxPrefsSlots - 1);
+    DEBUG_LOG("❌ Invalid slot ID: %d (must be 0-%d)\n", slotId, maxPrefsSlots - 1);
     return;
   }
 
@@ -617,7 +631,7 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   int resetNum = clampInt(item["reset_number"] | 0, 0, 100000);
   prefs.putInt(key, resetNum);
 
-  Serial.printf("💾 Saved item to slot %d (did=%d): %s\n", slotId, deviceItemId, name.c_str());
+  DEBUG_LOG("💾 Saved item to slot %d (did=%d): %s\n", slotId, deviceItemId, name.c_str());
 }
 
 // Set the selected item by device_item_id with fallback logic
@@ -634,7 +648,7 @@ void setSelectedItem(int selectedId) {
     currentDeviceItemId = -1;
     prefs.putInt("selected_index", 0);
     prefs.putChar("selected_did", -1);
-    Serial.println("📌 selected_id=-1: selecting nothing");
+    DEBUG_PRINTLN("📌 selected_id=-1: selecting nothing");
     return;
   }
 
@@ -644,7 +658,7 @@ void setSelectedItem(int selectedId) {
     currentDeviceItemId = -1;
     prefs.putInt("selected_index", 0);
     prefs.putChar("selected_did", -1);
-    Serial.println("📌 No items - selecting nothing");
+    DEBUG_PRINTLN("📌 No items - selecting nothing");
     return;
   }
 
@@ -682,14 +696,14 @@ void setSelectedItem(int selectedId) {
       snprintf(key, sizeof(key), "rn_%d", i);
       itemResetNumber = prefs.getInt(key, 0);
 
-      Serial.printf("📌 Selected item %d (slot %d): %s\n", selectedId, i, itemName.c_str());
+      DEBUG_LOG("📌 Selected item %d (slot %d): %s\n", selectedId, i, itemName.c_str());
       break;
     }
   }
 
   if (!found) {
     // selectedId not found - fall back to first item (index 0)
-    Serial.printf("⚠️ Selected ID %d not found - falling back to first item\n", selectedId);
+    DEBUG_LOG("⚠️ Selected ID %d not found - falling back to first item\n", selectedId);
     currentItemIndex = 0;
     snprintf(key, sizeof(key), "did_%d", 0);
     currentDeviceItemId = prefs.getUChar(key, 0);
@@ -716,7 +730,7 @@ void setSelectedItem(int selectedId) {
     snprintf(key, sizeof(key), "rn_%d", 0);
     itemResetNumber = prefs.getInt(key, 0);
 
-    Serial.printf("📌 Fallback to first item (slot 0): %s\n", itemName.c_str());
+    DEBUG_LOG("📌 Fallback to first item (slot 0): %s\n", itemName.c_str());
   }
 }
 
@@ -728,7 +742,7 @@ void setSelectedItem(int selectedId) {
 // Stores UID if device is uninitialized (user confirmed setup)
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void handleOverrideStart(const String& uid, int syncSeq, int totalChunks) {
-  Serial.printf("📥 Override start: uid=%s, sync_seq=%d, total_chunks=%d\n",
+  DEBUG_LOG("📥 Override start: uid=%s, sync_seq=%d, total_chunks=%d\n",
                 uid.c_str(), syncSeq, totalChunks);
 
   // Store UID if not already paired (user confirmed device setup)
@@ -736,7 +750,7 @@ void handleOverrideStart(const String& uid, int syncSeq, int totalChunks) {
   if (pairedUid.isEmpty() && !uid.isEmpty()) {
     prefs.putString(NVS_KEY_PAIRED_UID, uid);
     enterNormalMode();  // Exit pairing mode
-    Serial.printf("🔗 Device setup: stored uid=%s\n", uid.c_str());
+    DEBUG_LOG("🔗 Device setup: stored uid=%s\n", uid.c_str());
   }
 
   // Store override state
@@ -748,7 +762,7 @@ void handleOverrideStart(const String& uid, int syncSeq, int totalChunks) {
   // Clear existing items to prepare for new data
   clearAllItemSlots();
 
-  Serial.println("✅ Override started - ready to receive chunks");
+  DEBUG_PRINTLN("✅ Override started - ready to receive chunks");
 }
 
 // Handle override_chunk command from app
@@ -757,7 +771,7 @@ void handleOverrideStart(const String& uid, int syncSeq, int totalChunks) {
 // The device_item_id is stored in did_X field for mapping back to Firestore
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void handleOverrideChunk(int chunkIndex, JsonArray items) {
-  Serial.printf("📥 Override chunk %d: %d items\n", chunkIndex, items.size());
+  DEBUG_LOG("📥 Override chunk %d: %d items\n", chunkIndex, items.size());
 
   int savedCount = 0;
   for (JsonObject item : items) {
@@ -765,7 +779,7 @@ void handleOverrideChunk(int chunkIndex, JsonArray items) {
 
     // Enforce 100 item limit
     if (overrideNextSlot >= maxPrefsSlots) {
-      Serial.printf("⚠️ Max items reached (%d), skipping remaining\n", maxPrefsSlots);
+      DEBUG_LOG("⚠️ Max items reached (%d), skipping remaining\n", maxPrefsSlots);
       break;
     }
 
@@ -775,12 +789,12 @@ void handleOverrideChunk(int chunkIndex, JsonArray items) {
       savedCount++;
       overrideNextSlot++;
     } else {
-      Serial.printf("⚠️ Skipping invalid device_item_id: %d\n", deviceItemId);
+      DEBUG_LOG("⚠️ Skipping invalid device_item_id: %d\n", deviceItemId);
     }
   }
 
   overrideReceivedChunks++;
-  Serial.printf("✅ Chunk %d processed: saved %d items (received %d/%d chunks)\n",
+  DEBUG_LOG("✅ Chunk %d processed: saved %d items (received %d/%d chunks)\n",
                 chunkIndex, savedCount, overrideReceivedChunks, overrideTotalChunks);
 }
 
@@ -789,11 +803,11 @@ void handleOverrideChunk(int chunkIndex, JsonArray items) {
 // Validates all chunks received, sets selected item, updates sync_seq
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void handleOverrideEnd(int selectedId) {
-  Serial.printf("📥 Override end: selected_id=%d\n", selectedId);
+  DEBUG_LOG("📥 Override end: selected_id=%d\n", selectedId);
 
   // Validate all chunks were received
   if (overrideReceivedChunks != overrideTotalChunks) {
-    Serial.printf("❌ Override failed: missing chunks (received %d, expected %d)\n",
+    DEBUG_LOG("❌ Override failed: missing chunks (received %d, expected %d)\n",
                   overrideReceivedChunks, overrideTotalChunks);
     sendJsonResponse("{\"status\":\"error\",\"message\":\"missing_chunks\"}");
     return;
@@ -802,7 +816,7 @@ void handleOverrideEnd(int selectedId) {
   // Use overrideNextSlot as item_total (we saved items sequentially at 0, 1, 2...)
   int itemTotal = overrideNextSlot;
   prefs.putInt("item_total", itemTotal);
-  Serial.printf("📊 Override complete: %d items total\n", itemTotal);
+  DEBUG_LOG("📊 Override complete: %d items total\n", itemTotal);
 
   // Set selected item (with fallback logic)
   // NOTE: setSelectedItem reads from prefs which is already open
@@ -810,7 +824,7 @@ void handleOverrideEnd(int selectedId) {
 
   // Update sync sequence number directly (we already hold NVS lock)
   prefs.putInt(NVS_KEY_SYNC_SEQ_NO, overrideSyncSeq);
-  Serial.printf("📊 Sync sequence updated: %d\n", overrideSyncSeq);
+  DEBUG_LOG("📊 Sync sequence updated: %d\n", overrideSyncSeq);
 
   // Exit conflict state
   exitConflictState();
@@ -827,14 +841,14 @@ void handleOverrideEnd(int selectedId) {
   overrideReceivedChunks = 0;
   overrideNextSlot = 0;
 
-  Serial.println("✅ Override complete - device synced with app");
+  DEBUG_PRINTLN("✅ Override complete - device synced with app");
 }
 
 // Handle sync_complete command from app
 // App sends: { "cmd": "sync_complete", "sync_seq": 43 }
 // Called after normal sync (device was source of truth) to update sync_seq
 void handleSyncComplete(int newSyncSeq) {
-  Serial.printf("📥 Sync complete: new_sync_seq=%d\n", newSyncSeq);
+  DEBUG_LOG("📥 Sync complete: new_sync_seq=%d\n", newSyncSeq);
 
   // Update sync sequence number in NVS
   setSyncSeqNo(newSyncSeq);
@@ -843,7 +857,7 @@ void handleSyncComplete(int newSyncSeq) {
   sendJsonResponse("{\"status\":\"seq_updated\"}");
 
   // No display change - normal operation continues
-  Serial.println("✅ Sync complete - sequence number updated");
+  DEBUG_PRINTLN("✅ Sync complete - sequence number updated");
 }
 
 // Clear BLE bonding table
@@ -860,14 +874,14 @@ void clearBleBonding() {
       free(devList);
     }
   }
-  Serial.printf("🔐 Cleared BLE bonding table (%d devices)\n", devNum);
+  DEBUG_LOG("🔐 Cleared BLE bonding table (%d devices)\n", devNum);
 }
 
 // Wait for a specific key confirmation with timeout
 // Returns true if the expected key is pressed within timeout
 bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
   unsigned long startTime = millis();
-  Serial.printf("⏳ Waiting for '%c' confirmation (timeout: %lu ms)...\n", expectedKey, timeoutMs);
+  DEBUG_LOG("⏳ Waiting for '%c' confirmation (timeout: %lu ms)...\n", expectedKey, timeoutMs);
 
   while ((millis() - startTime) < timeoutMs) {
     // Explicitly feed the watchdog every iteration
@@ -876,7 +890,7 @@ bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
     if (Serial.available()) {
       char c = Serial.read();
       if (c == expectedKey) {
-        Serial.println("✅ Confirmation received");
+        DEBUG_PRINTLN("✅ Confirmation received");
         return true;
       }
     }
@@ -884,7 +898,7 @@ bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
     delay(100);
   }
 
-  Serial.println("⏰ Confirmation timeout");
+  DEBUG_PRINTLN("⏰ Confirmation timeout");
   return false;
 }
 
@@ -898,14 +912,14 @@ void handleFactoryReset() {
   if (waitForConfirmation('F', 10000)) {
     if (!nvsBeginSafe("counter", false)) {
       displayMessage("RESET FAILED");
-      Serial.println("❌ Factory reset failed - NVS mutex timeout");
+      DEBUG_PRINTLN("❌ Factory reset failed - NVS mutex timeout");
       return;
     }
 
     // Clear pairing data
     prefs.remove(NVS_KEY_PAIRED_UID);
     prefs.remove(NVS_KEY_SYNC_SEQ_NO);
-    Serial.println("🗑️ Cleared pairing data");
+    DEBUG_PRINTLN("🗑️ Cleared pairing data");
 
     // Clear all item slots
     clearAllItemSlots();
@@ -923,13 +937,13 @@ void handleFactoryReset() {
     clearBleBonding();
 
     displayMessage("RESET COMPLETE");
-    Serial.println("✅ Factory reset complete - restarting device");
+    DEBUG_PRINTLN("✅ Factory reset complete - restarting device");
     delay(2000);
 
     ESP.restart();
   } else {
     displayMessage("CANCELLED");
-    Serial.println("❌ Factory reset cancelled");
+    DEBUG_PRINTLN("❌ Factory reset cancelled");
   }
 }
 
@@ -937,14 +951,18 @@ void handleFactoryReset() {
 // State machine for chunk-based BLE transmission without blocking
 // Uses a queue to prevent message interleaving
 
-#define BLE_TX_QUEUE_SIZE 4  // Max pending messages
+#define BLE_TX_QUEUE_SIZE 8  // Max pending messages
+
+// Max BLE message size: prefs JSON for 100 items ≈ 15KB
+#define BLE_TX_BUF_SIZE 16384
 
 struct BleTransmitState {
-  String queue[BLE_TX_QUEUE_SIZE];  // Queue of pending messages
-  int queueHead = 0;                 // Next slot to write
-  int queueTail = 0;                 // Next slot to read
-  int queueCount = 0;                // Number of items in queue
-  String buffer;                     // Current message being transmitted
+  char* queue[BLE_TX_QUEUE_SIZE];    // Queue of pending messages (heap-allocated, freed after send)
+  int queueHead = 0;
+  int queueTail = 0;
+  int queueCount = 0;
+  char buffer[BLE_TX_BUF_SIZE];      // Pre-allocated transmit buffer
+  int bufferLen = 0;                  // Length of data in buffer
   int offset = 0;
   unsigned long lastChunkTime = 0;
   bool inProgress = false;
@@ -957,23 +975,33 @@ bool isBleTransmitBusy() {
 }
 
 void startBleTransmit(const String& data) {
-  // If not currently transmitting, start immediately
   if (!bleTransmit.inProgress) {
-    bleTransmit.buffer = data;
+    int len = data.length();
+    if (len >= BLE_TX_BUF_SIZE) {
+      DEBUG_PRINTLN("⚠️ BLE message too large for transmit buffer!");
+      return;
+    }
+    memcpy(bleTransmit.buffer, data.c_str(), len);
+    bleTransmit.buffer[len] = '\0';
+    bleTransmit.bufferLen = len;
     bleTransmit.offset = 0;
     bleTransmit.lastChunkTime = 0;
     bleTransmit.inProgress = true;
     return;
   }
 
-  // Already transmitting - add to queue if space available
   if (bleTransmit.queueCount < BLE_TX_QUEUE_SIZE) {
-    bleTransmit.queue[bleTransmit.queueHead] = data;
+    char* copy = strdup(data.c_str());
+    if (copy == NULL) {
+      DEBUG_PRINTLN("⚠️ BLE transmit queue alloc failed!");
+      return;
+    }
+    bleTransmit.queue[bleTransmit.queueHead] = copy;
     bleTransmit.queueHead = (bleTransmit.queueHead + 1) % BLE_TX_QUEUE_SIZE;
     bleTransmit.queueCount++;
-    Serial.printf("📋 Queued BLE message (%d in queue)\n", bleTransmit.queueCount);
+    DEBUG_LOG("📋 Queued BLE message (%d in queue)\n", bleTransmit.queueCount);
   } else {
-    Serial.println("⚠️ BLE transmit queue full - message dropped!");
+    DEBUG_PRINTLN("⚠️ BLE transmit queue full - message dropped!");
   }
 }
 
@@ -981,40 +1009,46 @@ void startBleTransmit(const String& data) {
 // Returns true when a transmission is complete (but queue may have more)
 bool processBleTransmit() {
   if (!bleTransmit.inProgress || !isConnected) {
-    // Check if there's something in the queue to start
     if (bleTransmit.queueCount > 0 && isConnected) {
-      bleTransmit.buffer = bleTransmit.queue[bleTransmit.queueTail];
-      bleTransmit.queue[bleTransmit.queueTail] = "";  // Free memory
+      char* queued = bleTransmit.queue[bleTransmit.queueTail];
+      int len = strlen(queued);
+      if (len >= BLE_TX_BUF_SIZE) {
+        DEBUG_PRINTLN("⚠️ Queued message too large!");
+        free(queued);
+      } else {
+        memcpy(bleTransmit.buffer, queued, len);
+        bleTransmit.buffer[len] = '\0';
+        bleTransmit.bufferLen = len;
+        free(queued);
+      }
+      bleTransmit.queue[bleTransmit.queueTail] = NULL;
       bleTransmit.queueTail = (bleTransmit.queueTail + 1) % BLE_TX_QUEUE_SIZE;
       bleTransmit.queueCount--;
       bleTransmit.offset = 0;
       bleTransmit.lastChunkTime = 0;
       bleTransmit.inProgress = true;
-      Serial.printf("📋 Dequeued BLE message (%d remaining)\n", bleTransmit.queueCount);
+      DEBUG_LOG("📋 Dequeued BLE message (%d remaining)\n", bleTransmit.queueCount);
     } else {
       bleTransmit.inProgress = false;
       return false;
     }
   }
 
-  // Enforce 20ms delay between chunks
   if (bleTransmit.lastChunkTime > 0 &&
       (millis() - bleTransmit.lastChunkTime) < 20) {
     return false;
   }
 
-  int remaining = bleTransmit.buffer.length() - bleTransmit.offset;
+  int remaining = bleTransmit.bufferLen - bleTransmit.offset;
   if (remaining <= 0) {
     bleTransmit.inProgress = false;
-    bleTransmit.buffer = "";
-    return true;  // Transmission complete
+    bleTransmit.bufferLen = 0;
+    return true;
   }
 
   int chunkSize = min(remaining, bleTransmit.mtu);
-  String chunk = bleTransmit.buffer.substring(
-    bleTransmit.offset, bleTransmit.offset + chunkSize);
-
-  NotifyChar->setValue(chunk.c_str());
+  // Write directly from buffer without creating a String
+  NotifyChar->setValue((uint8_t*)(bleTransmit.buffer + bleTransmit.offset), chunkSize);
   NotifyChar->notify();
 
   bleTransmit.offset += chunkSize;
@@ -1061,7 +1095,7 @@ void enterLowPowerMode() {
   flushPendingNvsWrites();
 
   powerState.isLowPower = true;
-  Serial.println("🔋 Entered low power mode (80MHz, slow advertising)");
+  DEBUG_PRINTLN("🔋 Entered low power mode (80MHz, slow advertising)");
 }
 
 void exitLowPowerMode() {
@@ -1077,13 +1111,13 @@ void exitLowPowerMode() {
   BLEDevice::getAdvertising()->start();
 
   powerState.isLowPower = false;
-  Serial.println("⚡ Exited low power mode (240MHz, fast advertising)");
+  DEBUG_PRINTLN("⚡ Exited low power mode (240MHz, fast advertising)");
 }
 
 // Flush pending NVS writes for current item (call on disconnect or before sleep)
 void flushPendingNvsWrites() {
   if (countsDirty && currentDeviceItemId >= 0) {
-    Serial.println("📝 Flushing pending NVS writes...");
+    DEBUG_PRINTLN("📝 Flushing pending NVS writes...");
     if (!nvsBeginSafe("counter", false)) return;
     char key[16];
     snprintf(key, sizeof(key), "c_%d", currentItemIndex);
@@ -1093,7 +1127,7 @@ void flushPendingNvsWrites() {
     nvsEndSafe();
     countsDirty = false;
     incrementsSinceWrite = 0;
-    Serial.printf("✅ Flushed: count=%d, todayCount=%d\n", itemCount, itemTodayCount);
+    DEBUG_LOG("✅ Flushed: count=%d, todayCount=%d\n", itemCount, itemTodayCount);
   }
 }
 
@@ -1124,7 +1158,7 @@ void notifyPrefsToApp() {
 
   // Use non-blocking transmission (processed in loop)
   startBleTransmit(jsonOut);
-  Serial.println("📤 Started sending prefs via notification (non-blocking)...");
+  DEBUG_PRINTLN("📤 Started sending prefs via notification (non-blocking)...");
 }
 
 // Send error notification to app via NOTIFY characteristic
@@ -1147,7 +1181,7 @@ void notifyError(const char* cmd, const char* reason, int error_code = 0) {
 
   NotifyChar->setValue(jsonOut.c_str());
   NotifyChar->notify();
-  Serial.printf("📤 Error notification: cmd=%s, code=%d, reason=%s\n", cmd, error_code, reason);
+  DEBUG_LOG("📤 Error notification: cmd=%s, code=%d, reason=%s\n", cmd, error_code, reason);
 }
 
 // ============================================================================
@@ -1186,7 +1220,7 @@ void notifyItemDelta(int8_t deviceItemId, int count, int todayCount, time_t rese
   // Delta is small enough to send in one chunk typically
   NotifyChar->setValue(jsonOut.c_str());
   NotifyChar->notify();
-  Serial.printf("📤 Delta update: deviceItemId=%d count=%d today=%d resetNumber=%d\n", deviceItemId, count, todayCount, resetNumber);
+  DEBUG_LOG("📤 Delta update: deviceItemId=%d count=%d today=%d resetNumber=%d\n", deviceItemId, count, todayCount, resetNumber);
 }
 
 // Send logs to app via notification (chunked for large payloads)
@@ -1195,7 +1229,7 @@ void notifyLogsToApp(int page) {
   String jsonOut = getLogsAsString(page);
   jsonOut += "\n";  // For Flutter end-of-message detection
 
-  Serial.printf("📤 Starting logs page %d (%d bytes, %d chunks) (non-blocking)\n", page, jsonOut.length(), (jsonOut.length() + 179) / 180);
+  DEBUG_LOG("📤 Starting logs page %d (%d bytes, %d chunks) (non-blocking)\n", page, jsonOut.length(), (jsonOut.length() + 179) / 180);
 
   // Use non-blocking transmission (processed in loop)
   startBleTransmit(jsonOut);
@@ -1270,7 +1304,7 @@ String getLogsAsString(int page) {
   for (int i = startIndex; i < endIndex; i++) {
     // Check for overflow before adding each entry
     if (doc.overflowed()) {
-      Serial.println("⚠️ JSON document overflow - truncating logs");
+      DEBUG_PRINTLN("⚠️ JSON document overflow - truncating logs");
       break;
     }
     JsonObject o = arr.createNestedObject();
@@ -1284,7 +1318,7 @@ String getLogsAsString(int page) {
 
   // Check if we overflowed
   if (doc.overflowed()) {
-    Serial.printf("⚠️ JSON overflow detected! Doc size: %d, capacity: %d\n", doc.memoryUsage(), doc.capacity());
+    DEBUG_LOG("⚠️ JSON overflow detected! Doc size: %d, capacity: %d\n", doc.memoryUsage(), doc.capacity());
   }
 
   String out;
@@ -1302,8 +1336,8 @@ void clearLogs() {
 class SetItemsCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) override {
     String chunk = String(c->getValue().c_str());
-    Serial.println("Received raw chunk:");
-    Serial.println(chunk);
+    DEBUG_PRINTLN("Received raw chunk:");
+    DEBUG_PRINTLN(chunk);
 
     // Update timestamp for chunk timeout detection
     lastChunkReceived = millis();
@@ -1313,7 +1347,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
     // Input validation: check payload size before parsing
     if (incomingJsonBuffer.length() > 32000) {
-      Serial.println("❌ Payload too large (>32KB)");
+      DEBUG_PRINTLN("❌ Payload too large (>32KB)");
       notifyError("set_items", "Payload too large", ERR_PAYLOAD_TOO_LARGE);
       incomingJsonBuffer = "";
       return;
@@ -1328,8 +1362,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       StaticJsonDocument<24576> doc;  // 100 items × ~200 bytes = 20KB + headroom
       DeserializationError err = deserializeJson(doc, incomingJsonBuffer);
       if (err) {
-        Serial.print("JSON parse failed: ");
-        Serial.println(err.c_str());
+        DEBUG_LOG("JSON parse failed: %s\n", err.c_str());
         notifyError("set_items", err.c_str(), ERR_INVALID_JSON);
         incomingJsonBuffer = "";  // clear buffer on failure
         return;
@@ -1423,7 +1456,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
             resetNumber = existingResetNumbers[i];
             lastResetTime = existingLastResetTimes[i];
             isExistingItem = true;
-            Serial.printf("🔄 Preserving data for deviceItemId=%d: count=%d, todaycount=%d, resetNumber=%d\n",
+            DEBUG_LOG("🔄 Preserving data for deviceItemId=%d: count=%d, todaycount=%d, resetNumber=%d\n",
                           deviceItemId, count, todaycount, resetNumber);
             break;
           }
@@ -1462,7 +1495,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
             if (item.containsKey("lastResetTime")) {
               lastResetTime = item["lastResetTime"];
             }
-            Serial.printf("🔄 App reset detected for deviceItemId=%d: accepting resetNumber=%d from app\n",
+            DEBUG_LOG("🔄 App reset detected for deviceItemId=%d: accepting resetNumber=%d from app\n",
                           deviceItemId, resetNumber);
           }
         }
@@ -1491,7 +1524,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         snprintf(key, sizeof(key), "rn_%d", index);
         prefs.putInt(key, resetNumber);
 
-        Serial.printf("[%d] DeviceItemID=%d Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d Goal=%d ResetTime=%lu ResetNum=%d\n",
+        DEBUG_LOG("[%d] DeviceItemID=%d Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d Goal=%d ResetTime=%lu ResetNum=%d\n",
               index, deviceItemId, name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, goal, lastResetTime, resetNumber);
         index++;
       }
@@ -1509,7 +1542,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
             currentItemIndex = i;
             prefs.putInt("selected_index", i);
             found = true;
-            Serial.printf("🔄 Updated selected index to %d for deviceItemId %d\n", i, currentDeviceItemId);
+            DEBUG_LOG("🔄 Updated selected index to %d for deviceItemId %d\n", i, currentDeviceItemId);
             break;
           }
         }
@@ -1519,14 +1552,14 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
             // Items exist but selected not found - DON'T reset to none/first item
             // Keep current selection and let incoming set_selected command fix it
             // This prevents brief "none" state during reorder operations
-            Serial.printf("⚠️ Selected item deviceItemId=%d not found after reorder, keeping current selection (set_selected will fix)\n", currentDeviceItemId);
+            DEBUG_LOG("⚠️ Selected item deviceItemId=%d not found after reorder, keeping current selection (set_selected will fix)\n", currentDeviceItemId);
           } else {
             // No items at all - must reset to none
             currentItemIndex = 0;
             currentDeviceItemId = -1;
             prefs.putInt("selected_index", 0);
             prefs.putChar("selected_did", -1);
-            Serial.println("⚠️ No items left, selected = none");
+            DEBUG_PRINTLN("⚠️ No items left, selected = none");
           }
         }
       }
@@ -1552,7 +1585,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         lastResetTime = prefs.getULong(key, 0);
         snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
         itemResetNumber = prefs.getInt(key, 0);
-        Serial.printf("🔄 Refreshed runtime vars: %s, category=%s, increment=%d, reminder=%d, resetNumber=%d\n",
+        DEBUG_LOG("🔄 Refreshed runtime vars: %s, category=%s, increment=%d, reminder=%d, resetNumber=%d\n",
                       itemName.c_str(), itemCategory.c_str(), itemIncrement, reminder, itemResetNumber);
       }
 
@@ -1564,7 +1597,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       clearLogs();
       incomingJsonBuffer = "";
-      Serial.println("✅ Finished writing to prefs with index-based keys.");
+      DEBUG_PRINTLN("✅ Finished writing to prefs with index-based keys.");
     }
   }
 };
@@ -1578,8 +1611,7 @@ void handleOverrideChunkCommand(const String& jsonStr) {
   StaticJsonDocument<2048> doc;
   DeserializationError err = deserializeJson(doc, jsonStr);
   if (err) {
-    Serial.print("❌ Override chunk JSON parse error: ");
-    Serial.println(err.c_str());
+    DEBUG_LOG("❌ Override chunk JSON parse error: %s\n", err.c_str());
     notifyError("override_chunk", err.c_str(), ERR_INVALID_JSON);
     return;
   }
@@ -1588,7 +1620,7 @@ void handleOverrideChunkCommand(const String& jsonStr) {
   JsonArray items = doc["items"].as<JsonArray>();
 
   if (items.isNull()) {
-    Serial.println("❌ Override chunk missing items array");
+    DEBUG_PRINTLN("❌ Override chunk missing items array");
     notifyError("override_chunk", "Missing items array", ERR_MISSING_FIELD);
     return;
   }
@@ -1605,10 +1637,9 @@ void handleOverrideChunkCommand(const String& jsonStr) {
 
 // Process a complete write command (called when newline delimiter received)
 void processWriteCommand(const String& jsonStr) {
-    Serial.print("📨 Processing command: '");
-    Serial.print(jsonStr.substring(0, min((unsigned int)100, jsonStr.length())));
-    if (jsonStr.length() > 100) Serial.print("...");
-    Serial.println("'");
+    DEBUG_LOG("📨 Processing command: '%s%s'\n",
+              jsonStr.substring(0, min((unsigned int)100, jsonStr.length())).c_str(),
+              jsonStr.length() > 100 ? "..." : "");
 
     // Special handling for override_chunk - needs larger buffer due to items array
     // Check for "override_chunk" command prefix to route to special handler
@@ -1620,8 +1651,7 @@ void processWriteCommand(const String& jsonStr) {
     StaticJsonDocument<256> doc;
     DeserializationError err = deserializeJson(doc, jsonStr);
     if (err) {
-      Serial.print("❌ Command JSON parse error: ");
-      Serial.println(err.c_str());
+      DEBUG_LOG("❌ Command JSON parse error: %s\n", err.c_str());
       notifyError("parse", err.c_str(), ERR_INVALID_JSON);
       return;
     }
@@ -1644,7 +1674,7 @@ void processWriteCommand(const String& jsonStr) {
     } else if (cmd == "clear_logs") {  //////////////////// clear all event logs
       // Format: {"cmd": "clear_logs"} or {"cmd": "clear_logs", "ack": true}
       clearLogs();
-      Serial.println("✅ Logs cleared.");
+      DEBUG_PRINTLN("✅ Logs cleared.");
       sendAckIfRequested(doc, "clear_logs");
 
     } else if (cmd == "set_selected") {  ///////////////////////// set selected item
@@ -1661,7 +1691,7 @@ void processWriteCommand(const String& jsonStr) {
 
       int total = prefs.getInt("item_total", 0);
       if (total == 0 || targetDeviceId < 0) {
-        Serial.println("⚠️ No items available to select.");
+        DEBUG_PRINTLN("⚠️ No items available to select.");
         currentDeviceItemId = -1;
         prefs.putChar("selected_did", -1);
         prefs.putInt("selected_index", 0);
@@ -1698,7 +1728,7 @@ void processWriteCommand(const String& jsonStr) {
           snprintf(key, sizeof(key), "rn_%d", i);
           itemResetNumber = prefs.getInt(key, 0);
 
-          Serial.printf("✅ Selected item [%d]: deviceItemId=%d (%s) category=%s resetNumber=%d\n", i, targetDeviceId, itemName.c_str(), itemCategory.c_str(), itemResetNumber);
+          DEBUG_LOG("✅ Selected item [%d]: deviceItemId=%d (%s) category=%s resetNumber=%d\n", i, targetDeviceId, itemName.c_str(), itemCategory.c_str(), itemResetNumber);
           found = true;
           nvsEndSafe();
           return;
@@ -1706,7 +1736,7 @@ void processWriteCommand(const String& jsonStr) {
       }
 
       if (!found) {
-        Serial.printf("⚠️ Item with deviceItemId=%d not found.\n", targetDeviceId);
+        DEBUG_LOG("⚠️ Item with deviceItemId=%d not found.\n", targetDeviceId);
       }
       nvsEndSafe();
 
@@ -1888,7 +1918,7 @@ void processWriteCommand(const String& jsonStr) {
       serializeJson(response, responseStr);
       sendJsonResponse(responseStr);
 
-      Serial.printf("✅ Deleted item deviceItemId=%d (was at index %d), %d items remaining\n",
+      DEBUG_LOG("✅ Deleted item deviceItemId=%d (was at index %d), %d items remaining\n",
                     targetDeviceId, foundIndex, newTotal);
 
     } else if (cmd == "unpair") {  //////////////////// unpair device
@@ -1929,7 +1959,7 @@ void processWriteCommand(const String& jsonStr) {
       serializeJson(response, responseStr);
       sendJsonResponse(responseStr);
 
-      Serial.println("✅ Device unpaired - ready for new account");
+      DEBUG_PRINTLN("✅ Device unpaired - ready for new account");
 
       // Display will update to "AWAITING SETUP" on next refresh
 
@@ -1949,11 +1979,11 @@ void processWriteCommand(const String& jsonStr) {
         prefs.begin("counter", false);
         prefs.putInt("tz_offset", offsetMinutes);
         prefs.end();
-        Serial.printf("✅ RTC set to UTC: %04d-%02d-%02d %02d:%02d:%02d (local offset: %d min)\n",
+        DEBUG_LOG("✅ RTC set to UTC: %04d-%02d-%02d %02d:%02d:%02d (local offset: %d min)\n",
                       y, mo, d, h, mi, s, offsetMinutes);
         sendAckIfRequested(doc, "set_time", true);
       } else {
-        Serial.println("❌ set_time: missing utc_time parameter");
+        DEBUG_PRINTLN("❌ set_time: missing utc_time parameter");
         sendAckIfRequested(doc, "set_time", false, "Missing utc_time parameter");
       }
 
@@ -1971,8 +2001,7 @@ void processWriteCommand(const String& jsonStr) {
       // Note: Actual sending happens in loop() when currentReadMode is set
 
     } else {
-      Serial.print("⚠️ Unknown command: ");
-      Serial.println(cmd);
+      DEBUG_LOG("⚠️ Unknown command: %s\n", cmd.c_str());
     }
 }
 
@@ -1988,7 +2017,7 @@ class WriteCallback : public BLECharacteristicCallbacks {
 
     // Check for buffer overflow
     if (writeCommandBuffer.length() > 8192) {
-      Serial.println("❌ Write command buffer overflow (>8KB)");
+      DEBUG_PRINTLN("❌ Write command buffer overflow (>8KB)");
       notifyError("write", "Buffer overflow", ERR_BUFFER_OVERFLOW);
       writeCommandBuffer = "";
       return;
@@ -2021,7 +2050,7 @@ class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* p) override {
     isConnected = true;
     recordActivity();  // Wake from low power mode on connection
-    Serial.println("✅ Connected!");
+    DEBUG_PRINTLN("✅ Connected!");
   }
   void onDisconnect(BLEServer* p) override {
     // Flush any pending NVS writes before disconnecting to prevent data loss
@@ -2040,16 +2069,20 @@ class ServerCallbacks : public BLEServerCallbacks {
 
     // Clear BLE transmit queue
     bleTransmit.inProgress = false;
-    bleTransmit.buffer = "";
+    bleTransmit.bufferLen = 0;
+    bleTransmit.buffer[0] = '\0';
+    for (int i = 0; i < BLE_TX_QUEUE_SIZE; i++) {
+      if (bleTransmit.queue[i] != NULL) {
+        free(bleTransmit.queue[i]);
+        bleTransmit.queue[i] = NULL;
+      }
+    }
     bleTransmit.queueCount = 0;
     bleTransmit.queueHead = 0;
     bleTransmit.queueTail = 0;
-    for (int i = 0; i < BLE_TX_QUEUE_SIZE; i++) {
-      bleTransmit.queue[i] = "";
-    }
 
     isConnected = false;
-    Serial.println("🔌 Client disconnected — restarting advertising...");
+    DEBUG_PRINTLN("🔌 Client disconnected — restarting advertising...");
     BLEDevice::startAdvertising();
   }
 };
@@ -2060,20 +2093,20 @@ static void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
     // conn_int is the actual negotiated connection interval (in 1.25ms units)
     float interval = param->update_conn_params.conn_int * 1.25;
 
-    Serial.println("📊 Connection parameters updated:");
-    Serial.printf("   - Actual interval: %.2fms\n", interval);
-    Serial.printf("   - Latency: %d\n", param->update_conn_params.latency);
-    Serial.printf("   - Timeout: %dms\n", param->update_conn_params.timeout * 10);
-    Serial.printf("   - Status: %s\n",
+    DEBUG_PRINTLN("📊 Connection parameters updated:");
+    DEBUG_LOG("   - Actual interval: %.2fms\n", interval);
+    DEBUG_LOG("   - Latency: %d\n", param->update_conn_params.latency);
+    DEBUG_LOG("   - Timeout: %dms\n", param->update_conn_params.timeout * 10);
+    DEBUG_LOG("   - Status: %s\n",
                   param->update_conn_params.status == ESP_BT_STATUS_SUCCESS ? "SUCCESS" : "FAILED");
 
     // Log interpretation
     if (interval <= 15) {
-      Serial.println("   ✅ HIGH priority (~7.5ms interval)");
+      DEBUG_PRINTLN("   ✅ HIGH priority (~7.5ms interval)");
     } else if (interval <= 50) {
-      Serial.println("   ⚡ BALANCED priority (~30ms interval)");
+      DEBUG_PRINTLN("   ⚡ BALANCED priority (~30ms interval)");
     } else {
-      Serial.println("   🔋 LOW priority (>50ms interval)");
+      DEBUG_PRINTLN("   🔋 LOW priority (>50ms interval)");
     }
   }
 }
@@ -2083,16 +2116,16 @@ void setupBLE() {
   BLEDevice::init("Traxelos_One");
 
   // Log device instance ID (MAC address) now that BLE is initialized
-  Serial.printf("🆔 Device Instance ID (MAC): %s\n", getDeviceInstanceId().c_str());
+  DEBUG_LOG("🆔 Device Instance ID (MAC): %s\n", getDeviceInstanceId().c_str());
 
   // Set maximum MTU to allow larger packets (default is 23, max is 517)
   // This allows the app to negotiate larger MTU for faster transfers
   BLEDevice::setMTU(517);
-  Serial.println("📦 BLE MTU set to 517 bytes (max)");
+  DEBUG_PRINTLN("📦 BLE MTU set to 517 bytes (max)");
 
   // Register GAP callback to log connection parameter changes
   esp_ble_gap_register_callback(onGapEvent);
-  Serial.println("📡 BLE GAP callback registered for connection parameter logging");
+  DEBUG_PRINTLN("📡 BLE GAP callback registered for connection parameter logging");
 
   BLEServer* server = BLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
@@ -2131,15 +2164,15 @@ void updateReadChar() {
     // Flush any pending NVS writes so prefs reflect current RAM values
     flushPendingNvsWrites();
     jsonOut = getPrefsJson();
-    //Serial.println("PrefsSent - Details skipped");
-    Serial.printf("PrefsSent (%u bytes)\n", jsonOut.length());
-    Serial.println(jsonOut);
+    //DEBUG_PRINTLN("PrefsSent - Details skipped");
+    DEBUG_LOG("PrefsSent (%u bytes)\n", jsonOut.length());
+    DEBUG_PRINTLN(jsonOut);
   } else if (currentReadMode == READ_LOGS) {
     jsonOut = getLogsAsString(currentPage);  // Convert all logs into one array
-    //Serial.println("LogsSent - Details skipped");
-    //Serial.println(jsonOut);  //////////////////////////////////////////////////Sent logs
-    Serial.printf("LogsSent page %u (%u bytes)\n", currentPage, jsonOut.length());
-    Serial.println(jsonOut);   // <- print full JSON here
+    //DEBUG_PRINTLN("LogsSent - Details skipped");
+    //DEBUG_PRINTLN(jsonOut);  //////////////////////////////////////////////////Sent logs
+    DEBUG_LOG("LogsSent page %u (%u bytes)\n", currentPage, jsonOut.length());
+    DEBUG_PRINTLN(jsonOut);   // <- print full JSON here
   } else {
     return;
   }
@@ -2203,8 +2236,8 @@ void notifyEvent(String event, int resetNum = -1) {
     NotifyChar->notify();
     delay(20);  // Unified 20ms delay for reliable BLE chunk transmission
   }
-  //Serial.println("📤 Sent notifyEvent:");
-  //Serial.println(s);
+  //DEBUG_PRINTLN("📤 Sent notifyEvent:");
+  //DEBUG_PRINTLN(s);
 }
 
 // Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
@@ -2215,12 +2248,12 @@ void handleCommand(char cmd) {
   // In conflict state, all buttons are disabled - user must resolve via app
   if (inConflictState) {
     displayMessage("SEE APP");  // Remind user to check app
-    Serial.printf("⛔ Button '%c' ignored - device in conflict state (SEE APP)\n", cmd);
+    DEBUG_LOG("⛔ Button '%c' ignored - device in conflict state (SEE APP)\n", cmd);
     return;
   }
 
   if (!nvsBeginSafe("counter", false)) {
-    Serial.println("⚠️ NVS mutex timeout in handleCommand");
+    DEBUG_PRINTLN("⚠️ NVS mutex timeout in handleCommand");
     return;
   }
 
@@ -2229,7 +2262,7 @@ void handleCommand(char cmd) {
   if (cmd == 'u') {
     // Increment current item count and update in prefs using indexed keys
     if (currentDeviceItemId < 0) {
-      Serial.println("No Item Selected");
+      DEBUG_PRINTLN("No Item Selected");
       notifyError("increment", "No item selected", ERR_NO_ITEM_SELECTED);
       nvsEndSafe();
       return;
@@ -2264,7 +2297,7 @@ void handleCommand(char cmd) {
       prefs.putInt(key, itemTodayCount);
       incrementsSinceWrite = 0;
       countsDirty = false;
-      Serial.println("📝 NVS batch write (10 increments)");
+      DEBUG_PRINTLN("📝 NVS batch write (10 increments)");
     }
 
     // Only log when disconnected - when connected, real-time events are synced directly
@@ -2275,14 +2308,14 @@ void handleCommand(char cmd) {
     if (isConnected) notifyEvent("increment");
 
     // Debug: print category and item index
-    Serial.printf("📍 Category: %s | Item index: %d/%d\n",
+    DEBUG_LOG("📍 Category: %s | Item index: %d/%d\n",
                   itemCategory.length() > 0 ? itemCategory.c_str() : "Uncategorized",
                   currentItemIndex, total);
 
   } else if (cmd == 'r') {
     // Reset current item count and update in prefs using indexed keys
     if (currentDeviceItemId < 0) {
-      Serial.println("No Item Selected");
+      DEBUG_PRINTLN("No Item Selected");
       notifyError("reset", "No item selected", ERR_NO_ITEM_SELECTED);
       nvsEndSafe();
       return;
@@ -2314,7 +2347,7 @@ void handleCommand(char cmd) {
     snprintf(key, sizeof(key), "rn_%d", currentItemIndex);
     prefs.putInt(key, itemResetNumber);
 
-    Serial.printf("🔄 Reset: period %d ended, now in period %d\n", oldResetNumber, itemResetNumber);
+    DEBUG_LOG("🔄 Reset: period %d ended, now in period %d\n", oldResetNumber, itemResetNumber);
 
     nvsEndSafe();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
@@ -2339,7 +2372,7 @@ void handleCommand(char cmd) {
       prefs.putInt(key, itemTodayCount);
       countsDirty = false;
       incrementsSinceWrite = 0;
-      Serial.println("📝 NVS flush before item switch");
+      DEBUG_PRINTLN("📝 NVS flush before item switch");
     }
 
     // Cycle to the next item index
@@ -2374,9 +2407,9 @@ void handleCommand(char cmd) {
     //logEvent(EVENT_SWITCH);
     if (isConnected) notifyEvent("switch");
 
-    Serial.printf("Switch to: %s (index %d)\n", itemName.c_str(), currentItemIndex);
+    DEBUG_LOG("Switch to: %s (index %d)\n", itemName.c_str(), currentItemIndex);
     // Debug: print category and item index
-    Serial.printf("📍 Category: %s | Item index: %d/%d\n",
+    DEBUG_LOG("📍 Category: %s | Item index: %d/%d\n",
                   itemCategory.length() > 0 ? itemCategory.c_str() : "Uncategorized",
                   currentItemIndex, total);
     return;  // Already closed prefs, skip the final nvsEndSafe()
@@ -2387,21 +2420,12 @@ void handleCommand(char cmd) {
 
   //DateTime now = rtc.now();
   // 📢 Display current item status after any command
-  Serial.print(itemName);
-  if (itemCategory.length() > 0) {
-    Serial.print(" (");
-    Serial.print(itemCategory);
-    Serial.print(")");
-  }
-  Serial.print(" [DeviceID: ");
-  Serial.print(currentDeviceItemId);
-  Serial.print("] Count: ");
-  Serial.print(itemCount);
-  Serial.print(", TodayCount: ");
-  Serial.print(itemTodayCount);
-  Serial.print(" (+");
-  Serial.print(itemIncrement);
-  Serial.println(")");
+  DEBUG_LOG("%s%s%s%s [DeviceID: %d] Count: %d, TodayCount: %d (+%d)\n",
+            itemName.c_str(),
+            itemCategory.length() > 0 ? " (" : "",
+            itemCategory.length() > 0 ? itemCategory.c_str() : "",
+            itemCategory.length() > 0 ? ")" : "",
+            currentDeviceItemId, itemCount, itemTodayCount, itemIncrement);
 
 }
 
@@ -2430,8 +2454,8 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
   String last_reset_date = prefs.getString("last_reset_date", "");
 
   if (last_reset_date != String(todayStr)) {
-    Serial.println("🔄 New day detected. Resetting todayCount for all items.");
-    Serial.println(String(todayStr));
+    DEBUG_PRINTLN("🔄 New day detected. Resetting todayCount for all items.");
+    DEBUG_PRINTLN(String(todayStr));
 
     // Use UTC timestamp for lastResetTime (consistent with event timestamps and manual reset)
     // Events use rtc.now().unixtime() (UTC), so lastResetTime must also be UTC
@@ -2448,7 +2472,7 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
       snprintf(key, sizeof(key), "lr_%d", i);
       prefs.putULong(key, utcTimestamp);
 
-      Serial.printf("Reset: %s, lastResetTime: %lu (UTC)\n", key, utcTimestamp);
+      DEBUG_LOG("Reset: %s, lastResetTime: %lu (UTC)\n", key, utcTimestamp);
     }
 
     if (currentDeviceItemId >= 0) {
@@ -2458,8 +2482,8 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
 
     prefs.putString("last_reset_date", todayStr);
   }// else {
-   // Serial.println("✅ todayCount is already up to date.");
-   // Serial.println(todayStr);
+   // DEBUG_PRINTLN("✅ todayCount is already up to date.");
+   // DEBUG_PRINTLN(todayStr);
   //}
 
   nvsEndSafe();
@@ -2474,22 +2498,22 @@ void setup() {
 
   // Initialize NVS mutex for thread-safe access
   nvsMutex = xSemaphoreCreateMutex();
-  Serial.println("🔒 NVS mutex initialized");
+  DEBUG_PRINTLN("🔒 NVS mutex initialized");
 
   if (!rtc.begin()) {
-    Serial.println("❌ RTC not found!");
+    DEBUG_PRINTLN("❌ RTC not found!");
   } else {
-    Serial.println("✅ RTC connected.");
+    DEBUG_PRINTLN("✅ RTC connected.");
   }
   if (rtc.lostPower()) {
-    Serial.println("⚠️ RTC lost power. Setting to compile time.");
+    DEBUG_PRINTLN("⚠️ RTC lost power. Setting to compile time.");
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 
   // Note: Using raw prefs.begin here since mutex is now initialized
   // nvsBeginSafe handles the mutex properly
   if (!nvsBeginSafe("counter", false)) {
-    Serial.println("❌ Failed to open NVS in setup");
+    DEBUG_PRINTLN("❌ Failed to open NVS in setup");
     return;
   }
 
@@ -2500,8 +2524,8 @@ void setup() {
   // Check if device is paired (has a paired_uid set)
   String pairedUid = prefs.getString(NVS_KEY_PAIRED_UID, "");
   int syncSeqNo = prefs.getInt(NVS_KEY_SYNC_SEQ_NO, 0);
-  Serial.printf("🔗 Paired UID: %s\n", pairedUid.isEmpty() ? "(unpaired)" : pairedUid.c_str());
-  Serial.printf("📊 Sync Sequence: %d\n", syncSeqNo);
+  DEBUG_LOG("🔗 Paired UID: %s\n", pairedUid.isEmpty() ? "(unpaired)" : pairedUid.c_str());
+  DEBUG_LOG("📊 Sync Sequence: %d\n", syncSeqNo);
 
   // ✅ Verify and store item_total
   int verifiedTotal = 0;
@@ -2519,12 +2543,11 @@ void setup() {
     }
   }
   prefs.putInt("item_total", verifiedTotal);
-  Serial.printf("✅ Verified item_total on boot: %d\n", verifiedTotal);
+  DEBUG_LOG("✅ Verified item_total on boot: %d\n", verifiedTotal);
 
 
   currentDeviceItemId = prefs.getChar("selected_did", -1);
-  Serial.print("CurrentDeviceItemId:");
-  Serial.print(currentDeviceItemId);
+  DEBUG_LOG("CurrentDeviceItemId:%d", currentDeviceItemId);
   currentItemIndex = prefs.getInt("selected_index", 0);
   snprintf(key, sizeof(key), "c_%d", currentItemIndex);
   itemCount = prefs.getInt(key, 0);
@@ -2551,7 +2574,7 @@ void setup() {
     snprintf(key, sizeof(key), "did_%d", 0);
     currentDeviceItemId = prefs.getChar(key, -1);
     prefs.putChar("selected_did", currentDeviceItemId);
-    Serial.println("⚠️ selected_index out of bounds. Resetting to 0.");
+    DEBUG_PRINTLN("⚠️ selected_index out of bounds. Resetting to 0.");
   }
 
 
@@ -2571,11 +2594,11 @@ void setup() {
   // Initialize watchdog timer (30 second timeout, panic on timeout)
   esp_task_wdt_init(&wdtConfig);
   esp_task_wdt_add(NULL);  // Add current task (loop task) to watchdog
-  Serial.println("🐕 Watchdog initialized (30s timeout)");
+  DEBUG_PRINTLN("🐕 Watchdog initialized (30s timeout)");
 
   // Initialize power management
   powerState.lastActivity = millis();
-  Serial.println("⚡ Power management initialized");
+  DEBUG_PRINTLN("⚡ Power management initialized");
 
   // ============== MULTI-DEVICE: Enter appropriate mode ==============
   if (!isDevicePaired()) {
@@ -2617,7 +2640,7 @@ void loop() {
   // Check for stale incoming JSON buffer (incomplete transfer from app)
   if (incomingJsonBuffer.length() > 0 && lastChunkReceived > 0) {
     if (millis() - lastChunkReceived > CHUNK_TIMEOUT_MS) {
-      Serial.printf("⚠️ Chunk timeout - clearing stale buffer (%d bytes)\n", incomingJsonBuffer.length());
+      DEBUG_LOG("⚠️ Chunk timeout - clearing stale buffer (%d bytes)\n", incomingJsonBuffer.length());
       incomingJsonBuffer = "";
       lastChunkReceived = 0;
     }
@@ -2626,7 +2649,7 @@ void loop() {
   // Check for stale write command buffer (incomplete multi-packet command)
   if (writeCommandBuffer.length() > 0 && lastChunkReceived > 0) {
     if (millis() - lastChunkReceived > CHUNK_TIMEOUT_MS) {
-      Serial.printf("⚠️ Write command timeout - clearing stale buffer (%d bytes)\n", writeCommandBuffer.length());
+      DEBUG_LOG("⚠️ Write command timeout - clearing stale buffer (%d bytes)\n", writeCommandBuffer.length());
       writeCommandBuffer = "";
     }
   }
@@ -2638,7 +2661,7 @@ void loop() {
   if (needsSendSyncData && !bleTransmit.inProgress &&
       (millis() - syncDataRequestedAt >= 100)) {
     needsSendSyncData = false;  // Clear flag to prevent re-triggering
-    Serial.println("📤 Sending initial prefs after handshake...");
+    DEBUG_PRINTLN("📤 Sending initial prefs after handshake...");
 
     // Send prefs first (non-blocking)
     notifyPrefsToApp();
@@ -2650,12 +2673,12 @@ void loop() {
   // Send logs after prefs transmission completes
   if (needsSendLogs && !bleTransmit.inProgress) {
     needsSendLogs = false;  // Clear flag to prevent re-triggering
-    Serial.println("📤 Prefs sent, now sending logs...");
+    DEBUG_PRINTLN("📤 Prefs sent, now sending logs...");
 
     // Send logs (page 0)
     notifyLogsToApp(0);
 
-    Serial.println("✅ Initial sync data sent");
+    DEBUG_PRINTLN("✅ Initial sync data sent");
   }
 
   // Handle prepare_read requests by sending data via notification

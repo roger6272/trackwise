@@ -28,6 +28,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'core/firebase/firebase_config.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/logger.dart';
 
 import 'core/di/injection.dart';
 import 'core/auth/auth_state_notifier.dart';
@@ -147,9 +148,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _onAuthStateChanged(AuthState state) {
-    debugPrint('🔐 main._onAuthStateChanged: state=${state.runtimeType}');
+    AppLogger.debug('main._onAuthStateChanged: state=${state.runtimeType}');
     if (state is Authenticated) {
-      debugPrint('🔐 main: Authenticated user=${state.user.id}, onboardingCompleted=${state.user.onboardingCompleted}');
+      AppLogger.debug('main: Authenticated user=${state.user.id}, onboardingCompleted=${state.user.onboardingCompleted}');
       _authStateNotifier.updateAuthState(
         uid: state.user.id,
         isLoggedIn: true,

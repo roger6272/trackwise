@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../auth/domain/repositories/user_repository.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
@@ -188,7 +188,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           _lastConnectedDeviceId != null) {
         _reconnectTimer?.cancel();
         final delay = _getReconnectDelay();
-        if (kDebugMode) print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+        AppLogger.debug('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
         _reconnectTimer = Timer(delay, () {
           if (!_isManualDisconnect &&
               state.status == BluetoothStatus.ready &&
@@ -434,9 +434,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
               failure.message.contains('ANDROID_SPECIFIC_ERROR');
 
           if (isError133 && attempt < maxRetries) {
-            if (kDebugMode) {
-              print('Connection failed with error 133, retrying ($attempt/$maxRetries)...');
-            }
+            AppLogger.debug('Connection failed with error 133, retrying ($attempt/$maxRetries)...');
             return true; // Retry
           }
 
@@ -544,7 +542,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       if (!_isManualDisconnect && _lastConnectedDeviceId != null) {
         _reconnectTimer?.cancel();
         final delay = _getReconnectDelay();
-        if (kDebugMode) print('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
+        AppLogger.debug('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
         _reconnectTimer = Timer(delay, () {
           if (!_isManualDisconnect &&
               state.status == BluetoothStatus.ready &&
@@ -579,15 +577,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Send time sync first and await it
     final timeSyncResult = await _sendTimeSync.call(SendTimeSyncParams(deviceId));
     timeSyncResult.fold(
-      (failure) { if (kDebugMode) print('Time sync failed: ${failure.message}'); },
-      (_) { if (kDebugMode) print('Initial sync: time sync sent'); },
+      (failure) { AppLogger.debug('Time sync failed: ${failure.message}'); },
+      (_) { AppLogger.debug('Initial sync: time sync sent'); },
     );
 
     // Small delay between commands to avoid overwhelming BLE
     await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
 
     // Perform the new handshake-based sync flow
-    if (kDebugMode) print('Initial sync: starting handshake flow');
+    AppLogger.debug('Initial sync: starting handshake flow');
 
     final syncResult = await _performSync.call(
       PerformSyncParams(deviceId: deviceId),
@@ -597,7 +595,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       (failure) {
         if (failure is SyncConflictFailure) {
           // Conflict detected - notify UI to show dialog
-          if (kDebugMode) print('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}, deviceInstanceId=${failure.deviceInstanceId}');
+          AppLogger.debug('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}, deviceInstanceId=${failure.deviceInstanceId}');
           add(SyncConflictDetected(
             appSyncSeq: failure.appSyncSeq,
             deviceSyncSeq: failure.deviceSyncSeq,
@@ -605,22 +603,22 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           ));
         } else if (failure is DeviceUninitializedFailure) {
           // Device needs setup (factory reset or new device)
-          if (kDebugMode) print('Device uninitialized: deviceInstanceId=${failure.deviceInstanceId}');
+          AppLogger.debug('Device uninitialized: deviceInstanceId=${failure.deviceInstanceId}');
           add(DeviceSetupRequired(deviceInstanceId: failure.deviceInstanceId));
         } else if (failure is WrongAccountFailure) {
-          if (kDebugMode) print('Wrong account - device locked to different user');
+          AppLogger.debug('Wrong account - device locked to different user');
           add(const WrongAccountDetected());
         } else if (failure is NoInternetFailure) {
-          if (kDebugMode) print('No internet - falling back to old sync flow');
+          AppLogger.debug('No internet - falling back to old sync flow');
           // Fall back to old sync flow when offline
           _performLegacySync(deviceId);
         } else {
-          if (kDebugMode) print('Sync failed: ${failure.message}');
+          AppLogger.debug('Sync failed: ${failure.message}');
         }
       },
       (result) {
         final macAddress = state.connectedDevice!.id;
-        if (kDebugMode) print('Sync completed successfully, deviceInstanceId=$macAddress');
+        AppLogger.debug('Sync completed successfully, deviceInstanceId=$macAddress');
         // Use event to update state (emit not available outside event handlers)
         add(SyncCompleted(deviceInstanceId: macAddress));
       },
@@ -640,8 +638,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     prefsResult.fold(
-      (failure) { if (kDebugMode) print('Failed to request prefs: ${failure.message}'); },
-      (_) { if (kDebugMode) print('Legacy sync: prefs requested'); },
+      (failure) { AppLogger.debug('Failed to request prefs: ${failure.message}'); },
+      (_) { AppLogger.debug('Legacy sync: prefs requested'); },
     );
 
     // Small delay before requesting logs
@@ -657,8 +655,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
 
     logsResult.fold(
-      (failure) { if (kDebugMode) print('Failed to request logs: ${failure.message}'); },
-      (_) { if (kDebugMode) print('Legacy sync: logs requested'); },
+      (failure) { AppLogger.debug('Failed to request logs: ${failure.message}'); },
+      (_) { AppLogger.debug('Legacy sync: logs requested'); },
     );
   }
 
@@ -826,7 +824,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       result.fold(
         (failure) {
           // Log sync failure but don't fail the message handling
-          debugPrint('Sync failed: ${failure.message}');
+          AppLogger.debug('Sync failed: ${failure.message}');
         },
         (syncResult) {
           if (syncResult.selectedFirestoreId != null) {
@@ -889,7 +887,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     result.fold(
       (failure) {
-        if (kDebugMode) print('Failed to update device name: ${failure.message}');
+        AppLogger.debug('Failed to update device name: ${failure.message}');
       },
       (_) {
         // Update local state
@@ -916,7 +914,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     // Disconnect first if this is the connected device
     if (isConnectedDevice && state.connectedDevice != null) {
-      if (kDebugMode) print('Disconnecting from device being unpaired');
+      AppLogger.debug('Disconnecting from device being unpaired');
       _isManualDisconnect = true;
       _reconnectTimer?.cancel();
       _reconnectTimer = null;
@@ -929,7 +927,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     result.fold(
       (failure) {
-        if (kDebugMode) print('Failed to remove paired device: ${failure.message}');
+        AppLogger.debug('Failed to remove paired device: ${failure.message}');
       },
       (_) {
         // Update local state
@@ -959,7 +957,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SyncConflictDetected event,
     Emitter<BluetoothState> emit,
   ) async {
-    if (kDebugMode) print('BluetoothBloc: Setting hasConflict=true, deviceInstanceId=${event.deviceInstanceId}');
+    AppLogger.debug('BluetoothBloc: Setting hasConflict=true, deviceInstanceId=${event.deviceInstanceId}');
     emit(state.copyWith(
       hasConflict: true,
       conflictAppSyncSeq: event.appSyncSeq,
@@ -995,7 +993,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     // Use event's selectedItemId if provided, otherwise fall back to state
     final selectedItemId = event.currentSelectedItemId ?? state.selectedItemId;
-    debugPrint('🔄 Override: event.currentSelectedItemId=${event.currentSelectedItemId}, '
+    AppLogger.debug('🔄 Override: event.currentSelectedItemId=${event.currentSelectedItemId}, '
         'state.selectedItemId=${state.selectedItemId}, '
         'resolved selectedItemId=$selectedItemId');
 
@@ -1021,7 +1019,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           selectedItemId: syncResult.selectedFirestoreId,
         ));
 
-        if (kDebugMode) print('Override completed successfully');
+        AppLogger.debug('Override completed successfully');
 
         // Trigger sync completed to reload paired devices (use MAC address as device ID)
         add(SyncCompleted(deviceInstanceId: state.connectedDevice!.id));
@@ -1074,7 +1072,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     DeviceSetupRequired event,
     Emitter<BluetoothState> emit,
   ) async {
-    if (kDebugMode) print('BluetoothBloc: Setting needsSetup=true, deviceInstanceId=${event.deviceInstanceId}');
+    AppLogger.debug('BluetoothBloc: Setting needsSetup=true, deviceInstanceId=${event.deviceInstanceId}');
     emit(state.copyWith(
       needsSetup: true,
       setupDeviceInstanceId: event.deviceInstanceId,
@@ -1131,7 +1129,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           selectedItemId: syncResult.selectedFirestoreId,
         ));
 
-        if (kDebugMode) print('Device setup completed successfully');
+        AppLogger.debug('Device setup completed successfully');
 
         // Trigger sync completed to reload paired devices (use MAC address as device ID)
         add(SyncCompleted(deviceInstanceId: state.connectedDevice!.id));

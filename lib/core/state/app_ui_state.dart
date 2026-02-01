@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/logger.dart';
 
 /// Lightweight UI state provider replacing FFAppState.
 ///
@@ -144,7 +145,7 @@ class AppUiState extends ChangeNotifier {
     _hasShownActivationHint = _prefs.getBool(_activationHintShownKey) ?? false;
     _initialized = true;
 
-    debugPrint('🔔 AppUiState.initialize(): swipe=$_hasShownSwipeHint, reorder=$_hasShownReorderHint, activation=$_hasShownActivationHint');
+    AppLogger.debug('AppUiState.initialize(): swipe=$_hasShownSwipeHint, reorder=$_hasShownReorderHint, activation=$_hasShownActivationHint');
 
     notifyListeners();
   }

@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
+import '../utils/logger.dart';
 
 /// Service for checking internet connectivity.
 ///
@@ -48,7 +48,7 @@ class ConnectivityServiceImpl implements ConnectivityService {
           result == ConnectivityResult.ethernet);
 
       if (!hasNetworkInterface) {
-        debugPrint('ConnectivityService: No network interface available');
+        AppLogger.debug('ConnectivityService: No network interface available');
         return false;
       }
 
@@ -57,13 +57,13 @@ class ConnectivityServiceImpl implements ConnectivityService {
       final result = await InternetAddress.lookup('google.com');
       final hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
 
-      debugPrint('ConnectivityService: hasInternet=$hasInternet');
+      AppLogger.debug('ConnectivityService: hasInternet=$hasInternet');
       return hasInternet;
     } on SocketException catch (e) {
-      debugPrint('ConnectivityService: SocketException - ${e.message}');
+      AppLogger.debug('ConnectivityService: SocketException - ${e.message}');
       return false;
     } catch (e) {
-      debugPrint('ConnectivityService: Error checking connectivity - $e');
+      AppLogger.debug('ConnectivityService: Error checking connectivity - $e');
       return false;
     }
   }

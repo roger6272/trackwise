@@ -1,7 +1,8 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
+
+import '../../../../core/utils/logger.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
@@ -73,14 +74,14 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
     final itemsResult = await itemRepository.getItems(userId);
     itemsResult.fold(
       (failure) {
-        debugPrint('Failed to build deviceItemId mapping: ${failure.message}');
+        AppLogger.debug('Failed to build deviceItemId mapping: ${failure.message}');
       },
       (items) {
         _deviceItemIdMap = {
           for (final item in items)
             if (item.deviceItemId != null) item.deviceItemId!: item.id
         };
-        debugPrint('Built deviceItemId mapping: ${_deviceItemIdMap.length} items');
+        AppLogger.debug('Built deviceItemId mapping: ${_deviceItemIdMap.length} items');
       },
     );
   }
@@ -402,7 +403,7 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
     final reason = data['reason']?.toString() ?? 'unknown';
 
     // Log the error for debugging visibility
-    debugPrint('BLE Error from device: cmd=$cmd, reason=$reason');
+    AppLogger.debug('BLE Error from device: cmd=$cmd, reason=$reason');
 
     // Error messages don't require Firestore sync, just logging
     return const Right(SyncDeviceDataResult());
