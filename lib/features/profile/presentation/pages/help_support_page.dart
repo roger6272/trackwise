@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,7 +18,6 @@ class HelpSupportPage extends StatefulWidget {
 }
 
 class _HelpSupportPageState extends State<HelpSupportPage> {
-  static const Color _primary = Color(0xFF4B39EF);
   static const String _supportEmail = 'support@digi1st.com';
 
   String _appVersion = '';
@@ -63,7 +61,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Could not open email app'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -73,6 +71,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
@@ -83,15 +82,14 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       appBar: AppBar(
         backgroundColor: primaryBackground,
         leading: IconButton(
+          tooltip: 'Back',
           icon: Icon(Icons.arrow_back_rounded, color: primaryText, size: 30.0),
           onPressed: () => context.pop(),
         ),
         title: Text(
           'Help & Support',
-          style: GoogleFonts.interTight(
+          style: textTheme.titleLarge?.copyWith(
             color: primaryText,
-            fontSize: 20.0,
-            fontWeight: FontWeight.w600,
           ),
         ),
         centerTitle: true,
@@ -121,18 +119,16 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                   children: [
                     Text(
                       'Traxelos',
-                      style: GoogleFonts.interTight(
+                      style: textTheme.titleSmall?.copyWith(
                         color: secondaryText,
                         fontSize: 14.0,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 4.0),
                     Text(
                       _appVersion,
-                      style: GoogleFonts.inter(
+                      style: textTheme.bodySmall?.copyWith(
                         color: secondaryText,
-                        fontSize: 12.0,
                       ),
                     ),
                   ],
@@ -148,10 +144,8 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
   Widget _buildSectionTitle(BuildContext context, String title, Color primaryText) {
     return Text(
       title,
-      style: GoogleFonts.interTight(
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
         color: primaryText,
-        fontSize: 18.0,
-        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -209,9 +203,8 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                 return ListTile(
                   title: Text(
                     faq.question,
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: primaryText,
-                      fontSize: 14.0,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -221,9 +214,8 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                 padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
                 child: Text(
                   faq.answer,
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: secondaryText,
-                    fontSize: 14.0,
                     height: 1.5,
                   ),
                 ),
@@ -253,24 +245,21 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           Icon(
             Icons.support_agent_rounded,
             size: 48.0,
-            color: _primary,
+            color: AppColors.primary,
           ),
           const SizedBox(height: 16.0),
           Text(
             'Need more help?',
-            style: GoogleFonts.interTight(
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: primaryText,
-              fontSize: 16.0,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8.0),
           Text(
             'Our support team is here to help you with any questions or issues.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14.0,
             ),
           ),
           const SizedBox(height: 20.0),
@@ -281,13 +270,12 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
               icon: const Icon(Icons.email_outlined, size: 20.0),
               label: Text(
                 'Email Support',
-                style: GoogleFonts.inter(
-                  fontSize: 16.0,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _primary,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14.0),
                 shape: RoundedRectangleBorder(
@@ -299,9 +287,8 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           const SizedBox(height: 12.0),
           Text(
             _supportEmail,
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: secondaryText,
-              fontSize: 12.0,
             ),
           ),
         ],

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -19,6 +18,7 @@ class PrivacyPolicyPage extends StatelessWidget {
         backgroundColor: primaryBackground,
         automaticallyImplyLeading: false,
         leading: IconButton(
+          tooltip: 'Back',
           icon: Icon(
             Icons.arrow_back_rounded,
             color: primaryText,
@@ -28,10 +28,8 @@ class PrivacyPolicyPage extends StatelessWidget {
         ),
         title: Text(
           'Privacy Policy',
-          style: GoogleFonts.interTight(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: primaryText,
-            fontSize: 20.0,
-            fontWeight: FontWeight.w600,
           ),
         ),
         centerTitle: true,
@@ -50,7 +48,7 @@ class PrivacyPolicyPage extends StatelessWidget {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   'Error loading privacy policy: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.error),
                 ),
               ),
             );

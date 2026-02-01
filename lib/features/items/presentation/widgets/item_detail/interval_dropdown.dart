@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/utils/interval_calculator.dart';
@@ -161,34 +160,39 @@ class IntervalDropdown extends StatelessWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10.0),
-          onTap: () => _showDropdownMenu(context),
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.filter_list_rounded,
-                  size: 18.0,
-                  color: secondaryText,
-                ),
-                const SizedBox(width: 10.0),
-                Expanded(
-                  child: _buildSelectedLabel(
-                    selectedOption,
-                    primaryText,
-                    secondaryText,
-                    primary,
+        child: Semantics(
+          label: 'Select cycle period',
+          button: true,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10.0),
+            onTap: () => _showDropdownMenu(context),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.filter_list_rounded,
+                    size: 18.0,
+                    color: secondaryText,
                   ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 20.0,
-                  color: secondaryText,
-                ),
-              ],
+                  const SizedBox(width: 10.0),
+                  Expanded(
+                    child: _buildSelectedLabel(
+                      context,
+                      selectedOption,
+                      primaryText,
+                      secondaryText,
+                      primary,
+                    ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 20.0,
+                    color: secondaryText,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -197,14 +201,16 @@ class IntervalDropdown extends StatelessWidget {
   }
 
   Widget _buildSelectedLabel(
+    BuildContext context,
     IntervalOption option,
     Color primaryText,
     Color secondaryText,
     Color primary,
   ) {
+    final textTheme = Theme.of(context).textTheme;
     return Text(
       option.label,
-      style: GoogleFonts.inter(
+      style: textTheme.bodyMedium?.copyWith(
         fontSize: 13.0,
         fontWeight: FontWeight.w600,
         color: primaryText,
@@ -214,6 +220,7 @@ class IntervalDropdown extends StatelessWidget {
 
   void _showDropdownMenu(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryText = AppColors.primaryText(brightness);
     final primary = AppColors.primaryAdaptive(brightness);
     final primaryBackground = AppColors.primaryBackground(brightness);
@@ -255,8 +262,8 @@ class IntervalDropdown extends StatelessWidget {
                     width: 6,
                     height: 6,
                     margin: const EdgeInsets.only(right: 8.0),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
+                    decoration: BoxDecoration(
+                      color: AppColors.success,
                       shape: BoxShape.circle,
                     ),
                   )
@@ -266,7 +273,7 @@ class IntervalDropdown extends StatelessWidget {
                 Expanded(
                   child: Text(
                     option.label,
-                    style: GoogleFonts.inter(
+                    style: textTheme.bodyMedium?.copyWith(
                       fontSize: 13.0,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? primary : primaryText,

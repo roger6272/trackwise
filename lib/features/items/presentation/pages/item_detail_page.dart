@@ -468,6 +468,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               backgroundColor: primaryBackground,
               automaticallyImplyLeading: false,
               leading: IconButton(
+                tooltip: 'Back',
                 icon: Icon(
                   Icons.arrow_back_rounded,
                   color: primaryText,

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/ble_device.dart';
 import '../bloc/bluetooth_bloc.dart';
@@ -60,14 +58,14 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
         backgroundColor: primaryBackground,
         title: Text(
           'Find Device',
-          style: GoogleFonts.interTight(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: primaryText,
-            fontWeight: FontWeight.w600,
             fontSize: 22.0,
           ),
         ),
         elevation: 0.0,
         leading: IconButton(
+          tooltip: 'Back',
           icon: Icon(Icons.arrow_back, color: primaryText),
           onPressed: () => context.pop(),
         ),
@@ -86,7 +84,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.errorMessage!),
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -110,7 +108,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
     if (!state.permissionsGranted) {
       return _StatusBanner(
         message: 'Bluetooth permissions required',
-        color: Colors.orange,
+        color: AppColors.warning,
         action: TextButton(
           onPressed: () {
             context.read<BluetoothBloc>().add(const RequestBluetoothPermissions());
@@ -123,7 +121,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
     if (!state.bluetoothEnabled) {
       return const _StatusBanner(
         message: 'Bluetooth is disabled. Please enable it in settings.',
-        color: Colors.red,
+        color: AppColors.error,
       );
     }
 
@@ -315,13 +313,13 @@ class _DeviceListTile extends StatelessWidget {
 
     if (device.rssi > -50) {
       icon = Icons.signal_cellular_4_bar;
-      color = Colors.green;
+      color = AppColors.success;
     } else if (device.rssi > -70) {
       icon = Icons.signal_cellular_alt;
-      color = Colors.orange;
+      color = AppColors.warning;
     } else {
       icon = Icons.signal_cellular_alt_1_bar;
-      color = Colors.red;
+      color = AppColors.error;
     }
 
     return Container(

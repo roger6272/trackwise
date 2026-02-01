@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
@@ -89,11 +87,9 @@ class _LoginPageState extends State<LoginPage> {
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 70.0, 0.0, 32.0),
       child: Text(
         'Traxelos',
-        style: GoogleFonts.interTight(
+        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
           color: Colors.white,
-          fontSize: 32.0,
           letterSpacing: 0.0,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -132,11 +128,9 @@ class _LoginPageState extends State<LoginPage> {
                 Text(
                   'Welcome Back',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.interTight(
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
                     color: AppColors.primaryText(brightness),
-                    fontSize: 36.0,
                     letterSpacing: 0.0,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Padding(
@@ -144,9 +138,8 @@ class _LoginPageState extends State<LoginPage> {
                   child: Text(
                     'Fill out the information below in order to access your account.',
                     textAlign: TextAlign.start,
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.secondaryText(brightness),
-                      fontSize: 16.0,
                       letterSpacing: 0.0,
                       fontWeight: FontWeight.w500,
                     ),
@@ -180,17 +173,14 @@ class _LoginPageState extends State<LoginPage> {
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.email],
           cursorColor: AppColors.primary,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.primaryText(brightness),
-            fontSize: 16.0,
             letterSpacing: 0.0,
-            fontWeight: FontWeight.normal,
           ),
           decoration: InputDecoration(
             labelText: 'Email',
-            labelStyle: GoogleFonts.inter(
+            labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.secondaryText(brightness),
-              fontSize: 16.0,
               letterSpacing: 0.0,
               fontWeight: FontWeight.w500,
             ),
@@ -251,17 +241,14 @@ class _LoginPageState extends State<LoginPage> {
           autofillHints: const [AutofillHints.password],
           cursorColor: AppColors.primary,
           onFieldSubmitted: (_) => _signIn(context),
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.primaryText(brightness),
-            fontSize: 16.0,
             letterSpacing: 0.0,
-            fontWeight: FontWeight.normal,
           ),
           decoration: InputDecoration(
             labelText: 'Password',
-            labelStyle: GoogleFonts.inter(
+            labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.secondaryText(brightness),
-              fontSize: 16.0,
               letterSpacing: 0.0,
               fontWeight: FontWeight.w500,
             ),
@@ -346,9 +333,8 @@ class _LoginPageState extends State<LoginPage> {
                 )
               : Text(
                   'Sign In',
-                  style: GoogleFonts.interTight(
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: Colors.white,
-                    fontSize: 16.0,
                     letterSpacing: 0.0,
                     fontWeight: FontWeight.w500,
                   ),
@@ -366,9 +352,8 @@ class _LoginPageState extends State<LoginPage> {
         child: Text(
           'Or sign in with',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: AppColors.secondaryText(brightness),
-            fontSize: 14.0,
             letterSpacing: 0.0,
             fontWeight: FontWeight.w500,
           ),
@@ -418,18 +403,15 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 TextSpan(
                   text: "Don't have an account? ",
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.primaryText(brightness),
-                    fontSize: 14.0,
                     letterSpacing: 0.0,
-                    fontWeight: FontWeight.normal,
                   ),
                 ),
                 TextSpan(
                   text: 'Create Account',
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.primary,
-                    fontSize: 14.0,
                     letterSpacing: 0.0,
                     fontWeight: FontWeight.w600,
                   ),
@@ -465,9 +447,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
           child: Text(
             'Forgot password?',
-            style: GoogleFonts.interTight(
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: AppColors.primaryText(brightness),
-              fontSize: 16.0,
               letterSpacing: 0.0,
               fontWeight: FontWeight.w500,
             ),

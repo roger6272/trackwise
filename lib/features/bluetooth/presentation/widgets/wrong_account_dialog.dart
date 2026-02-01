@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
@@ -48,7 +47,7 @@ class WrongAccountDialog extends StatelessWidget {
       ),
       title: Text(
         'Wrong Account',
-        style: GoogleFonts.interTight(
+        style: TextStyle(
           fontWeight: FontWeight.w600,
           color: primaryText,
         ),
@@ -59,7 +58,7 @@ class WrongAccountDialog extends StatelessWidget {
         children: [
           Text(
             'This device is paired to a different account.',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: primaryText,
               fontSize: 15.0,
             ),
@@ -67,9 +66,8 @@ class WrongAccountDialog extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'To use this device, sign in with the account it was originally paired with, or factory reset the device.',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14.0,
             ),
           ),
         ],
@@ -85,7 +83,7 @@ class WrongAccountDialog extends StatelessWidget {
           ),
           child: Text(
             'OK',
-            style: GoogleFonts.inter(color: Colors.white),
+            style: const TextStyle(color: Colors.white),
           ),
         ),
       ],

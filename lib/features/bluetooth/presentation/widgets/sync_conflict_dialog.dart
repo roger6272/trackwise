@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
@@ -56,7 +55,7 @@ class SyncConflictDialog extends StatelessWidget {
       ),
       title: Text(
         'Sync Required',
-        style: GoogleFonts.interTight(
+        style: TextStyle(
           fontWeight: FontWeight.w600,
           color: primaryText,
         ),
@@ -67,7 +66,7 @@ class SyncConflictDialog extends StatelessWidget {
         children: [
           Text(
             'This device needs to be updated to match your app.',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: primaryText,
               fontSize: 15.0,
             ),
@@ -75,9 +74,8 @@ class SyncConflictDialog extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'Any counts on this device since your last sync will be replaced.',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14.0,
             ),
           ),
         ],
@@ -90,7 +88,7 @@ class SyncConflictDialog extends StatelessWidget {
           },
           child: Text(
             'Cancel',
-            style: GoogleFonts.inter(color: secondaryText),
+            style: TextStyle(color: secondaryText),
           ),
         ),
         FilledButton(
@@ -103,7 +101,7 @@ class SyncConflictDialog extends StatelessWidget {
           ),
           child: Text(
             'Sync Now',
-            style: GoogleFonts.inter(color: Colors.white),
+            style: const TextStyle(color: Colors.white),
           ),
         ),
       ],

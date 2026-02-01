@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../../core/di/injection.dart';
@@ -137,17 +136,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
               // Welcome header
               Text(
                 'Welcome to Traxelos!',
-                style: GoogleFonts.interTight(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: primaryText,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Let\'s personalize your experience.',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: secondaryText,
                 ),
               ),
@@ -156,8 +152,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               // Name field (optional)
               Text(
                 'What should we call you?',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w500,
                   color: primaryText,
                 ),
@@ -166,10 +161,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
               TextField(
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
-                style: GoogleFonts.inter(color: primaryText),
+                style: TextStyle(color: primaryText),
                 decoration: InputDecoration(
                   hintText: 'Your name (optional)',
-                  hintStyle: GoogleFonts.inter(color: secondaryText.withValues(alpha: 0.5)),
+                  hintStyle: TextStyle(color: secondaryText.withValues(alpha: 0.5)),
                   filled: true,
                   fillColor: secondaryBackground,
                   border: OutlineInputBorder(
@@ -184,8 +179,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               // Use case selection (required)
               Text(
                 'How do you plan to use Traxelos?',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w500,
                   color: primaryText,
                 ),
@@ -206,10 +200,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _otherUseCaseController,
-                  style: GoogleFonts.inter(color: primaryText),
+                  style: TextStyle(color: primaryText),
                   decoration: InputDecoration(
                     hintText: 'Please describe your use case',
-                    hintStyle: GoogleFonts.inter(color: secondaryText.withValues(alpha: 0.5)),
+                    hintStyle: TextStyle(color: secondaryText.withValues(alpha: 0.5)),
                     filled: true,
                     fillColor: secondaryBackground,
                     border: OutlineInputBorder(
@@ -225,8 +219,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               // Referral source (optional)
               Text(
                 'How did you hear about us?',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w500,
                   color: primaryText,
                 ),
@@ -234,8 +227,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               const SizedBox(height: 4),
               Text(
                 'Optional',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: secondaryText.withValues(alpha: 0.7),
                 ),
               ),
@@ -257,10 +249,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _otherReferralController,
-                  style: GoogleFonts.inter(color: primaryText),
+                  style: TextStyle(color: primaryText),
                   decoration: InputDecoration(
                     hintText: 'Please specify',
-                    hintStyle: GoogleFonts.inter(color: secondaryText.withValues(alpha: 0.5)),
+                    hintStyle: TextStyle(color: secondaryText.withValues(alpha: 0.5)),
                     filled: true,
                     fillColor: secondaryBackground,
                     border: OutlineInputBorder(
@@ -278,17 +270,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
+                    color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                      Icon(Icons.error_outline, color: AppColors.error, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: GoogleFonts.inter(color: Colors.red, fontSize: 14),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.error),
                         ),
                       ),
                     ],
@@ -320,8 +312,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         )
                       : Text(
                           'Get Started',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
                           ),
@@ -336,9 +327,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   onPressed: _isLoading ? null : () => _skipOnboarding(),
                   child: Text(
                     'Skip for now',
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: secondaryText,
-                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -399,17 +389,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w500,
                       color: primaryText,
-                      fontSize: 15,
+                      fontSize: 15.0,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: secondaryText,
-                      fontSize: 13,
+                      fontSize: 13.0,
                     ),
                   ),
                 ],
@@ -446,10 +436,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: isSelected ? AppColors.primary : primaryText,
             fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-            fontSize: 14,
           ),
         ),
       ),

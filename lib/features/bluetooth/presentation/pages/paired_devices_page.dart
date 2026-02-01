@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -46,15 +45,14 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
         backgroundColor: primaryBackground,
         elevation: 0,
         leading: IconButton(
+          tooltip: 'Back',
           icon: Icon(Icons.arrow_back_ios_rounded, color: primaryText),
           onPressed: () => context.pop(),
         ),
         title: Text(
           'Paired Devices',
-          style: GoogleFonts.interTight(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: primaryText,
-            fontWeight: FontWeight.w600,
-            fontSize: 20.0,
           ),
         ),
         centerTitle: true,
@@ -106,9 +104,8 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             const SizedBox(height: 16),
             Text(
               'No devices paired',
-              style: GoogleFonts.interTight(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: secondaryText,
-                fontSize: 18.0,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -116,9 +113,8 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             Text(
               'Connect to a Traxelos device to pair it with your account.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: secondaryText.withValues(alpha: 0.7),
-                fontSize: 14.0,
               ),
             ),
           ],
@@ -145,7 +141,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
         ),
         title: Text(
           'Rename Device',
-          style: GoogleFonts.interTight(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             color: primaryText,
           ),
@@ -156,12 +152,12 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             controller: controller,
             autofocus: true,
             textCapitalization: TextCapitalization.words,
-            style: GoogleFonts.inter(color: primaryText),
+            style: TextStyle(color: primaryText),
             decoration: InputDecoration(
               labelText: 'Device Name',
-              labelStyle: GoogleFonts.inter(color: secondaryText),
+              labelStyle: TextStyle(color: secondaryText),
               hintText: 'e.g., Office Counter, Home Device',
-              hintStyle: GoogleFonts.inter(
+              hintStyle: TextStyle(
                 color: secondaryText.withValues(alpha: 0.5),
               ),
               border: OutlineInputBorder(
@@ -192,7 +188,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(color: secondaryText),
+              style: TextStyle(color: secondaryText),
             ),
           ),
           FilledButton(
@@ -213,7 +209,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             ),
             child: Text(
               'Save',
-              style: GoogleFonts.inter(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -236,7 +232,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
         ),
         title: Text(
           'Unpair Device',
-          style: GoogleFonts.interTight(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             color: primaryText,
           ),
@@ -247,7 +243,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
           children: [
             Text(
               'To complete unpairing, factory reset the device.',
-              style: GoogleFonts.inter(
+              style: Theme.of(dialogContext).textTheme.bodyLarge?.copyWith(
                 color: primaryText,
                 fontSize: 15.0,
               ),
@@ -270,7 +266,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
                   Expanded(
                     child: Text(
                       'On device: Hold B button for 10 seconds.',
-                      style: GoogleFonts.inter(
+                      style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
                         color: secondaryText,
                         fontSize: 13.0,
                         fontWeight: FontWeight.w500,
@@ -287,7 +283,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(color: secondaryText),
+              style: TextStyle(color: secondaryText),
             ),
           ),
           FilledButton(
@@ -298,11 +294,11 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
                   );
             },
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
             child: Text(
               'Remove from List',
-              style: GoogleFonts.inter(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -336,11 +332,11 @@ class _DeviceListTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       decoration: BoxDecoration(
         color: isConnected
-            ? Colors.green.withValues(alpha: 0.15)
+            ? AppColors.success.withValues(alpha: 0.15)
             : secondaryBackground,
         borderRadius: BorderRadius.circular(12.0),
         border: isConnected
-            ? Border.all(color: Colors.green.withValues(alpha: 0.5), width: 1.5)
+            ? Border.all(color: AppColors.success.withValues(alpha: 0.5), width: 1.5)
             : null,
       ),
       child: ListTile(
@@ -353,22 +349,21 @@ class _DeviceListTile extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             color: isConnected
-                ? Colors.green.withValues(alpha: 0.1)
+                ? AppColors.success.withValues(alpha: 0.1)
                 : secondaryText.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
             Icons.watch,
-            color: isConnected ? Colors.green : secondaryText,
+            color: isConnected ? AppColors.success : secondaryText,
             size: 28,
           ),
         ),
         title: Text(
           device.deviceName,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: primaryText,
             fontWeight: FontWeight.w500,
-            fontSize: 16.0,
           ),
         ),
         subtitle: Column(
@@ -376,8 +371,8 @@ class _DeviceListTile extends StatelessWidget {
           children: [
             Text(
               isConnected ? 'Connected' : 'Paired ${_formatDate(device.pairedAt)}',
-              style: GoogleFonts.inter(
-                color: isConnected ? Colors.green : secondaryText,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: isConnected ? AppColors.success : secondaryText,
                 fontSize: 13.0,
               ),
             ),
@@ -416,11 +411,11 @@ class _DeviceListTile extends StatelessWidget {
               value: 'unpair',
               child: Row(
                 children: [
-                  const Icon(Icons.link_off, size: 20, color: Colors.red),
+                  const Icon(Icons.link_off, size: 20, color: AppColors.error),
                   const SizedBox(width: 12),
                   Text(
                     'Unpair',
-                    style: GoogleFonts.inter(color: Colors.red),
+                    style: TextStyle(color: AppColors.error),
                   ),
                 ],
               ),

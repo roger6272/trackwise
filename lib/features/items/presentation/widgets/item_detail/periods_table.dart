@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/utils/interval_calculator.dart';
 
@@ -233,7 +231,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
             flex: 3,
             child: Text(
               'Cycle',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontSize: 11.0,
                 fontWeight: FontWeight.w600,
                 color: secondaryText,
@@ -245,7 +243,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
             flex: 2,
             child: Text(
               'Count',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontSize: 11.0,
                 fontWeight: FontWeight.w600,
                 color: secondaryText,
@@ -258,7 +256,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
             flex: 2,
             child: Text(
               'Avg/day',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontSize: 11.0,
                 fontWeight: FontWeight.w600,
                 color: secondaryText,
@@ -271,7 +269,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
             flex: 2,
             child: Text(
               'Duration',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontSize: 11.0,
                 fontWeight: FontWeight.w600,
                 color: secondaryText,
@@ -295,6 +293,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
     required VoidCallback onTap,
   }) {
     // Calculate derived values
+    final textTheme = Theme.of(context).textTheme;
     final days = row.duration.inDays.clamp(1, double.infinity).toInt();
     final avgPerDay = row.count / days;
 
@@ -339,7 +338,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
                     ],
                     Text(
                       row.label,
-                      style: GoogleFonts.inter(
+                      style: textTheme.bodyMedium?.copyWith(
                         fontSize: 13.0,
                         fontWeight: isSelected || row.isAllTime
                             ? FontWeight.w600
@@ -355,9 +354,8 @@ class _PeriodsTableState extends State<PeriodsTable> {
                 flex: 2,
                 child: Text(
                   row.includesInitial ? '${row.count}' : '+${row.count}',
-                  style: GoogleFonts.interTight(
+                  style: textTheme.titleSmall?.copyWith(
                     fontSize: 13.0,
-                    fontWeight: FontWeight.w600,
                     color: isSelected ? primary : primaryText,
                   ),
                   textAlign: TextAlign.right,
@@ -368,7 +366,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
                 flex: 2,
                 child: Text(
                   avgPerDay.toStringAsFixed(1),
-                  style: GoogleFonts.inter(
+                  style: textTheme.bodyMedium?.copyWith(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w500,
                     color: isSelected ? primary : secondaryText,
@@ -381,7 +379,7 @@ class _PeriodsTableState extends State<PeriodsTable> {
                 flex: 2,
                 child: Text(
                   IntervalCalculator.formatDuration(row.duration),
-                  style: GoogleFonts.inter(
+                  style: textTheme.bodyMedium?.copyWith(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w500,
                     color: isSelected ? primary : secondaryText,

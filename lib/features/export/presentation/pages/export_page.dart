@@ -143,6 +143,7 @@ class _ExportPageState extends State<ExportPage> {
                 backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                 automaticallyImplyLeading: false,
                 leading: IconButton(
+                  tooltip: 'Back',
                   icon: Icon(
                     Icons.arrow_back_rounded,
                     color: Theme.of(context).colorScheme.onSurface,

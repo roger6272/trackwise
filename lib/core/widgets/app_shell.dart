@@ -61,12 +61,14 @@ class _BottomNavBar extends StatelessWidget {
             children: [
               _NavIcon(
                 icon: Icons.home_rounded,
+                label: 'Home',
                 isSelected: currentIndex == 0,
                 onTap: () => _onItemTapped(context, 0),
                 selectedColor: selectedColor,
                 unselectedColor: unselectedColor,
               ),
               _BluetoothNavIcon(
+                label: 'Devices',
                 isSelected: currentIndex == 1,
                 onTap: () => _onItemTapped(context, 1),
                 selectedColor: selectedColor,
@@ -74,6 +76,7 @@ class _BottomNavBar extends StatelessWidget {
               ),
               _NavIcon(
                 icon: Icons.person_rounded,
+                label: 'Profile',
                 isSelected: currentIndex == 2,
                 onTap: () => _onItemTapped(context, 2),
                 selectedColor: selectedColor,
@@ -115,6 +118,7 @@ class _BottomNavBar extends StatelessWidget {
 /// Simple nav icon without label (FF style)
 class _NavIcon extends StatelessWidget {
   final IconData icon;
+  final String label;
   final bool isSelected;
   final VoidCallback onTap;
   final Color selectedColor;
@@ -122,6 +126,7 @@ class _NavIcon extends StatelessWidget {
 
   const _NavIcon({
     required this.icon,
+    required this.label,
     required this.isSelected,
     required this.onTap,
     required this.selectedColor,
@@ -130,15 +135,20 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      splashColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      onTap: onTap,
-      child: Icon(
-        icon,
-        color: isSelected ? selectedColor : unselectedColor,
-        size: 35.0,
+    return Semantics(
+      label: label,
+      button: true,
+      selected: isSelected,
+      child: InkWell(
+        splashColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        onTap: onTap,
+        child: Icon(
+          icon,
+          color: isSelected ? selectedColor : unselectedColor,
+          size: 35.0,
+        ),
       ),
     );
   }
@@ -146,12 +156,14 @@ class _NavIcon extends StatelessWidget {
 
 /// Bluetooth nav icon with connection status (FF style)
 class _BluetoothNavIcon extends StatelessWidget {
+  final String label;
   final bool isSelected;
   final VoidCallback onTap;
   final Color selectedColor;
   final Color unselectedColor;
 
   const _BluetoothNavIcon({
+    required this.label,
     required this.isSelected,
     required this.onTap,
     required this.selectedColor,
@@ -162,15 +174,20 @@ class _BluetoothNavIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<BluetoothBloc, BluetoothState>(
       builder: (context, state) {
-        return InkWell(
-          splashColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          onTap: onTap,
-          child: Icon(
-            Icons.bluetooth_connected,
-            color: isSelected ? selectedColor : unselectedColor,
-            size: 35.0,
+        return Semantics(
+          label: label,
+          button: true,
+          selected: isSelected,
+          child: InkWell(
+            splashColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            onTap: onTap,
+            child: Icon(
+              Icons.bluetooth_connected,
+              color: isSelected ? selectedColor : unselectedColor,
+              size: 35.0,
+            ),
           ),
         );
       },

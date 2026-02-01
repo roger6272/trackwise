@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/utils/stats_calculator.dart';
@@ -38,10 +37,6 @@ class DynamicStats extends StatelessWidget {
     required this.showSinceReset,
   });
 
-  // Semantic colors for trend indicators
-  static const Color _positiveColor = Color(0xFF017400);
-  static const Color _negativeColor = Color(0xFF9F0202);
-  static const Color _neutralColor = Color(0xFF6B7280);
 
   /// Returns the initial count display value based on filters.
   /// - All time (toggle OFF): show actual initialCount
@@ -62,6 +57,7 @@ class DynamicStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
@@ -74,7 +70,7 @@ class DynamicStats extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
           child: Text(
             'Statistics',
-            style: GoogleFonts.inter(
+            style: textTheme.bodyMedium?.copyWith(
               fontSize: 13.0,
               fontWeight: FontWeight.w500,
               color: secondaryText,
@@ -107,6 +103,7 @@ class DynamicStats extends StatelessWidget {
                         primaryText: primaryText,
                         secondaryText: secondaryText,
                         showRightBorder: true,
+                        textTheme: textTheme,
                       ),
                     ),
                     // Trend comparison
@@ -114,6 +111,7 @@ class DynamicStats extends StatelessWidget {
                       child: _buildTrendCell(
                         primaryText: primaryText,
                         secondaryText: secondaryText,
+                        textTheme: textTheme,
                       ),
                     ),
                   ],
@@ -138,6 +136,7 @@ class DynamicStats extends StatelessWidget {
                         primaryText: primaryText,
                         secondaryText: secondaryText,
                         showRightBorder: true,
+                        textTheme: textTheme,
                       ),
                     ),
                     // Range
@@ -150,6 +149,7 @@ class DynamicStats extends StatelessWidget {
                         primaryText: primaryText,
                         secondaryText: secondaryText,
                         showRightBorder: false,
+                        textTheme: textTheme,
                       ),
                     ),
                   ],
@@ -182,6 +182,7 @@ class DynamicStats extends StatelessWidget {
     required Color primaryText,
     required Color secondaryText,
     required bool showRightBorder,
+    required TextTheme textTheme,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
@@ -217,15 +218,13 @@ class DynamicStats extends StatelessWidget {
               children: [
                 Text(
                   value,
-                  style: GoogleFonts.interTight(
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.w600,
+                  style: textTheme.titleSmall?.copyWith(
                     color: primaryText,
                   ),
                 ),
                 Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: textTheme.bodySmall?.copyWith(
                     fontSize: 10.0,
                     fontWeight: FontWeight.w500,
                     color: secondaryText,
@@ -242,6 +241,7 @@ class DynamicStats extends StatelessWidget {
   Widget _buildTrendCell({
     required Color primaryText,
     required Color secondaryText,
+    required TextTheme textTheme,
   }) {
     final percentChange = stats.percentChange;
     final isPositive = percentChange != null && percentChange > 0;
@@ -252,13 +252,13 @@ class DynamicStats extends StatelessWidget {
     final IconData trendIcon;
 
     if (isPositive) {
-      trendColor = _positiveColor;
+      trendColor = AppColors.positive;
       trendIcon = Icons.trending_up_rounded;
     } else if (isNegative) {
-      trendColor = _negativeColor;
+      trendColor = AppColors.negative;
       trendIcon = Icons.trending_down_rounded;
     } else {
-      trendColor = _neutralColor;
+      trendColor = AppColors.neutral;
       trendIcon = Icons.trending_flat_rounded;
     }
 
@@ -291,15 +291,13 @@ class DynamicStats extends StatelessWidget {
               children: [
                 Text(
                   percentText,
-                  style: GoogleFonts.interTight(
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.w600,
+                  style: textTheme.titleSmall?.copyWith(
                     color: trendColor,
                   ),
                 ),
                 Text(
                   'vs ${stats.priorPeriodCount} ${stats.periodLabel}',
-                  style: GoogleFonts.inter(
+                  style: textTheme.bodySmall?.copyWith(
                     fontSize: 10.0,
                     fontWeight: FontWeight.w500,
                     color: secondaryText,

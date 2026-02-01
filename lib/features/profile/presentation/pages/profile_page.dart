@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/di/injection.dart';
@@ -37,9 +36,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Static colors (theme-independent)
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _error = Color(0xFFFF5963);
 
   String _appVersion = '';
 
@@ -66,6 +62,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
 
     // Theme-aware colors
     final primaryBackground = AppColors.primaryBackground(brightness);
@@ -85,10 +82,8 @@ class _ProfilePageState extends State<ProfilePage> {
           automaticallyImplyLeading: false,
           title: Text(
             'Account',
-            style: GoogleFonts.interTight(
+            style: textTheme.titleLarge?.copyWith(
               color: primaryText,
-              fontSize: 20.0,
-              fontWeight: FontWeight.w600,
             ),
           ),
           centerTitle: true,
@@ -110,7 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.message),
-                    backgroundColor: _error,
+                    backgroundColor: AppColors.error,
                   ),
                 );
               }
@@ -122,7 +117,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     width: 50.0,
                     height: 50.0,
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(_primary),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
                   ),
                 );
@@ -154,14 +149,18 @@ class _ProfilePageState extends State<ProfilePage> {
                           context,
                           icon: Icons.dark_mode_outlined,
                           title: 'Dark Mode',
-                          trailing: Switch.adaptive(
-                            value: brightness == Brightness.dark,
-                            activeColor: AppColors.primary,
-                            onChanged: (value) {
-                              MyApp.of(context).setThemeMode(
-                                value ? ThemeMode.dark : ThemeMode.light,
-                              );
-                            },
+                          trailing: Semantics(
+                            label: 'Dark mode',
+                            toggled: brightness == Brightness.dark,
+                            child: Switch.adaptive(
+                              value: brightness == Brightness.dark,
+                              activeColor: AppColors.primary,
+                              onChanged: (value) {
+                                MyApp.of(context).setThemeMode(
+                                  value ? ThemeMode.dark : ThemeMode.light,
+                                );
+                              },
+                            ),
                           ),
                           onTap: () {
                             final isDark = brightness == Brightness.dark;
@@ -271,9 +270,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       Center(
                         child: Text(
                           _appVersion,
-                          style: GoogleFonts.inter(
+                          style: textTheme.bodySmall?.copyWith(
                             color: secondaryText.withValues(alpha: 0.5),
-                            fontSize: 12.0,
                           ),
                         ),
                       ),
@@ -291,6 +289,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildProfileHeader(BuildContext context, ProfileState state) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
@@ -303,18 +302,15 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           Text(
             profile.displayName ?? 'No name set',
-            style: GoogleFonts.interTight(
+            style: textTheme.headlineSmall?.copyWith(
               color: primaryText,
-              fontSize: 24.0,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8.0),
           Text(
             profile.email,
-            style: GoogleFonts.inter(
+            style: textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14.0,
             ),
           ),
         ],
@@ -324,12 +320,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildSectionTitle(BuildContext context, String title) {
     final primaryText = AppColors.primaryText(Theme.of(context).brightness);
+    final textTheme = Theme.of(context).textTheme;
     return Text(
       title,
-      style: GoogleFonts.interTight(
+      style: textTheme.titleSmall?.copyWith(
         color: primaryText,
-        fontSize: 16.0,
-        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -360,6 +355,7 @@ class _ProfilePageState extends State<ProfilePage> {
     Widget? trailing,
   }) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final primaryColor = AppColors.primaryAdaptive(brightness);
@@ -396,18 +392,16 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         Text(
                           title,
-                          style: GoogleFonts.inter(
+                          style: textTheme.bodyLarge?.copyWith(
                             color: effectiveColor,
-                            fontSize: 16.0,
                           ),
                         ),
                         if (subtitle != null) ...[
                           const SizedBox(height: 2.0),
                           Text(
                             subtitle,
-                            style: GoogleFonts.inter(
+                            style: textTheme.bodySmall?.copyWith(
                               color: disabledColor,
-                              fontSize: 12.0,
                             ),
                           ),
                         ],
@@ -444,22 +438,20 @@ class _ProfilePageState extends State<ProfilePage> {
       height: 56.0,
       child: ElevatedButton.icon(
         onPressed: () => _showSignOutConfirmation(context),
-        icon: Icon(Icons.logout, color: _error, size: 24.0),
+        icon: Icon(Icons.logout, color: AppColors.error, size: 24.0),
         label: Text(
           'Log Out',
-          style: GoogleFonts.interTight(
-            color: _error,
-            fontSize: 16.0,
-            fontWeight: FontWeight.w600,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: AppColors.error,
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFE6E6),
-          foregroundColor: _error,
+          backgroundColor: AppColors.errorBackground(Theme.of(context).brightness),
+          foregroundColor: AppColors.error,
           elevation: 0.0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0),
-            side: BorderSide(color: _error, width: 1.0),
+            side: BorderSide(color: AppColors.error, width: 1.0),
           ),
           padding: const EdgeInsets.all(8.0),
         ),
@@ -469,6 +461,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildDeleteAccountButton(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final secondaryBackground = AppColors.secondaryBackground(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
@@ -482,7 +475,7 @@ class _ProfilePageState extends State<ProfilePage> {
           color: secondaryBackground,
           borderRadius: BorderRadius.circular(12.0),
           border: Border.all(
-            color: _error.withValues(alpha: 0.3),
+            color: AppColors.error.withValues(alpha: 0.3),
             width: 1.0,
           ),
         ),
@@ -490,7 +483,7 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             Icon(
               Icons.warning_amber_rounded,
-              color: _error,
+              color: AppColors.error,
               size: 24.0,
             ),
             const SizedBox(width: 12.0),
@@ -500,18 +493,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   Text(
                     'Delete Account',
-                    style: GoogleFonts.inter(
-                      color: _error,
-                      fontSize: 16.0,
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: AppColors.error,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2.0),
                   Text(
                     'Permanently delete your account and all data',
-                    style: GoogleFonts.inter(
+                    style: textTheme.bodySmall?.copyWith(
                       color: secondaryText,
-                      fontSize: 12.0,
                     ),
                   ),
                 ],
@@ -557,17 +548,17 @@ class _ProfilePageState extends State<ProfilePage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
+                color: AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Colors.orange.withValues(alpha: 0.3),
+                  color: AppColors.warning.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
                     isConnected ? Icons.bluetooth_connected : Icons.info_outline,
-                    color: Colors.orange,
+                    color: AppColors.warning,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -595,7 +586,7 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.pop(dialogContext);
               _showFinalDeleteConfirmation(context);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -649,12 +640,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(
                     content: Text('Please type DELETE to confirm'),
-                    backgroundColor: Colors.orange,
+                    backgroundColor: AppColors.warning,
                   ),
                 );
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete Account'),
           ),
         ],
@@ -710,16 +701,15 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         title: Text(
           'Session Expired',
-          style: GoogleFonts.interTight(
+          style: TextStyle(
             color: primaryText,
             fontWeight: FontWeight.w600,
           ),
         ),
         content: Text(
           'For security, please sign in again to delete your account.',
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: secondaryText,
-            fontSize: 14.0,
           ),
         ),
         actions: [
@@ -727,7 +717,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () => Navigator.pop(dialogContext),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(color: secondaryText),
+              style: TextStyle(color: secondaryText),
             ),
           ),
           FilledButton(
@@ -746,7 +736,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(failure.message),
-                      backgroundColor: _error,
+                      backgroundColor: AppColors.error,
                     ),
                   );
                 },
@@ -760,11 +750,11 @@ class _ProfilePageState extends State<ProfilePage> {
               );
             },
             style: FilledButton.styleFrom(
-              backgroundColor: _error,
+              backgroundColor: AppColors.error,
             ),
             child: Text(
               'Sign In & Delete',
-              style: GoogleFonts.inter(color: Colors.white),
+              style: TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -787,7 +777,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         title: Text(
           'Start New Cycle',
-          style: GoogleFonts.interTight(
+          style: TextStyle(
             color: primaryText,
             fontWeight: FontWeight.w600,
           ),
@@ -798,9 +788,8 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             Text(
               'This will reset all items to start a new cycle:',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: primaryText,
-                fontSize: 14.0,
               ),
             ),
             const SizedBox(height: 12.0),
@@ -808,7 +797,7 @@ class _ProfilePageState extends State<ProfilePage> {
               '• All counts will be set to 0\n'
               '• A new cycle will begin for each item\n'
               '• Historical data will be preserved',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: secondaryText,
                 fontSize: 13.0,
                 height: 1.5,
@@ -817,8 +806,8 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 12.0),
             Text(
               'This action cannot be undone.',
-              style: GoogleFonts.inter(
-                color: _error,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.error,
                 fontSize: 13.0,
                 fontWeight: FontWeight.w500,
               ),
@@ -830,7 +819,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 color: secondaryText,
                 fontWeight: FontWeight.w500,
               ),
@@ -843,8 +832,8 @@ class _ProfilePageState extends State<ProfilePage> {
             },
             child: Text(
               'Start New Cycle',
-              style: GoogleFonts.inter(
-                color: _primary,
+              style: TextStyle(
+                color: AppColors.primary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -861,7 +850,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please sign in to continue'),
-          backgroundColor: _error,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -916,7 +905,7 @@ class _ProfilePageState extends State<ProfilePage> {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(errorMessage!),
-          backgroundColor: _error,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -944,7 +933,7 @@ class _ProfilePageState extends State<ProfilePage> {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Started new cycle for ${resetItems!.length} items'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.success,
         ),
       );
     }

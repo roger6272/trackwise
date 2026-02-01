@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -56,6 +55,7 @@ class _ManageCategoriesContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
@@ -65,20 +65,20 @@ class _ManageCategoriesContent extends StatelessWidget {
         backgroundColor: primaryBackground,
         elevation: 0,
         leading: IconButton(
+          tooltip: 'Back',
           icon: Icon(Icons.arrow_back_ios_rounded, color: primaryText),
           onPressed: () => context.pop(),
         ),
         title: Text(
           'Manage Categories',
-          style: GoogleFonts.interTight(
+          style: textTheme.titleLarge?.copyWith(
             color: primaryText,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
           ),
         ),
         centerTitle: true,
         actions: [
           IconButton(
+            tooltip: 'Add category',
             icon: Icon(Icons.add_rounded, color: primaryText, size: 28),
             onPressed: () => _showCreateDialog(context),
           ),
@@ -90,7 +90,7 @@ class _ManageCategoriesContent extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -124,9 +124,8 @@ class _ManageCategoriesContent extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Text(
             'Drag to reorder categories. Tap to edit.',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14,
             ),
           ),
         ),
@@ -183,9 +182,9 @@ class _ManageCategoriesContent extends StatelessWidget {
           Expanded(
             child: Text(
               'Items without a category appear as "Uncategorized" in the filter.',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: secondaryText,
-                fontSize: 13,
+                fontSize: 13.0,
               ),
             ),
           ),
@@ -212,18 +211,15 @@ class _ManageCategoriesContent extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'No categories yet',
-            style: GoogleFonts.interTight(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: primaryText,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Create categories to organize your items',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText.withValues(alpha: 0.7),
-              fontSize: 14,
             ),
           ),
           const SizedBox(height: 24),
@@ -277,7 +273,7 @@ class _ManageCategoriesContent extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: Text(
           'Delete Category',
-          style: GoogleFonts.interTight(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             color: primaryText,
           ),
@@ -285,14 +281,14 @@ class _ManageCategoriesContent extends StatelessWidget {
         content: Text(
           'Are you sure you want to delete "${category.name}"? '
           'Items in this category will become uncategorized.',
-          style: GoogleFonts.inter(color: primaryText),
+          style: TextStyle(color: primaryText),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(color: Colors.grey),
+              style: TextStyle(color: Colors.grey),
             ),
           ),
           TextButton(
@@ -305,7 +301,7 @@ class _ManageCategoriesContent extends StatelessWidget {
             },
             child: Text(
               'Delete',
-              style: GoogleFonts.inter(color: Colors.red),
+              style: TextStyle(color: AppColors.error),
             ),
           ),
         ],

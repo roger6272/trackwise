@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../charts/presentation/bloc/charts_state.dart';
 
@@ -141,7 +142,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
           return Center(
             child: Text(
               'Error: ${state.message}',
-              style: const TextStyle(color: Colors.red),
+              style: TextStyle(color: AppColors.error),
             ),
           );
         }
@@ -329,7 +330,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                             widget.range == '1D' ? 'Hour' : 'Day',
                             style: TextStyle(
                               fontSize: 9 * fontScale,
-                              color: Colors.grey[600],
+                              color: AppColors.neutral,
                             ),
                           ),
                         ),
@@ -404,7 +405,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
   }) {
     // Colors for the stacked bars
     const Color initialColor = Color(0xFF9E9E9E); // Gray for initial count
-    const Color activityColor = Colors.purple; // Purple for activity
+    const Color activityColor = AppColors.primary; // Purple for activity
     const Color selectedColor = Color(0xFF757575); // Darker gray when selected
 
     return List.generate(totalBars, (i) {

@@ -1,8 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/entities/item.dart';
 
@@ -82,6 +80,7 @@ class StaticHeader extends StatelessWidget {
     Color primaryText,
     Color secondaryText,
   ) {
+    final textTheme = Theme.of(context).textTheme;
     final hasGoal = goal != null;
 
     // Calculate progress
@@ -134,7 +133,7 @@ class StaticHeader extends StatelessWidget {
                 children: [
                   Text(
                     currentCount.toString(),
-                    style: GoogleFonts.interTight(
+                    style: textTheme.displayLarge?.copyWith(
                       fontSize: 48.0,
                       fontWeight: FontWeight.w700,
                       color: primary,
@@ -146,7 +145,7 @@ class StaticHeader extends StatelessWidget {
                     // Only show "from X" on the original cycle (resetNumber == 0)
                     // After a reset, show "Current Count" since the original initial is no longer relevant
                     (initialCount > 0 && resetNumber == 0) ? 'from $initialCount' : 'Current Count',
-                    style: GoogleFonts.inter(
+                    style: textTheme.bodyMedium?.copyWith(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w500,
                       color: secondaryText,
@@ -180,7 +179,7 @@ class StaticHeader extends StatelessWidget {
                   isComplete
                       ? '$currentCount/${goal!} \u2022 Complete!'
                       : '${(progressFraction * 100).toInt()}% \u2022 $remaining to goal',
-                  style: GoogleFonts.inter(
+                  style: textTheme.bodyMedium?.copyWith(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w600,
                     color: isComplete ? successColor : primary,
@@ -216,6 +215,8 @@ class StaticHeader extends StatelessWidget {
         break;
     }
 
+    final textTheme = Theme.of(context).textTheme;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -225,6 +226,7 @@ class StaticHeader extends StatelessWidget {
           value: '+$incrementBy',
           primaryText: primaryText,
           secondaryText: secondaryText,
+          textTheme: textTheme,
         ),
         _buildDivider(secondaryText),
         _buildStatItem(
@@ -233,6 +235,7 @@ class StaticHeader extends StatelessWidget {
           value: '#${resetNumber + 1}',
           primaryText: primaryText,
           secondaryText: secondaryText,
+          textTheme: textTheme,
         ),
         _buildDivider(secondaryText),
         _buildStatItem(
@@ -241,6 +244,7 @@ class StaticHeader extends StatelessWidget {
           value: reminderLabel,
           primaryText: primaryText,
           secondaryText: secondaryText,
+          textTheme: textTheme,
         ),
       ],
     );
@@ -252,6 +256,7 @@ class StaticHeader extends StatelessWidget {
     required String value,
     required Color primaryText,
     required Color secondaryText,
+    required TextTheme textTheme,
   }) {
     return Column(
       children: [
@@ -263,16 +268,15 @@ class StaticHeader extends StatelessWidget {
         const SizedBox(height: 6.0),
         Text(
           value,
-          style: GoogleFonts.interTight(
+          style: textTheme.titleSmall?.copyWith(
             fontSize: 14.0,
-            fontWeight: FontWeight.w600,
             color: primaryText,
           ),
         ),
         const SizedBox(height: 2.0),
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: textTheme.labelSmall?.copyWith(
             fontSize: 11.0,
             color: secondaryText,
           ),

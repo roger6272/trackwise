@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../../core/theme/app_colors.dart';
 
 /// Widget displaying summary statistics cards with slide/fade animations.
@@ -72,6 +70,7 @@ class _SummaryCardsState extends State<SummaryCards>
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final secondaryBackground = AppColors.secondaryBackground(brightness);
@@ -88,9 +87,7 @@ class _SummaryCardsState extends State<SummaryCards>
               padding: const EdgeInsets.only(left: 4.0, bottom: 12.0),
               child: Text(
                 'Statistics',
-                style: GoogleFonts.interTight(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.w600,
+                style: textTheme.titleSmall?.copyWith(
                   color: primaryText,
                 ),
               ),
@@ -99,6 +96,7 @@ class _SummaryCardsState extends State<SummaryCards>
             if (widget.goal != null)
               _buildProgressBar(
                 context: context,
+                textTheme: textTheme,
                 currentCount: widget.currentCount,
                 initialCount: widget.initialCount,
                 goal: widget.goal!,
@@ -118,7 +116,6 @@ class _SummaryCardsState extends State<SummaryCards>
     final brightness = Theme.of(context).brightness;
     final alternate = AppColors.alternate(brightness);
     final primaryText = AppColors.primaryText(brightness);
-    final secondaryText = AppColors.secondaryText(brightness);
 
     return Container(
       decoration: BoxDecoration(
@@ -189,6 +186,7 @@ class _SummaryCardsState extends State<SummaryCards>
 
   Widget _buildProgressBar({
     required BuildContext context,
+    required TextTheme textTheme,
     required int currentCount,
     required int initialCount,
     required int goal,
@@ -220,7 +218,7 @@ class _SummaryCardsState extends State<SummaryCards>
           color: alternate,
           borderRadius: BorderRadius.circular(10.0),
           border: Border.all(
-            color: (isComplete ? Colors.green : AppColors.primary).withValues(alpha: 0.2),
+            color: (isComplete ? AppColors.success : AppColors.primary).withValues(alpha: 0.2),
             width: 1.0,
           ),
         ),
@@ -232,7 +230,7 @@ class _SummaryCardsState extends State<SummaryCards>
               children: [
                 Text(
                   'Goal Progress',
-                  style: GoogleFonts.inter(
+                  style: textTheme.bodyMedium?.copyWith(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w500,
                     color: secondaryText,
@@ -240,9 +238,8 @@ class _SummaryCardsState extends State<SummaryCards>
                 ),
                 Text(
                   '$currentCount / $goal',
-                  style: GoogleFonts.interTight(
+                  style: textTheme.titleSmall?.copyWith(
                     fontSize: 14.0,
-                    fontWeight: FontWeight.w600,
                     color: primaryText,
                   ),
                 ),
@@ -256,7 +253,7 @@ class _SummaryCardsState extends State<SummaryCards>
                 minHeight: 6.0,
                 backgroundColor: secondaryText.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  isComplete ? Colors.green : AppColors.primary,
+                  isComplete ? AppColors.success : AppColors.primary,
                 ),
               ),
             ),
@@ -265,9 +262,9 @@ class _SummaryCardsState extends State<SummaryCards>
               isComplete
                   ? 'Goal reached!'
                   : '$progressPercent% complete \u2022 $remaining remaining',
-              style: GoogleFonts.inter(
+              style: textTheme.bodySmall?.copyWith(
                 fontSize: 11.0,
-                color: isComplete ? Colors.green : secondaryText,
+                color: isComplete ? AppColors.success : secondaryText,
               ),
             ),
           ],
@@ -294,6 +291,7 @@ class _GridStatCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
@@ -333,16 +331,14 @@ class _GridStatCell extends StatelessWidget {
               children: [
                 Text(
                   value,
-                  style: GoogleFonts.interTight(
-                    fontSize: 18.0,
-                    fontWeight: FontWeight.w600,
+                  style: textTheme.titleMedium?.copyWith(
                     color: primaryText,
                   ),
                 ),
                 const SizedBox(height: 1.0),
                 Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: textTheme.bodySmall?.copyWith(
                     fontSize: 11.0,
                     fontWeight: FontWeight.w500,
                     color: secondaryText,

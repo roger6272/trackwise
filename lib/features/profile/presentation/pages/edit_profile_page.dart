@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/user_profile.dart';
@@ -23,8 +22,6 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  static const Color _primary = Color(0xFF4B39EF);
-
   late TextEditingController _displayNameController;
   bool _isSaving = false;
   bool _hasChanges = false;
@@ -67,6 +64,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
@@ -79,7 +77,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Profile updated successfully'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
             ),
           );
           context.pop();
@@ -88,7 +86,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -100,15 +98,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
           appBar: AppBar(
             backgroundColor: primaryBackground,
             leading: IconButton(
+              tooltip: 'Back',
               icon: Icon(Icons.arrow_back_rounded, color: primaryText, size: 30.0),
               onPressed: () => context.pop(),
             ),
             title: Text(
               'Edit Profile',
-              style: GoogleFonts.interTight(
+              style: textTheme.titleLarge?.copyWith(
                 color: primaryText,
-                fontSize: 20.0,
-                fontWeight: FontWeight.w600,
               ),
             ),
             centerTitle: true,
@@ -122,14 +119,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: _primary,
+                          color: AppColors.primary,
                         ),
                       )
                     : Text(
                         'Save',
-                        style: GoogleFonts.inter(
-                          color: _hasChanges ? _primary : secondaryText,
-                          fontSize: 16.0,
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: _hasChanges ? AppColors.primary : secondaryText,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -166,9 +162,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   const SizedBox(height: 12.0),
                   Text(
                     'Email cannot be changed',
-                    style: GoogleFonts.inter(
+                    style: textTheme.bodySmall?.copyWith(
                       color: secondaryText,
-                      fontSize: 12.0,
                     ),
                   ),
                 ],
@@ -189,27 +184,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
     required Color secondaryText,
     required Color secondaryBackground,
   }) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: textTheme.bodyMedium?.copyWith(
             color: primaryText,
-            fontSize: 14.0,
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 8.0),
         TextField(
           controller: controller,
-          style: GoogleFonts.inter(
+          style: textTheme.bodyLarge?.copyWith(
             color: primaryText,
-            fontSize: 16.0,
           ),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: GoogleFonts.inter(color: secondaryText),
+            hintStyle: TextStyle(color: secondaryText),
             filled: true,
             fillColor: secondaryBackground,
             border: OutlineInputBorder(
@@ -218,7 +212,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12.0),
-              borderSide: BorderSide(color: _primary, width: 2.0),
+              borderSide: BorderSide(color: AppColors.primary, width: 2.0),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16.0,
@@ -238,14 +232,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
     required Color secondaryText,
     required Color secondaryBackground,
   }) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: textTheme.bodyMedium?.copyWith(
             color: primaryText,
-            fontSize: 14.0,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -259,9 +253,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           child: Text(
             value,
-            style: GoogleFonts.inter(
+            style: textTheme.bodyLarge?.copyWith(
               color: secondaryText,
-              fontSize: 16.0,
             ),
           ),
         ),
