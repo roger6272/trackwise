@@ -2248,9 +2248,9 @@ void handleCommand(char cmd) {
     snprintf(key, sizeof(key), "rv_%d", currentItemIndex);
     reminderValue = prefs.getInt(key, 0);
 
-    if (goal > 0 && itemCount == goal) {
+    if (goal > 0 && itemCount >= goal && (itemCount - itemIncrement) < goal) {
       triggerVibrationPattern(2);  // Double vibrate for goal reached
-    } else if (reminder == REMINDER_TARGET && itemCount == reminderValue) {
+    } else if (reminder == REMINDER_TARGET && itemCount >= reminderValue && (itemCount - itemIncrement) < reminderValue) {
       triggerVibrationNonBlocking();
     } else if (reminder == REMINDER_INTERVAL && reminderValue > 0 && itemCount > 0 && itemCount % reminderValue == 0){
       triggerVibrationNonBlocking();
