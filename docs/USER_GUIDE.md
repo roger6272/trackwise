@@ -193,7 +193,7 @@ Your custom order is saved and synced to your device.
 2. Press the **count button** on your device
 3. The app updates automatically
 
-*If you have a reminder configured (see [Setting Reminders](#8-setting-reminders)), you'll feel a vibration when the reminder condition is met.*
+*You'll feel a double vibration when you reach an item's goal, or a single vibration when a reminder condition is met (see [Setting Reminders](#8-setting-reminders)).*
 
 ### Device Buttons
 
@@ -325,7 +325,7 @@ On the **Item Detail Page** (tap any item), you'll see:
 - A **progress ring** showing how close you are to your goal
 - Your current count vs. your target
 
-*Tip: Goals pair well with reminders — set a goal and add a vibration alert to know when you've reached it (see [Setting Reminders](#8-setting-reminders)).*
+*When you reach a goal, your device gives a distinctive **double vibration** so you know you've hit your target without looking at the screen.*
 
 ---
 
@@ -353,7 +353,8 @@ Reminders make your physical device vibrate to keep you on track — no need to 
 ### How Reminders Work
 
 - Your **device vibrates** (not your phone)
-- Vibration triggers when the reminder condition is met (reaching target or hitting interval)
+- Single vibration when a reminder condition is met (reaching target or hitting interval)
+- Double vibration when you reach an item's goal (takes priority over reminders)
 - Works even without your phone nearby
 
 ---

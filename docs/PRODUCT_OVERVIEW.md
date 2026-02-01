@@ -23,7 +23,7 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
 | Physical Device | Mobile App |
 |----------------|------------|
 | Instant button-press counting | Full data management |
-| Haptic feedback on reminders | Analytics and charts |
+| Haptic feedback on goals and reminders | Analytics and charts |
 | Works without phone nearby | Cloud sync and backup |
 | Daily auto-reset at midnight | CSV data export |
 | Remembers counts through power loss | Goal tracking and reminders |
@@ -35,7 +35,7 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
 ### 1. Hardware Counter Device
 - **ESP32-based** BLE peripheral with button input
 - **Real-Time Clock (DS3231)** for accurate timestamps and daily resets
-- **Vibration motor** for haptic feedback on reminders
+- **Vibration motor** for haptic feedback on goals and reminders
 - **Persistent storage** - counts survive power loss
 - **Multi-item support** - switch between items directly on device
 
@@ -48,7 +48,8 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
   - **Custom increment value** (1-1000 per press)
 
 ### 3. Smart Reminders
-- **Target reminders** - vibrate when reaching a goal count
+- **Goal reached** - double vibration when hitting your goal count
+- **Target reminders** - vibrate when reaching a reminder target
 - **Interval reminders** - vibrate every N increments
 - Haptic feedback keeps you aware without looking at your phone
 
