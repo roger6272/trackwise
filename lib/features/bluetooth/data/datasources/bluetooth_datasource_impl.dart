@@ -846,8 +846,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   ///
   /// Fields sent during override (from implementation plan 1.11):
   /// - device_item_id: Item slot ID (0-99)
-  /// - name: Item name (max 32 chars)
-  /// - category: Category name (max 32 chars)
+  /// - name: Item name (max 30 chars)
+  /// - category: Category name (max 30 chars)
   /// - count: Total count
   /// - todaycount: Today's count
   /// - increment: Count per press (1-1000)
