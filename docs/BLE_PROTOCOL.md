@@ -1133,12 +1133,12 @@ void handleError(Map<String, dynamic> error) {
 
 **Goal Vibration:**
 
-When an item has a goal set (`goal > 0`) and `count == goal`, the device plays a **double vibration** (2× 150ms pulses with 100ms gap). Goal vibration takes priority over reminder vibration — if both trigger on the same press, only the goal pattern plays.
+When an item has a goal set (`goal > 0`) and the count crosses the goal, the device plays a **triple vibration** (3× 150ms pulses with 100ms gap). Goal vibration takes priority over reminder vibration — if both trigger on the same press, only the goal pattern plays.
 
 **Vibration Hardware:**
 - GPIO Pin: 5
 - Single pulse: 300ms (reminders)
-- Double pulse: 2× 150ms with 100ms gap (goal reached)
+- Triple pulse: 3× 150ms with 100ms gap (goal reached)
 - Non-blocking (doesn't pause counting)
 - Priority: goal > reminder target > reminder interval
 

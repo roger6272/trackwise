@@ -48,7 +48,7 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
   - **Custom increment value** (1-1000 per press)
 
 ### 3. Smart Reminders
-- **Goal reached** - double vibration when hitting your goal count
+- **Goal reached** - triple vibration when hitting your goal count
 - **Target reminders** - vibrate when reaching a reminder target
 - **Interval reminders** - vibrate every N increments
 - Haptic feedback keeps you aware without looking at your phone
