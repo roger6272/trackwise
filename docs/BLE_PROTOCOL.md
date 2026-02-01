@@ -1131,10 +1131,16 @@ void handleError(Map<String, dynamic> error) {
 | 1 | `REMINDER_TARGET` | Vibrate when `count == reminder_value` | Vibrate at count 100 |
 | 2 | `REMINDER_INTERVAL` | Vibrate when `count % reminder_value == 0` | Vibrate every 10 counts |
 
+**Goal Vibration:**
+
+When an item has a goal set (`goal > 0`) and `count == goal`, the device plays a **double vibration** (2× 150ms pulses with 100ms gap). Goal vibration takes priority over reminder vibration — if both trigger on the same press, only the goal pattern plays.
+
 **Vibration Hardware:**
 - GPIO Pin: 5
-- Duration: 300ms
+- Single pulse: 300ms (reminders)
+- Double pulse: 2× 150ms with 100ms gap (goal reached)
 - Non-blocking (doesn't pause counting)
+- Priority: goal > reminder target > reminder interval
 
 ### 6.2 Event Types
 
@@ -1439,7 +1445,7 @@ While connected, app receives push notifications for device button presses.
     │  User presses increment button                    │
     │                                                   │
     │  1. Increment count in RAM                        │
-    │  2. Check reminder (vibrate if triggered)         │
+    │  2. Check goal/reminder (vibrate if triggered)    │
     │  3. Batch to NVS if >= 10 increments              │
     │  4. Log event to RAM buffer                       │
     │                                                   │

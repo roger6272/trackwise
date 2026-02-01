@@ -1100,11 +1100,16 @@ Device: {"status": "seq_updated"}</code></pre>
     <tr><td>2</td><td><code>REMINDER_INTERVAL</code></td><td>Vibrate when <code>count % reminder_value == 0</code></td><td>Vibrate every 10 counts</td></tr>
 </table>
 
+<p><strong>Goal Vibration:</strong></p>
+<p>When an item has a goal set (<code>goal &gt; 0</code>) and <code>count == goal</code>, the device plays a <strong>double vibration</strong> (2&times; 150ms pulses with 100ms gap). Goal vibration takes priority over reminder vibration &mdash; if both trigger on the same press, only the goal pattern plays.</p>
+
 <p><strong>Vibration Hardware:</strong></p>
 <ul>
     <li>GPIO Pin: 5</li>
-    <li>Duration: 300ms</li>
+    <li>Single pulse: 300ms (reminders)</li>
+    <li>Double pulse: 2&times; 150ms with 100ms gap (goal reached)</li>
     <li>Non-blocking (doesn't pause counting)</li>
+    <li>Priority: goal &gt; reminder target &gt; reminder interval</li>
 </ul>
 
 <h3>6.2 Event Types</h3>
