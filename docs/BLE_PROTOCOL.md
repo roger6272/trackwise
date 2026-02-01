@@ -1,11 +1,11 @@
-# Traxelos BLE Protocol Specification
+# Traxelos One BLE Protocol Specification
 
 > **Protocol Version:** 2
 > **Last Updated:** 2026-01-27
-> **Device:** ESP32 (Traxelos)
-> **App:** Flutter (Traxelos)
+> **Device:** ESP32 (Traxelos One)
+> **App:** Flutter (Traxelos One)
 
-This document defines the Bluetooth Low Energy communication protocol between the Traxelos mobile app and ESP32 firmware. It serves as the **source of truth** for app-device communication.
+This document defines the Bluetooth Low Energy communication protocol between the Traxelos One mobile app and ESP32 firmware. It serves as the **source of truth** for app-device communication.
 
 **Related docs:** [Device Display](DEVICE_DISPLAY.md) · [Data Flow](DATA_FLOW.md) · [User Guide](USER_GUIDE.md) · [Troubleshooting](TROUBLESHOOTING.md)
 
