@@ -39,9 +39,8 @@ void main() async {
     GoRouter.optionURLReflectsImperativeAPIs = true;
     usePathUrlStrategy();
 
-    // Disable Google Fonts runtime fetching to prevent error spam
-    // Fonts will be loaded from cache if available, otherwise system fonts are used
-    GoogleFonts.config.allowRuntimeFetching = false;
+    // Allow Google Fonts to fetch fonts at runtime (cached after first download)
+    GoogleFonts.config.allowRuntimeFetching = true;
 
     await initFirebase();
 
