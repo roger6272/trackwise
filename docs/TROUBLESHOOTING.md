@@ -1,6 +1,8 @@
 # Troubleshooting Playbook
 
 > Quick diagnostic guides for common issues. Check here before diving into code.
+>
+> **Related docs:** [BLE Protocol](BLE_PROTOCOL.md) · [Data Flow](DATA_FLOW.md) · [Device Display](DEVICE_DISPLAY.md)
 
 ---
 

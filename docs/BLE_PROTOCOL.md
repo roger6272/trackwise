@@ -7,6 +7,8 @@
 
 This document defines the Bluetooth Low Energy communication protocol between the Traxelos mobile app and ESP32 firmware. It serves as the **source of truth** for app-device communication.
 
+**Related docs:** [Device Display](DEVICE_DISPLAY.md) · [Data Flow](DATA_FLOW.md) · [User Guide](USER_GUIDE.md) · [Troubleshooting](TROUBLESHOOTING.md)
+
 ### Version History
 
 | Protocol | Firmware | Changes |

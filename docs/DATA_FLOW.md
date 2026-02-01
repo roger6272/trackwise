@@ -1,6 +1,8 @@
 # Data Flow & Sync Scenarios
 
 > Visual guide to how data moves through the Traxelos system.
+>
+> **Related docs:** [BLE Protocol](BLE_PROTOCOL.md) · [Device Display](DEVICE_DISPLAY.md) · [Troubleshooting](TROUBLESHOOTING.md)
 
 ---
 
