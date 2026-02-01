@@ -865,7 +865,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
           GestureDetector(
             onTap: () => appUiState.isTodayToggle = !isToday,
             child: Container(
-              width: 74.0, // Fixed width to prevent layout shift
+              width: 78.0, // Fixed width to prevent layout shift
               padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
               decoration: BoxDecoration(
                 border: Border.all(
