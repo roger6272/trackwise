@@ -503,7 +503,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final deviceMessage = isConnected
         ? 'Your connected device will be automatically reset and unpaired.'
-        : 'Any paired devices must be factory reset before they can be paired again.\n\nOn device: Hold B button for 10 seconds.';
+        : 'Any paired devices not currently connected will need to be factory reset.\n\nOn device: Hold A+B for 7 seconds.';
 
     showDialog(
       context: context,
