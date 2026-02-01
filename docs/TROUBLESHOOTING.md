@@ -482,23 +482,30 @@ final offset = DateTime.now().timeZoneOffset.inMinutes;
 
 ### 8.1 App-side Logging
 
-Add to BLE datasource:
+Use `AppLogger` from `core/utils/logger.dart` (never raw `print`/`debugPrint`):
 ```dart
 // Log raw received bytes
 notifyStream.listen((data) {
-  debugPrint('BLE RX (${data.length} bytes): ${String.fromCharCodes(data)}');
+  AppLogger.debug('BLE RX (${data.length} bytes): ${String.fromCharCodes(data)}');
 });
 
 // Log parsed messages
-debugPrint('BLE MSG: ${message.type} - ${jsonEncode(message.data)}');
+AppLogger.debug('BLE MSG: ${message.type} - ${jsonEncode(message.data)}');
 
 // Log commands sent
-debugPrint('BLE TX: $command');
+AppLogger.debug('BLE TX: $command');
 ```
+
+All `AppLogger` output is compiled out in release builds (guarded by `kDebugMode`).
 
 ### 8.2 Device-side Logging
 
-Connect serial monitor at 115200 baud. Firmware logs:
+Firmware serial logging is **off by default**. To enable:
+1. Uncomment `#define DEBUG` at the top of `Trackwise_ESP32.ino`
+2. Flash firmware
+3. Connect serial monitor at 115200 baud
+
+Firmware logs (when DEBUG enabled):
 - All BLE events
 - Command parsing
 - NVS operations
