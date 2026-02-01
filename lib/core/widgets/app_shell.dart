@@ -4,16 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import '../theme/app_colors.dart';
 
 /// Shell widget providing bottom navigation for the main app.
 /// Styled to match FlutterFlow NavigationBarWidget design.
 class AppShell extends StatelessWidget {
   final Widget child;
-
-  // FF Colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _secondaryText = Color(0xFF57636C);
-  static const Color _secondaryBackground = Color(0xFFFFFFFF);
 
   const AppShell({
     super.key,
@@ -32,15 +28,14 @@ class AppShell extends StatelessWidget {
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar();
 
-  // FF Colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _secondaryText = Color(0xFF57636C);
-  static const Color _secondaryBackground = Color(0xFFFFFFFF);
-
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     final currentIndex = _calculateSelectedIndex(location);
+    final brightness = Theme.of(context).brightness;
+    final containerColor = AppColors.secondaryBackground(brightness);
+    final selectedColor = AppColors.primary;
+    final unselectedColor = AppColors.secondaryText(brightness);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
@@ -48,7 +43,7 @@ class _BottomNavBar extends StatelessWidget {
         width: double.infinity,
         height: 69.0,
         decoration: BoxDecoration(
-          color: _secondaryBackground,
+          color: containerColor,
           boxShadow: const [
             BoxShadow(
               blurRadius: 8.0,
@@ -68,15 +63,21 @@ class _BottomNavBar extends StatelessWidget {
                 icon: Icons.home_rounded,
                 isSelected: currentIndex == 0,
                 onTap: () => _onItemTapped(context, 0),
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
               ),
               _BluetoothNavIcon(
                 isSelected: currentIndex == 1,
                 onTap: () => _onItemTapped(context, 1),
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
               ),
               _NavIcon(
                 icon: Icons.person_rounded,
                 isSelected: currentIndex == 2,
                 onTap: () => _onItemTapped(context, 2),
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
               ),
             ],
           ),
@@ -116,28 +117,27 @@ class _NavIcon extends StatelessWidget {
   final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
-
-  // FF Colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _secondaryText = Color(0xFF57636C);
+  final Color selectedColor;
+  final Color unselectedColor;
 
   const _NavIcon({
     required this.icon,
     required this.isSelected,
     required this.onTap,
+    required this.selectedColor,
+    required this.unselectedColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       splashColor: Colors.transparent,
-      focusColor: Colors.transparent,
       hoverColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onTap: onTap,
       child: Icon(
         icon,
-        color: isSelected ? _primary : _secondaryText,
+        color: isSelected ? selectedColor : unselectedColor,
         size: 35.0,
       ),
     );
@@ -148,14 +148,14 @@ class _NavIcon extends StatelessWidget {
 class _BluetoothNavIcon extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
-
-  // FF Colors
-  static const Color _primary = Color(0xFF4B39EF);
-  static const Color _secondaryText = Color(0xFF57636C);
+  final Color selectedColor;
+  final Color unselectedColor;
 
   const _BluetoothNavIcon({
     required this.isSelected,
     required this.onTap,
+    required this.selectedColor,
+    required this.unselectedColor,
   });
 
   @override
@@ -164,13 +164,12 @@ class _BluetoothNavIcon extends StatelessWidget {
       builder: (context, state) {
         return InkWell(
           splashColor: Colors.transparent,
-          focusColor: Colors.transparent,
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
           onTap: onTap,
           child: Icon(
             Icons.bluetooth_connected,
-            color: isSelected ? _primary : _secondaryText,
+            color: isSelected ? selectedColor : unselectedColor,
             size: 35.0,
           ),
         );

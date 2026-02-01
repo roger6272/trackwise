@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -86,6 +88,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   bool _isSearching = false;
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounceTimer;
 
   // Cached category maps (updated via BlocListener when categories change)
   Map<String, String> _cachedCategoryNames = {};
@@ -994,6 +997,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             onPressed: () {
               if (_searchQuery.isNotEmpty) {
                 // Clear text first
+                _searchDebounceTimer?.cancel();
                 _searchController.clear();
                 setState(() => _searchQuery = '');
               } else {
@@ -1011,7 +1015,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
           ),
         ),
         onChanged: (value) {
-          setState(() => _searchQuery = value.toLowerCase());
+          _searchDebounceTimer?.cancel();
+          _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+            if (mounted) setState(() => _searchQuery = value.toLowerCase());
+          });
         },
       ),
     );
@@ -1529,6 +1536,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   }
                   // Clear search to show item at top
                   if (_searchQuery.isNotEmpty) {
+                    _searchDebounceTimer?.cancel();
                     setState(() {
                       _searchController.clear();
                       _searchQuery = '';
@@ -2105,6 +2113,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     _reorderHintOverlay = null;
     _firstItemController?.dispose();
     _reorderHintController?.dispose();
+    _searchDebounceTimer?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();

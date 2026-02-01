@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../main.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
@@ -144,6 +145,32 @@ class _ProfilePageState extends State<ProfilePage> {
                         height: 1.0,
                         color: alternate,
                       ),
+                      const SizedBox(height: 24.0),
+                      // Appearance
+                      _buildSectionTitle(context, 'Appearance'),
+                      const SizedBox(height: 16.0),
+                      _buildSettingsCard(context, [
+                        _buildSettingItem(
+                          context,
+                          icon: Icons.dark_mode_outlined,
+                          title: 'Dark Mode',
+                          trailing: Switch.adaptive(
+                            value: brightness == Brightness.dark,
+                            activeColor: AppColors.primary,
+                            onChanged: (value) {
+                              MyApp.of(context).setThemeMode(
+                                value ? ThemeMode.dark : ThemeMode.light,
+                              );
+                            },
+                          ),
+                          onTap: () {
+                            final isDark = brightness == Brightness.dark;
+                            MyApp.of(context).setThemeMode(
+                              isDark ? ThemeMode.light : ThemeMode.dark,
+                            );
+                          },
+                        ),
+                      ]),
                       const SizedBox(height: 24.0),
                       // Account Settings
                       _buildSectionTitle(context, 'Account Settings'),
@@ -330,6 +357,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String? subtitle,
     bool isPrimary = false,
     bool enabled = true,
+    Widget? trailing,
   }) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
@@ -389,7 +417,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
-            Icon(
+            trailing ?? Icon(
               Icons.chevron_right,
               color: enabled ? secondaryText : disabledColor,
               size: 20.0,

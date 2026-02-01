@@ -409,7 +409,6 @@ class _LoginPageState extends State<LoginPage> {
         padding: const EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 12.0),
         child: InkWell(
           splashColor: Colors.transparent,
-          focusColor: Colors.transparent,
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
           onTap: () => context.push(SignupPage.routePath),

@@ -495,7 +495,6 @@ class _SignupPageState extends State<SignupPage> {
         padding: const EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 12.0),
         child: InkWell(
           splashColor: Colors.transparent,
-          focusColor: Colors.transparent,
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
           onTap: () => context.pop(),
