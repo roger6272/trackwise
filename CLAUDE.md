@@ -121,6 +121,28 @@ Follow existing patterns in the codebase.
 - Use `AppLogger.debug()` / `AppLogger.error()` for all logging — never raw `print()` or `debugPrint()`. Import from `core/utils/logger.dart`
 - Firmware: use `DEBUG_LOG()` / `DEBUG_PRINTLN()` macros — never raw `Serial.print()`. Enable with `#define DEBUG` in `.ino`
 
+### UI Standards
+
+**Colors — use `AppColors` and theme context, never hardcode hex values:**
+- Use `AppColors.primary`, `AppColors.error`, etc. — never `Color(0xFF...)` or `Colors.red`
+- Use `AppColors` adaptive helpers (`primaryAdaptive()`, `primaryBackground()`, `secondaryText()`) for brightness-aware colors
+- Add new semantic colors (e.g., positive/negative/neutral for stats) to `AppColors`, not per-widget
+
+**Typography — use the TextTheme, not inline GoogleFonts:**
+- Use `Theme.of(context).textTheme.titleLarge` etc. — never inline `GoogleFonts.interTight(...)` or `GoogleFonts.inter(...)`
+- The theme already defines the full type scale with correct fonts and weights in `app_theme.dart`
+- If a style doesn't exist in the theme, add it there — don't create one-off inline styles
+
+**Accessibility:**
+- Add `Semantics(label: '...')` to icon-only buttons (FABs, nav icons, icon actions)
+- Never set `focusColor: Colors.transparent` — preserve default focus indicators
+- Ensure touch targets are at least 48dp
+
+**Feedback & errors:**
+- Use `AppColors.error` for all error SnackBars — never `Colors.red`
+- Use `AppColors.success` for success feedback
+- Add debouncing (300ms) to search/filter inputs that trigger on every keystroke
+
 ## Documentation Maintenance
 
 **When making changes, always check if documentation needs updating.**
