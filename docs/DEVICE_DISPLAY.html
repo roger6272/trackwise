@@ -880,21 +880,38 @@
         <!-- Separator -->
         <div class="flow-separator"></div>
 
-        <!-- Factory Reset -->
-        <div class="flow-note">A+B hold 7s (from any state)</div>
-        <div class="flow-arrow">
-            <div class="arrow-line"></div>
-            <div class="arrow-head"></div>
+        <!-- Factory Reset and Unpair side by side -->
+        <div class="flow-row" style="gap: 64px; margin-top: 0;">
+            <!-- Left: Factory Reset -->
+            <div class="flow-col">
+                <div class="flow-note">A+B hold 7s (from any state)</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node destructive">Factory Reset</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">A = confirm</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node initial" style="padding: 6px 16px; font-size: 0.8em;">Welcome / Pairing</div>
+                <div class="flow-note" style="margin-top: 8px;">B press or 10s timeout = cancel &rarr; Main Item View</div>
+            </div>
+
+            <!-- Right: Unpair Command -->
+            <div class="flow-col">
+                <div class="flow-note">Unpair command (from any state)</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">Erase all data</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node initial" style="padding: 6px 16px; font-size: 0.8em;">Welcome / Pairing</div>
+            </div>
         </div>
-        <div class="flow-node destructive">Factory Reset</div>
-        <div class="flow-arrow">
-            <div class="arrow-line"></div>
-            <div class="arrow-label">A = confirm</div>
-            <div class="arrow-line"></div>
-            <div class="arrow-head"></div>
-        </div>
-        <div class="flow-node initial" style="padding: 6px 16px; font-size: 0.8em;">Welcome / Pairing</div>
-        <div class="flow-note" style="margin-top: 8px;">B press or 5s timeout = cancel &rarr; Main Item View</div>
     </div>
 
     <h2>Display Hardware</h2>
@@ -920,25 +937,30 @@
     <h3>Item Menu with Fewer Than 5 Items</h3>
     <p>Items are top-aligned. If the category has only 2 items, 2 rows are shown at the top with empty space below.</p>
 
-    <h3>BLE Connection / Disconnection</h3>
+    <h3>Transient Notifications</h3>
+    <p>Brief overlay messages shown on the device display for ~3 seconds before auto-dismissing back to the previous state. They do not change the underlying display state.</p>
+    <table>
+        <thead><tr><th>Notification</th><th>Trigger</th><th>Display</th><th>Duration</th></tr></thead>
+        <tbody>
+            <tr><td><strong>Connected</strong></td><td>BLE connection established</td><td>Bluetooth icon + "Connected"</td><td>3 seconds</td></tr>
+            <tr><td><strong>Disconnected</strong></td><td>BLE connection lost</td><td>Crossed-out Bluetooth icon + "Disconnected"</td><td>3 seconds</td></tr>
+            <tr><td><strong>Wrong Account</strong></td><td>A different account (not the paired one) connects</td><td>"Wrong Account"</td><td>3 seconds</td></tr>
+            <tr><td><strong>Conflict / See App</strong></td><td>User presses button while a sync conflict exists</td><td>"Conflict" + "See App" (two lines)</td><td>3 seconds</td></tr>
+            <tr><td><strong>Memory almost full</strong></td><td>NVS usage &ge; 90%</td><td>"Memory almost full. Please sync."</td><td>3 seconds (once per wake)</td></tr>
+            <tr><td><strong>Storage full</strong></td><td>NVS usage = 100%</td><td>"Storage full. Sync now."</td><td>Shown on every A press (blocks counting)</td></tr>
+        </tbody>
+    </table>
+    <p>All transient notifications include a brief vibration. The device continues working offline after disconnection. Syncing via Bluetooth clears storage warnings.</p>
+
+    <h3>Unpair Command</h3>
+    <p>When the device receives an unpair command from the app (e.g., account deletion or manual unpair):</p>
     <ul>
-        <li><strong>Connected:</strong> Brief vibration + Bluetooth icon appears + "Connected" shown for 3 seconds, then auto-dismisses back to normal display.</li>
-        <li><strong>Disconnected:</strong> Brief vibration + crossed-out Bluetooth icon + "Disconnected" shown for 3 seconds, then auto-dismisses. Same behavior for both user-initiated and unexpected disconnects. Device continues working offline.</li>
+        <li>All items, counts, and pairing information are erased</li>
+        <li>Device returns directly to <a href="#welcome-pairing">Welcome / Pairing Screen</a></li>
     </ul>
 
     <h3>Low Battery</h3>
     <p>No special warning or flashing. The battery icon on the main display already shows the current level &mdash; the user can see when it's low. The device powers off when the battery is depleted.</p>
-
-    <h3>Storage Warnings</h3>
-    <p>The device has limited storage (NVS). Two warning tiers prevent silent data loss:</p>
-    <table>
-        <thead><tr><th>Threshold</th><th>Message</th><th>Behavior</th></tr></thead>
-        <tbody>
-            <tr><td><strong>90%</strong></td><td>"Memory almost full. Please sync."</td><td>Brief vibration + shown once per wake (3 seconds, auto-dismisses). Counting continues normally.</td></tr>
-            <tr><td><strong>100%</strong></td><td>"Storage full. Sync now."</td><td>Brief vibration + shown on every A press instead of counting. User is blocked from counting until synced.</td></tr>
-        </tbody>
-    </table>
-    <p class="tip">Syncing the device to the app via Bluetooth clears the local storage and resolves both warnings.</p>
 
 </div>
 </body>

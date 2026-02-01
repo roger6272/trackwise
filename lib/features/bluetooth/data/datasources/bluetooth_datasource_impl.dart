@@ -867,6 +867,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       'increment': item.incrementBy,
       'reminder': _reminderTypeToInt(item.reminder),
       'reminder_value': item.reminderValue,
+      'goal': item.goal ?? 0,
       'lastResetTime': (item.lastResetTime?.toUtc().millisecondsSinceEpoch ?? 0) ~/ 1000,
       'reset_number': item.resetNumber,
     };

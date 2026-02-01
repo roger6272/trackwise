@@ -246,11 +246,11 @@ A hold │  B   │   5min  │            │
               ▼
        Back to Main Item View
 
-  A+B hold 7s (from any state)
-              │
-              ▼
-       ┌─────────────┐
-       │  Factory    │──────► Welcome / Pairing
+  A+B hold 7s (from any state)     Unpair command
+              │                     (from any state)
+              ▼                           │
+       ┌─────────────┐                    │
+       │  Factory    │──────► Welcome / Pairing ◄──┘
        │  Reset      │
        └─────────────┘
 ```
@@ -281,22 +281,27 @@ Items are top-aligned. If the category has only 2 items, 2 rows are shown at the
 
 ---
 
-### BLE Connection / Disconnection
+### Transient Notifications
 
-- **Connected:** Brief vibration + Bluetooth icon appears + "Connected" shown for 3 seconds, then auto-dismisses back to normal display.
-- **Disconnected:** Brief vibration + crossed-out Bluetooth icon + "Disconnected" shown for 3 seconds, then auto-dismisses. Same behavior for both user-initiated and unexpected disconnects. Device continues working offline.
+These are brief overlay messages shown on the device display for ~3 seconds before auto-dismissing back to the previous state. They do not change the underlying display state.
+
+| Notification | Trigger | Display | Duration |
+|-------------|---------|---------|----------|
+| **Connected** | BLE connection established | Bluetooth icon + "Connected" | 3 seconds |
+| **Disconnected** | BLE connection lost | Crossed-out Bluetooth icon + "Disconnected" | 3 seconds |
+| **Wrong Account** | A different account (not the paired one) connects | "Wrong Account" | 3 seconds |
+| **Conflict / See App** | User presses button while a sync conflict exists | "Conflict" + "See App" (two lines) | 3 seconds |
+| **Memory almost full** | NVS usage ≥ 90% | "Memory almost full. Please sync." | 3 seconds (once per wake) |
+| **Storage full** | NVS usage = 100% | "Storage full. Sync now." | Shown on every A press (blocks counting) |
+
+All transient notifications include a brief vibration. The device continues working offline after disconnection. Syncing via Bluetooth clears storage warnings.
+
+### Unpair Command
+
+When the device receives an unpair command from the app (e.g., account deletion or manual unpair):
+- All items, counts, and pairing information are erased
+- Device returns directly to [Welcome / Pairing Screen](#1-welcome--pairing-screen)
 
 ### Low Battery
 
 No special warning or flashing. The battery icon on the main display already shows the current level — the user can see when it's low. The device powers off when the battery is depleted.
-
-### Storage Warnings
-
-The device has limited storage (NVS). Two warning tiers prevent silent data loss:
-
-| Threshold | Message | Behavior |
-|-----------|---------|----------|
-| **90%** | "Memory almost full. Please sync." | Brief vibration + shown once per wake (3 seconds, auto-dismisses). Counting continues normally. |
-| **100%** | "Storage full. Sync now." | Brief vibration + shown on every A press instead of counting. User is blocked from counting until synced. |
-
-*Syncing the device to the app via Bluetooth clears the local storage and resolves both warnings.*

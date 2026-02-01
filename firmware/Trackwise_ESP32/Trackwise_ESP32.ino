@@ -495,6 +495,8 @@ void clearItemSlot(int index) {
   prefs.remove(key);
   snprintf(key, sizeof(key), "rv_%d", index);
   prefs.remove(key);
+  snprintf(key, sizeof(key), "g_%d", index);
+  prefs.remove(key);
   snprintf(key, sizeof(key), "lr_%d", index);
   prefs.remove(key);
   snprintf(key, sizeof(key), "rn_%d", index);
@@ -563,6 +565,11 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   snprintf(key, sizeof(key), "rv_%d", slotId);
   int reminderVal = clampInt(item["reminder_value"] | 0, 0, 9999);
   prefs.putInt(key, reminderVal);
+
+  // Store goal (0 = no goal)
+  snprintf(key, sizeof(key), "g_%d", slotId);
+  int goal = clampInt(item["goal"] | 0, 0, 9999999);
+  prefs.putInt(key, goal);
 
   // Store lastResetTime
   snprintf(key, sizeof(key), "lr_%d", slotId);
@@ -1342,6 +1349,8 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         prefs.remove(key);
         snprintf(key, sizeof(key), "rv_%d", i);
         prefs.remove(key);
+        snprintf(key, sizeof(key), "g_%d", i);
+        prefs.remove(key);
         snprintf(key, sizeof(key), "lr_%d", i);
         prefs.remove(key);
         snprintf(key, sizeof(key), "rn_%d", i);
@@ -1363,6 +1372,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         int reminder = item["reminder"] | REMINDER_NONE;
         if (!isValidReminder(reminder)) reminder = REMINDER_NONE;
         int reminderValue = clampInt(item["reminder_value"] | 0, 0, 9999);  // 0-9999
+        int goal = clampInt(item["goal"] | 0, 0, 9999999);  // 0 = no goal
 
         // Find existing data for this deviceItemId (device is source of truth)
         int count = 0;
@@ -1438,13 +1448,15 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         prefs.putInt(key, reminder);
         snprintf(key, sizeof(key), "rv_%d", index);
         prefs.putInt(key, reminderValue);
+        snprintf(key, sizeof(key), "g_%d", index);
+        prefs.putInt(key, goal);
         snprintf(key, sizeof(key), "lr_%d", index);
         prefs.putULong(key, lastResetTime);
         snprintf(key, sizeof(key), "rn_%d", index);
         prefs.putInt(key, resetNumber);
 
-        Serial.printf("[%d] DeviceItemID=%d Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d ResetTime=%lu ResetNum=%d\n",
-              index, deviceItemId, name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, lastResetTime, resetNumber);
+        Serial.printf("[%d] DeviceItemID=%d Name=%s Category=%s Count=%d TodayCount=%d Incr=%d Reminder=%d ReminderValue=%d Goal=%d ResetTime=%lu ResetNum=%d\n",
+              index, deviceItemId, name.c_str(), category.c_str(), count, todaycount, increment, reminder, reminderValue, goal, lastResetTime, resetNumber);
         index++;
       }
 
@@ -1774,6 +1786,11 @@ void processWriteCommand(const String& jsonStr) {
         snprintf(key, sizeof(key), "rv_%d", i);
         prefs.putInt(key, remVal);
 
+        snprintf(key, sizeof(key), "g_%d", i + 1);
+        int gl = prefs.getInt(key, 0);
+        snprintf(key, sizeof(key), "g_%d", i);
+        prefs.putInt(key, gl);
+
         snprintf(key, sizeof(key), "lr_%d", i + 1);
         unsigned long lr = prefs.getULong(key, 0);
         snprintf(key, sizeof(key), "lr_%d", i);
@@ -2027,7 +2044,7 @@ static void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 
 // BLE peripheral and characteristic setup
 void setupBLE() {
-  BLEDevice::init("Traxelos");
+  BLEDevice::init("Traxelos_One");
 
   // Log device instance ID (MAC address) now that BLE is initialized
   Serial.printf("🆔 Device Instance ID (MAC): %s\n", getDeviceInstanceId().c_str());

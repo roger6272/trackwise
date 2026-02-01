@@ -91,7 +91,7 @@ class BluetoothConstants {
 
   /// Device name prefix for filtering scan results
   /// ESP32 devices should start with this prefix
-  static const String deviceNamePrefix = 'Traxelos_device';
+  static const String deviceNamePrefix = 'Traxelos_One';
 
   /// Minimum RSSI (signal strength) to consider device in range
   /// Values are negative; -100 is very weak, -30 is very strong

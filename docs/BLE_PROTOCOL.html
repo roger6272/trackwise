@@ -302,7 +302,7 @@
 
 <table>
     <tr><th>Property</th><th>Value</th></tr>
-    <tr><td><strong>Device Name</strong></td><td><code>Traxelos</code></td></tr>
+    <tr><td><strong>Device Name</strong></td><td><code>Traxelos_One</code></td></tr>
     <tr><td><strong>Service UUID</strong></td><td><code>12345678-1234-1234-1234-123456789000</code></td></tr>
     <tr><td><strong>Max MTU</strong></td><td>517 bytes (negotiated, fallback 180)</td></tr>
 </table>
@@ -400,7 +400,7 @@ Device: {"type": "item_delta", "id": 3, "count": 42, ...}</code></pre>
 <ol>
     <li>Parses UTC time string using <code>strptime</code></li>
     <li>Sets internal RTC clock</li>
-    <li>Stores timezone offset in NVS (<code>timezone_offset</code>)</li>
+    <li>Stores timezone offset in NVS (<code>tz_offset</code>)</li>
     <li>Triggers daily reset check (in case date changed)</li>
 </ol>
 
@@ -551,6 +551,7 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
     <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
     <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
     <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
+    <tr><td><code>goal</code></td><td>int</td><td>Yes</td><td>0-9999999</td><td>Goal target (0 = no goal)</td></tr>
     <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
     <tr><td><code>reset_number</code></td><td>int</td><td>Yes</td><td>0+</td><td>Reset counter</td></tr>
 </table>
@@ -559,11 +560,12 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
 <table>
     <tr><th>Field</th><th>Validation</th><th>Default</th></tr>
     <tr><td><code>id</code></td><td>Clamped to 0-99</td><td>Array index</td></tr>
-    <tr><td><code>name</code></td><td>Truncated to 32 chars</td><td>Empty string</td></tr>
-    <tr><td><code>category</code></td><td>Truncated to 32 chars</td><td>Empty string</td></tr>
+    <tr><td><code>name</code></td><td>Truncated to 30 chars</td><td>Empty string</td></tr>
+    <tr><td><code>category</code></td><td>Truncated to 30 chars</td><td>Empty string</td></tr>
     <tr><td><code>increment</code></td><td>Clamped to 1-1000</td><td>1</td></tr>
     <tr><td><code>reminder</code></td><td>Clamped to 0-2</td><td>0</td></tr>
     <tr><td><code>reminder_value</code></td><td>Clamped to 0-9999</td><td>0</td></tr>
+    <tr><td><code>goal</code></td><td>Clamped to 0-9999999</td><td>0</td></tr>
 </table>
 
 <p><strong>Critical Behavior - Count Preservation:</strong></p>
@@ -731,6 +733,7 @@ Device: {"status": "seq_updated"}</code></pre>
     <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
     <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
     <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
+    <tr><td><code>goal</code></td><td>int</td><td>Yes</td><td>0-9999999</td><td>Goal target (0 = no goal)</td></tr>
     <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
     <tr><td><code>reset_number</code></td><td>int</td><td>Yes</td><td>0+</td><td>Reset counter</td></tr>
 </table>
@@ -1197,7 +1200,7 @@ Device: {"status": "seq_updated"}</code></pre>
 
 <div class="diagram">┌─────────────────────────────────────────────────────────────┐
 │  1. Start BLE scan                                          │
-│  2. Filter by device name: "Traxelos"                       │
+│  2. Filter by device name: "Traxelos_One"                       │
 │  3. Collect discovered devices                              │
 │  4. Stop scan after 15s or user selection                   │
 └─────────────────────────────────────────────────────────────┘</div>
@@ -1429,6 +1432,7 @@ Device: {"status": "seq_updated"}</code></pre>
     <tr><td><code>i_&lt;i&gt;</code></td><td>int</td><td>Increment value (1-1000)</td></tr>
     <tr><td><code>r_&lt;i&gt;</code></td><td>int</td><td>Reminder type (0-2)</td></tr>
     <tr><td><code>rv_&lt;i&gt;</code></td><td>int</td><td>Reminder value (0-9999)</td></tr>
+    <tr><td><code>g_&lt;i&gt;</code></td><td>int</td><td>Goal target (0 = no goal)</td></tr>
     <tr><td><code>lr_&lt;i&gt;</code></td><td>ulong</td><td>Last reset time (UTC timestamp)</td></tr>
     <tr><td><code>rn_&lt;i&gt;</code></td><td>int</td><td>Reset number</td></tr>
 </table>
@@ -1440,7 +1444,7 @@ Device: {"status": "seq_updated"}</code></pre>
     <tr><td><code>item_total</code></td><td>int</td><td>Number of items (0-100)</td></tr>
     <tr><td><code>selected_did</code></td><td>int</td><td>Currently selected deviceItemId (-1 if none)</td></tr>
     <tr><td><code>selected_index</code></td><td>int</td><td>Index of currently selected item</td></tr>
-    <tr><td><code>timezone_offset</code></td><td>int</td><td>Minutes offset from UTC</td></tr>
+    <tr><td><code>tz_offset</code></td><td>int</td><td>Minutes offset from UTC</td></tr>
     <tr><td><code>last_reset_date</code></td><td>string</td><td>"YYYY-MM-DD" of last daily reset</td></tr>
     <tr><td><code>paired_uid</code></td><td>string</td><td>Firebase user ID this device is paired to (empty = unpaired)</td></tr>
     <tr><td><code>sync_seq_no</code></td><td>int</td><td>Last sync sequence number (0 = never synced)</td></tr>
@@ -1753,7 +1757,7 @@ CHAR_WRITE:    12345678-1234-1234-1234-123456789010</code></pre>
 <div class="quick-ref">┌─────────────────────────────────────────────────────────────┐
 │                  TRAXELOS BLE QUICK REFERENCE               │
 ├─────────────────────────────────────────────────────────────┤
-│ Device Name: Traxelos                                       │
+│ Device Name: Traxelos_One                                       │
 │ Service: 12345678-1234-1234-1234-123456789000               │
 ├─────────────────────────────────────────────────────────────┤
 │ CHARACTERISTICS:                                            │

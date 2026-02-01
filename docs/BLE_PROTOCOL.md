@@ -95,7 +95,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Property | Value |
 |----------|-------|
-| **Device Name** | `Traxelos` |
+| **Device Name** | `Traxelos_One` |
 | **Service UUID** | `12345678-1234-1234-1234-123456789000` |
 | **Max MTU** | 517 bytes (negotiated, fallback 180) |
 
@@ -362,6 +362,7 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | `increment` | int | Yes | 1-1000 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
 | `reminder_value` | int | Yes | 0-9999 | Target/interval value |
+| `goal` | int | Yes | 0+ | Target goal count (0 = no goal) |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
 | `reset_number` | int | Yes | 0+ | Reset counter |
 
@@ -375,6 +376,7 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | `increment` | Clamped to 1-1000 | 1 |
 | `reminder` | Clamped to 0-2 | 0 |
 | `reminder_value` | Clamped to 0-9999 | 0 |
+| `goal` | Clamped to 0-9999999 | 0 |
 
 **Critical Behavior - Count Preservation:**
 
@@ -671,6 +673,7 @@ Device: {"status": "seq_updated"}
 | `increment` | int | Yes | 1-1000 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
 | `reminder_value` | int | Yes | 0-9999 | Target/interval value |
+| `goal` | int | Yes | 0+ | Target goal count (0 = no goal) |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
 | `reset_number` | int | Yes | 0+ | Reset counter |
 
@@ -1218,7 +1221,7 @@ Formula: `100ms × 2^(attempt+2)` (capped at 3 attempts)
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  1. Start BLE scan                                          │
-│  2. Filter by device name: "Traxelos"                          │
+│  2. Filter by device name: "Traxelos_One"                          │
 │  3. Collect discovered devices                              │
 │  4. Stop scan after 15s or user selection                   │
 └─────────────────────────────────────────────────────────────┘
@@ -1569,6 +1572,7 @@ Index-based storage where `<i>` = 0 to 99:
 | `i_<i>` | int | Increment value (1-1000) |
 | `r_<i>` | int | Reminder type (0-2) |
 | `rv_<i>` | int | Reminder value (0-9999) |
+| `g_<i>` | int | Goal count (0 = no goal) |
 | `lr_<i>` | ulong | Last reset time (UTC timestamp) |
 | `rn_<i>` | int | Reset number |
 
