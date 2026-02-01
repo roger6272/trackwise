@@ -931,6 +931,17 @@
     <h3>Increment Feedback</h3>
     <p>No animation or flash &mdash; the count simply updates on the display immediately.</p>
 
+    <h3>Vibration Feedback</h3>
+    <table>
+        <thead><tr><th>Event</th><th>Pattern</th><th>Details</th></tr></thead>
+        <tbody>
+            <tr><td>Reminder target hit</td><td>Single vibration (300ms)</td><td>Count equals reminder target value</td></tr>
+            <tr><td>Reminder interval hit</td><td>Single vibration (300ms)</td><td>Count is a multiple of the interval value</td></tr>
+            <tr><td>Goal reached</td><td>Double vibration (2&times; 150ms, 100ms gap)</td><td>Count equals the item's goal</td></tr>
+        </tbody>
+    </table>
+    <p>Goal vibration takes priority &mdash; if the goal and a reminder trigger on the same press, only the double vibration plays.</p>
+
     <h3>Reset Feedback</h3>
     <p>No confirmation message &mdash; the count drops to 0 on the display immediately.</p>
 

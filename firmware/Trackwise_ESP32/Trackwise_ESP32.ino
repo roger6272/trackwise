@@ -175,10 +175,15 @@ BLECharacteristic* writeChar;  //combine clearlogs and setselected
 BLECharacteristic* readChar;
 
 // For Non-Blocking Vibration (handles millis() overflow after ~49 days)
+// Supports multi-pulse patterns (e.g., double vibrate for goal reached)
 struct VibrationState {
   unsigned long startTime = 0;
   unsigned int duration = 0;
   bool isActive = false;
+  int pulsesRemaining = 0;
+  unsigned int pulseOnMs = 0;
+  unsigned int pulseGapMs = 0;
+  bool inGap = false;
 } vibration;
 
 void triggerVibrationNonBlocking(int duration = 300) {
@@ -186,12 +191,43 @@ void triggerVibrationNonBlocking(int duration = 300) {
   vibration.startTime = millis();
   vibration.duration = duration;
   vibration.isActive = true;
+  vibration.pulsesRemaining = 0;
+  vibration.inGap = false;
+}
+
+// Trigger a multi-pulse vibration pattern (e.g., 2 rapid pulses)
+void triggerVibrationPattern(int pulses, int onMs = 150, int gapMs = 100) {
+  digitalWrite(VIBRATION_PIN, HIGH);
+  vibration.startTime = millis();
+  vibration.duration = onMs;
+  vibration.isActive = true;
+  vibration.pulsesRemaining = pulses - 1;
+  vibration.pulseOnMs = onMs;
+  vibration.pulseGapMs = gapMs;
+  vibration.inGap = false;
 }
 
 // Check and turn off vibration in loop() - call this every iteration
 // Uses subtraction to handle millis() overflow correctly
 void updateVibration() {
-  if (vibration.isActive && (millis() - vibration.startTime >= vibration.duration)) {
+  if (!vibration.isActive) return;
+  if (millis() - vibration.startTime < vibration.duration) return;
+
+  if (vibration.inGap) {
+    // Gap finished, start next pulse
+    digitalWrite(VIBRATION_PIN, HIGH);
+    vibration.startTime = millis();
+    vibration.duration = vibration.pulseOnMs;
+    vibration.inGap = false;
+    vibration.pulsesRemaining--;
+  } else if (vibration.pulsesRemaining > 0) {
+    // Pulse finished, start gap before next pulse
+    digitalWrite(VIBRATION_PIN, LOW);
+    vibration.startTime = millis();
+    vibration.duration = vibration.pulseGapMs;
+    vibration.inGap = true;
+  } else {
+    // All done
     digitalWrite(VIBRATION_PIN, LOW);
     vibration.isActive = false;
   }
@@ -2205,17 +2241,19 @@ void handleCommand(char cmd) {
     countsDirty = true;
 
     //extract from prefs
+    snprintf(key, sizeof(key), "g_%d", currentItemIndex);
+    int goal = prefs.getInt(key, 0);
     snprintf(key, sizeof(key), "r_%d", currentItemIndex);
     reminder = prefs.getInt(key, REMINDER_NONE);
     snprintf(key, sizeof(key), "rv_%d", currentItemIndex);
     reminderValue = prefs.getInt(key, 0);
 
-    if (reminder == REMINDER_TARGET && itemCount == reminderValue) {
+    if (goal > 0 && itemCount == goal) {
+      triggerVibrationPattern(2);  // Double vibrate for goal reached
+    } else if (reminder == REMINDER_TARGET && itemCount == reminderValue) {
       triggerVibrationNonBlocking();
-      // trigger vibration here
     } else if (reminder == REMINDER_INTERVAL && reminderValue > 0 && itemCount > 0 && itemCount % reminderValue == 0){
       triggerVibrationNonBlocking();
-      // trigger vibration here
     }
 
     // Batch NVS writes - only write every 10 increments to reduce flash wear

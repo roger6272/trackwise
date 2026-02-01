@@ -273,6 +273,16 @@ A hold │  B   │   5min  │            │
 ### Increment Feedback
 No animation or flash — the count simply updates on the display immediately.
 
+### Vibration Feedback
+
+| Event | Pattern | Details |
+|-------|---------|---------|
+| Reminder target hit | Single vibration (300ms) | Count equals reminder target value |
+| Reminder interval hit | Single vibration (300ms) | Count is a multiple of the interval value |
+| Goal reached | Double vibration (2× 150ms, 100ms gap) | Count equals the item's goal |
+
+Goal vibration takes priority — if the goal and a reminder trigger on the same press, only the double vibration plays.
+
 ### Reset Feedback
 No confirmation message — the count drops to 0 on the display immediately.
 
