@@ -36,6 +36,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         // Merge with Firebase Auth data - prefer Firebase Auth displayName
         // as it may have been updated during onboarding
         return firestoreProfile.copyWith(
+          email: user.email ?? firestoreProfile.email,
           displayName: user.displayName ?? firestoreProfile.displayName,
           photoUrl: user.photoURL ?? firestoreProfile.photoUrl,
         );
