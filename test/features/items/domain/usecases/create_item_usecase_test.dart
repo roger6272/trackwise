@@ -131,11 +131,11 @@ void main() {
       verifyNever(() => mockRepository.createItem(any()));
     });
 
-    test('should return ValidationFailure for incrementBy > 100', () async {
+    test('should return ValidationFailure for incrementBy > 1000', () async {
       // Arrange
       final params = CreateItemParams(
         name: 'Test',
-        incrementBy: 101,
+        incrementBy: 1001,
         reminder: ReminderType.none,
         reminderValue: 0,
         userId: userId,
@@ -147,7 +147,7 @@ void main() {
       // Assert
       expect(result, isA<Left>());
       expect((result as Left).value, isA<ValidationFailure>());
-      expect((result as Left).value.message, contains('100'));
+      expect((result as Left).value.message, contains('1000'));
       verifyNever(() => mockRepository.createItem(any()));
     });
 
@@ -170,13 +170,13 @@ void main() {
       verifyNever(() => mockRepository.createItem(any()));
     });
 
-    test('should return ValidationFailure for reminderValue > 1000', () async {
+    test('should return ValidationFailure for reminderValue > 9999', () async {
       // Arrange
       final params = CreateItemParams(
         name: 'Test',
         incrementBy: 1,
         reminder: ReminderType.target,
-        reminderValue: 1001,
+        reminderValue: 10000,
         userId: userId,
       );
 
@@ -186,7 +186,7 @@ void main() {
       // Assert
       expect(result, isA<Left>());
       expect((result as Left).value, isA<ValidationFailure>());
-      expect((result as Left).value.message, contains('1000'));
+      expect((result as Left).value.message, contains('9999'));
       verifyNever(() => mockRepository.createItem(any()));
     });
 
