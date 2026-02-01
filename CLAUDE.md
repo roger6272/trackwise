@@ -118,6 +118,8 @@ Always run tests before committing:
 Follow existing patterns in the codebase.
 - Use BLoC pattern for state management
 - Follow clean architecture structure in `features/`
+- Use `AppLogger.debug()` / `AppLogger.error()` for all logging — never raw `print()` or `debugPrint()`. Import from `core/utils/logger.dart`
+- Firmware: use `DEBUG_LOG()` / `DEBUG_PRINTLN()` macros — never raw `Serial.print()`. Enable with `#define DEBUG` in `.ino`
 
 ## Documentation Maintenance
 

@@ -1850,22 +1850,23 @@ Any of these reset the idle timer:
 
 ### 16.2 Logging Points
 
-**App-side (add to datasource):**
+**App-side** (use `AppLogger` from `core/utils/logger.dart`):
 ```dart
 // Log raw bytes
 notifyStream.listen((data) {
-  debugPrint('BLE RX: ${String.fromCharCodes(data)}');
+  AppLogger.debug('BLE RX: ${String.fromCharCodes(data)}');
 });
 
 // Log parsed messages
 final message = BleMessageModel.fromJson(jsonString);
-debugPrint('BLE MSG: ${message.type} - ${message.data}');
+AppLogger.debug('BLE MSG: ${message.type} - ${message.data}');
 ```
 
-**Device-side (already enabled):**
+**Device-side** (requires `#define DEBUG` uncommented in `.ino`):
 ```cpp
-// Connect serial monitor at 115200 baud
-// All BLE events logged to Serial
+// Uncomment "#define DEBUG" at top of Trackwise_ESP32.ino
+// Then connect serial monitor at 115200 baud
+// All BLE events logged via DEBUG_LOG/DEBUG_PRINTLN macros
 ```
 
 ### 16.3 Common Fixes

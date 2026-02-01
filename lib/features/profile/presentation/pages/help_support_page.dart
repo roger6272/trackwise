@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Combined Help Center and Contact Us page.
 class HelpSupportPage extends StatefulWidget {
@@ -38,6 +39,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         });
       }
     } catch (e) {
+      AppLogger.debug('Failed to load app version: $e');
       if (mounted) {
         setState(() => _appVersion = 'v1.0.0');
       }

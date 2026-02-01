@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../bluetooth/domain/entities/ble_message.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -173,7 +174,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         });
       }
     } catch (e) {
-      // Ignore if BluetoothBloc not available
+      AppLogger.debug('BluetoothBloc not available for reload: $e');
     }
   }
 
@@ -198,7 +199,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         }
       });
     } catch (e) {
-      // Ignore if BluetoothBloc not available
+      AppLogger.debug('BluetoothBloc not available for log subscription: $e');
     }
   }
 
