@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traxelos One Device Display Reference</title>
+    <style>
+        :root {
+            --primary-color: #0f172a;
+            --secondary-color: #334155;
+            --accent-color: #3b82f6;
+            --accent-light: #dbeafe;
+            --accent-border: #93c5fd;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --table-header: #f1f5f9;
+            --todo-bg: #fefce8;
+            --todo-border: #fde68a;
+            --todo-text: #92400e;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --tag-bg: #e0f2fe;
+            --tag-text: #0369a1;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 48px 56px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2em;
+            border-bottom: 3px solid var(--accent-color);
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.05em;
+            margin-bottom: 32px;
+        }
+
+        .subtitle a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .subtitle a:hover {
+            text-decoration: underline;
+        }
+
+        h2 {
+            color: var(--primary-color);
+            font-size: 1.5em;
+            margin-top: 48px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        h3 {
+            color: var(--secondary-color);
+            font-size: 1.2em;
+            margin-top: 32px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.95em;
+        }
+
+        th {
+            background-color: var(--table-header);
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .state-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+            margin: 24px 0;
+            background: var(--card-bg);
+        }
+
+        .state-card h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+            font-size: 1.25em;
+        }
+
+        .state-label {
+            display: inline-block;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: var(--tag-text);
+            background: var(--tag-bg);
+            padding: 2px 10px;
+            border-radius: 12px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-top: 16px;
+            margin-bottom: 4px;
+        }
+
+        .field-label:first-of-type {
+            margin-top: 12px;
+        }
+
+        .todo {
+            background: var(--todo-bg);
+            border: 1px solid var(--todo-border);
+            border-left: 4px solid var(--warning-color);
+            border-radius: 6px;
+            padding: 10px 16px;
+            color: var(--todo-text);
+            font-size: 0.92em;
+            margin: 8px 0;
+        }
+
+        .exits-to {
+            color: var(--text-muted);
+            font-size: 0.93em;
+            margin-top: 12px;
+        }
+
+        .exits-to a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .exits-to a:hover {
+            text-decoration: underline;
+        }
+
+        pre {
+            background: var(--primary-color);
+            color: #e2e8f0;
+            padding: 24px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.82em;
+            line-height: 1.5;
+        }
+
+        /* OLED Display Mockup */
+        .device-frame {
+            display: inline-block;
+            background: #2a2a2a;
+            border-radius: 20px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+            margin: 16px auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .oled-screen {
+            background: #000;
+            border: 2px solid #1a1a1a;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+            color: #fff;
+            width: 180px;
+            min-height: 180px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .oled-screen .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.65em;
+            margin-bottom: 2px;
+            opacity: 0.95;
+        }
+
+        .oled-screen .top-bar .item-name {
+            color: #e0e0e0;
+        }
+
+        .oled-screen .top-bar .icons {
+            display: flex;
+            gap: 6px;
+            font-size: 0.9em;
+        }
+
+        .oled-screen .count-area {
+            text-align: center;
+            padding: 8px 0;
+            position: relative;
+        }
+
+        .oled-screen .count-area .multiplier {
+            position: absolute;
+            right: 0;
+            top: 0;
+            font-size: 0.65em;
+            color: #aaa;
+        }
+
+        .oled-screen .count-value {
+            font-size: 2.2em;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #fff;
+            text-shadow: 0 0 8px rgba(255,255,255,0.15);
+        }
+
+        .oled-screen .menu-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65em;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #333;
+            margin-bottom: 4px;
+            color: #ccc;
+        }
+
+        .oled-screen .menu-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 0.7em;
+            line-height: 1.7;
+        }
+
+        .oled-screen .menu-list li {
+            color: #bbb;
+            padding: 1px 0;
+            margin: 0;
+            border: none;
+        }
+
+        .oled-screen .menu-list li.selected {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .oled-screen .menu-list li.selected::before {
+            content: "▸ ";
+            color: #fff;
+        }
+
+        .oled-screen .info-row {
+            font-size: 0.65em;
+            color: #ccc;
+            padding: 1px 0;
+            line-height: 1.5;
+        }
+
+        .oled-screen .info-row .label {
+            color: #888;
+        }
+
+        .oled-screen .centered-text {
+            text-align: center;
+            padding: 16px 0;
+        }
+
+        .oled-screen .centered-text .title {
+            font-size: 0.85em;
+            margin-bottom: 6px;
+        }
+
+        .oled-screen .centered-text .options {
+            font-size: 0.7em;
+            color: #aaa;
+        }
+
+        .screen-caption {
+            text-align: center;
+            font-size: 0.82em;
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        /* Device body mockup */
+        .device-body {
+            display: inline-block;
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            border-radius: 28px;
+            padding: 20px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+            margin: 16px auto;
+            position: relative;
+            text-align: center;
+        }
+
+        .device-body .btn-a {
+            background: linear-gradient(180deg, #555, #444);
+            border: 1px solid #666;
+            border-radius: 12px;
+            padding: 10px 40px;
+            color: #ccc;
+            font-family: inherit;
+            font-size: 0.8em;
+            margin-bottom: 14px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        .device-body .btn-a .btn-label {
+            font-size: 0.75em;
+            color: #999;
+        }
+
+        .device-body .btn-b {
+            position: absolute;
+            left: -32px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(90deg, #555, #444);
+            border: 1px solid #666;
+            border-radius: 6px;
+            padding: 16px 6px;
+            color: #999;
+            font-size: 0.65em;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            box-shadow: -2px 0 4px rgba(0,0,0,0.3), inset 1px 0 0 rgba(255,255,255,0.1);
+        }
+
+        /* State Transition Diagram */
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            padding: 24px 0;
+        }
+
+        .flow-node {
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .flow-node.initial {
+            background: var(--accent-light);
+            border: 2px solid var(--accent-border);
+            color: #1e40af;
+        }
+
+        .flow-node.default {
+            background: #dcfce7;
+            border: 2px solid #86efac;
+            color: #166534;
+        }
+
+        .flow-node.navigation {
+            background: #fef3c7;
+            border: 2px solid #fcd34d;
+            color: #92400e;
+        }
+
+        .flow-node.temporary {
+            background: #e0e7ff;
+            border: 2px solid #a5b4fc;
+            color: #3730a3;
+        }
+
+        .flow-node.idle {
+            background: #f3f4f6;
+            border: 2px solid #d1d5db;
+            color: #374151;
+        }
+
+        .flow-node.destructive {
+            background: #fee2e2;
+            border: 2px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .flow-arrow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.75em;
+            padding: 2px 0;
+        }
+
+        .flow-arrow .arrow-line {
+            width: 2px;
+            height: 18px;
+            background: #94a3b8;
+        }
+
+        .flow-arrow .arrow-head {
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid #94a3b8;
+        }
+
+        .flow-arrow .arrow-label {
+            color: var(--text-muted);
+            font-size: 1em;
+            padding: 2px 0;
+            white-space: nowrap;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .flow-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .flow-branch {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .flow-return {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.75em;
+            padding: 2px 0;
+        }
+
+        .flow-return .return-arrow {
+            font-size: 1.2em;
+            color: #94a3b8;
+        }
+
+        .flow-separator {
+            width: 100%;
+            border-top: 1px dashed #cbd5e1;
+            margin: 16px 0;
+        }
+
+        .flow-note {
+            font-size: 0.75em;
+            color: var(--text-muted);
+            text-align: center;
+            font-style: italic;
+        }
+
+        .flow-horizontal-arrow {
+            display: flex;
+            align-items: center;
+            color: #94a3b8;
+            font-size: 0.75em;
+            gap: 4px;
+        }
+
+        .flow-horizontal-arrow .h-line {
+            width: 30px;
+            height: 2px;
+            background: #94a3b8;
+        }
+
+        .flow-horizontal-arrow .h-head {
+            width: 0;
+            height: 0;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            border-left: 6px solid #94a3b8;
+        }
+
+        .checklist {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            padding-left: 28px;
+        }
+
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+
+        .checklist li::before {
+            content: "☐";
+            position: absolute;
+            left: 0;
+            color: var(--text-muted);
+            font-size: 1.1em;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        ul li {
+            margin-bottom: 4px;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                padding: 24px 20px;
+            }
+            pre {
+                font-size: 0.7em;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>Traxelos One Device Display Reference</h1>
+    <p class="subtitle"><strong>For developers:</strong> This document describes the physical device's display states, layouts, and transitions. For app-device communication, see <a href="BLE_PROTOCOL.md">BLE_PROTOCOL.md</a>. For end-user instructions, see <a href="USER_GUIDE.html">USER_GUIDE.html</a>.</p>
+
+    <h2>Device Layout</h2>
+
+    <p>The Traxelos One is a handheld device with a large front-facing display and two buttons.</p>
+
+    <div style="display: flex; justify-content: center;">
+        <div class="device-body">
+            <div class="btn-b">[B]</div>
+            <div class="btn-a">[ Button A ]<br><span class="btn-label">Count / Main</span></div>
+            <div class="oled-screen" style="width: 160px; min-height: 160px; align-items: center; justify-content: center;">
+                <span style="color: #555; font-size: 0.9em; letter-spacing: 2px;">DISPLAY</span>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Traxelos One &mdash; front view with Button A above the display, Button B on left side</p>
+
+    <h3>Button A &mdash; Front Face (Above Display)</h3>
+    <ul>
+        <li><strong>Position:</strong> Large button on the front face, above the display</li>
+        <li><strong>Purpose:</strong> Primary action &mdash; counting, confirming, waking</li>
+        <li><strong>Design:</strong> Big, tactile, satisfying to press repeatedly</li>
+        <li><strong>Why here:</strong> Thumb lands naturally on the front face when gripping the device. Direct downward press is ergonomic for high-frequency use (hundreds of presses per day).</li>
+    </ul>
+
+    <h3>Button B &mdash; Left Side (Upper Edge)</h3>
+    <ul>
+        <li><strong>Position:</strong> Upper left side of the device (from the user's perspective)</li>
+        <li><strong>Purpose:</strong> Secondary action &mdash; menu navigation, reset</li>
+        <li><strong>Design:</strong> Slightly recessed/flush to prevent accidental presses</li>
+        <li><strong>Why here:</strong> Right-handed grip places the index finger naturally on the upper left edge. Distinct from A by feel. Recessed profile avoids accidental resets (B hold 3s triggers reset).</li>
+    </ul>
+
+    <h3>Ergonomic Grip</h3>
+    <p>When holding with the right hand:</p>
+    <ul>
+        <li><strong>Thumb</strong> &rarr; Button A (front face)</li>
+        <li><strong>Index finger</strong> &rarr; Button B (left side)</li>
+        <li>Both buttons operable without shifting grip</li>
+    </ul>
+
+    <h2>Display States</h2>
+
+    <!-- State 1 -->
+    <div class="state-card">
+        <h3>1. Welcome / Pairing Screen <span class="state-label">Initial</span></h3>
+        <p class="field-label">When:</p>
+        <p>Device powers on before pairing.</p>
+        <p class="field-label">Display sequence:</p>
+        <ol>
+            <li><strong>"Welcome"</strong> text &mdash; shown for 2-3 seconds as a greeting</li>
+            <li><strong>Bluetooth icon + "Pairing..."</strong> &mdash; stays on screen until a Bluetooth connection is made</li>
+        </ol>
+        <p class="field-label">Exits to:</p>
+        <ul>
+            <li>Main Item View (on successful BLE connection)</li>
+            <li>Sleep Mode (after 5 mins of inactivity if no connection is made)</li>
+        </ul>
+    </div>
+
+    <!-- State 2 -->
+    <div class="state-card">
+        <h3>2. Main Item View <span class="state-label">Default</span></h3>
+        <p class="field-label">When:</p>
+        <p>Default view after pairing/connecting. Returns here after menu timeout.</p>
+        <p class="field-label">Display layout:</p>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="top-bar">
+                    <span class="item-name">Push..</span>
+                    <span class="icons">🎯 📶 🔋</span>
+                </div>
+                <div class="count-area">
+                    <span class="multiplier">x5</span>
+                    <div class="count-value">247</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Main Item View &mdash; item name, status icons, count per press, and large count</p>
+        <table>
+            <thead><tr><th>Element</th><th>Position</th><th>Details</th></tr></thead>
+            <tbody>
+                <tr><td>Item name</td><td>Top left</td><td>Truncated to 10 characters + dot if longer (e.g., "Push..", "Water", "Squat")</td></tr>
+                <tr><td>Battery icon</td><td>Top right</td><td>Battery level indicator</td></tr>
+                <tr><td>Bluetooth icon</td><td>Top right</td><td>Shown when connected</td></tr>
+                <tr><td>Reminder icon</td><td>Top right</td><td>Indicates reminder type: none / target / interval</td></tr>
+                <tr><td>Count per press</td><td>Upper right (count area)</td><td>Shown as "x5" &mdash; hidden when default (1)</td></tr>
+                <tr><td>Count</td><td>Center</td><td>Large, takes up most of the display</td></tr>
+            </tbody>
+        </table>
+        <p class="field-label">States:</p>
+        <ul>
+            <li><strong>Item active:</strong> Shows layout above with count of the current selected item</li>
+            <li><strong>No item active:</strong> "Select an item" &mdash; shown when no item has been activated in the app yet (e.g., fresh pair, no items created)</li>
+        </ul>
+        <p class="tip">Only items from the active item's category are synced to the device. The user selects an item in the app, which triggers the category's items to sync over.</p>
+        <p class="field-label">Interactions:</p>
+        <table>
+            <thead><tr><th>Input</th><th>Result</th></tr></thead>
+            <tbody>
+                <tr><td>A press</td><td>Increment count &rarr; display updates</td></tr>
+                <tr><td>A hold 3s</td><td>Switch to <a href="#info-display">Info Display</a></td></tr>
+                <tr><td>B press</td><td>Enter <a href="#item-menu-view">Item Menu View</a></td></tr>
+                <tr><td>B hold 3s</td><td>Reset current item count (new cycle)</td></tr>
+                <tr><td>5 mins inactivity</td><td>Enter <a href="#sleep-mode">Sleep Mode</a></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- State 3 -->
+    <div class="state-card">
+        <h3 id="item-menu-view">3. Item Menu View <span class="state-label">Navigation</span></h3>
+        <p class="field-label">When:</p>
+        <p>B pressed from Main Item View.</p>
+        <p class="field-label">Display layout:</p>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="menu-header">
+                    <span>Fitness..</span>
+                    <span>3/5</span>
+                </div>
+                <ul class="menu-list">
+                    <li>&nbsp;&nbsp; Water</li>
+                    <li class="selected">Push-ups</li>
+                    <li>&nbsp;&nbsp; Squats</li>
+                    <li>&nbsp;&nbsp; Bench Press</li>
+                    <li>&nbsp;&nbsp; Pull-ups</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Item Menu View &mdash; category name, position counter, item list with selection arrow</p>
+        <table>
+            <thead><tr><th>Element</th><th>Position</th><th>Details</th></tr></thead>
+            <tbody>
+                <tr><td>Category name</td><td>Top left</td><td>Truncated to 10 characters + dot if longer</td></tr>
+                <tr><td>Position counter</td><td>Top right</td><td>Current item / total items (e.g., "3/5")</td></tr>
+                <tr><td>Item list</td><td>Center</td><td>Up to 5 items visible at a time</td></tr>
+                <tr><td>Selected item</td><td>Center</td><td>Indicated by a small arrow (▸) at the start</td></tr>
+                <tr><td>Long item names</td><td>&mdash;</td><td>Carousel/scroll effect if name exceeds display width</td></tr>
+            </tbody>
+        </table>
+        <p class="field-label">Interactions:</p>
+        <table>
+            <thead><tr><th>Input</th><th>Result</th></tr></thead>
+            <tbody>
+                <tr><td>A press</td><td>Confirm selection &rarr; return to Main Item View with selected item</td></tr>
+                <tr><td>B press</td><td>Next item in menu (loops through list)</td></tr>
+                <tr><td>B hold</td><td>Rapidly loop through items</td></tr>
+                <tr><td>5 secs inactivity</td><td>Auto-return to Main Item View</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- State 4 -->
+    <div class="state-card">
+        <h3 id="info-display">4. Info Display <span class="state-label">Temporary</span></h3>
+        <p class="field-label">When:</p>
+        <p>A held for 3 seconds from Main Item View.</p>
+        <p class="field-label">Display layout:</p>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="info-row"><span class="label">Cat:</span> Fitness</div>
+                <div class="info-row"><span class="label">Item:</span> Push-ups</div>
+                <div class="info-row"><span class="label">Goal:</span> 100 &nbsp;&nbsp;<span class="label">Today:</span> 45</div>
+                <div class="info-row"><span class="label">Remind:</span> 🎯 100</div>
+                <div class="info-row" style="display: flex; justify-content: space-between;"><span><span class="label">Cycle:</span> 3</span><span>12:30 PM</span></div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Info Display &mdash; full details shown on A hold (3s)</p>
+        <table>
+            <thead><tr><th>Element</th><th>Details</th></tr></thead>
+            <tbody>
+                <tr><td>Category</td><td>Full name, carousel if too long</td></tr>
+                <tr><td>Item</td><td>Full name, carousel if too long</td></tr>
+                <tr><td>Goal</td><td>Target count (if set)</td></tr>
+                <tr><td>Today</td><td>Today's count</td></tr>
+                <tr><td>Reminder</td><td>Icon + value: 🎯 100 (target), 🔄 10 (interval), or "None"</td></tr>
+                <tr><td>Cycle</td><td>Current reset cycle number</td></tr>
+                <tr><td>Time</td><td>Current time (bottom right)</td></tr>
+            </tbody>
+        </table>
+        <p class="field-label">Duration:</p>
+        <p>10 seconds or until any button is pressed.</p>
+        <p class="exits-to">Exits to: <a href="#main-item-view">Main Item View</a></p>
+    </div>
+
+    <!-- State 5 -->
+    <div class="state-card">
+        <h3 id="sleep-mode">5. Sleep Mode (Power Saving) <span class="state-label">Idle</span></h3>
+        <p class="field-label">When:</p>
+        <p>5 minutes of inactivity from Main Item View.</p>
+        <p class="field-label">Display:</p>
+        <p>Off</p>
+        <p class="field-label">Interactions:</p>
+        <table>
+            <thead><tr><th>Input</th><th>Result</th></tr></thead>
+            <tbody>
+                <tr><td>A or B press</td><td>Wake &rarr; return to Main Item View</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- State 6 -->
+    <div class="state-card">
+        <h3>6. Factory Reset <span class="state-label">Destructive</span></h3>
+        <p class="field-label">When:</p>
+        <p>Both A and B held for 7 seconds.</p>
+        <p class="field-label">Display:</p>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="centered-text">
+                    <div class="title">Factory Reset?</div>
+                    <div class="options">A=Yes &nbsp;&nbsp; B=No</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Factory Reset confirmation &mdash; A+B hold 7s to trigger</p>
+        <table>
+            <thead><tr><th>Input</th><th>Result</th></tr></thead>
+            <tbody>
+                <tr><td>A press</td><td>Confirm &mdash; erase all data, return to Welcome / Pairing Screen</td></tr>
+                <tr><td>B press</td><td>Cancel &mdash; return to Main Item View</td></tr>
+                <tr><td>10 secs inactivity</td><td>Auto-cancel &mdash; return to Main Item View</td></tr>
+            </tbody>
+        </table>
+        <p class="field-label">Result (if confirmed):</p>
+        <p>All items, counts, and pairing information erased. Device returns to Welcome / Pairing Screen.</p>
+    </div>
+
+    <h2>State Transition Diagram</h2>
+
+    <div class="flow-diagram">
+        <!-- Welcome / Pairing -->
+        <div class="flow-node initial">Welcome / Pairing</div>
+        <div class="flow-arrow">
+            <div class="arrow-line"></div>
+            <div class="arrow-label">BLE pair</div>
+            <div class="arrow-line"></div>
+            <div class="arrow-head"></div>
+        </div>
+
+        <!-- Main Item View (center hub) with Sleep far right -->
+        <div style="position: relative; width: 100%;">
+            <!-- Main Item View centered -->
+            <div style="display: flex; justify-content: center;">
+                <div class="flow-node default" style="font-size: 1em; padding: 14px 48px;">Main Item View</div>
+            </div>
+            <!-- Sleep Mode positioned to the far right -->
+            <div style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 0;">
+                <div class="flow-col" style="align-items: center;">
+                    <div style="display: flex; align-items: center;">
+                        <div class="h-line" style="width: 24px; height: 2px; background: #94a3b8;"></div>
+                        <span style="font-size: 0.7em; color: #64748b; white-space: nowrap; padding: 0 4px;">5 min idle &rarr;</span>
+                    </div>
+                    <div style="display: flex; align-items: center; margin-top: 2px;">
+                        <div class="h-line" style="width: 24px; height: 2px; background: #94a3b8;"></div>
+                        <span style="font-size: 0.7em; color: #64748b; white-space: nowrap; padding: 0 4px;">&larr; A/B wake</span>
+                    </div>
+                </div>
+                <div class="flow-node idle" style="font-size: 0.8em; padding: 8px 14px;">Sleep Mode</div>
+            </div>
+        </div>
+
+        <!-- Two branches down from Main -->
+        <div class="flow-row" style="gap: 48px; margin-top: 0;">
+            <!-- Left: Info Display -->
+            <div class="flow-col">
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">A hold 3s</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node temporary">Info Display</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">10s / press</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+            </div>
+
+            <!-- Right: Item Menu -->
+            <div class="flow-col">
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">B press</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node navigation">Item Menu View</div>
+                <div class="flow-note" style="margin: 4px 0;">B = cycle items</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">A press / 5s timeout</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Return to Main -->
+        <div class="flow-node default" style="padding: 6px 16px; font-size: 0.8em;">&#8593; Back to Main Item View</div>
+
+        <!-- Separator -->
+        <div class="flow-separator"></div>
+
+        <!-- Factory Reset and Unpair side by side -->
+        <div class="flow-row" style="gap: 64px; margin-top: 0;">
+            <!-- Left: Factory Reset -->
+            <div class="flow-col">
+                <div class="flow-note">A+B hold 7s (from any state)</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node destructive">Factory Reset</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">A = confirm</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node initial" style="padding: 6px 16px; font-size: 0.8em;">Welcome / Pairing</div>
+                <div class="flow-note" style="margin-top: 8px;">B press or 10s timeout = cancel &rarr; Main Item View</div>
+            </div>
+
+            <!-- Right: Unpair Command -->
+            <div class="flow-col">
+                <div class="flow-note">Unpair command (from any state)</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">Erase all data</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node initial" style="padding: 6px 16px; font-size: 0.8em;">Welcome / Pairing</div>
+            </div>
+        </div>
+    </div>
+
+    <h2>Display Hardware</h2>
+
+    <table>
+        <thead><tr><th>Spec</th><th>Value</th></tr></thead>
+        <tbody>
+            <tr><td>Type</td><td>OLED (SSD1306)</td></tr>
+            <tr><td>Size</td><td>~1.3"</td></tr>
+            <tr><td>Resolution</td><td>128&times;64 pixels</td></tr>
+            <tr><td>Color</td><td>Monochrome (white on black)</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Behavior Notes</h2>
+
+    <h3>Increment Feedback</h3>
+    <p>No animation or flash &mdash; the count simply updates on the display immediately.</p>
+
+    <h3>Vibration Feedback</h3>
+    <table>
+        <thead><tr><th>Event</th><th>Pattern</th><th>Details</th></tr></thead>
+        <tbody>
+            <tr><td>Reminder target hit</td><td>Single vibration (300ms)</td><td>Count equals reminder target value</td></tr>
+            <tr><td>Reminder interval hit</td><td>Single vibration (300ms)</td><td>Count is a multiple of the interval value</td></tr>
+            <tr><td>Goal reached</td><td>Triple vibration (3&times; 150ms, 100ms gap)</td><td>Count equals the item's goal</td></tr>
+        </tbody>
+    </table>
+    <p>Goal vibration takes priority &mdash; if the goal and a reminder trigger on the same press, only the triple vibration plays.</p>
+
+    <h3>Reset Feedback</h3>
+    <p>No confirmation message &mdash; the count drops to 0 on the display immediately.</p>
+
+    <h3>Item Menu with Fewer Than 5 Items</h3>
+    <p>Items are top-aligned. If the category has only 2 items, 2 rows are shown at the top with empty space below.</p>
+
+    <h3>Transient Notifications</h3>
+    <p>Brief overlay messages shown on the device display for ~3 seconds before auto-dismissing back to the previous state. They do not change the underlying display state.</p>
+    <table>
+        <thead><tr><th>Notification</th><th>Trigger</th><th>Display</th><th>Duration</th></tr></thead>
+        <tbody>
+            <tr><td><strong>Connected</strong></td><td>BLE connection established</td><td>Bluetooth icon + "Connected"</td><td>3 seconds</td></tr>
+            <tr><td><strong>Disconnected</strong></td><td>BLE connection lost</td><td>Crossed-out Bluetooth icon + "Disconnected"</td><td>3 seconds</td></tr>
+            <tr><td><strong>Wrong Account</strong></td><td>A different account (not the paired one) connects</td><td>"Wrong Account"</td><td>3 seconds</td></tr>
+            <tr><td><strong>Conflict / See App</strong></td><td>User presses button while a sync conflict exists</td><td>"Conflict" + "See App" (two lines)</td><td>3 seconds</td></tr>
+            <tr><td><strong>Memory almost full</strong></td><td>NVS usage &ge; 90%</td><td>"Memory almost full. Please sync."</td><td>3 seconds (once per wake)</td></tr>
+            <tr><td><strong>Storage full</strong></td><td>NVS usage = 100%</td><td>"Storage full. Sync now."</td><td>Shown on every A press (blocks counting)</td></tr>
+        </tbody>
+    </table>
+    <p>All transient notifications include a brief vibration. The device continues working offline after disconnection. Syncing via Bluetooth clears storage warnings.</p>
+
+    <h3>Unpair Command</h3>
+    <p>When the device receives an unpair command from the app (e.g., account deletion or manual unpair):</p>
+    <ul>
+        <li>All items, counts, and pairing information are erased</li>
+        <li>Device returns directly to <a href="#welcome-pairing">Welcome / Pairing Screen</a></li>
+    </ul>
+
+    <h3>Low Battery</h3>
+    <p>No special warning or flashing. The battery icon on the main display already shows the current level &mdash; the user can see when it's low. The device powers off when the battery is depleted.</p>
+
+</div>
+</body>
+</html>

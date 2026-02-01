@@ -212,4 +212,19 @@ abstract class ItemRemoteDataSource {
   ///
   /// Throws [ServerException] if the Firestore batch operation fails.
   Future<List<ItemModel>> resetAllItems(String userId);
+
+  /// Ensures all items have a valid deviceItemId assigned.
+  ///
+  /// Scans all non-deleted items for a user. Any items with null deviceItemId
+  /// are assigned a unique ID (0-99) and updated in Firestore.
+  ///
+  /// This migration handles items created before deviceItemId was implemented.
+  ///
+  /// Parameters:
+  /// - [userId]: The user whose items to check and fix
+  ///
+  /// Returns the number of items that were assigned new deviceItemIds.
+  ///
+  /// Throws [ServerException] if the Firestore operations fail.
+  Future<int> ensureDeviceItemIds(String userId);
 }

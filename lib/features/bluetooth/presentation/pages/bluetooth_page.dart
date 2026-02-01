@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
+import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
+import '../widgets/sync_conflict_dialog.dart';
 import 'bluetooth_search_page.dart';
-import 'device_management_page.dart';
 
 /// Main Bluetooth page - entry point for Bluetooth functionality.
 ///
@@ -42,66 +44,84 @@ class _BluetoothPageState extends State<BluetoothPage> {
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: primaryBackground,
-        title: Text(
-          'Bluetooth',
-          style: GoogleFonts.interTight(
-            color: primaryText,
-            fontWeight: FontWeight.w600,
-            fontSize: 22.0,
-          ),
-        ),
-        automaticallyImplyLeading: false,
-        elevation: 0.0,
-      ),
-      body: BlocBuilder<BluetoothBloc, BluetoothState>(
-        builder: (context, state) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _StatusCard(state: state),
-                const SizedBox(height: 24),
-                _buildActionButtons(context, state),
-                const SizedBox(height: 24),
-                _buildInfoSection(context, state),
-              ],
+    return BlocListener<BluetoothBloc, BluetoothState>(
+      listenWhen: (previous, current) =>
+          !previous.hasConflict && current.hasConflict,
+      listener: (context, state) {
+        // Show conflict dialog when conflict is detected
+        if (state.hasConflict) {
+          _showConflictDialog(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: primaryBackground,
+          title: Text(
+            'Bluetooth',
+            style: GoogleFonts.interTight(
+              color: primaryText,
+              fontWeight: FontWeight.w600,
+              fontSize: 22.0,
             ),
-          );
-        },
+          ),
+          automaticallyImplyLeading: false,
+          elevation: 0.0,
+        ),
+        body: BlocBuilder<BluetoothBloc, BluetoothState>(
+          builder: (context, state) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _StatusCard(state: state),
+                  const SizedBox(height: 24),
+                  _buildActionButtons(context, state),
+                  const SizedBox(height: 24),
+                  _buildInfoSection(context, state),
+                ],
+              ),
+            );
+          },
+        ),
       ),
+    );
+  }
+
+  void _showConflictDialog(BuildContext context) {
+    SyncConflictDialog.show(
+      context: context,
+      onConfirm: () {
+        final appUiState = context.read<AppUiState>();
+        context.read<BluetoothBloc>().add(ConfirmSyncOverride(
+          currentSelectedItemId: appUiState.activeItemId.isNotEmpty
+              ? appUiState.activeItemId
+              : null,
+        ));
+      },
+      onCancel: () {
+        context.read<BluetoothBloc>().add(const CancelSyncConflict());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Disconnected. Connect again to sync.'),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildActionButtons(BuildContext context, BluetoothState state) {
     if (state.isConnected) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ElevatedButton.icon(
-            onPressed: () => context.push(DeviceManagementPage.routePath),
-            icon: const Icon(Icons.settings),
-            label: const Text('Manage Device'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () {
-              context.read<BluetoothBloc>().add(const DisconnectFromDevice());
-            },
-            icon: const Icon(Icons.bluetooth_disabled),
-            label: const Text('Disconnect'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              foregroundColor: Colors.red,
-            ),
-          ),
-        ],
+      return OutlinedButton.icon(
+        onPressed: () {
+          context.read<BluetoothBloc>().add(const DisconnectFromDevice());
+        },
+        icon: const Icon(Icons.bluetooth_disabled),
+        label: const Text('Disconnect'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          foregroundColor: Colors.red,
+        ),
       );
     }
 

@@ -1,9 +1,9 @@
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/features/events/domain/repositories/event_log_repository.dart';
-import 'package:trackwise/features/items/domain/repositories/item_repository.dart';
-import 'package:trackwise/features/charts/domain/usecases/get_chart_data_usecase.dart';
-import 'package:trackwise/features/charts/domain/usecases/get_cumulative_chart_data_usecase.dart';
+import 'package:traxelos/features/events/domain/repositories/event_log_repository.dart';
+import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
+import 'package:traxelos/features/charts/domain/usecases/get_chart_data_usecase.dart';
+import 'package:traxelos/features/charts/domain/usecases/get_cumulative_chart_data_usecase.dart';
 
 // Domain mocks
 class MockEventLogRepository extends Mock implements EventLogRepository {}

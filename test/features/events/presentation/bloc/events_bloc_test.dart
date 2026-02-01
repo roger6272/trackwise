@@ -3,13 +3,13 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/events/domain/usecases/get_events_by_date_range_usecase.dart';
-import 'package:trackwise/features/events/domain/usecases/get_events_by_item_usecase.dart';
-import 'package:trackwise/features/events/domain/usecases/insert_events_usecase.dart';
-import 'package:trackwise/features/events/presentation/bloc/events_bloc.dart';
-import 'package:trackwise/features/events/presentation/bloc/events_event.dart';
-import 'package:trackwise/features/events/presentation/bloc/events_state.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/events/domain/usecases/get_events_by_date_range_usecase.dart';
+import 'package:traxelos/features/events/domain/usecases/get_events_by_item_usecase.dart';
+import 'package:traxelos/features/events/domain/usecases/insert_events_usecase.dart';
+import 'package:traxelos/features/events/presentation/bloc/events_bloc.dart';
+import 'package:traxelos/features/events/presentation/bloc/events_event.dart';
+import 'package:traxelos/features/events/presentation/bloc/events_state.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

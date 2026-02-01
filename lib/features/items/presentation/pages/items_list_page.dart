@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../auth/domain/repositories/user_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
@@ -22,6 +23,7 @@ import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
 import '../../../categories/presentation/bloc/categories_state.dart';
 import '../bloc/items_bloc.dart';
+import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
 import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
 import 'item_form_page.dart';
@@ -74,13 +76,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
   SlidableController? _firstItemController;
   AnimationController? _reorderHintController;
   Animation<double>? _liftAnimation;
-  bool _swipeHintTriggered = false;
   bool _reorderHintTriggered = false;
   bool _activationHintTriggered = false;
   OverlayEntry? _activationHintOverlay;
   OverlayEntry? _reorderHintOverlay;
-  AppUiState? _activationHintAppUiState; // For swipe listener callback
-  VoidCallback? _swipeListener; // Listener to detect user swipe
+  AppUiState? _activationHintAppUiState; // For pin tap callback
 
   // Search state
   bool _isSearching = false;
@@ -100,10 +100,16 @@ class _ItemsListContentState extends State<_ItemsListContent>
   String? _lastSyncedCategoryId;
   DateTime? _lastSyncTime;
 
+  // Key to force category dropdown rebuild after returning from Manage Categories
+  int _categoryDropdownKey = 0;
+
   @override
   void initState() {
     super.initState();
     _firstItemController = SlidableController(this);
+
+    // Mark user as existing (completed onboarding) when they reach items page
+    _markOnboardingComplete();
 
     // Animation for reorder hint: lift effect
     _reorderHintController = AnimationController(
@@ -127,6 +133,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
           category.id: category.order,
       };
     }
+  }
+
+  /// Marks the user as having completed onboarding when they reach the items page.
+  /// This ensures existing users who skipped or didn't see onboarding are marked appropriately.
+  Future<void> _markOnboardingComplete() async {
+    final userRepository = sl<UserRepository>();
+    await userRepository.completeOnboarding(primaryUseCase: 'existing_user');
   }
 
   // Static colors (theme-independent)
@@ -182,49 +195,30 @@ class _ItemsListContentState extends State<_ItemsListContent>
           listenWhen: (previous, current) =>
               !previous.isConnected && current.isConnected,
           listener: (context, bluetoothState) {
-            // When device connects, navigate to selected item's category
-            final selectedItemId = bluetoothState.selectedItemId;
-            if (selectedItemId != null && selectedItemId.isNotEmpty && selectedItemId != 'none') {
-              final itemsState = context.read<ItemsBloc>().state;
-              if (itemsState is ItemsLoaded) {
-                final selectedItem = itemsState.items
-                    .where((i) => i.id == selectedItemId)
-                    .firstOrNull;
-                if (selectedItem != null) {
-                  final targetCategoryId =
-                      (selectedItem.categoryId == null || selectedItem.categoryId!.isEmpty)
-                          ? ''
-                          : selectedItem.categoryId!;
-                  context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
-                  // Defer AppUiState update to next frame to avoid rebuild during callback
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    context.read<AppUiState>().selectedCategoryId = targetCategoryId;
-                  });
-                }
-              }
-            }
+            // When device connects, show all categories view
+            // (device sync sends correct category-filtered items regardless of app view)
+            context.read<ItemsBloc>().add(FilterByCategoryEvent(null));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              context.read<AppUiState>().selectedCategoryId = null;
+            });
           },
-          // Listen for prefs message with no selection (selected_id: -1)
+          // Sync AppUiState.activeItemId whenever BluetoothState.selectedItemId changes
+          // (from device prefs, override completion, or any other source)
           child: BlocListener<BluetoothBloc, BluetoothState>(
-            listenWhen: (previous, current) {
-              // Fire when lastMessage changes to a prefs message
-              final prevMsg = previous.lastMessage;
-              final currMsg = current.lastMessage;
-              return currMsg != null &&
-                  currMsg != prevMsg &&
-                  currMsg.type == BleMessageType.prefs;
-            },
+            listenWhen: (previous, current) =>
+                previous.selectedItemId != current.selectedItemId,
             listener: (context, bluetoothState) {
-              // Prefs received - check if device says no selection
               final selectedItemId = bluetoothState.selectedItemId;
-              if (selectedItemId == null || selectedItemId.isEmpty) {
-                // Device has no selection - clear app's persisted selection
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  context.read<AppUiState>().clearActiveItem();
-                });
-              }
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                final appUiState = context.read<AppUiState>();
+                if (selectedItemId == null || selectedItemId.isEmpty) {
+                  appUiState.clearActiveItem();
+                } else if (appUiState.activeItemId != selectedItemId) {
+                  appUiState.activeItemId = selectedItemId;
+                }
+              });
             },
           child: BlocBuilder<BluetoothBloc, BluetoothState>(
             builder: (context, bluetoothState) {
@@ -282,7 +276,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 await _showItemLimitDialog(context);
                                 return;
                               }
-                              context.pushNamed(ItemFormPage.routeName);
+                              await context.pushNamed<Item>(ItemFormPage.routeName);
                             },
                             style: IconButton.styleFrom(
                               backgroundColor: isConnected ? _primary : Colors.grey.shade400,
@@ -398,74 +392,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             buildWhen: (previous, current) {
                               // Rebuild on any state change, but also check if we need to sync device
                               if (previous is ItemsLoaded && current is ItemsLoaded) {
-                                final bluetoothState = context.read<BluetoothBloc>().state;
-                                if (bluetoothState.isConnected) {
-                                  final selectedId = bluetoothState.selectedItemId;
-                                  if (selectedId != null && selectedId.isNotEmpty) {
-                                    // Find selected item's category
-                                    final selectedItem = current.items
-                                        .where((i) => i.id == selectedId)
-                                        .firstOrNull;
-                                    if (selectedItem != null) {
-                                      final selectedCatId = selectedItem.categoryId ?? '';
-
-                                      // Get items in selected category, sorted by categoryOrder
-                                      final currentCategoryItems = current.items
-                                          .where((i) => (i.categoryId ?? '') == selectedCatId)
-                                          .toList()
-                                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-                                      // Create signature from current category items (config fields only, not counts)
-                                      // Include categoryId so category changes trigger sync
-                                      final currentSignature = currentCategoryItems
-                                          .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
-                                          .join(',');
-
-                                      // First time seeing items - just initialize signature, don't sync
-                                      // (App can't configure anything while disconnected, so nothing to sync)
-                                      if (_lastSyncedSignature == null) {
-                                        _lastSyncedSignature = currentSignature;
-                                        _lastSyncedCategoryId = selectedCatId;
-                                        _lastSyncTime = DateTime.now();
-                                        return true;
-                                      }
-
-                                      // Debounce: skip if synced recently (within 500ms)
-                                      final now = DateTime.now();
-                                      final recentlySynced = _lastSyncTime != null &&
-                                          now.difference(_lastSyncTime!).inMilliseconds < 500;
-
-                                      // Check if category changed (selected item moved to different category)
-                                      final categoryChanged = _lastSyncedCategoryId != selectedCatId;
-                                      final signatureChanged = currentSignature != _lastSyncedSignature;
-
-                                      // Sync if signature changed OR if selected item's category changed
-                                      // Category change means item was edited to be in a different category
-                                      if (signatureChanged || categoryChanged) {
-                                        if (!recentlySynced) {
-                                          _lastSyncedSignature = currentSignature;
-                                          _lastSyncedCategoryId = selectedCatId;
-                                          _lastSyncTime = now;
-                                          context.read<BluetoothBloc>().add(SendItemsToDevice(
-                                            currentCategoryItems,
-                                            categoryNames: _cachedCategoryNames,
-                                          ));
-                                          Future.delayed(const Duration(milliseconds: 100), () {
-                                            if (!mounted) return;
-                                            context.read<BluetoothBloc>().add(SendSelectedItem(
-                                              selectedId,
-                                              selectedItem.deviceItemId ?? 0,
-                                            ));
-                                          });
-                                        } else {
-                                          // Update signature/category but skip sync (debounced)
-                                          _lastSyncedSignature = currentSignature;
-                                          _lastSyncedCategoryId = selectedCatId;
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
+                                _checkDeviceSync(context, current);
+                              } else if (current is ItemsLoaded && _lastSyncedSignature == null) {
+                                // Initialize tracking after a non-ItemsLoaded → ItemsLoaded
+                                // transition (e.g., returning from another page, stream reconnect).
+                                // Don't sync — just set the baseline so future changes are detected.
+                                _initSyncTracking(context, current);
                               }
                               return true; // Always rebuild
                             },
@@ -572,6 +504,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       // Only trigger haptic for items, not labels
                                       if (!listEntries[index].isLabel) {
                                         HapticFeedback.mediumImpact();
+                                        // Dismiss reorder hint when user actually drags
+                                        _dismissReorderHint(appUiState);
                                       }
                                     },
                                     proxyDecorator: (child, index, animation) {
@@ -931,7 +865,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
           GestureDetector(
             onTap: () => appUiState.isTodayToggle = !isToday,
             child: Container(
-              width: 74.0, // Fixed width to prevent layout shift
+              width: 78.0, // Fixed width to prevent layout shift
               padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
               decoration: BoxDecoration(
                 border: Border.all(
@@ -1091,6 +1025,22 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Color secondaryText,
     Color alternate,
   ) {
+    // Validate selectedCategoryId exists in available options
+    // Valid values: null (All), '' (Uncategorized), or a category.id that exists
+    final categoryExists = selectedCategoryId == null ||
+        selectedCategoryId == '' ||
+        categories.any((c) => c.id == selectedCategoryId);
+    final validCategoryId = categoryExists ? selectedCategoryId : null;
+
+    // If selected category was deleted, reset filter in BLoC and AppUiState
+    if (!categoryExists) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<ItemsBloc>().add(FilterByCategoryEvent(null));
+        context.read<AppUiState>().selectedCategoryId = null;
+      });
+    }
+
     return Container(
       height: 48.0,
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1100,7 +1050,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
-          value: selectedCategoryId,
+          key: ValueKey(_categoryDropdownKey),
+          value: validCategoryId,
           isExpanded: true,
           icon: Icon(Icons.expand_more_rounded, color: secondaryText),
           style: GoogleFonts.inter(
@@ -1190,7 +1141,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
           onChanged: (value) {
             // Handle "Manage Categories" navigation
             if (value == '__manage__') {
-              context.push('/profile/categories');
+              context.push('/profile/categories').then((_) {
+                // Increment key to force dropdown rebuild with correct value
+                if (mounted) setState(() => _categoryDropdownKey++);
+              });
               return;
             }
 
@@ -1477,12 +1431,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Slidable(
-        controller: controller,
-        endActionPane: ActionPane(
-          motion: const ScrollMotion(),
-          extentRatio: 0.65,
-          children: [
+      child: Listener(
+        onPointerMove: (event) {
+          // Detect left swipe to dismiss activation hint
+          if (event.delta.dx < -3) {
+            _dismissActivationHintIfShowing();
+          }
+        },
+        child: Slidable(
+          controller: controller,
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.65,
+            children: [
             // Activate (pin) action
             SlidableAction(
               backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
@@ -1490,6 +1451,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.lightImpact();
+                _dismissActivationHintIfShowing();
                 if (isConnected) {
                   appUiState.activeItemId = item.id;
                   // Send only items from the activated item's category to device
@@ -1541,6 +1503,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.lightImpact();
+                _dismissActivationHintIfShowing();
                 if (isConnected) {
                   final itemsBloc = context.read<ItemsBloc>();
                   final itemsState = itemsBloc.state;
@@ -1584,6 +1547,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.lightImpact();
+                _dismissActivationHintIfShowing();
                 Slidable.of(slidableContext)?.close();
                 if (isConnected) {
                   context.pushNamed(
@@ -1601,6 +1565,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               autoClose: false,
               onPressed: (slidableContext) async {
                 HapticFeedback.mediumImpact();
+                _dismissActivationHintIfShowing();
                 if (isConnected) {
                   // Capture references BEFORE the async dialog
                   final itemsBloc = context.read<ItemsBloc>();
@@ -1645,6 +1610,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         excludeItemId: item.id,
                         fallbackCategoryId: item.categoryId,
                       );
+                      // Update tracking so buildWhen doesn't duplicate the sync
+                      final targetCatId = selectedCatId ?? deletedCatId;
+                      final postDeleteItems = currentItems
+                          .where((i) => i.id != item.id && (i.categoryId ?? '') == targetCatId)
+                          .toList()
+                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+                      _lastSyncedSignature = _computeCategorySignature(postDeleteItems);
+                      _lastSyncedCategoryId = targetCatId;
+                      _lastSyncTime = DateTime.now();
                     }
                   }
                 } else {
@@ -1655,7 +1629,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           ],
         ),
-        child: tileContent,
+          child: tileContent,
+        ),
       ),
     );
 
@@ -1765,7 +1740,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
           const SizedBox(height: 24.0),
           FilledButton.icon(
             onPressed: isConnected
-                ? () => context.pushNamed(ItemFormPage.routeName)
+                ? () async {
+                    await context.pushNamed<Item>(ItemFormPage.routeName);
+                  }
                 : null,
             style: FilledButton.styleFrom(
               backgroundColor: _primary,
@@ -1848,25 +1825,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     ) ?? false;
   }
 
-  /// Shows a swipe hint animation on the first item
-  void _showSwipeHint(AppUiState appUiState) {
-    if (_swipeHintTriggered || appUiState.hasShownSwipeHint) return;
-    _swipeHintTriggered = true;
-
-    // Delay to let the list render first
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      _firstItemController?.openEndActionPane();
-
-      // Close after showing the actions briefly
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        if (!mounted) return;
-        _firstItemController?.close();
-        appUiState.markSwipeHintShown();
-      });
-    });
-  }
-
   /// Shows a reorder hint animation on the first item (lift effect) with tooltip.
   /// Only triggers when connected (reordering requires device connection).
   void _showReorderHint(AppUiState appUiState, bool isConnected, BuildContext context) {
@@ -1885,15 +1843,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
       // Show tooltip overlay
       final overlay = Overlay.of(context);
       _reorderHintOverlay = OverlayEntry(
-        builder: (context) => GestureDetector(
-          onTap: () => _dismissReorderHint(appUiState),
-          behavior: HitTestBehavior.translucent,
+        builder: (context) => IgnorePointer(
+          // Don't block taps - hint dismisses only when user actually drags
           child: Stack(
             children: [
-              // Invisible full-screen tap target
-              Positioned.fill(
-                child: Container(color: Colors.transparent),
-              ),
               // Tooltip at bottom
               Positioned(
                 bottom: 120,
@@ -1958,7 +1911,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   }
 
   /// Shows an activation hint for new users who just created their first item.
-  /// Displays a tooltip and waits for user to swipe left to dismiss.
+  /// Displays a tooltip until user taps the pin icon.
   void _showActivationHint(AppUiState appUiState, BuildContext context) {
     if (_activationHintTriggered || appUiState.hasShownActivationHint) return;
     _activationHintTriggered = true;
@@ -1970,16 +1923,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
 
-      // Add listener to detect when user swipes left (opens end action pane)
-      _swipeListener = () {
-        // ratio > 0 means the end action pane is opening/open
-        if (_firstItemController != null && _firstItemController!.ratio > 0.1) {
-          _dismissActivationHint(_activationHintAppUiState!);
-        }
-      };
-      _firstItemController?.animation.addListener(_swipeListener!);
-
-      // Show tooltip overlay (no tap to dismiss - wait for swipe)
+      // Show tooltip overlay (dismisses only when pin is tapped)
       final overlay = Overlay.of(context);
       _activationHintOverlay = OverlayEntry(
         builder: (context) => Positioned(
@@ -2032,16 +1976,104 @@ class _ItemsListContentState extends State<_ItemsListContent>
   /// Dismisses the activation hint overlay
   void _dismissActivationHint(AppUiState appUiState) {
     if (_activationHintOverlay == null) return;
-    // Remove swipe listener
-    if (_swipeListener != null) {
-      _firstItemController?.animation.removeListener(_swipeListener!);
-      _swipeListener = null;
-    }
     _activationHintAppUiState = null;
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
     appUiState.markActivationHintShown();
     appUiState.markSwipeHintShown();
+  }
+
+  /// Dismisses activation hint if showing (called when any item is swiped/actioned)
+  void _dismissActivationHintIfShowing() {
+    if (_activationHintOverlay != null && _activationHintAppUiState != null) {
+      _dismissActivationHint(_activationHintAppUiState!);
+    }
+  }
+
+  /// Computes a signature string for the given category items.
+  /// Used to detect whether the device-relevant item list has changed.
+  String _computeCategorySignature(List<Item> categoryItems) {
+    return categoryItems
+        .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
+        .join(',');
+  }
+
+  /// Initializes sync tracking without sending data to the device.
+  /// Called on non-ItemsLoaded → ItemsLoaded transitions (e.g., returning
+  /// from another page) so that future buildWhen calls have a baseline.
+  void _initSyncTracking(BuildContext context, ItemsLoaded current) {
+    final bluetoothState = context.read<BluetoothBloc>().state;
+    if (!bluetoothState.isConnected) return;
+
+    final selectedId = bluetoothState.selectedItemId;
+    if (selectedId == null || selectedId.isEmpty) return;
+
+    final selectedItem = current.items
+        .where((i) => i.id == selectedId)
+        .firstOrNull;
+    if (selectedItem == null) return;
+
+    final selectedCatId = selectedItem.categoryId ?? '';
+    final categoryItems = current.items
+        .where((i) => (i.categoryId ?? '') == selectedCatId)
+        .toList()
+      ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+    _lastSyncedSignature = _computeCategorySignature(categoryItems);
+    _lastSyncedCategoryId = selectedCatId;
+    _lastSyncTime = DateTime.now();
+  }
+
+  /// Checks whether device sync is needed and sends items if so.
+  /// Called on ItemsLoaded → ItemsLoaded transitions in buildWhen.
+  void _checkDeviceSync(BuildContext context, ItemsLoaded current) {
+    final bluetoothState = context.read<BluetoothBloc>().state;
+    if (!bluetoothState.isConnected) return;
+
+    final selectedId = bluetoothState.selectedItemId;
+    if (selectedId == null || selectedId.isEmpty) return;
+
+    final selectedItem = current.items
+        .where((i) => i.id == selectedId)
+        .firstOrNull;
+    if (selectedItem == null) return;
+
+    final selectedCatId = selectedItem.categoryId ?? '';
+    final currentCategoryItems = current.items
+        .where((i) => (i.categoryId ?? '') == selectedCatId)
+        .toList()
+      ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+    final currentSignature = _computeCategorySignature(currentCategoryItems);
+
+    // Debounce: skip if synced recently (within 500ms)
+    final now = DateTime.now();
+    final recentlySynced = _lastSyncTime != null &&
+        now.difference(_lastSyncTime!).inMilliseconds < 500;
+
+    final categoryChanged = _lastSyncedCategoryId != selectedCatId;
+    final signatureChanged = currentSignature != _lastSyncedSignature;
+
+    if (signatureChanged || categoryChanged) {
+      if (!recentlySynced) {
+        _lastSyncedSignature = currentSignature;
+        _lastSyncedCategoryId = selectedCatId;
+        _lastSyncTime = now;
+        context.read<BluetoothBloc>().add(SendItemsToDevice(
+          currentCategoryItems,
+          categoryNames: _cachedCategoryNames,
+        ));
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!mounted) return;
+          context.read<BluetoothBloc>().add(SendSelectedItem(
+            selectedId,
+            selectedItem.deviceItemId ?? 0,
+          ));
+        });
+      }
+      // Note: Don't update signature when debounced - let the next
+      // buildWhen detect the change and sync when debounce expires
+    }
   }
 
   /// Syncs the device with items from the selected item's category.
@@ -2054,66 +2086,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Item? includeItem,
     String? fallbackCategoryId,
   }) {
-    // Find the selected item and its category
-    // Fallback to provided category if no device selection
-    String? selectedCategoryId;
-    Item? selectedItem;
-    if (deviceSelectedId != null && deviceSelectedId != 'none') {
-      selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
-      selectedCategoryId = selectedItem?.categoryId;
-    } else if (fallbackCategoryId != null) {
-      selectedCategoryId = fallbackCategoryId;
-    }
-
-    // Get items from the selected item's category
-    var categoryItems = allItems.where((i) {
-      final cat = i.categoryId;
-      final targetCat = selectedCategoryId;
-      // Match category (treat null and empty as same - uncategorized)
-      final catEmpty = cat == null || cat.isEmpty;
-      final targetEmpty = targetCat == null || targetCat.isEmpty;
-      if (catEmpty && targetEmpty) return true;
-      if (catEmpty || targetEmpty) return false;
-      return cat == targetCat;
-    }).toList();
-
-    // Exclude item if specified (for delete)
-    if (excludeItemId != null) {
-      categoryItems = categoryItems.where((i) => i.id != excludeItemId).toList();
-    }
-
-    // Include/update item if specified (for create/update/restore)
-    if (includeItem != null) {
-      categoryItems = categoryItems.map((i) => i.id == includeItem.id ? includeItem : i).toList();
-      if (!categoryItems.any((i) => i.id == includeItem.id)) {
-        categoryItems.add(includeItem);
-      }
-    }
-
-    // Sort by categoryOrder to match app's order
-    categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-    bluetoothBloc.add(SendItemsToDevice(
-      categoryItems,
+    syncItemsToDevice(
+      bluetoothBloc: bluetoothBloc,
+      allItems: allItems,
+      deviceSelectedId: deviceSelectedId,
       categoryNames: _cachedCategoryNames,
-    ));
-
-    // Update selected item on device (including 'none' to clear selection)
-    if (deviceSelectedId != null) {
-      final deviceItemId = (deviceSelectedId == 'none' || selectedItem == null)
-          ? -1
-          : selectedItem.deviceItemId ?? 0;
-      bluetoothBloc.add(SendSelectedItem(deviceSelectedId, deviceItemId));
-    }
+      excludeItemId: excludeItemId,
+      includeItem: includeItem,
+      fallbackCategoryId: fallbackCategoryId,
+    );
   }
 
   @override
   void dispose() {
-    // Clean up swipe listener
-    if (_swipeListener != null) {
-      _firstItemController?.animation.removeListener(_swipeListener!);
-      _swipeListener = null;
-    }
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
     _reorderHintOverlay?.remove();

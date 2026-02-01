@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/exceptions.dart';
-import 'package:trackwise/features/items/data/datasources/item_remote_datasource_impl.dart';
-import 'package:trackwise/features/items/data/models/item_model.dart';
+import 'package:traxelos/core/error/exceptions.dart';
+import 'package:traxelos/features/items/data/datasources/item_remote_datasource_impl.dart';
+import 'package:traxelos/features/items/data/models/item_model.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

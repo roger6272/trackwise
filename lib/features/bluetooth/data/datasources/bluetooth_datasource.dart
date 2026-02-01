@@ -1,7 +1,9 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_message.dart';
+import '../../domain/entities/sync_state.dart';
 import '../models/ble_device_model.dart';
 
 /// Abstract interface for Bluetooth Low Energy operations.
@@ -104,6 +106,66 @@ abstract class BluetoothDataSource {
   /// Returns a stream of parsed BleMessage objects.
   /// Handles chunk assembly automatically.
   Stream<BleMessage> watchNotifications(String deviceId);
+
+  // ========== Multi-Device Sync Commands ==========
+
+  /// Sends handshake command to device and waits for response.
+  ///
+  /// The handshake performs both:
+  /// 1. Account lock check (is this device paired to this user?)
+  /// 2. Sync sequence check (is this device in sync or conflicted?)
+  ///
+  /// Sends: `{"cmd":"handshake","uid":"xxx","sync_seq":42}`
+  ///
+  /// Returns [HandshakeResult] with status:
+  /// - [SyncStatus.inSync]: Device sync_seq matches, proceed with normal sync
+  /// - [SyncStatus.conflict]: sync_seq mismatch, app should override device
+  /// - [SyncStatus.wrongAccount]: Device paired to different account
+  ///
+  /// Throws on BLE error or 10-second timeout.
+  Future<HandshakeResult> sendHandshake({
+    required String uid,
+    required int syncSeq,
+  });
+
+  /// Sends override data to device using chunked protocol.
+  ///
+  /// Override flow:
+  /// 1. Send `{"cmd":"override_start","uid":"xxx","sync_seq":N,"total_chunks":M}`
+  /// 2. Send `{"cmd":"override_chunk","index":i,"items":[...]}` for each chunk
+  /// 3. Send `{"cmd":"override_end","selected_id":X}`
+  /// 4. Wait for response
+  ///
+  /// Items are chunked (10 items per chunk) to fit BLE MTU limits.
+  /// Individual chunks don't have responses - validation occurs at override_end.
+  ///
+  /// [uid] is the Firebase user ID - device stores this on first setup.
+  /// [categoryNames] maps categoryId to category name for device display.
+  ///
+  /// Returns [OverrideResult] with status:
+  /// - 'override_complete': Override succeeded
+  /// - 'error': Override failed (e.g., missing_chunks)
+  ///
+  /// Throws on BLE error during any chunk send (aborts override).
+  Future<OverrideResult> sendOverrideChunked({
+    required String uid,
+    required int syncSeq,
+    required int selectedId,
+    required List<Item> items,
+    Map<String, String> categoryNames = const {},
+  });
+
+  /// Sends sync_complete command to device and waits for acknowledgment.
+  ///
+  /// Called after normal sync (device -> app) to update device's sync_seq.
+  ///
+  /// Sends: `{"cmd":"sync_complete","sync_seq":N}`
+  ///
+  /// Returns [SyncCompleteResult] with status:
+  /// - 'seq_updated': Device stored the new sync_seq
+  ///
+  /// Throws on BLE error or 10-second timeout.
+  Future<SyncCompleteResult> sendSyncComplete(int syncSeq);
 
   // ========== Permissions & Adapter State ==========
 

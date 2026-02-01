@@ -286,8 +286,8 @@ Override messages are chunked to fit within BLE MTU limits.
 | Field | Type | Description |
 |-------|------|-------------|
 | `device_item_id` | int | Item slot ID (0-99) |
-| `name` | string | Item name (max 32 chars) |
-| `category` | string | Category name (max 32 chars) |
+| `name` | string | Item name (max 30 chars) |
+| `category` | string | Category name (max 30 chars) |
 | `count` | int | Total count |
 | `todaycount` | int | Today's count |
 | `increment` | int | Count per press (1-1000) |

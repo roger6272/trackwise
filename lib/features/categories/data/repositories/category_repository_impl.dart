@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
@@ -35,8 +35,8 @@ class CategoryRepositoryImpl implements CategoryRepository {
         )
         .handleError((error, stackTrace) {
       // Log the error for debugging
-      if (kDebugMode) print('❌ watchCategories error: $error');
-      if (kDebugMode) print('Stack trace: $stackTrace');
+      AppLogger.debug('watchCategories error: $error');
+      AppLogger.debug('Stack trace: $stackTrace');
       // Re-throw to let the BLoC's onError handle it
       throw error;
     });

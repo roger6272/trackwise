@@ -1,4 +1,4 @@
-import 'package:trackwise/features/events/domain/entities/event_log.dart';
+import 'package:traxelos/features/events/domain/entities/event_log.dart';
 
 /// Test fixtures for EventLog tests.
 

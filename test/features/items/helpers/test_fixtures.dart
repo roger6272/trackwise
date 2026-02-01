@@ -1,5 +1,5 @@
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/data/models/item_model.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/data/models/item_model.dart';
 
 final testDateTime = DateTime(2026, 1, 4);
 

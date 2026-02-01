@@ -6,22 +6,22 @@ import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import 'package:trackwise/core/state/app_ui_state.dart';
-import 'package:trackwise/features/auth/domain/entities/user.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_event.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_state.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_event.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_state.dart';
-import 'package:trackwise/features/categories/presentation/bloc/categories_bloc.dart';
-import 'package:trackwise/features/categories/presentation/bloc/categories_event.dart';
-import 'package:trackwise/features/categories/presentation/bloc/categories_state.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_event.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_state.dart';
-import 'package:trackwise/features/items/presentation/pages/item_form_page.dart';
+import 'package:traxelos/core/state/app_ui_state.dart';
+import 'package:traxelos/features/auth/domain/entities/user.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_event.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_state.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'package:traxelos/features/categories/presentation/bloc/categories_bloc.dart';
+import 'package:traxelos/features/categories/presentation/bloc/categories_event.dart';
+import 'package:traxelos/features/categories/presentation/bloc/categories_state.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_event.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_state.dart';
+import 'package:traxelos/features/items/presentation/pages/item_form_page.dart';
 
 class MockItemsBloc extends MockBloc<ItemsEvent, ItemsState>
     implements ItemsBloc {}
@@ -238,10 +238,8 @@ void main() {
   });
 
   group('ItemFormPage - Validation', () {
-    // TODO: Fix test - form field order changed with category dropdown addition
-    testWidgets('validates increment by range', skip: true, (tester) async {
-      // Use a larger surface size to fit all form fields
-      await tester.binding.setSurfaceSize(const Size(400, 900));
+    testWidgets('validates increment by range', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(createTestWidget());
@@ -253,8 +251,12 @@ void main() {
         'Test Item',
       );
 
-      // Form field order when None: 0=name, 1=initialValue, 2=goal, 3=incrementBy
-      // Find and clear the increment field (index 3), enter invalid value
+      // Scroll down to make increment field and Create button visible
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      // TextFormField order (DropdownButtonFormField is separate):
+      // 0=name, 1=initialValue, 2=goal, 3=incrementBy
       final incrementField = find.byType(TextFormField).at(3);
       await tester.enterText(incrementField, '0');
 
@@ -264,10 +266,8 @@ void main() {
       expect(find.text('Must be between 1 and 100'), findsOneWidget);
     });
 
-    // TODO: Fix test - form field order changed with category dropdown addition
-    testWidgets('validates reminder value range', skip: true, (tester) async {
-      // Use a larger surface size to fit all form fields
-      await tester.binding.setSurfaceSize(const Size(400, 900));
+    testWidgets('validates reminder value range', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(createTestWidget());
@@ -279,14 +279,18 @@ void main() {
         'Test Item',
       );
 
-      // First select a reminder type to show the reminder value field
-      await tester.tap(find.text('None'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Target Count').last);
+      // Scroll down to make reminder dropdown visible before tapping
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
       await tester.pumpAndSettle();
 
-      // Form field order when reminder selected: 0=name, 1=initialValue, 2=goal, 3=incrementBy, 4=reminderValue
-      // Find and update the reminder value field (index 4) with invalid value
+      // Select a reminder type to show the reminder value field
+      await tester.tap(find.text('None'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('At Target Count').last);
+      await tester.pumpAndSettle();
+
+      // TextFormField order with reminder visible:
+      // 0=name, 1=initialValue, 2=goal, 3=incrementBy, 4=reminderValue
       final reminderField = find.byType(TextFormField).at(4);
       await tester.enterText(reminderField, '9999');
 
@@ -298,20 +302,26 @@ void main() {
   });
 
   group('ItemFormPage - Dropdown', () {
-    // TODO: Fix test - dropdown interaction changed with form restructuring
-    testWidgets('can select different reminder types', skip: true, (tester) async {
+    testWidgets('can select different reminder types', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      // Scroll down to make reminder dropdown visible
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
       await tester.pumpAndSettle();
 
       // Tap on the dropdown
       await tester.tap(find.text('None'));
       await tester.pumpAndSettle();
 
-      // Select Target Count
-      await tester.tap(find.text('Target Count').last);
+      // Select At Target Count
+      await tester.tap(find.text('At Target Count').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('Target Count'), findsOneWidget);
+      expect(find.text('At Target Count'), findsOneWidget);
     });
   });
 }

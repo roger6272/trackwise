@@ -7,7 +7,12 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
+import '../../../items/domain/entities/item.dart';
+import '../../../items/domain/repositories/item_repository.dart';
 import '../../domain/entities/category.dart';
+import '../../domain/repositories/category_repository.dart';
 import '../bloc/categories_bloc.dart';
 import '../bloc/categories_event.dart';
 import '../bloc/categories_state.dart';
@@ -296,6 +301,7 @@ class _ManageCategoriesContent extends StatelessWidget {
               context.read<CategoriesBloc>().add(
                     DeleteCategoryEvent(category.id),
                   );
+              _syncDeviceAfterCategoryDeletion(context, category.id);
             },
             child: Text(
               'Delete',
@@ -305,5 +311,53 @@ class _ManageCategoriesContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Syncs device after category deletion if the selected item was in that category.
+  Future<void> _syncDeviceAfterCategoryDeletion(
+    BuildContext context,
+    String deletedCategoryId,
+  ) async {
+    try {
+      final bluetoothBloc = context.read<BluetoothBloc>();
+      if (!bluetoothBloc.state.isConnected) return;
+
+      final deviceSelectedId = bluetoothBloc.state.selectedItemId;
+      if (deviceSelectedId == null || deviceSelectedId.isEmpty || deviceSelectedId == 'none') return;
+
+      // Wait for Firestore batch (category_id removal) to propagate
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final itemRepository = sl<ItemRepository>();
+      final itemsResult = await itemRepository.getItems(userId);
+      final allItems = itemsResult.fold(
+        (failure) => <Item>[],
+        (items) => items,
+      );
+
+      // Only sync if the selected item was in the deleted category
+      final selectedItem = allItems.where((i) => i.id == deviceSelectedId).firstOrNull;
+      if (selectedItem == null) return;
+      // After deletion, item's categoryId is null (cleared by batch).
+      // If it's still set to something else, it wasn't in the deleted category.
+      final selectedCatId = selectedItem.categoryId;
+      if (selectedCatId != null && selectedCatId.isNotEmpty) return;
+
+      final categoryRepository = sl<CategoryRepository>();
+      final categoriesResult = await categoryRepository.getCategories(userId);
+      final categoryNames = categoriesResult.fold(
+        (failure) => <String, String>{},
+        (categories) => {for (final c in categories) c.id: c.name},
+      );
+
+      syncItemsToDevice(
+        bluetoothBloc: bluetoothBloc,
+        allItems: allItems,
+        deviceSelectedId: deviceSelectedId,
+        categoryNames: categoryNames,
+      );
+    } catch (_) {
+      // Device sync is best-effort
+    }
   }
 }

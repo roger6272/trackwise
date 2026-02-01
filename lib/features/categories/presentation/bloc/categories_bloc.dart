@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:injectable/injectable.dart';
+
+import '../../../../core/utils/logger.dart';
 
 import '../../domain/entities/category.dart';
 import '../../domain/usecases/create_category_usecase.dart';
@@ -44,7 +45,7 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
     WatchCategoriesEvent event,
     Emitter<CategoriesState> emit,
   ) async {
-    if (kDebugMode) print('🔵 CategoriesBloc: Starting to watch categories for user ${event.userId}');
+    AppLogger.debug('CategoriesBloc: Starting to watch categories for user ${event.userId}');
     emit(const CategoriesLoading());
 
     await _categoriesSubscription?.cancel();
@@ -53,22 +54,22 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
       WatchCategoriesParams(event.userId),
     ).listen(
       (result) {
-        if (kDebugMode) print('🟢 CategoriesBloc: Received stream update');
+        AppLogger.debug('CategoriesBloc: Received stream update');
         result.fold(
           (failure) {
-            if (kDebugMode) print('🔴 CategoriesBloc: Stream failure - ${failure.message}');
+            AppLogger.debug('CategoriesBloc: Stream failure - ${failure.message}');
             add(CategoriesUpdatedEvent(const []));
           },
           (categories) {
-            if (kDebugMode) print('🟢 CategoriesBloc: Loaded ${categories.length} categories');
+            AppLogger.debug('CategoriesBloc: Loaded ${categories.length} categories');
             add(CategoriesUpdatedEvent(categories));
           },
         );
       },
       onError: (error, stackTrace) {
         // Emit empty list on stream error to show empty state
-        if (kDebugMode) print('❌ CategoriesBloc: Stream error - $error');
-        if (kDebugMode) print('Stack trace: $stackTrace');
+        AppLogger.debug('CategoriesBloc: Stream error - $error');
+        AppLogger.debug('Stack trace: $stackTrace');
         add(CategoriesUpdatedEvent(const []));
       },
     );

@@ -4,11 +4,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/features/bluetooth/domain/entities/ble_device.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_event.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_state.dart';
-import 'package:trackwise/features/bluetooth/presentation/pages/bluetooth_search_page.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/ble_device.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'package:traxelos/features/bluetooth/presentation/pages/bluetooth_search_page.dart';
 
 class MockBluetoothBloc extends MockBloc<BluetoothEvent, BluetoothState>
     implements BluetoothBloc {}

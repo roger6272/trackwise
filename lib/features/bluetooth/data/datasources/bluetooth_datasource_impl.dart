@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../core/utils/bluetooth_constants.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_message.dart';
+import '../../domain/entities/sync_state.dart';
 import '../models/ble_device_model.dart';
 import '../models/ble_message_model.dart';
 import 'bluetooth_datasource.dart';
@@ -46,6 +49,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   /// Maximum buffer size to prevent memory exhaustion (64KB)
   static const int _maxBufferSize = 64 * 1024;
+
+  /// Timeout for multi-device sync commands (10 seconds)
+  static const Duration _syncCommandTimeout = Duration(seconds: 10);
+
+  /// Number of items per chunk for override protocol
+  static const int _overrideChunkSize = 10;
 
   // Connection state tracking
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
@@ -173,13 +182,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       await device.requestConnectionPriority(
         connectionPriorityRequest: ConnectionPriority.high,
       );
-      debugPrint('Requested HIGH connection priority (target: ~7.5ms interval)');
-      debugPrint('   - Default interval: ~30-50ms');
-      debugPrint('   - High priority interval: ~7.5-15ms');
-      debugPrint('   - Note: iOS ignores this request (Apple controls parameters)');
+      AppLogger.debug('Requested HIGH connection priority (target: ~7.5ms interval)');
+      AppLogger.debug('   - Default interval: ~30-50ms');
+      AppLogger.debug('   - High priority interval: ~7.5-15ms');
+      AppLogger.debug('   - Note: iOS ignores this request (Apple controls parameters)');
     } catch (e) {
-      debugPrint('Could not set connection priority: $e');
-      debugPrint('   Connection will continue with default parameters');
+      AppLogger.debug('Could not set connection priority: $e');
+      AppLogger.debug('   Connection will continue with default parameters');
     }
 
     // Request larger MTU for faster data transfer
@@ -190,14 +199,14 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       // Use the more conservative value to avoid write failures
       final calculatedPayload = mtu - BluetoothConstants.attOverhead;
       _negotiatedMtu = calculatedPayload > 509 ? 509 : calculatedPayload; // Cap at 509 (512-3)
-      debugPrint('MTU negotiated: $mtu bytes (payload: $_negotiatedMtu bytes)');
-      debugPrint('   - Default MTU: 23 bytes');
-      debugPrint('   - Requested: ${BluetoothConstants.requestedMtu} bytes');
-      debugPrint('   - Negotiated: $mtu bytes, using payload: $_negotiatedMtu bytes');
+      AppLogger.debug('MTU negotiated: $mtu bytes (payload: $_negotiatedMtu bytes)');
+      AppLogger.debug('   - Default MTU: 23 bytes');
+      AppLogger.debug('   - Requested: ${BluetoothConstants.requestedMtu} bytes');
+      AppLogger.debug('   - Negotiated: $mtu bytes, using payload: $_negotiatedMtu bytes');
     } catch (e) {
       _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
-      debugPrint('MTU negotiation failed, using default: $_negotiatedMtu bytes');
-      debugPrint('   Error: $e');
+      AppLogger.debug('MTU negotiation failed, using default: $_negotiatedMtu bytes');
+      AppLogger.debug('   Error: $e');
     }
 
     // Set up connection state monitoring
@@ -244,13 +253,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
             errorStr.contains('ANDROID_SPECIFIC_ERROR');
 
         if (isLastAttempt || !isRetryableError) {
-          debugPrint('BLE connect failed after ${attempt + 1} attempt(s): $e');
+          AppLogger.debug('BLE connect failed after ${attempt + 1} attempt(s): $e');
           rethrow;
         }
 
         // Exponential backoff: 500ms, 1000ms, 2000ms
         final delay = Duration(milliseconds: 500 * (1 << attempt));
-        debugPrint('BLE connect failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        AppLogger.debug('BLE connect failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
         await Future.delayed(delay);
 
         // Try to clear BLE stack state before retry
@@ -300,7 +309,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     _notifyChar = null;
     _setItemsChar = null;
     _writeChar = null;
-    debugPrint('BLE characteristic cache cleared');
+    AppLogger.debug('BLE characteristic cache cleared');
   }
 
   BleConnectionState _mapConnectionState(BluetoothConnectionState state) {
@@ -336,12 +345,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   Future<void> _ensureCharacteristicsCached(BluetoothDevice device) async {
     // Return immediately if already cached
     if (_writeChar != null && _readChar != null && _notifyChar != null && _setItemsChar != null) {
-      debugPrint('Using cached BLE characteristics (skipping discovery)');
+      AppLogger.debug('Using cached BLE characteristics (skipping discovery)');
       return;
     }
 
     // Need to discover services and cache characteristics
-    debugPrint('Discovering BLE services (first time or cache cleared)...');
+    AppLogger.debug('Discovering BLE services (first time or cache cleared)...');
     await discoverServices(device);
   }
 
@@ -376,12 +385,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
     if (missingChars.isNotEmpty) {
       final error = 'Missing required BLE characteristics: ${missingChars.join(', ')}. '
-          'Device may not be a valid Traxogic device or firmware needs update.';
-      debugPrint(error);
+          'Device may not be a valid Traxelos device or firmware needs update.';
+      AppLogger.debug(error);
       throw StateError(error);
     }
 
-    debugPrint('All BLE characteristics discovered and cached successfully');
+    AppLogger.debug('All BLE characteristics discovered and cached successfully');
 
     // Subscribe to notifications
     await _subscribeToNotifications();
@@ -410,7 +419,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
     // Check buffer size to prevent memory exhaustion
     if (_messageBuffer.length > _maxBufferSize) {
-      debugPrint('Message buffer overflow (${_messageBuffer.length} bytes) - clearing to prevent memory exhaustion');
+      AppLogger.debug('Message buffer overflow (${_messageBuffer.length} bytes) - clearing to prevent memory exhaustion');
       _messageBuffer.clear();
       _messageTimeoutTimer?.cancel();
       _messageTimeoutTimer = null;
@@ -429,7 +438,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Clears stale partial messages to prevent blocking subsequent messages.
   void _onMessageAssemblyTimeout() {
     if (_messageBuffer.isNotEmpty) {
-      debugPrint('Message assembly timeout - clearing stale buffer: ${_messageBuffer.toString().substring(0, _messageBuffer.length > 100 ? 100 : _messageBuffer.length)}...');
+      AppLogger.debug('Message assembly timeout - clearing stale buffer: ${_messageBuffer.toString().substring(0, _messageBuffer.length > 100 ? 100 : _messageBuffer.length)}...');
       _messageBuffer.clear();
     }
   }
@@ -447,13 +456,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       if (messageJson.trim().isEmpty) continue;
 
       try {
-        debugPrint('Parsing BLE message: $messageJson');
+        AppLogger.debug('Parsing BLE message: $messageJson');
         final message = BleMessageModel.fromJson(messageJson);
-        debugPrint('Parsed message type: ${message.type}, data: ${message.data}');
+        AppLogger.debug('Parsed message type: ${message.type}, data: ${message.data}');
         _messageController.add(message);
       } catch (e) {
-        debugPrint('BLE message parse error: $e');
-        debugPrint('Raw message was: $messageJson');
+        AppLogger.debug('BLE message parse error: $e');
+        AppLogger.debug('Raw message was: $messageJson');
       }
     }
 
@@ -505,12 +514,14 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   ///
   /// Uses negotiated MTU (or default 180 bytes if negotiation failed).
   /// ESP32 requires 20ms delay between chunks to process.
+  /// Adds newline delimiter at end so firmware knows when message is complete.
   Future<void> _writeChunked(
     BluetoothCharacteristic char,
     String data,
   ) async {
-    // Send raw data without delimiter (matches old FlutterFlow behavior)
-    final bytes = utf8.encode(data);
+    // Add newline delimiter so firmware can detect end of message
+    // This is critical for messages larger than MTU (like override_chunk)
+    final bytes = utf8.encode('$data\n');
 
     // Use negotiated MTU for optimal chunk size
     final mtu = _negotiatedMtu;
@@ -547,13 +558,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       } catch (e) {
         final isLastAttempt = attempt == maxRetries;
         if (isLastAttempt) {
-          debugPrint('BLE write failed after ${maxRetries + 1} attempts: $e');
+          AppLogger.debug('BLE write failed after ${maxRetries + 1} attempts: $e');
           rethrow;
         }
 
         // Exponential backoff: 100ms, 200ms, 400ms
         final delay = Duration(milliseconds: 100 * (1 << attempt));
-        debugPrint('BLE write failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        AppLogger.debug('BLE write failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
         await Future.delayed(delay);
       }
     }
@@ -575,13 +586,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       } catch (e) {
         final isLastAttempt = attempt == maxRetries;
         if (isLastAttempt) {
-          debugPrint('BLE read failed after ${maxRetries + 1} attempts: $e');
+          AppLogger.debug('BLE read failed after ${maxRetries + 1} attempts: $e');
           rethrow;
         }
 
         // Exponential backoff: 100ms, 200ms, 400ms
         final delay = Duration(milliseconds: 100 * (1 << attempt));
-        debugPrint('BLE read failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
+        AppLogger.debug('BLE read failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay.inMilliseconds}ms: $e');
         await Future.delayed(delay);
       }
     }
@@ -661,6 +672,217 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   @override
   Stream<BleMessage> watchNotifications(String deviceId) {
     return _messageController.stream;
+  }
+
+  // ========== Multi-Device Sync Commands ==========
+
+  @override
+  Future<HandshakeResult> sendHandshake({
+    required String uid,
+    required int syncSeq,
+  }) async {
+    if (_writeChar == null) {
+      throw StateError('WRITE characteristic not found. Call discoverServices first.');
+    }
+
+    AppLogger.debug('Sending handshake: uid=$uid, syncSeq=$syncSeq');
+
+    // Build handshake command
+    final command = jsonEncode({
+      'cmd': 'handshake',
+      'uid': uid,
+      'sync_seq': syncSeq,
+    });
+
+    // Send command and wait for response with timeout
+    final response = await _sendCommandAndWaitForResponse(command);
+
+    AppLogger.debug('Handshake response: $response');
+
+    return HandshakeResult.fromJson(response);
+  }
+
+  @override
+  Future<OverrideResult> sendOverrideChunked({
+    required String uid,
+    required int syncSeq,
+    required int selectedId,
+    required List<Item> items,
+    Map<String, String> categoryNames = const {},
+  }) async {
+    if (_writeChar == null) {
+      throw StateError('WRITE characteristic not found. Call discoverServices first.');
+    }
+
+    AppLogger.debug('Starting override: uid=$uid, syncSeq=$syncSeq, selectedId=$selectedId, itemCount=${items.length}');
+
+    // Chunk items (10 items per chunk)
+    final chunks = <List<Map<String, dynamic>>>[];
+    for (var i = 0; i < items.length; i += _overrideChunkSize) {
+      final end = min(i + _overrideChunkSize, items.length);
+      final chunkItems = items.sublist(i, end).map((item) => _itemToDeviceJson(item, categoryNames)).toList();
+      chunks.add(chunkItems);
+    }
+
+    // Handle empty items list - still need to send override with 0 chunks
+    final totalChunks = chunks.isEmpty ? 0 : chunks.length;
+
+    AppLogger.debug('Override chunked into $totalChunks chunks');
+
+    try {
+      // Step 1: Send override_start (includes UID for device setup)
+      final startCommand = jsonEncode({
+        'cmd': 'override_start',
+        'uid': uid,
+        'sync_seq': syncSeq,
+        'total_chunks': totalChunks,
+      });
+      await _enqueueWrite(() => _writeChunked(_writeChar!, startCommand));
+      AppLogger.debug('Sent override_start');
+
+      // Step 2: Send each chunk sequentially
+      // Note: Chunks don't have individual responses - device validates at override_end
+      for (var i = 0; i < chunks.length; i++) {
+        final chunkCommand = jsonEncode({
+          'cmd': 'override_chunk',
+          'index': i,
+          'items': chunks[i],
+        });
+        await _enqueueWrite(() => _writeChunked(_writeChar!, chunkCommand));
+        AppLogger.debug('Sent override_chunk $i/${chunks.length}');
+      }
+
+      // Step 3: Send override_end and wait for response
+      final endCommand = jsonEncode({
+        'cmd': 'override_end',
+        'selected_id': selectedId,
+      });
+
+      final response = await _sendCommandAndWaitForResponse(endCommand);
+
+      AppLogger.debug('Override response: $response');
+
+      return OverrideResult.fromJson(response);
+    } catch (e) {
+      // BLE error during chunk send - abort override
+      AppLogger.debug('Override aborted due to error: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
+    if (_writeChar == null) {
+      throw StateError('WRITE characteristic not found. Call discoverServices first.');
+    }
+
+    AppLogger.debug('Sending sync_complete: syncSeq=$syncSeq');
+
+    final command = jsonEncode({
+      'cmd': 'sync_complete',
+      'sync_seq': syncSeq,
+    });
+
+    final response = await _sendCommandAndWaitForResponse(command);
+
+    AppLogger.debug('sync_complete response: $response');
+
+    return SyncCompleteResult.fromJson(response);
+  }
+
+  /// Sends a command and waits for a JSON response via notification.
+  ///
+  /// Uses the existing notification stream to receive the response.
+  /// Throws [TimeoutException] if no response within [_syncCommandTimeout].
+  Future<Map<String, dynamic>> _sendCommandAndWaitForResponse(String command) async {
+    // Create a completer to wait for the response
+    final completer = Completer<Map<String, dynamic>>();
+    StreamSubscription<BleMessage>? subscription;
+
+    // Set up timeout
+    final timer = Timer(_syncCommandTimeout, () {
+      if (!completer.isCompleted) {
+        subscription?.cancel();
+        completer.completeError(
+          TimeoutException('BLE command timed out after ${_syncCommandTimeout.inSeconds} seconds'),
+        );
+      }
+    });
+
+    // Listen for the response on the notification stream
+    subscription = _messageController.stream.listen(
+      (message) {
+        AppLogger.debug('_sendCommandAndWaitForResponse: Received message type=${message.type}, data=${message.data}');
+        // Check if this is a sync protocol response (has 'status' field)
+        // Sync responses have type syncResponse and data is the full JSON map
+        if (message.type == BleMessageType.syncResponse &&
+            message.data is Map<String, dynamic> &&
+            (message.data as Map<String, dynamic>).containsKey('status')) {
+          AppLogger.debug('_sendCommandAndWaitForResponse: Got syncResponse, completing future');
+          timer.cancel();
+          subscription?.cancel();
+          if (!completer.isCompleted) {
+            completer.complete(message.data as Map<String, dynamic>);
+          }
+        }
+      },
+      onError: (error) {
+        timer.cancel();
+        subscription?.cancel();
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
+      },
+    );
+
+    // Send the command
+    await _enqueueWrite(() => _writeChunked(_writeChar!, command));
+
+    // Wait for response
+    return completer.future;
+  }
+
+  /// Converts an Item to the JSON format expected by device for override.
+  ///
+  /// Fields sent during override (from implementation plan 1.11):
+  /// - device_item_id: Item slot ID (0-99)
+  /// - name: Item name (max 30 chars)
+  /// - category: Category name (max 30 chars)
+  /// - count: Total count
+  /// - todaycount: Today's count
+  /// - increment: Count per press (1-1000)
+  /// - reminder: Reminder type
+  /// - reminder_value: Reminder threshold
+  /// - lastResetTime: Last reset timestamp (UTC seconds)
+  /// - reset_number: Reset counter
+  Map<String, dynamic> _itemToDeviceJson(Item item, Map<String, String> categoryNames) {
+    return {
+      'device_item_id': item.deviceItemId ?? 0,
+      'name': item.name,
+      'category': (item.categoryId == null || item.categoryId!.isEmpty)
+          ? 'Uncategorized'
+          : (categoryNames[item.categoryId] ?? 'Uncategorized'),
+      'count': item.count,
+      'todaycount': item.todayCount,
+      'increment': item.incrementBy,
+      'reminder': _reminderTypeToInt(item.reminder),
+      'reminder_value': item.reminderValue,
+      'goal': item.goal ?? 0,
+      'lastResetTime': (item.lastResetTime?.toUtc().millisecondsSinceEpoch ?? 0) ~/ 1000,
+      'reset_number': item.resetNumber,
+    };
+  }
+
+  /// Converts ReminderType enum to ESP32 integer format.
+  int _reminderTypeToInt(ReminderType type) {
+    switch (type) {
+      case ReminderType.none:
+        return 0;
+      case ReminderType.target:
+        return 1;
+      case ReminderType.interval:
+        return 2;
+    }
   }
 
   // ========== Permissions & Adapter State ==========

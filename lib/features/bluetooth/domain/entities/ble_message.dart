@@ -30,6 +30,10 @@ enum BleMessageType {
   /// Contains: cmd (failed command), reason (error description)
   error,
 
+  /// Sync protocol response (handshake, sync_complete, override_complete)
+  /// Contains: status and other sync-specific fields
+  syncResponse,
+
   /// Unknown or malformed message
   unknown,
 }

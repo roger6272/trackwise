@@ -2,10 +2,10 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/domain/usecases/get_items_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/watch_items_usecase.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/domain/usecases/get_items_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/watch_items_usecase.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

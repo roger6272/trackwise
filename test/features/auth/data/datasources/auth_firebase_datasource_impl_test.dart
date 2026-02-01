@@ -4,9 +4,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase;
 import 'package:google_sign_in/google_sign_in.dart';
 
-import 'package:trackwise/core/error/exceptions.dart';
-import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasource_impl.dart';
-import 'package:trackwise/features/auth/data/models/user_model.dart';
+import 'package:traxelos/core/error/exceptions.dart';
+import 'package:traxelos/features/auth/data/datasources/auth_firebase_datasource_impl.dart';
+import 'package:traxelos/features/auth/data/models/user_model.dart';
 
 class MockFirebaseAuth extends Mock implements firebase.FirebaseAuth {}
 

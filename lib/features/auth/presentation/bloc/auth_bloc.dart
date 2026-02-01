@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../../core/utils/logger.dart';
+
 import '../../../../core/usecases/usecase.dart';
+import '../../domain/repositories/user_repository.dart';
 import '../../domain/usecases/reset_password_usecase.dart';
 import '../../domain/usecases/sign_in_with_apple_usecase.dart';
 import '../../domain/usecases/sign_in_with_email_usecase.dart';
@@ -24,6 +27,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignOutUseCase _signOut;
   final ResetPasswordUseCase _resetPassword;
   final WatchAuthStateUseCase _watchAuthState;
+  final UserRepository _userRepository;
 
   StreamSubscription? _authSubscription;
 
@@ -35,6 +39,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required SignOutUseCase signOut,
     required ResetPasswordUseCase resetPassword,
     required WatchAuthStateUseCase watchAuthState,
+    required UserRepository userRepository,
   })  : _signInWithEmail = signInWithEmail,
         _signInWithGoogle = signInWithGoogle,
         _signInWithApple = signInWithApple,
@@ -42,6 +47,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         _signOut = signOut,
         _resetPassword = resetPassword,
         _watchAuthState = watchAuthState,
+        _userRepository = userRepository,
         super(const AuthInitial()) {
     on<CheckAuthStatusEvent>(_onCheckAuthStatus);
     on<SignInWithEmailEvent>(_onSignInWithEmail);
@@ -64,10 +70,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     CheckAuthStatusEvent event,
     Emitter<AuthState> emit,
   ) async {
-    // Check current user synchronously
+    // Check if there's a logged-in user
     final currentUser = _watchAuthState.currentUser;
+    AppLogger.debug('AuthBloc._onCheckAuthStatus: currentUser=${currentUser?.id}');
     if (currentUser != null) {
-      emit(Authenticated(currentUser));
+      // Fetch full user data from Firestore (includes onboarding_completed)
+      final result = await _userRepository.getCurrentUser();
+      result.fold(
+        // If fetch fails, use basic user data
+        (failure) {
+          AppLogger.debug('AuthBloc: Firestore fetch FAILED: ${failure.message}, using basic user (onboardingCompleted=${currentUser.onboardingCompleted})');
+          emit(Authenticated(currentUser));
+        },
+        (fullUser) {
+          AppLogger.debug('AuthBloc: Firestore fetch SUCCESS, onboardingCompleted=${fullUser.onboardingCompleted}');
+          emit(Authenticated(fullUser));
+        },
+      );
     } else {
       emit(const Unauthenticated());
     }
@@ -81,7 +100,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     if (event.user != null) {
-      emit(Authenticated(event.user!));
+      // The stream user only has Firebase Auth data, not Firestore data.
+      // Fetch full user from Firestore to get onboarding_completed, etc.
+      final result = await _userRepository.getCurrentUser();
+      result.fold(
+        (failure) {
+          // If Firestore fetch fails, use basic user data
+          AppLogger.debug('AuthBloc._onAuthStateChanged: Firestore fetch failed, using basic user');
+          emit(Authenticated(event.user!));
+        },
+        (fullUser) {
+          AppLogger.debug('AuthBloc._onAuthStateChanged: Firestore user onboardingCompleted=${fullUser.onboardingCompleted}');
+          emit(Authenticated(fullUser));
+        },
+      );
     } else {
       emit(const Unauthenticated());
     }

@@ -2,14 +2,14 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/bluetooth/data/datasources/bluetooth_datasource.dart';
-import 'package:trackwise/features/bluetooth/data/models/ble_device_model.dart';
-import 'package:trackwise/features/bluetooth/data/models/ble_message_model.dart';
-import 'package:trackwise/features/bluetooth/data/repositories/bluetooth_repository_impl.dart';
-import 'package:trackwise/features/bluetooth/domain/entities/ble_connection_state.dart';
-import 'package:trackwise/features/bluetooth/domain/entities/ble_message.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/bluetooth/data/datasources/bluetooth_datasource.dart';
+import 'package:traxelos/features/bluetooth/data/models/ble_device_model.dart';
+import 'package:traxelos/features/bluetooth/data/models/ble_message_model.dart';
+import 'package:traxelos/features/bluetooth/data/repositories/bluetooth_repository_impl.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/ble_connection_state.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/ble_message.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
 
 class MockBluetoothDataSource extends Mock implements BluetoothDataSource {}
 

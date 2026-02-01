@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_message.dart';
+import '../../domain/entities/sync_state.dart';
 import '../models/ble_device_model.dart';
 import '../models/ble_message_model.dart';
 import 'bluetooth_datasource.dart';
@@ -23,13 +25,13 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   List<BleDeviceModel> mockDevices = [
     const BleDeviceModel(
       id: 'MOCK-ESP32-001',
-      name: 'Traxogic_device',
+      name: 'Traxelos_One',
       rssi: -65,
       isConnectable: true,
     ),
     const BleDeviceModel(
       id: 'MOCK-ESP32-002',
-      name: 'Traxogic_device 2',
+      name: 'Traxelos_One 2',
       rssi: -78,
       isConnectable: true,
     ),
@@ -52,6 +54,24 @@ class MockBluetoothDataSource implements BluetoothDataSource {
 
   /// Whether permissions are granted
   bool permissionsGranted = true;
+
+  /// Mock handshake response status
+  SyncStatus mockHandshakeStatus = SyncStatus.inSync;
+
+  /// Mock device instance ID returned by handshake
+  String mockDeviceInstanceId = 'mock-device-instance-001';
+
+  /// Mock device sync sequence (for conflict scenarios)
+  int? mockDeviceSyncSeq;
+
+  /// Mock override response status
+  String mockOverrideStatus = 'override_complete';
+
+  /// Mock override error message
+  String? mockOverrideMessage;
+
+  /// Mock sync_complete response status
+  String mockSyncCompleteStatus = 'seq_updated';
 
   // ========== Internal State ==========
 
@@ -223,6 +243,50 @@ class MockBluetoothDataSource implements BluetoothDataSource {
     return permissionsGranted;
   }
 
+  // ========== Multi-Device Sync Commands ==========
+
+  @override
+  Future<HandshakeResult> sendHandshake({
+    required String uid,
+    required int syncSeq,
+  }) async {
+    // Simulate network delay
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    return HandshakeResult(
+      status: mockHandshakeStatus,
+      deviceInstanceId: mockDeviceInstanceId,
+      deviceSyncSeq: mockDeviceSyncSeq,
+    );
+  }
+
+  @override
+  Future<OverrideResult> sendOverrideChunked({
+    required String uid,
+    required int syncSeq,
+    required int selectedId,
+    required List<Item> items,
+    Map<String, String> categoryNames = const {},
+  }) async {
+    // Simulate chunked transfer delay (10ms per item)
+    await Future.delayed(Duration(milliseconds: 100 + items.length * 10));
+
+    return OverrideResult(
+      status: mockOverrideStatus,
+      message: mockOverrideMessage,
+    );
+  }
+
+  @override
+  Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
+    // Simulate network delay
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    return SyncCompleteResult(
+      status: mockSyncCompleteStatus,
+    );
+  }
+
   // ========== Cleanup ==========
 
   @override
@@ -238,6 +302,7 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   /// Emits a mock message as if received from ESP32.
   ///
   /// Use this to simulate device events during testing.
+  @override
   void emitMessage(BleMessage message) {
     _messageController.add(message);
   }
@@ -304,5 +369,30 @@ class MockBluetoothDataSource implements BluetoothDataSource {
     permissionsGranted = true;
     connectionDelay = const Duration(milliseconds: 500);
     scanDelay = const Duration(milliseconds: 200);
+    // Multi-device sync defaults
+    mockHandshakeStatus = SyncStatus.inSync;
+    mockDeviceInstanceId = 'mock-device-instance-001';
+    mockDeviceSyncSeq = null;
+    mockOverrideStatus = 'override_complete';
+    mockOverrideMessage = null;
+    mockSyncCompleteStatus = 'seq_updated';
+  }
+
+  /// Configures mock for a conflict scenario.
+  void configureConflict({required int deviceSyncSeq}) {
+    mockHandshakeStatus = SyncStatus.conflict;
+    mockDeviceSyncSeq = deviceSyncSeq;
+  }
+
+  /// Configures mock for a wrong account scenario.
+  void configureWrongAccount() {
+    mockHandshakeStatus = SyncStatus.wrongAccount;
+    mockDeviceSyncSeq = null;
+  }
+
+  /// Configures mock for a successful in-sync scenario.
+  void configureInSync() {
+    mockHandshakeStatus = SyncStatus.inSync;
+    mockDeviceSyncSeq = null;
   }
 }

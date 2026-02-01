@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_event.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_state.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_event.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_state.dart';
 
 /// Mock AuthBloc for widget tests using bloc_test.
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}

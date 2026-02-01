@@ -2,12 +2,12 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/exceptions.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/auth/data/datasources/auth_firebase_datasource.dart';
-import 'package:trackwise/features/auth/data/models/user_model.dart';
-import 'package:trackwise/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:trackwise/features/auth/domain/entities/user.dart';
+import 'package:traxelos/core/error/exceptions.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/auth/data/datasources/auth_firebase_datasource.dart';
+import 'package:traxelos/features/auth/data/models/user_model.dart';
+import 'package:traxelos/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:traxelos/features/auth/domain/entities/user.dart';
 
 class MockAuthFirebaseDataSource extends Mock implements AuthFirebaseDataSource {}
 

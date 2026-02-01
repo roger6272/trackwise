@@ -6,6 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../bluetooth/domain/entities/ble_message.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../charts/domain/entities/chart_data.dart';
 import '../../../charts/presentation/bloc/charts_bloc.dart';
 import '../../../charts/presentation/bloc/charts_event.dart';
@@ -118,8 +121,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Flag to trigger data reload after widget update.
   bool _needsDataReload = false;
 
-  /// Stream subscription for real-time item updates from Firestore.
-  StreamSubscription? _itemSubscription;
+  /// Whether viewing first cycle (All Time or Period 0).
+  /// Initial count is only included in charts for the first cycle.
+  bool get _isFirstCycle =>
+      _selectedInterval == null || _selectedInterval == -1 || _selectedInterval == 0;
+
+  /// Stream subscription for Bluetooth logs.
+  StreamSubscription<BluetoothState>? _bluetoothSubscription;
 
   /// Blocs created in initState for access from stream subscription.
   late final EventsBloc _eventsBloc;
@@ -142,46 +150,61 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _eventsBloc = sl<EventsBloc>()..add(LoadEvents(itemId: widget.itemId));
     _chartsBloc = sl<ChartsBloc>()..add(_createChartEvent());
 
-    // Subscribe to item updates from Firestore
-    _subscribeToItemUpdates();
+    // Note: We intentionally don't subscribe to real-time item updates here
+    // to save power. The initial values are passed via widget parameters.
+    // Charts and events are loaded separately via their blocs.
+
+    // Subscribe to Bluetooth logs - reload events when logs sync completes
+    _subscribeToBluetoothLogs();
+
+    // Reload events after delay if device is connected (catches recently synced logs)
+    _reloadIfConnected();
   }
 
-  /// Subscribe to real-time updates for this item from Firestore.
-  void _subscribeToItemUpdates() {
-    final itemRepository = sl<ItemRepository>();
-    _itemSubscription = itemRepository.watchItem(widget.itemId).listen(
-      (either) {
-        either.fold(
-          (failure) {
-            // Silently handle errors
-          },
-          (item) {
-            // Check if resetNumber or lastResetTime changed
-            if (item.resetNumber != _resetNumber || item.lastResetTime != _lastResetTime) {
-              if (mounted) {
-                setState(() {
-                  _currentCount = item.count;
-                  _initialCount = item.initialCount;
-                  _goal = item.goal;
-                  _incrementBy = item.incrementBy;
-                  _reminderType = item.reminder;
-                  _reminderValue = item.reminderValue;
-                  _resetNumber = item.resetNumber;
-                  _lastResetTime = item.lastResetTime;
-                });
-                // Reload events to reflect new cycle
-                _eventsBloc.add(LoadEvents(itemId: widget.itemId));
-              }
+  /// Reload events if device is connected (to catch recently synced data).
+  void _reloadIfConnected() {
+    try {
+      final bluetoothBloc = sl<BluetoothBloc>();
+      if (bluetoothBloc.state.isConnected) {
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted) {
+            _eventsBloc.add(LoadEvents(itemId: widget.itemId));
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore if BluetoothBloc not available
+    }
+  }
+
+  /// Subscribe to Bluetooth state to detect when logs are synced.
+  void _subscribeToBluetoothLogs() {
+    try {
+      final bluetoothBloc = sl<BluetoothBloc>();
+      _bluetoothSubscription = bluetoothBloc.stream.listen((state) {
+        final lastMessage = state.lastMessage;
+
+        // Reload events when logs sync completes (final page received)
+        if (lastMessage?.type == BleMessageType.logs && !state.hasMoreLogs) {
+          // Delay to allow Firestore write to complete
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _eventsBloc.add(LoadEvents(itemId: widget.itemId));
+              setState(() {
+                _lastUpdated = DateTime.now();
+              });
             }
-          },
-        );
-      },
-    );
+          });
+        }
+      });
+    } catch (e) {
+      // Ignore if BluetoothBloc not available
+    }
   }
 
   @override
   void dispose() {
-    _itemSubscription?.cancel();
+    _bluetoothSubscription?.cancel();
     _eventsBloc.close();
     _chartsBloc.close();
     super.dispose();
@@ -417,7 +440,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         listener: (context, state) {
           _updateIntervalsFromEvents(state);
           if (state is EventsLoaded) {
-            // Always reload chart when events are loaded to ensure sync
+            // Reload chart when events are loaded to ensure sync
             _reloadChart(context);
           }
         },
@@ -645,7 +668,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                         percentChange: stats.percentChange,
                                         priorPeriodCount: stats.priorPeriodCount,
                                         periodLabel: stats.periodLabel,
-                                        initialCount: widget.initialCount ?? 0,
+                                        // Only show initial count in first cycle (All Time or Period 0)
+                                        initialCount: _isFirstCycle ? (widget.initialCount ?? 0) : 0,
                                       ),
                                     ),
                                     // Periods comparison table
@@ -744,6 +768,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         itemId: widget.itemId,
         sinceResetTime: sinceResetTime,
         untilResetTime: untilResetTime,
+        isFirstCycle: _isFirstCycle,
       );
     } else {
       return LoadBarChart(
@@ -753,13 +778,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         itemId: widget.itemId,
         sinceResetTime: sinceResetTime,
         untilResetTime: untilResetTime,
+        isFirstCycle: _isFirstCycle,
       );
     }
   }
 
   /// Reload the chart based on current settings.
   void _reloadChart(BuildContext context) {
-    context.read<ChartsBloc>().add(_createChartEvent());
+    _chartsBloc.add(_createChartEvent());
   }
 }
 

@@ -8,7 +8,7 @@ class BluetoothConstants {
 
   // ========== ESP32 BLE Service and Characteristics ==========
 
-  /// Main BLE service UUID for Traxogic ESP32 device
+  /// Main BLE service UUID for Traxelos ESP32 device
   static const String serviceUUID = '12345678-1234-1234-1234-123456789000';
 
   /// Read characteristic UUID
@@ -91,7 +91,7 @@ class BluetoothConstants {
 
   /// Device name prefix for filtering scan results
   /// ESP32 devices should start with this prefix
-  static const String deviceNamePrefix = 'Traxogic_device';
+  static const String deviceNamePrefix = 'Traxelos_One';
 
   /// Minimum RSSI (signal strength) to consider device in range
   /// Values are negative; -100 is very weak, -30 is very strong

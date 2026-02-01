@@ -5,11 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/features/export/domain/entities/csv_export_config.dart';
-import 'package:trackwise/features/export/presentation/bloc/export_bloc.dart';
-import 'package:trackwise/features/export/presentation/bloc/export_event.dart';
-import 'package:trackwise/features/export/presentation/bloc/export_state.dart';
-import 'package:trackwise/features/export/presentation/pages/export_page.dart';
+import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
+import 'package:traxelos/features/export/presentation/bloc/export_bloc.dart';
+import 'package:traxelos/features/export/presentation/bloc/export_event.dart';
+import 'package:traxelos/features/export/presentation/bloc/export_state.dart';
+import 'package:traxelos/features/export/presentation/pages/export_page.dart';
 
 class MockExportBloc extends MockBloc<ExportEvent, ExportState>
     implements ExportBloc {}

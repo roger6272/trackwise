@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/logger.dart';
 
 /// Global navigator key for GoRouter.
 GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
@@ -17,6 +18,7 @@ class AuthStateNotifier extends ChangeNotifier {
   String? _initialUid;
   bool _isLoggedIn = false;
   bool _initiallyLoggedIn = false;
+  bool _onboardingCompleted = true; // Default to true to avoid redirect flash
   bool showSplashImage = true;
   String? _redirectLocation;
 
@@ -31,6 +33,8 @@ class AuthStateNotifier extends ChangeNotifier {
   bool get loading => _uid == null && !_isLoggedIn && showSplashImage;
   bool get loggedIn => _isLoggedIn;
   bool get initiallyLoggedIn => _initiallyLoggedIn;
+  bool get onboardingCompleted => _onboardingCompleted;
+  bool get needsOnboarding => _isLoggedIn && !_onboardingCompleted;
   bool get shouldRedirect => loggedIn && _redirectLocation != null;
 
   String getRedirectLocation() => _redirectLocation!;
@@ -46,8 +50,11 @@ class AuthStateNotifier extends ChangeNotifier {
   void updateAuthState({
     required String? uid,
     required bool isLoggedIn,
+    bool? onboardingCompleted,
   }) {
-    final shouldUpdate = _uid != uid || _isLoggedIn != isLoggedIn;
+    AppLogger.debug('AuthStateNotifier.updateAuthState: uid=$uid, loggedIn=$isLoggedIn, onboardingCompleted=$onboardingCompleted (current: $_onboardingCompleted)');
+    final shouldUpdate = _uid != uid || _isLoggedIn != isLoggedIn ||
+        (onboardingCompleted != null && _onboardingCompleted != onboardingCompleted);
 
     // Set initial state on first update
     if (_initialUid == null && uid != null) {
@@ -57,6 +64,9 @@ class AuthStateNotifier extends ChangeNotifier {
 
     _uid = uid;
     _isLoggedIn = isLoggedIn;
+    if (onboardingCompleted != null) {
+      _onboardingCompleted = onboardingCompleted;
+    }
 
     // Refresh the app on auth change unless explicitly marked otherwise.
     if (notifyOnAuthChange && shouldUpdate) {

@@ -143,6 +143,12 @@ class ClearDeviceLogs extends BluetoothEvent {
   const ClearDeviceLogs();
 }
 
+/// Unpair the device from the current account.
+/// Clears pairing data (UID) so it can be paired to another account.
+class UnpairDevice extends BluetoothEvent {
+  const UnpairDevice();
+}
+
 // ========== Message Events ==========
 
 /// Internal event when a message is received from ESP32.
@@ -176,4 +182,150 @@ class UpdateSelectedItemFromDevice extends BluetoothEvent {
 
   @override
   List<Object?> get props => [itemId];
+}
+
+// ========== Paired Device Events ==========
+
+/// Load paired devices from user's Firestore document.
+class LoadPairedDevices extends BluetoothEvent {
+  const LoadPairedDevices();
+}
+
+/// Internal event when paired devices list is updated.
+class PairedDevicesUpdated extends BluetoothEvent {
+  final List<BleDevice> devices;
+
+  const PairedDevicesUpdated(this.devices);
+
+  @override
+  List<Object?> get props => [devices];
+}
+
+/// Rename a paired device.
+class UpdateDeviceName extends BluetoothEvent {
+  final String deviceInstanceId;
+  final String newName;
+
+  const UpdateDeviceName({
+    required this.deviceInstanceId,
+    required this.newName,
+  });
+
+  @override
+  List<Object?> get props => [deviceInstanceId, newName];
+}
+
+/// Remove a paired device from the user's list.
+class RemovePairedDevice extends BluetoothEvent {
+  final String deviceInstanceId;
+
+  const RemovePairedDevice(this.deviceInstanceId);
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
+}
+
+// ========== Sync Conflict Events ==========
+
+/// Internal event when a sync conflict is detected.
+/// UI should show the conflict dialog.
+class SyncConflictDetected extends BluetoothEvent {
+  final int? deviceSyncSeq;
+  final int appSyncSeq;
+  final String? deviceInstanceId;
+
+  const SyncConflictDetected({
+    this.deviceSyncSeq,
+    required this.appSyncSeq,
+    this.deviceInstanceId,
+  });
+
+  @override
+  List<Object?> get props => [deviceSyncSeq, appSyncSeq, deviceInstanceId];
+}
+
+/// User confirmed override in conflict dialog.
+/// Triggers PerformOverrideUseCase.
+class ConfirmSyncOverride extends BluetoothEvent {
+  /// The currently selected item ID from the app UI.
+  /// Takes precedence over BluetoothState.selectedItemId.
+  final String? currentSelectedItemId;
+
+  const ConfirmSyncOverride({this.currentSelectedItemId});
+
+  @override
+  List<Object?> get props => [currentSelectedItemId];
+}
+
+/// User cancelled conflict dialog.
+/// Disconnects from device.
+class CancelSyncConflict extends BluetoothEvent {
+  const CancelSyncConflict();
+}
+
+/// Clear conflict state after it's been handled.
+class ClearConflictState extends BluetoothEvent {
+  const ClearConflictState();
+}
+
+// ========== Device Setup Events (for uninitialized/factory reset devices) ==========
+
+/// Internal event when an uninitialized device is detected.
+/// UI should show setup dialog: "New device detected. Transfer your items?"
+class DeviceSetupRequired extends BluetoothEvent {
+  final String deviceInstanceId;
+
+  const DeviceSetupRequired({required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
+}
+
+/// User confirmed device setup in dialog.
+/// Triggers override to transfer items to device.
+class ConfirmDeviceSetup extends BluetoothEvent {
+  /// The currently selected item ID from the app UI.
+  /// Takes precedence over BluetoothState.selectedItemId.
+  final String? currentSelectedItemId;
+
+  const ConfirmDeviceSetup({this.currentSelectedItemId});
+
+  @override
+  List<Object?> get props => [currentSelectedItemId];
+}
+
+/// User cancelled device setup dialog.
+/// Disconnects from device (device stays empty/unpaired).
+class CancelDeviceSetup extends BluetoothEvent {
+  const CancelDeviceSetup();
+}
+
+/// Clear setup state after it's been handled.
+class ClearSetupState extends BluetoothEvent {
+  const ClearSetupState();
+}
+
+/// Internal event when sync completes successfully.
+/// Sets the connected device instance ID and triggers paired devices reload.
+class SyncCompleted extends BluetoothEvent {
+  final String? deviceInstanceId;
+
+  const SyncCompleted({this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
+}
+
+// ========== Wrong Account Events (device paired to different user) ==========
+
+/// Internal event when device is locked to a different user account.
+/// UI should show wrong account dialog and disconnect.
+class WrongAccountDetected extends BluetoothEvent {
+  const WrongAccountDetected();
+}
+
+/// User dismissed wrong account dialog.
+/// Disconnects from device.
+class DismissWrongAccount extends BluetoothEvent {
+  const DismissWrongAccount();
 }

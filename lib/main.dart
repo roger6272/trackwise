@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,11 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'features/bluetooth/presentation/widgets/device_setup_dialog.dart';
+import 'features/bluetooth/presentation/widgets/sync_conflict_dialog.dart';
+import 'features/bluetooth/presentation/widgets/wrong_account_dialog.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -22,6 +28,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'core/firebase/firebase_config.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/logger.dart';
 
 import 'core/di/injection.dart';
 import 'core/auth/auth_state_notifier.dart';
@@ -32,6 +39,9 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     GoRouter.optionURLReflectsImperativeAPIs = true;
     usePathUrlStrategy();
+
+    // Allow Google Fonts to fetch fonts at runtime (cached after first download)
+    GoogleFonts.config.allowRuntimeFetching = true;
 
     await initFirebase();
 
@@ -138,10 +148,13 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _onAuthStateChanged(AuthState state) {
+    AppLogger.debug('main._onAuthStateChanged: state=${state.runtimeType}');
     if (state is Authenticated) {
+      AppLogger.debug('main: Authenticated user=${state.user.id}, onboardingCompleted=${state.user.onboardingCompleted}');
       _authStateNotifier.updateAuthState(
         uid: state.user.id,
         isLoggedIn: true,
+        onboardingCompleted: state.user.onboardingCompleted,
       );
     } else if (state is Unauthenticated) {
       _authStateNotifier.updateAuthState(
@@ -170,20 +183,107 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      debugShowCheckedModeBanner: false,
-      title: 'Traxogic',
-      scrollBehavior: MyAppScrollBehavior(),
-      localizationsDelegates: [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('en', '')],
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: _themeMode,
-      routerConfig: _router,
+    return BlocListener<BluetoothBloc, BluetoothState>(
+      listenWhen: (previous, current) =>
+          !previous.hasConflict && current.hasConflict,
+      listener: (context, state) {
+        if (state.hasConflict) {
+          // Show conflict dialog globally
+          _showConflictDialog(context);
+        }
+      },
+      child: BlocListener<BluetoothBloc, BluetoothState>(
+        listenWhen: (previous, current) =>
+            !previous.needsSetup && current.needsSetup,
+        listener: (context, state) {
+          if (state.needsSetup) {
+            // Show setup dialog globally
+            _showSetupDialog(context);
+          }
+        },
+        child: BlocListener<BluetoothBloc, BluetoothState>(
+          listenWhen: (previous, current) =>
+              !previous.hasWrongAccount && current.hasWrongAccount,
+          listener: (context, state) {
+            if (state.hasWrongAccount) {
+              // Show wrong account dialog globally
+              _showWrongAccountDialog(context);
+            }
+          },
+          child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        title: 'Traxelos',
+        scrollBehavior: MyAppScrollBehavior(),
+        localizationsDelegates: [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('en', '')],
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: _themeMode,
+        routerConfig: _router,
+      ),
+        ),
+      ),
     );
+  }
+
+  void _showConflictDialog(BuildContext context) {
+    // Use the router's navigator context for the dialog
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
+    if (navigatorContext != null) {
+      SyncConflictDialog.show(
+        context: navigatorContext,
+        onConfirm: () {
+          // Pass the currently selected item from AppUiState
+          final appUiState = context.read<AppUiState>();
+          context.read<BluetoothBloc>().add(ConfirmSyncOverride(
+            currentSelectedItemId: appUiState.activeItemId.isNotEmpty
+                ? appUiState.activeItemId
+                : null,
+          ));
+        },
+        onCancel: () {
+          context.read<BluetoothBloc>().add(const CancelSyncConflict());
+        },
+      );
+    }
+  }
+
+  void _showSetupDialog(BuildContext context) {
+    // Use the router's navigator context for the dialog
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
+    if (navigatorContext != null) {
+      DeviceSetupDialog.show(
+        context: navigatorContext,
+        onConfirm: () {
+          // Pass the currently selected item from AppUiState
+          final appUiState = context.read<AppUiState>();
+          context.read<BluetoothBloc>().add(ConfirmDeviceSetup(
+            currentSelectedItemId: appUiState.activeItemId.isNotEmpty
+                ? appUiState.activeItemId
+                : null,
+          ));
+        },
+        onCancel: () {
+          context.read<BluetoothBloc>().add(const CancelDeviceSetup());
+        },
+      );
+    }
+  }
+
+  void _showWrongAccountDialog(BuildContext context) {
+    // Use the router's navigator context for the dialog
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
+    if (navigatorContext != null) {
+      WrongAccountDialog.show(
+        context: navigatorContext,
+        onDismiss: () {
+          context.read<BluetoothBloc>().add(const DismissWrongAccount());
+        },
+      );
+    }
   }
 }

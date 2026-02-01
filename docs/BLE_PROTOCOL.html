@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traxelos One BLE Protocol Specification</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #ffffff;
+            --text-color: #1f2937;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+            --table-header-bg: #f9fafb;
+            --table-stripe-bg: #f9fafb;
+            --blockquote-bg: #eff6ff;
+            --blockquote-border: #3b82f6;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--bg-color);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.3rem;
+            margin-top: 2.5rem;
+        }
+
+        h3 {
+            color: var(--text-color);
+            margin-top: 1.5rem;
+        }
+
+        h4 {
+            color: #4b5563;
+            margin-top: 1.2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background: var(--table-header-bg);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background: var(--table-stripe-bg);
+        }
+
+        code {
+            background: var(--code-bg);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+            font-size: 0.85em;
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+
+        .diagram {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            white-space: pre;
+        }
+
+        blockquote {
+            background: var(--blockquote-bg);
+            border-left: 4px solid var(--blockquote-border);
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        blockquote p {
+            margin: 0.25rem 0;
+        }
+
+        hr {
+            border: none;
+            border-top: 2px solid var(--border-color);
+            margin: 2rem 0;
+        }
+
+        .toc {
+            background: var(--table-stripe-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .toc ol {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+
+        .toc li {
+            margin: 0.3rem 0;
+        }
+
+        .toc a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .json-key { color: #9cdcfe; }
+        .json-string { color: #ce9178; }
+        .json-number { color: #b5cea8; }
+
+        .quick-ref {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+            font-size: 0.8rem;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .note {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        ul, ol {
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin: 0.3rem 0;
+        }
+
+        @media print {
+            body {
+                max-width: 100%;
+                padding: 1rem;
+            }
+            pre, .diagram, .quick-ref {
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Traxelos One BLE Protocol Specification</h1>
+
+<blockquote>
+    <p><strong>Version:</strong> 2.0</p>
+    <p><strong>Last Updated:</strong> 2026-01-27</p>
+    <p><strong>Device:</strong> ESP32 (Traxelos One)</p>
+    <p><strong>App:</strong> Flutter (Traxelos One)</p>
+</blockquote>
+
+<p>This document defines the Bluetooth Low Energy communication protocol between the Traxelos One mobile app and ESP32 firmware. It serves as the <strong>source of truth</strong> for app-device communication.</p>
+
+<hr>
+
+<h2>Table of Contents</h2>
+
+<div class="toc">
+<ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#service-characteristics">Service & Characteristics</a></li>
+    <li><a href="#commands">Commands (App → Device)</a></li>
+    <li><a href="#multi-device-sync">Multi-Device Sync Protocol</a></li>
+    <li><a href="#notifications">Notifications (Device → App)</a></li>
+    <li><a href="#data-structures">Data Structures</a></li>
+    <li><a href="#timing-constants">Timing & Constants</a></li>
+    <li><a href="#connection-flow">Connection Flow</a></li>
+    <li><a href="#sync-sequences">Sync Sequences</a></li>
+    <li><a href="#chunked-transfer">Chunked Transfer Protocol</a></li>
+    <li><a href="#device-storage">Device Storage (NVS)</a></li>
+    <li><a href="#device-states">Device States</a></li>
+    <li><a href="#power-management">Power Management</a></li>
+    <li><a href="#error-handling">Error Handling</a></li>
+    <li><a href="#edge-cases">Edge Cases & Gotchas</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#appendices">Appendices</a></li>
+</ol>
+</div>
+
+<hr>
+
+<h2 id="overview">1. Overview</h2>
+
+<h3>1.1 Architecture</h3>
+
+<div class="diagram">┌─────────────────┐              BLE               ┌─────────────────┐
+│                 │                                │                 │
+│  Flutter App    │ ◄────────────────────────────► │  ESP32 Device   │
+│                 │        JSON over GATT          │                 │
+│  - UI/UX        │                                │  - Button input │
+│  - Firestore    │                                │  - NVS storage  │
+│  - BLoC state   │                                │  - Vibration    │
+│                 │                                │                 │
+└─────────────────┘                                └─────────────────┘
+        │                                                  │
+        │                                                  │
+        ▼                                                  ▼
+   Cloud Sync                                      Physical Counter
+   (Firestore)                                     (Standalone use)</div>
+
+<h3>1.2 Key Design Principles</h3>
+
+<table>
+    <tr><th>Principle</th><th>Description</th><th>Rationale</th></tr>
+    <tr><td><strong>Device is source of truth for counts</strong></td><td>During normal sync, device preserves its counts</td><td>Prevents losing increments made while disconnected</td></tr>
+    <tr><td><strong>App is source of truth on conflict</strong></td><td>When sync_seq mismatch, app overrides device</td><td>Ensures multi-device consistency via Firestore</td></tr>
+    <tr><td><strong>Handshake-first protocol</strong></td><td>All connections start with handshake</td><td>Enables account lock and conflict detection</td></tr>
+    <tr><td><strong>JSON protocol</strong></td><td>All messages are JSON strings</td><td>Human-readable, easy debugging</td></tr>
+    <tr><td><strong>Newline delimiter</strong></td><td>Messages terminate with <code>\n</code></td><td>Enables reliable chunk reassembly</td></tr>
+    <tr><td><strong>Chunked transfer</strong></td><td>Large payloads split into ~180 byte chunks</td><td>Works within BLE MTU limits</td></tr>
+    <tr><td><strong>Numeric IDs</strong></td><td>Items use <code>deviceItemId</code> (0-99)</td><td>Memory efficient on ESP32</td></tr>
+    <tr><td><strong>Non-blocking I/O</strong></td><td>Device uses async transmission</td><td>Prevents BLE stack blocking</td></tr>
+    <tr><td><strong>Batch writes</strong></td><td>NVS writes batched per 10 increments</td><td>Reduces flash wear</td></tr>
+</table>
+
+<h3>1.3 Communication Patterns</h3>
+
+<table>
+    <tr><th>Pattern</th><th>Direction</th><th>Use Case</th></tr>
+    <tr><td><strong>Command/Response</strong></td><td>App → Device → App</td><td>Request data (prepare_read → notification)</td></tr>
+    <tr><td><strong>Fire-and-forget</strong></td><td>App → Device</td><td>set_time, clear_logs</td></tr>
+    <tr><td><strong>Push notification</strong></td><td>Device → App</td><td>Real-time events from button presses</td></tr>
+    <tr><td><strong>Bulk transfer</strong></td><td>App → Device</td><td>set_items (chunked JSON array)</td></tr>
+</table>
+
+<hr>
+
+<h2 id="service-characteristics">2. Service & Characteristics</h2>
+
+<h3>2.1 BLE Service</h3>
+
+<table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td><strong>Device Name</strong></td><td><code>Traxelos_One</code></td></tr>
+    <tr><td><strong>Service UUID</strong></td><td><code>12345678-1234-1234-1234-123456789000</code></td></tr>
+    <tr><td><strong>Max MTU</strong></td><td>517 bytes (negotiated, fallback 180)</td></tr>
+</table>
+
+<h3>2.2 Characteristics</h3>
+
+<table>
+    <tr><th>Name</th><th>Full UUID</th><th>Properties</th><th>Direction</th><th>Purpose</th></tr>
+    <tr><td><strong>CHAR_READ</strong></td><td><code>12345678-1234-1234-1234-123456789001</code></td><td>READ</td><td>Device → App</td><td>One-shot data reads</td></tr>
+    <tr><td><strong>CHAR_NOTIFY</strong></td><td><code>12345678-1234-1234-1234-123456789002</code></td><td>NOTIFY</td><td>Device → App</td><td>Streaming notifications</td></tr>
+    <tr><td><strong>CHAR_SET_ITEMS</strong></td><td><code>12345678-1234-1234-1234-123456789008</code></td><td>WRITE</td><td>App → Device</td><td>Send item list</td></tr>
+    <tr><td><strong>CHAR_WRITE</strong></td><td><code>12345678-1234-1234-1234-123456789010</code></td><td>WRITE</td><td>App → Device</td><td>Send commands</td></tr>
+</table>
+
+<h3>2.3 Characteristic Usage Matrix</h3>
+
+<table>
+    <tr><th>Operation</th><th>Characteristic</th><th>Notes</th></tr>
+    <tr><td>Send command</td><td>CHAR_WRITE</td><td>JSON command object</td></tr>
+    <tr><td>Send item list</td><td>CHAR_SET_ITEMS</td><td>JSON array, chunked</td></tr>
+    <tr><td>Receive notifications</td><td>CHAR_NOTIFY</td><td>Subscribe on connect</td></tr>
+    <tr><td>Read data (legacy)</td><td>CHAR_READ</td><td>Prefer NOTIFY pattern</td></tr>
+</table>
+
+<hr>
+
+<h2 id="commands">3. Commands (App → Device)</h2>
+
+<p>All commands are JSON strings sent to <strong>CHAR_WRITE</strong> unless otherwise noted.</p>
+
+<h3>3.1 set_selected</h3>
+
+<p>Select which item is currently active on the device.</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "set_selected",
+  "id": 5
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Range</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>-</td><td>Always <code>"set_selected"</code></td></tr>
+    <tr><td><code>id</code></td><td>int</td><td>Yes</td><td>-1 to 99</td><td><code>deviceItemId</code>, or -1 for no selection</td></tr>
+</table>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Flushes pending NVS writes for previous item</li>
+    <li>Loads new item data from NVS into runtime variables</li>
+    <li>Updates <code>selected_did</code> and <code>selected_index</code> in NVS</li>
+    <li>Sends <code>item_delta</code> notification with current counts</li>
+</ol>
+
+<p><strong>Response:</strong> <code>item_delta</code> notification</p>
+
+<p><strong>Example Flow:</strong></p>
+<pre><code>App: {"cmd": "set_selected", "id": 3}
+Device: Loads item 3 from NVS
+Device: {"type": "item_delta", "id": 3, "count": 42, ...}</code></pre>
+
+<hr>
+
+<h3>3.2 set_time</h3>
+
+<p>Synchronize device RTC clock with phone time.</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "set_time",
+  "utc_time": "2025-01-24 14:30:45",
+  "offset": -300
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Format</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>-</td><td>Always <code>"set_time"</code></td></tr>
+    <tr><td><code>utc_time</code></td><td>string</td><td>Yes</td><td><code>yyyy-MM-dd HH:mm:ss</code></td><td>Current UTC time</td></tr>
+    <tr><td><code>offset</code></td><td>int</td><td>Yes</td><td>Minutes</td><td>Timezone offset from UTC</td></tr>
+</table>
+
+<p><strong>Timezone Offset Examples:</strong></p>
+<table>
+    <tr><th>Timezone</th><th>Offset (minutes)</th></tr>
+    <tr><td>UTC</td><td>0</td></tr>
+    <tr><td>EST (UTC-5)</td><td>-300</td></tr>
+    <tr><td>PST (UTC-8)</td><td>-480</td></tr>
+    <tr><td>IST (UTC+5:30)</td><td>330</td></tr>
+    <tr><td>JST (UTC+9)</td><td>540</td></tr>
+</table>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Parses UTC time string using <code>strptime</code></li>
+    <li>Sets internal RTC clock</li>
+    <li>Stores timezone offset in NVS (<code>tz_offset</code>)</li>
+    <li>Triggers daily reset check (in case date changed)</li>
+</ol>
+
+<p><strong>Response:</strong> None (silent success)</p>
+
+<p><strong>App-side Formatting:</strong></p>
+<pre><code>final now = DateTime.now();
+final utcTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now.toUtc());
+final offset = now.timeZoneOffset.inMinutes;</code></pre>
+
+<hr>
+
+<h3>3.3 prepare_read</h3>
+
+<p>Request device to prepare data for reading.</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "prepare_read",
+  "type": "prefs",
+  "page": 0
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Values</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>-</td><td>Always <code>"prepare_read"</code></td></tr>
+    <tr><td><code>type</code></td><td>string</td><td>Yes</td><td><code>"prefs"</code>, <code>"logs"</code></td><td>Data type to retrieve</td></tr>
+    <tr><td><code>page</code></td><td>int</td><td>No</td><td>0+</td><td>Page number (for logs only)</td></tr>
+</table>
+
+<p><strong>Type: "prefs"</strong></p>
+<ul>
+    <li>Returns full item list with current counts</li>
+    <li><code>page</code> parameter ignored</li>
+    <li>Response: <code>prefs</code> notification</li>
+</ul>
+
+<p><strong>Type: "logs"</strong></p>
+<ul>
+    <li>Returns paginated event history</li>
+    <li>15 entries per page</li>
+    <li><code>page</code> 0 = most recent entries</li>
+    <li>Response: <code>logs</code> notification with <code>hasMore</code> flag</li>
+</ul>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Assembles requested data into JSON</li>
+    <li>Sends via non-blocking chunked transmission on NOTIFY</li>
+    <li>Each chunk delayed 20ms to prevent BLE congestion</li>
+</ol>
+
+<p><strong>Response:</strong> <code>prefs</code> or <code>logs</code> notification</p>
+
+<hr>
+
+<h3>3.4 clear_logs</h3>
+
+<p>Clear event log buffer on device.</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "clear_logs"
+}</code></pre>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Resets <code>logCount</code> to 0</li>
+    <li>Resets <code>logWriteIndex</code> to 0</li>
+    <li>Does NOT clear NVS (logs are RAM-only)</li>
+</ol>
+
+<p><strong>Response:</strong> None (silent success)</p>
+
+<p><strong>When to Use:</strong></p>
+<ul>
+    <li>After successfully retrieving all log pages</li>
+    <li>Prevents duplicate sync on next connection</li>
+</ul>
+
+<hr>
+
+<h3>3.5 force_reset_today (Debug)</h3>
+
+<p>Manually trigger daily reset for all items.</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "force_reset_today"
+}</code></pre>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Sets <code>todaycount</code> to 0 for all items</li>
+    <li>Updates <code>lastResetTime</code> to current UTC timestamp</li>
+    <li>Updates <code>last_reset_date</code> in NVS</li>
+</ol>
+
+<p><strong>Response:</strong> None (silent success)</p>
+
+<div class="warning">
+    <strong>Warning:</strong> Debug command only. Use for testing daily reset behavior.
+</div>
+
+<hr>
+
+<h3>3.6 Set Items (Bulk Sync)</h3>
+
+<p>Send full item list to device. Uses <strong>CHAR_SET_ITEMS</strong> characteristic (not CHAR_WRITE).</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>[
+  {
+    "id": 0,
+    "name": "Push-ups",
+    "category": "Exercise",
+    "count": 150,
+    "todaycount": 25,
+    "increment": 1,
+    "reminder": 1,
+    "reminder_value": 100,
+    "lastResetTime": 1706097600,
+    "reset_number": 5
+  },
+  {
+    "id": 1,
+    "name": "Water glasses",
+    "category": "Health",
+    "count": 2847,
+    "todaycount": 6,
+    "increment": 1,
+    "reminder": 2,
+    "reminder_value": 8,
+    "lastResetTime": 1706097600,
+    "reset_number": 42
+  }
+]</code></pre>
+
+<p><strong>Fields per Item:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Range</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>int</td><td>Yes</td><td>0-99</td><td><code>deviceItemId</code></td></tr>
+    <tr><td><code>name</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Item display name</td></tr>
+    <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Category name</td></tr>
+    <tr><td><code>count</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Total count</td></tr>
+    <tr><td><code>todaycount</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Count since daily reset</td></tr>
+    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
+    <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
+    <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
+    <tr><td><code>goal</code></td><td>int</td><td>Yes</td><td>0-9999999</td><td>Goal target (0 = no goal)</td></tr>
+    <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
+    <tr><td><code>reset_number</code></td><td>int</td><td>Yes</td><td>0+</td><td>Reset counter</td></tr>
+</table>
+
+<p><strong>Field Validation (Device-side):</strong></p>
+<table>
+    <tr><th>Field</th><th>Validation</th><th>Default</th></tr>
+    <tr><td><code>id</code></td><td>Clamped to 0-99</td><td>Array index</td></tr>
+    <tr><td><code>name</code></td><td>Truncated to 30 chars</td><td>Empty string</td></tr>
+    <tr><td><code>category</code></td><td>Truncated to 30 chars</td><td>Empty string</td></tr>
+    <tr><td><code>increment</code></td><td>Clamped to 1-1000</td><td>1</td></tr>
+    <tr><td><code>reminder</code></td><td>Clamped to 0-2</td><td>0</td></tr>
+    <tr><td><code>reminder_value</code></td><td>Clamped to 0-9999</td><td>0</td></tr>
+    <tr><td><code>goal</code></td><td>Clamped to 0-9999999</td><td>0</td></tr>
+</table>
+
+<p><strong>Critical Behavior - Count Preservation:</strong></p>
+<pre><code>For each item in received JSON:
+  1. Check if deviceItemId exists in current NVS
+  2. If EXISTS:
+     - PRESERVE count, todaycount, lastResetTime, resetNumber from NVS
+     - UPDATE name, category, increment, reminder, reminder_value from JSON
+  3. If NEW:
+     - USE count, todaycount, lastResetTime, resetNumber from JSON
+     - SAVE all fields to NVS</code></pre>
+
+<div class="note">
+    <strong>This ensures device counts are never overwritten by potentially stale app data.</strong>
+</div>
+
+<p><strong>Post-Sync Behavior:</strong></p>
+<ol>
+    <li>Items re-indexed (0 to N-1)</li>
+    <li>Current selection re-validated</li>
+    <li>Runtime variables refreshed for selected item</li>
+    <li>Event log buffer CLEARED (prevents duplicate events)</li>
+</ol>
+
+<p><strong>Response:</strong> <code>error</code> notification on failure, silent on success</p>
+
+<p><strong>Chunking:</strong> Required for payloads > MTU. See <a href="#chunked-transfer">Section 10</a>.</p>
+
+<hr>
+
+<h2 id="multi-device-sync">4. Multi-Device Sync Protocol</h2>
+
+<p>The multi-device sync protocol enables a single user account to sync with multiple physical devices while maintaining data consistency via Firestore. This protocol uses a handshake-first approach with sync sequence numbers for conflict detection.</p>
+
+<h3>4.1 Protocol Overview</h3>
+
+<table>
+    <tr><th>Scenario</th><th>Source of Truth</th><th>Protocol Flow</th></tr>
+    <tr><td>Normal sync (in_sync)</td><td>Device</td><td>handshake → device sends prefs/logs → sync_complete</td></tr>
+    <tr><td>Conflict (sync_seq mismatch)</td><td>App (Firestore)</td><td>handshake → override_start → override_chunk(s) → override_end</td></tr>
+    <tr><td>New device setup</td><td>App (Firestore)</td><td>handshake → override_start → override_chunk(s) → override_end</td></tr>
+    <tr><td>Wrong account</td><td>N/A</td><td>handshake → disconnect</td></tr>
+</table>
+
+<h3>4.2 handshake</h3>
+
+<p><strong>Purpose:</strong> Account lock check and sync sequence comparison. <strong>Must be the first command sent after connection.</strong></p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "handshake",
+  "uid": "firebase_user_id",
+  "sync_seq": 42
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>Always <code>"handshake"</code></td></tr>
+    <tr><td><code>uid</code></td><td>string</td><td>Yes</td><td>Firebase user ID</td></tr>
+    <tr><td><code>sync_seq</code></td><td>int</td><td>Yes</td><td>App's current sync sequence number from Firestore</td></tr>
+</table>
+
+<p><strong>Response Variants:</strong></p>
+<table>
+    <tr><th>Status</th><th>Condition</th><th>Response Format</th></tr>
+    <tr><td><code>in_sync</code></td><td>Device sync_seq == App sync_seq</td><td><code>{"status":"in_sync","device_instance_id":"MAC"}</code></td></tr>
+    <tr><td><code>conflict</code></td><td>Device sync_seq != App sync_seq</td><td><code>{"status":"conflict","device_seq":N,"device_instance_id":"MAC"}</code></td></tr>
+    <tr><td><code>wrong_account</code></td><td>Device paired to different UID</td><td><code>{"status":"wrong_account","device_instance_id":"MAC"}</code></td></tr>
+    <tr><td><code>uninitialized</code></td><td>Device has no UID (new/reset)</td><td><code>{"status":"uninitialized","device_instance_id":"MAC"}</code></td></tr>
+</table>
+
+<p><strong>Device Behavior by Status:</strong></p>
+<table>
+    <tr><th>Status</th><th>Device Action</th><th>App Action</th></tr>
+    <tr><td><code>in_sync</code></td><td>Automatically sends prefs + logs via NOTIFY</td><td>Process prefs, sync to Firestore, send <code>sync_complete</code></td></tr>
+    <tr><td><code>conflict</code></td><td>Enters conflict state (buttons disabled, shows "SEE APP")</td><td>Show conflict dialog, send override or disconnect</td></tr>
+    <tr><td><code>wrong_account</code></td><td>Shows "PAIRED TO OTHER ACCOUNT"</td><td>Show error dialog, disconnect</td></tr>
+    <tr><td><code>uninitialized</code></td><td>Shows "AWAITING SETUP"</td><td>Show setup dialog, send override on user confirm</td></tr>
+</table>
+
+<p><strong>Example Flow (in_sync):</strong></p>
+<pre><code>App: {"cmd": "handshake", "uid": "abc123", "sync_seq": 42}
+Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF"}
+Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic)
+Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic)
+App: {"cmd": "sync_complete", "sync_seq": 43}
+Device: {"status": "seq_updated"}</code></pre>
+
+<hr>
+
+<h3>4.3 override_start</h3>
+
+<p><strong>Purpose:</strong> Begin chunked data override from app to device. Used when app is source of truth (conflict or new device setup).</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "override_start",
+  "uid": "firebase_user_id",
+  "sync_seq": 43,
+  "total_chunks": 5
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>Always <code>"override_start"</code></td></tr>
+    <tr><td><code>uid</code></td><td>string</td><td>Yes</td><td>Firebase user ID (stored if device uninitialized)</td></tr>
+    <tr><td><code>sync_seq</code></td><td>int</td><td>Yes</td><td>New sync sequence number</td></tr>
+    <tr><td><code>total_chunks</code></td><td>int</td><td>Yes</td><td>Total number of override_chunk commands to expect</td></tr>
+</table>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>If device uninitialized, stores UID (completes device pairing)</li>
+    <li>Stores override state variables (sync_seq, total_chunks, counters)</li>
+    <li><strong>Clears all existing item slots in NVS</strong></li>
+    <li>Ready to receive chunks</li>
+</ol>
+
+<p><strong>Response:</strong> None (silent success)</p>
+
+<hr>
+
+<h3>4.4 override_chunk</h3>
+
+<p><strong>Purpose:</strong> Send a batch of items to device during override.</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "override_chunk",
+  "index": 0,
+  "items": [
+    {
+      "device_item_id": 5,
+      "name": "Push-ups",
+      "category": "Exercise",
+      "count": 150,
+      "todaycount": 25,
+      "increment": 1,
+      "reminder": 1,
+      "reminder_value": 100,
+      "lastResetTime": 1706097600,
+      "reset_number": 5
+    }
+  ]
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>Always <code>"override_chunk"</code></td></tr>
+    <tr><td><code>index</code></td><td>int</td><td>Yes</td><td>Chunk index (0-based)</td></tr>
+    <tr><td><code>items</code></td><td>array</td><td>Yes</td><td>Array of item objects (recommended ~10 per chunk)</td></tr>
+</table>
+
+<p><strong>Item Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Range</th><th>Description</th></tr>
+    <tr><td><code>device_item_id</code></td><td>int</td><td>Yes</td><td>0-99</td><td>ID that maps back to Firestore document</td></tr>
+    <tr><td><code>name</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Item display name</td></tr>
+    <tr><td><code>category</code></td><td>string</td><td>Yes</td><td>max 30 chars</td><td>Category name</td></tr>
+    <tr><td><code>count</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Total count</td></tr>
+    <tr><td><code>todaycount</code></td><td>int</td><td>Yes</td><td>0 to 2^31</td><td>Count since daily reset</td></tr>
+    <tr><td><code>increment</code></td><td>int</td><td>Yes</td><td>1-1000</td><td>Increment per button press</td></tr>
+    <tr><td><code>reminder</code></td><td>int</td><td>Yes</td><td>0-2</td><td>Reminder type</td></tr>
+    <tr><td><code>reminder_value</code></td><td>int</td><td>Yes</td><td>0-9999</td><td>Target/interval value</td></tr>
+    <tr><td><code>goal</code></td><td>int</td><td>Yes</td><td>0-9999999</td><td>Goal target (0 = no goal)</td></tr>
+    <tr><td><code>lastResetTime</code></td><td>int</td><td>Yes</td><td>Unix timestamp</td><td>Last reset time (UTC)</td></tr>
+    <tr><td><code>reset_number</code></td><td>int</td><td>Yes</td><td>0+</td><td>Reset counter</td></tr>
+</table>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Saves items <strong>sequentially</strong> at slot indices (0, 1, 2...) - NOT at device_item_id</li>
+    <li>The <code>device_item_id</code> from JSON is stored in <code>did_X</code> NVS key for Firestore mapping</li>
+    <li>Increments received chunk counter</li>
+    <li>Enforces 100 item limit (excess items silently dropped)</li>
+</ol>
+
+<p><strong>Response:</strong> None (validation occurs at override_end)</p>
+
+<div class="note">
+    <strong>Note:</strong> Unlike <code>set_items</code>, override_chunk <strong>does NOT preserve existing device counts</strong> - it overwrites with app data.
+</div>
+
+<hr>
+
+<h3>4.5 override_end</h3>
+
+<p><strong>Purpose:</strong> Complete the override and validate all chunks received.</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "override_end",
+  "selected_id": 5
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>Always <code>"override_end"</code></td></tr>
+    <tr><td><code>selected_id</code></td><td>int</td><td>Yes</td><td>Device item ID to select (-1 for no selection)</td></tr>
+</table>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Validates all chunks received (received count == expected count)</li>
+    <li>Sets <code>item_total</code> in NVS to number of items saved</li>
+    <li>Sets selected item (with fallback to first item if ID not found)</li>
+    <li>Updates <code>sync_seq_no</code> in NVS</li>
+    <li>Exits conflict state (re-enables buttons)</li>
+    <li>Displays "SYNCED" message</li>
+</ol>
+
+<p><strong>Response (Success):</strong></p>
+<pre><code>{"status":"override_complete"}</code></pre>
+
+<p><strong>Response (Failure):</strong></p>
+<pre><code>{"status":"error","message":"missing_chunks"}</code></pre>
+
+<hr>
+
+<h3>4.6 sync_complete</h3>
+
+<p><strong>Purpose:</strong> Update device's sync sequence after normal sync (when device was source of truth).</p>
+
+<p><strong>Request:</strong></p>
+<pre><code>{
+  "cmd": "sync_complete",
+  "sync_seq": 43
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Yes</td><td>Always <code>"sync_complete"</code></td></tr>
+    <tr><td><code>sync_seq</code></td><td>int</td><td>Yes</td><td>New sync sequence number</td></tr>
+</table>
+
+<p><strong>Device Behavior:</strong></p>
+<ol>
+    <li>Stores new sync_seq in NVS (<code>sync_seq_no</code> key)</li>
+</ol>
+
+<p><strong>Response:</strong></p>
+<pre><code>{"status":"seq_updated"}</code></pre>
+
+<p><strong>When to Use:</strong> Call this after:</p>
+<ol>
+    <li>Receiving and processing prefs from device</li>
+    <li>Syncing counts to Firestore</li>
+    <li>Incrementing sync_seq in Firestore</li>
+</ol>
+
+<hr>
+
+<h3>4.7 Comparison: set_items vs override_chunk</h3>
+
+<table>
+    <tr><th>Aspect</th><th>set_items (Legacy)</th><th>override_chunk</th></tr>
+    <tr><td>Characteristic</td><td>CHAR_SET_ITEMS (008)</td><td>CHAR_WRITE (010)</td></tr>
+    <tr><td>Count preservation</td><td>YES - device keeps its counts</td><td>NO - app counts override</td></tr>
+    <tr><td>Event log</td><td>Cleared after sync</td><td>Cleared at override_start</td></tr>
+    <tr><td>Response</td><td>Error notification only</td><td>override_end response</td></tr>
+    <tr><td>Field name</td><td><code>id</code></td><td><code>device_item_id</code></td></tr>
+    <tr><td>Selection</td><td>No change</td><td>Set at override_end</td></tr>
+    <tr><td>Use case</td><td>Normal sync</td><td>Conflict resolution, new device setup</td></tr>
+</table>
+
+<hr>
+
+<h2 id="notifications">5. Notifications (Device → App)</h2>
+
+<p>All notifications are JSON sent via <strong>CHAR_NOTIFY</strong>, terminated with <code>\n</code> (newline).</p>
+
+<h3>5.1 prefs (Item List)</h3>
+
+<p>Full item list with current counts and selection state.</p>
+
+<p><strong>Format:</strong></p>
+<pre><code>{
+  "type": "prefs",
+  "data": [
+    {
+      "id": 0,
+      "name": "Push-ups",
+      "count": 175,
+      "todaycount": 50,
+      "lastResetTime": 1706097600,
+      "resetNumber": 5
+    },
+    {
+      "id": 1,
+      "name": "Water glasses",
+      "count": 2853,
+      "todaycount": 12,
+      "lastResetTime": 1706097600,
+      "resetNumber": 42
+    }
+  ],
+  "selected_id": 0
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>type</code></td><td>string</td><td>Always <code>"prefs"</code></td></tr>
+    <tr><td><code>data</code></td><td>array</td><td>Array of item objects</td></tr>
+    <tr><td><code>selected_id</code></td><td>int</td><td>Currently selected <code>deviceItemId</code>, -1 if none</td></tr>
+</table>
+
+<p><strong>Item Object Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>int</td><td><code>deviceItemId</code> (0-99)</td></tr>
+    <tr><td><code>name</code></td><td>string</td><td>Item name</td></tr>
+    <tr><td><code>count</code></td><td>int</td><td>Total count</td></tr>
+    <tr><td><code>todaycount</code></td><td>int</td><td>Count since daily reset</td></tr>
+    <tr><td><code>lastResetTime</code></td><td>int</td><td>Unix timestamp (UTC) of last reset</td></tr>
+    <tr><td><code>resetNumber</code></td><td>int</td><td>Number of times item has been reset</td></tr>
+</table>
+
+<div class="note">
+    <strong>Note:</strong> Does not include <code>category</code>, <code>increment</code>, <code>reminder</code>, <code>reminder_value</code> - these are metadata sent via set_items only.
+</div>
+
+<hr>
+
+<h3>5.2 event (Real-time Event)</h3>
+
+<p>Sent immediately when user interacts with physical device buttons.</p>
+
+<p><strong>Format:</strong></p>
+<pre><code>{
+  "type": "event",
+  "data": {
+    "event": "increment",
+    "timestamp": 1706140800,
+    "itemId": 0,
+    "count": 176,
+    "increment": 1,
+    "resetNumber": 5
+  }
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Values/Description</th></tr>
+    <tr><td><code>type</code></td><td>string</td><td>Always <code>"event"</code></td></tr>
+    <tr><td><code>data.event</code></td><td>string</td><td><code>"increment"</code>, <code>"reset"</code>, <code>"switch"</code></td></tr>
+    <tr><td><code>data.timestamp</code></td><td>int</td><td>Unix timestamp (UTC)</td></tr>
+    <tr><td><code>data.itemId</code></td><td>int</td><td><code>deviceItemId</code> (0-99) - app looks up name</td></tr>
+    <tr><td><code>data.count</code></td><td>int</td><td>Count <strong>after</strong> event</td></tr>
+    <tr><td><code>data.increment</code></td><td>int</td><td>Amount incremented (for increment events)</td></tr>
+    <tr><td><code>data.resetNumber</code></td><td>int</td><td>Reset counter after event</td></tr>
+</table>
+
+<p><strong>Event Types:</strong></p>
+<table>
+    <tr><th>Event</th><th>Trigger</th><th>Count Change</th></tr>
+    <tr><td><code>increment</code></td><td>Button press</td><td>count += increment</td></tr>
+    <tr><td><code>reset</code></td><td>Reset button</td><td>count = 0, resetNumber++</td></tr>
+    <tr><td><code>switch</code></td><td>Switch button</td><td>No count change, selection changes</td></tr>
+</table>
+
+<hr>
+
+<h3>5.3 item_delta (Efficient Count Update)</h3>
+
+<p>Smaller payload for single-item updates. Sent after <code>set_selected</code> or as alternative to full event.</p>
+
+<p><strong>Format:</strong></p>
+<pre><code>{
+  "type": "item_delta",
+  "id": 0,
+  "count": 176,
+  "todaycount": 51,
+  "lastResetTime": 1706097600,
+  "resetNumber": 5
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>type</code></td><td>string</td><td>Always <code>"item_delta"</code></td></tr>
+    <tr><td><code>id</code></td><td>int</td><td><code>deviceItemId</code> (0-99)</td></tr>
+    <tr><td><code>count</code></td><td>int</td><td>Current total count</td></tr>
+    <tr><td><code>todaycount</code></td><td>int</td><td>Count since daily reset</td></tr>
+    <tr><td><code>lastResetTime</code></td><td>int</td><td>Unix timestamp (UTC)</td></tr>
+    <tr><td><code>resetNumber</code></td><td>int</td><td>Reset counter</td></tr>
+</table>
+
+<p><strong>Use Case:</strong> More efficient than <code>prefs</code> when only one item changed.</p>
+
+<hr>
+
+<h3>5.4 logs (Event History)</h3>
+
+<p>Paginated historical events from RAM buffer.</p>
+
+<p><strong>Format:</strong></p>
+<pre><code>{
+  "type": "logs",
+  "page": 0,
+  "hasMore": true,
+  "data": [
+    {
+      "timestamp": 1706140800,
+      "itemId": 0,
+      "event": "increment",
+      "increment": 1,
+      "count": 176,
+      "resetNumber": 5
+    },
+    {
+      "timestamp": 1706140750,
+      "itemId": 0,
+      "event": "increment",
+      "increment": 1,
+      "count": 175,
+      "resetNumber": 5
+    }
+  ]
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>type</code></td><td>string</td><td>Always <code>"logs"</code></td></tr>
+    <tr><td><code>page</code></td><td>int</td><td>Current page number (0-based)</td></tr>
+    <tr><td><code>hasMore</code></td><td>bool</td><td><code>true</code> if more pages available</td></tr>
+    <tr><td><code>data</code></td><td>array</td><td>Up to 15 log entries</td></tr>
+</table>
+
+<p><strong>Log Entry Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>timestamp</code></td><td>int</td><td>Unix timestamp (UTC)</td></tr>
+    <tr><td><code>itemId</code></td><td>int</td><td><code>deviceItemId</code> - app looks up name</td></tr>
+    <tr><td><code>event</code></td><td>string</td><td><code>"increment"</code>, <code>"reset"</code>, <code>"switch"</code></td></tr>
+    <tr><td><code>increment</code></td><td>int</td><td>Increment value used</td></tr>
+    <tr><td><code>count</code></td><td>int</td><td>Count after event</td></tr>
+    <tr><td><code>resetNumber</code></td><td>int</td><td>Reset counter after event</td></tr>
+</table>
+
+<p><strong>Pagination:</strong></p>
+<ul>
+    <li>Page size: 15 entries</li>
+    <li>Page 0 = most recent</li>
+    <li>Continue fetching while <code>hasMore: true</code></li>
+    <li>Call <code>clear_logs</code> after all pages retrieved</li>
+</ul>
+
+<hr>
+
+<h3>5.5 sync_response (Sync Protocol Response)</h3>
+
+<p>Sent in response to multi-device sync commands (handshake, override_end, sync_complete).</p>
+
+<p><strong>Format (handshake - in_sync):</strong></p>
+<pre><code>{"status":"in_sync","device_instance_id":"AA:BB:CC:DD:EE:FF"}</code></pre>
+
+<p><strong>Format (handshake - conflict):</strong></p>
+<pre><code>{"status":"conflict","device_seq":40,"device_instance_id":"AA:BB:CC:DD:EE:FF"}</code></pre>
+
+<p><strong>Format (handshake - wrong_account):</strong></p>
+<pre><code>{"status":"wrong_account","device_instance_id":"AA:BB:CC:DD:EE:FF"}</code></pre>
+
+<p><strong>Format (handshake - uninitialized):</strong></p>
+<pre><code>{"status":"uninitialized","device_instance_id":"AA:BB:CC:DD:EE:FF"}</code></pre>
+
+<p><strong>Format (override_end - success):</strong></p>
+<pre><code>{"status":"override_complete"}</code></pre>
+
+<p><strong>Format (override_end - failure):</strong></p>
+<pre><code>{"status":"error","message":"missing_chunks"}</code></pre>
+
+<p><strong>Format (sync_complete):</strong></p>
+<pre><code>{"status":"seq_updated"}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>status</code></td><td>string</td><td>Response status (varies by command)</td></tr>
+    <tr><td><code>device_instance_id</code></td><td>string</td><td>BLE MAC address (handshake responses only)</td></tr>
+    <tr><td><code>device_seq</code></td><td>int</td><td>Device's sync_seq (conflict status only)</td></tr>
+    <tr><td><code>message</code></td><td>string</td><td>Error details (error status only)</td></tr>
+</table>
+
+<hr>
+
+<h3>5.6 error (Error Notification)</h3>
+
+<p>Sent when device encounters an error processing a command.</p>
+
+<p><strong>Format:</strong></p>
+<pre><code>{
+  "type": "error",
+  "cmd": "set_items",
+  "reason": "Payload too large"
+}</code></pre>
+
+<p><strong>Fields:</strong></p>
+<table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>type</code></td><td>string</td><td>Always <code>"error"</code></td></tr>
+    <tr><td><code>cmd</code></td><td>string</td><td>Command that failed</td></tr>
+    <tr><td><code>reason</code></td><td>string</td><td>Human-readable error message</td></tr>
+</table>
+
+<p><strong>Common Errors:</strong></p>
+<table>
+    <tr><th>Reason</th><th>Cause</th><th>Resolution</th></tr>
+    <tr><td><code>Payload too large</code></td><td>set_items > 32KB</td><td>Reduce item count</td></tr>
+    <tr><td><code>NVS mutex timeout</code></td><td>Flash busy</td><td>Retry after delay</td></tr>
+    <tr><td><code>NVS timeout</code></td><td>NVS operation failed</td><td>Retry</td></tr>
+    <tr><td><code>Unknown command type</code></td><td>Invalid <code>cmd</code> field</td><td>Check command spelling</td></tr>
+    <tr><td>JSON parse errors</td><td>Malformed JSON</td><td>Validate JSON format</td></tr>
+</table>
+
+<hr>
+
+<h2 id="data-structures">6. Data Structures</h2>
+
+<h3>6.1 Reminder Types</h3>
+
+<table>
+    <tr><th>Value</th><th>Constant</th><th>Behavior</th><th>Example</th></tr>
+    <tr><td>0</td><td><code>REMINDER_NONE</code></td><td>No vibration</td><td>-</td></tr>
+    <tr><td>1</td><td><code>REMINDER_TARGET</code></td><td>Vibrate when <code>count == reminder_value</code></td><td>Vibrate at count 100</td></tr>
+    <tr><td>2</td><td><code>REMINDER_INTERVAL</code></td><td>Vibrate when <code>count % reminder_value == 0</code></td><td>Vibrate every 10 counts</td></tr>
+</table>
+
+<p><strong>Goal Vibration:</strong></p>
+<p>When an item has a goal set (<code>goal &gt; 0</code>) and the count crosses the goal, the device plays a <strong>triple vibration</strong> (3&times; 150ms pulses with 100ms gap). Goal vibration takes priority over reminder vibration &mdash; if both trigger on the same press, only the goal pattern plays.</p>
+
+<p><strong>Vibration Hardware:</strong></p>
+<ul>
+    <li>GPIO Pin: 5</li>
+    <li>Single pulse: 300ms (reminders)</li>
+    <li>Triple pulse: 3&times; 150ms with 100ms gap (goal reached)</li>
+    <li>Non-blocking (doesn't pause counting)</li>
+    <li>Priority: goal &gt; reminder target &gt; reminder interval</li>
+</ul>
+
+<h3>6.2 Event Types</h3>
+
+<table>
+    <tr><th>Value</th><th>Constant</th><th>Trigger</th><th>Description</th></tr>
+    <tr><td>0</td><td><code>EVENT_INCREMENT</code></td><td>Button press</td><td>Count increased</td></tr>
+    <tr><td>1</td><td><code>EVENT_RESET</code></td><td>Reset button</td><td>Count reset to 0</td></tr>
+    <tr><td>2</td><td><code>EVENT_SWITCH</code></td><td>Switch button</td><td>Active item changed</td></tr>
+</table>
+
+<h3>6.3 Device Item ID</h3>
+
+<p><strong>Purpose:</strong> Memory-efficient item identifier on ESP32</p>
+
+<table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Type</td><td><code>uint8_t</code></td></tr>
+    <tr><td>Range</td><td>0-99 (or -1 for no selection)</td></tr>
+    <tr><td>Assignment</td><td>App assigns, device preserves</td></tr>
+    <tr><td>Mapping</td><td>App maps to/from Firestore document IDs</td></tr>
+</table>
+
+<p><strong>Why not UUIDs?</strong></p>
+<ul>
+    <li>ESP32 has limited RAM (~320KB)</li>
+    <li>UUID strings (36 chars) vs numeric (1 byte)</li>
+    <li>100 items × 36 bytes = 3.6KB just for IDs</li>
+    <li>Numeric IDs also faster to compare</li>
+</ul>
+
+<hr>
+
+<h2 id="timing-constants">7. Timing & Constants</h2>
+
+<h3>7.1 App-Side Timeouts</h3>
+
+<table>
+    <tr><th>Constant</th><th>Value</th><th>Purpose</th></tr>
+    <tr><td><code>scanTimeoutSeconds</code></td><td>15s</td><td>Maximum scan duration</td></tr>
+    <tr><td><code>connectionTimeoutSeconds</code></td><td>5s</td><td>Connection attempt timeout</td></tr>
+    <tr><td><code>operationTimeoutSeconds</code></td><td>3s</td><td>Per-command timeout</td></tr>
+    <tr><td><code>messageAssemblyTimeout</code></td><td>5s</td><td>Incomplete chunk timeout</td></tr>
+</table>
+
+<h3>7.2 App-Side Delays</h3>
+
+<table>
+    <tr><th>Constant</th><th>Value</th><th>Purpose</th></tr>
+    <tr><td><code>scanStopDelayMs</code></td><td>2000ms</td><td>Wait after stopping scan before connect</td></tr>
+    <tr><td><code>connectionStabilizeDelayMs</code></td><td>300ms</td><td>After connected, before sending commands</td></tr>
+    <tr><td><code>commandIntervalDelayMs</code></td><td>100ms</td><td>Between sequential commands</td></tr>
+    <tr><td><code>prepareReadDelayMs</code></td><td>500ms</td><td>After prepare_read before expecting data</td></tr>
+    <tr><td><code>chunkDelayMs</code></td><td>20ms</td><td>Between chunks when sending large payloads</td></tr>
+</table>
+
+<h3>7.3 App-Side Retry Strategy</h3>
+
+<table>
+    <tr><th>Attempt</th><th>Delay Before Retry</th></tr>
+    <tr><td>1</td><td>500ms</td></tr>
+    <tr><td>2</td><td>1000ms</td></tr>
+    <tr><td>3</td><td>2000ms</td></tr>
+</table>
+
+<p>Formula: <code>100ms × 2^(attempt+2)</code> (capped at 3 attempts)</p>
+
+<h3>7.4 Device-Side Timing</h3>
+
+<table>
+    <tr><th>Constant</th><th>Value</th><th>Purpose</th></tr>
+    <tr><td><code>CHUNK_TIMEOUT_MS</code></td><td>5000ms</td><td>Clear incomplete JSON buffer</td></tr>
+    <tr><td><code>IDLE_TIMEOUT_MS</code></td><td>300000ms (5 min)</td><td>Enter low power mode</td></tr>
+    <tr><td><code>WDT_TIMEOUT_SEC</code></td><td>30s</td><td>Watchdog reboot timeout</td></tr>
+    <tr><td>Chunk transmission delay</td><td>20ms</td><td>Between chunks during send</td></tr>
+    <tr><td>Periodic NVS flush</td><td>5 minutes</td><td>Ensure dirty data persists</td></tr>
+    <tr><td>Daily reset check</td><td>60 seconds</td><td>Check for midnight reset</td></tr>
+</table>
+
+<h3>7.5 Device-Side Batching</h3>
+
+<table>
+    <tr><th>Operation</th><th>Batch Size</th><th>Purpose</th></tr>
+    <tr><td>NVS count writes</td><td>Every 10 increments</td><td>Reduce flash wear</td></tr>
+    <tr><td>NVS flush triggers</td><td>Disconnect, daily reset, low power</td><td>Ensure persistence</td></tr>
+</table>
+
+<hr>
+
+<h2 id="connection-flow">8. Connection Flow</h2>
+
+<h3>8.1 Discovery</h3>
+
+<div class="diagram">┌─────────────────────────────────────────────────────────────┐
+│  1. Start BLE scan                                          │
+│  2. Filter by device name: "Traxelos_One"                       │
+│  3. Collect discovered devices                              │
+│  4. Stop scan after 15s or user selection                   │
+└─────────────────────────────────────────────────────────────┘</div>
+
+<h3>8.2 Connection Sequence</h3>
+
+<div class="diagram">┌─────┐                                              ┌────────┐
+│ App │                                              │ Device │
+└──┬──┘                                              └───┬────┘
+   │                                                     │
+   │  1. Stop scan (prevents GATT 133)                   │
+   │                                                     │
+   │  2. Wait 2 seconds                                  │
+   │                                                     │
+   │  3. Connect (with retry, up to 3 attempts)          │
+   │ ───────────────────────────────────────────────────►│
+   │                                                     │
+   │  4. Connection established                          │
+   │ ◄───────────────────────────────────────────────────│
+   │                                                     │
+   │  5. Request MTU 512                                 │
+   │ ───────────────────────────────────────────────────►│
+   │                                                     │
+   │  6. MTU negotiated (180-517)                        │
+   │ ◄───────────────────────────────────────────────────│
+   │                                                     │
+   │  7. Set HIGH connection priority                    │
+   │                                                     │
+   │  8. Discover services                               │
+   │ ───────────────────────────────────────────────────►│
+   │                                                     │
+   │  9. Service discovery complete                      │
+   │ ◄───────────────────────────────────────────────────│
+   │                                                     │
+   │  10. Find all 4 characteristics                     │
+   │                                                     │
+   │  11. Subscribe to NOTIFY characteristic             │
+   │ ───────────────────────────────────────────────────►│
+   │                                                     │
+   │  12. Wait 300ms for stabilization                   │
+   │                                                     │
+   │  ✓ Ready for commands                               │
+   │                                                     │</div>
+
+<h3>8.3 GATT 133 Error Prevention</h3>
+
+<p><strong>Cause:</strong> Android BLE stack race condition when scan overlaps connect</p>
+
+<p><strong>Prevention:</strong></p>
+<ol>
+    <li>Always stop scan before connecting</li>
+    <li>Wait 2 seconds after scan stops</li>
+    <li>Use retry with exponential backoff</li>
+</ol>
+
+<h3>8.4 MTU Negotiation</h3>
+
+<table>
+    <tr><th>Scenario</th><th>MTU Value</th><th>Chunk Size</th></tr>
+    <tr><td>Negotiation successful</td><td>512</td><td>509 bytes</td></tr>
+    <tr><td>Fallback</td><td>180</td><td>177 bytes</td></tr>
+    <tr><td>Formula</td><td>MTU</td><td>MTU - 3 (ATT overhead)</td></tr>
+</table>
+
+<hr>
+
+<h2 id="sync-sequences">9. Sync Sequences</h2>
+
+<h3>9.1 Initial Sync (Handshake-Based)</h3>
+
+<p>Performed after connection established. The sync flow depends on the handshake result.</p>
+
+<h4>Normal Sync (in_sync)</h4>
+
+<p>When device and app sync sequences match, device is source of truth:</p>
+
+<div class="diagram">┌─────┐                                              ┌────────┐
+│ App │                                              │ Device │
+└──┬──┘                                              └───┬────┘
+   │                                                     │
+   │  1. Fetch sync_seq from Firestore                   │
+   │                                                     │
+   │  2. Send handshake                                  │
+   │ ───────────────────────────────────────────────────►│
+   │     {"cmd":"handshake","uid":"xxx","sync_seq":42}   │
+   │                                                     │
+   │  3. Receive handshake response                      │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"status":"in_sync","device_instance_id":"MAC"} │
+   │                                                     │
+   │  4. Device automatically sends prefs                │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"type":"prefs","data":[...],"selected_id":0}   │
+   │                                                     │
+   │  5. Device automatically sends logs                 │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"type":"logs","page":0,"hasMore":false,...}    │
+   │                                                     │
+   │  6. Update app state with device counts             │
+   │     (Device counts are source of truth)             │
+   │                                                     │
+   │  7. Sync counts to Firestore                        │
+   │                                                     │
+   │  8. Send sync_complete                              │
+   │ ───────────────────────────────────────────────────►│
+   │     {"cmd":"sync_complete","sync_seq":43}           │
+   │                                                     │
+   │  9. Receive acknowledgment                          │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"status":"seq_updated"}                        │
+   │                                                     │
+   │ 10. Update Firestore sync_seq to 43                 │
+   │                                                     │</div>
+
+<h4>Conflict Resolution (conflict)</h4>
+
+<p>When sync sequences differ, app (Firestore) is source of truth:</p>
+
+<div class="diagram">┌─────┐                                              ┌────────┐
+│ App │                                              │ Device │
+└──┬──┘                                              └───┬────┘
+   │                                                     │
+   │  1. Send handshake                                  │
+   │ ───────────────────────────────────────────────────►│
+   │     {"cmd":"handshake","uid":"xxx","sync_seq":42}   │
+   │                                                     │
+   │  2. Receive conflict response                       │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"status":"conflict","device_seq":40,...}       │
+   │                                                     │
+   │                    Device enters conflict state     │
+   │                    Device disables buttons          │
+   │                    Device shows "SEE APP"           │
+   │                                                     │
+   │  3. Show conflict dialog to user                    │
+   │                                                     │
+   │  4. User confirms override                          │
+   │                                                     │
+   │  5. Send override_start                             │
+   │ ───────────────────────────────────────────────────►│
+   │     {"cmd":"override_start","uid":"xxx",            │
+   │      "sync_seq":43,"total_chunks":3}                │
+   │                                                     │
+   │  6. Send override_chunk(s)                          │
+   │ ───────────────────────────────────────────────────►│
+   │     {"cmd":"override_chunk","index":0,"items":[...]}│
+   │     {"cmd":"override_chunk","index":1,"items":[...]}│
+   │     {"cmd":"override_chunk","index":2,"items":[...]}│
+   │                                                     │
+   │  7. Send override_end                               │
+   │ ───────────────────────────────────────────────────►│
+   │     {"cmd":"override_end","selected_id":5}          │
+   │                                                     │
+   │  8. Receive override result                         │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"status":"override_complete"}                  │
+   │                                                     │
+   │                    Device exits conflict state      │
+   │                    Device re-enables buttons        │
+   │                    Device shows "SYNCED"            │
+   │                                                     │
+   │  9. Update Firestore sync_seq to 43                 │
+   │                                                     │</div>
+
+<hr>
+
+<h2 id="chunked-transfer">10. Chunked Transfer Protocol</h2>
+
+<h3>10.1 Why Chunking?</h3>
+
+<table>
+    <tr><th>Constraint</th><th>Value</th></tr>
+    <tr><td>BLE MTU</td><td>180-517 bytes</td></tr>
+    <tr><td>ATT overhead</td><td>3 bytes</td></tr>
+    <tr><td>Max payload</td><td>MTU - 3 bytes</td></tr>
+    <tr><td>Typical item JSON</td><td>~150 bytes</td></tr>
+    <tr><td>100 items</td><td>~15KB</td></tr>
+</table>
+
+<p>Large payloads must be split into chunks.</p>
+
+<h3>10.2 App → Device (set_items)</h3>
+
+<p><strong>Sending:</strong></p>
+<pre><code>1. Serialize JSON array to string
+2. Split into chunks of (MTU - 3) bytes
+3. Send each chunk with 20ms delay
+4. Device assembles in buffer
+5. Device parses when closing ']' received</code></pre>
+
+<p><strong>Chunk Delay:</strong> 20ms between chunks prevents BLE congestion</p>
+<p><strong>Timeout:</strong> Device clears buffer after 5 seconds of inactivity</p>
+
+<h3>10.3 Device → App (notifications)</h3>
+
+<p><strong>Sending:</strong></p>
+<pre><code>1. Device serializes JSON to string
+2. Appends '\n' (newline) delimiter
+3. Splits into ~180 byte chunks
+4. Sends via non-blocking state machine
+5. 20ms delay between chunks</code></pre>
+
+<p><strong>Reassembly (App-side):</strong></p>
+<pre><code>1. Accumulate received bytes in buffer
+2. Check for '\n' delimiter
+3. When found, extract complete message
+4. Parse JSON
+5. Clear buffer for next message</code></pre>
+
+<hr>
+
+<h2 id="device-storage">11. Device Storage (NVS)</h2>
+
+<h3>11.1 NVS Namespace</h3>
+
+<p><strong>Namespace:</strong> <code>"counter"</code></p>
+
+<h3>11.2 Per-Item Keys</h3>
+
+<p>Index-based storage where <code>&lt;i&gt;</code> = 0 to 99:</p>
+
+<table>
+    <tr><th>Key</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>did_&lt;i&gt;</code></td><td>uint8_t</td><td><code>deviceItemId</code> (0-99)</td></tr>
+    <tr><td><code>n_&lt;i&gt;</code></td><td>string</td><td>Item name (max 30 chars)</td></tr>
+    <tr><td><code>cat_&lt;i&gt;</code></td><td>string</td><td>Category (max 30 chars)</td></tr>
+    <tr><td><code>c_&lt;i&gt;</code></td><td>int</td><td>Total count</td></tr>
+    <tr><td><code>tc_&lt;i&gt;</code></td><td>int</td><td>Today's count</td></tr>
+    <tr><td><code>i_&lt;i&gt;</code></td><td>int</td><td>Increment value (1-1000)</td></tr>
+    <tr><td><code>r_&lt;i&gt;</code></td><td>int</td><td>Reminder type (0-2)</td></tr>
+    <tr><td><code>rv_&lt;i&gt;</code></td><td>int</td><td>Reminder value (0-9999)</td></tr>
+    <tr><td><code>g_&lt;i&gt;</code></td><td>int</td><td>Goal target (0 = no goal)</td></tr>
+    <tr><td><code>lr_&lt;i&gt;</code></td><td>ulong</td><td>Last reset time (UTC timestamp)</td></tr>
+    <tr><td><code>rn_&lt;i&gt;</code></td><td>int</td><td>Reset number</td></tr>
+</table>
+
+<h3>11.3 Global Keys</h3>
+
+<table>
+    <tr><th>Key</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>item_total</code></td><td>int</td><td>Number of items (0-100)</td></tr>
+    <tr><td><code>selected_did</code></td><td>int</td><td>Currently selected deviceItemId (-1 if none)</td></tr>
+    <tr><td><code>selected_index</code></td><td>int</td><td>Index of currently selected item</td></tr>
+    <tr><td><code>tz_offset</code></td><td>int</td><td>Minutes offset from UTC</td></tr>
+    <tr><td><code>last_reset_date</code></td><td>string</td><td>"YYYY-MM-DD" of last daily reset</td></tr>
+    <tr><td><code>paired_uid</code></td><td>string</td><td>Firebase user ID this device is paired to (empty = unpaired)</td></tr>
+    <tr><td><code>sync_seq_no</code></td><td>int</td><td>Last sync sequence number (0 = never synced)</td></tr>
+</table>
+
+<h3>11.4 Flash Wear Optimization</h3>
+
+<p><strong>Problem:</strong> NVS uses flash memory with limited write cycles (~100,000)</p>
+
+<p><strong>Solution:</strong> Batch writes</p>
+
+<table>
+    <tr><th>Trigger</th><th>Action</th></tr>
+    <tr><td>Every 10 increments</td><td>Write count to NVS</td></tr>
+    <tr><td>Disconnect</td><td>Flush all dirty data</td></tr>
+    <tr><td>Daily reset</td><td>Write all todaycounts</td></tr>
+    <tr><td>Low power entry</td><td>Flush all dirty data</td></tr>
+    <tr><td>Every 5 minutes</td><td>Periodic flush</td></tr>
+</table>
+
+<hr>
+
+<h2 id="device-states">12. Device States</h2>
+
+<h3>12.1 State Definitions</h3>
+
+<table>
+    <tr><th>State</th><th>Description</th><th>Button Behavior</th><th>Display</th></tr>
+    <tr><td><strong>Normal</strong></td><td>Device paired and operational</td><td>Enabled - increment/reset/switch work</td><td>Item name and count</td></tr>
+    <tr><td><strong>Pairing</strong></td><td>Device unpaired (new or factory reset)</td><td>Enabled</td><td>"WELCOME TO TRAXELOS"</td></tr>
+    <tr><td><strong>Conflict</strong></td><td>Sync sequence mismatch detected</td><td>Disabled - buttons ignored</td><td>"SEE APP"</td></tr>
+</table>
+
+<h3>12.2 State Transitions</h3>
+
+<div class="diagram">                    ┌─────────────┐
+                    │  UNPAIRED   │
+                    │  (Factory)  │
+                    └──────┬──────┘
+                           │ First boot / Factory reset
+                           ▼
+                    ┌─────────────┐
+                    │   PAIRING   │◄────────────────────┐
+                    │    MODE     │                     │
+                    └──────┬──────┘                     │
+                           │ override_start with UID   │
+                           ▼                           │
+┌──────────────┐    ┌─────────────┐    ┌───────────┐   │
+│   CONFLICT   │◄───│   NORMAL    │◄───│   IDLE    │   │
+│    STATE     │    │    MODE     │    │   (BLE    │   │
+└──────┬───────┘    └──────┬──────┘    │  advert)  │   │
+       │                   │           └───────────┘   │
+       │ override_end      │                           │
+       │ or disconnect     │                           │
+       └───────────────────┘                           │
+                           │ Factory reset             │
+                           └───────────────────────────┘</div>
+
+<hr>
+
+<h2 id="power-management">13. Power Management</h2>
+
+<h3>13.1 Power States</h3>
+
+<table>
+    <tr><th>State</th><th>CPU Speed</th><th>BLE Advertising</th><th>Entry Condition</th></tr>
+    <tr><td>Active</td><td>240 MHz</td><td>40ms interval</td><td>Any activity</td></tr>
+    <tr><td>Low Power</td><td>80 MHz</td><td>500ms interval</td><td>30s idle + disconnected</td></tr>
+</table>
+
+<h3>13.2 Low Power Entry</h3>
+
+<pre><code>if (!deviceConnected && (millis() - lastActivityTime > IDLE_TIMEOUT_MS)) {
+    if (!lowPowerMode) {
+        flushNvsIfDirty();
+        setCpuFrequencyMhz(80);
+        // Increase advertising interval
+        lowPowerMode = true;
+    }
+}</code></pre>
+
+<h3>13.3 Activity Triggers</h3>
+
+<p>Any of these reset the idle timer:</p>
+<ul>
+    <li>Button press</li>
+    <li>BLE connection</li>
+    <li>BLE command received</li>
+    <li>Item switch</li>
+</ul>
+
+<hr>
+
+<h2 id="error-handling">14. Error Handling</h2>
+
+<h3>14.1 Connection Errors</h3>
+
+<table>
+    <tr><th>Error</th><th>Cause</th><th>App Response</th></tr>
+    <tr><td>GATT 133</td><td>Android race condition</td><td>Retry with backoff</td></tr>
+    <tr><td>Connection timeout</td><td>Device out of range</td><td>Show error, allow retry</td></tr>
+    <tr><td>Disconnected</td><td>Device powered off</td><td>Reconnect on next scan</td></tr>
+    <tr><td>Missing characteristics</td><td>Incompatible firmware</td><td>Show firmware update prompt</td></tr>
+</table>
+
+<h3>14.2 Message Errors</h3>
+
+<table>
+    <tr><th>Error</th><th>Cause</th><th>Response</th></tr>
+    <tr><td>Incomplete message</td><td>Connection lost mid-transfer</td><td>5s timeout clears buffer</td></tr>
+    <tr><td>JSON parse error</td><td>Corrupted data</td><td>Log error, skip message</td></tr>
+    <tr><td>Buffer overflow</td><td>Message > 64KB</td><td>Clear buffer, log error</td></tr>
+</table>
+
+<h3>14.3 Command Errors</h3>
+
+<table>
+    <tr><th>Error</th><th>Cause</th><th>Response</th></tr>
+    <tr><td>Payload too large</td><td>set_items > 32KB</td><td>Reduce item count</td></tr>
+    <tr><td>NVS timeout</td><td>Flash busy</td><td>Retry after delay</td></tr>
+    <tr><td>Unknown command</td><td>Typo in cmd field</td><td>Fix command</td></tr>
+</table>
+
+<hr>
+
+<h2 id="edge-cases">15. Edge Cases & Gotchas</h2>
+
+<h3>15.1 Count Preservation During Sync</h3>
+
+<p><strong>Scenario:</strong> App sends set_items while device has newer counts</p>
+<p><strong>Behavior:</strong> Device preserves its counts, ignores app-sent counts for existing items</p>
+<p><strong>Why:</strong> User may have incremented on device while app was disconnected</p>
+
+<h3>15.2 Event Log Cleared After set_items</h3>
+
+<p><strong>Scenario:</strong> App sends set_items, then requests logs</p>
+<p><strong>Behavior:</strong> Logs are empty (cleared by set_items)</p>
+<p><strong>Solution:</strong> Sync logs BEFORE sending set_items if you need historical events</p>
+
+<h3>15.3 Daily Reset Timing</h3>
+
+<p><strong>Scenario:</strong> User in different timezone than device</p>
+<p><strong>Behavior:</strong> Device uses stored timezone offset for reset timing</p>
+<p><strong>Solution:</strong> Always send set_time after connecting</p>
+
+<h3>15.4 Selection State</h3>
+
+<p><strong>Scenario:</strong> App shows item A selected, device has item B selected</p>
+<p><strong>Behavior:</strong> They are independent until explicitly synced</p>
+<p><strong>Solution:</strong> After connect, either:</p>
+<ul>
+    <li>Send set_selected to sync app → device</li>
+    <li>Read prefs to sync device → app</li>
+</ul>
+
+<h3>15.5 Chunked JSON Reassembly</h3>
+
+<p><strong>Scenario:</strong> Message split across BLE packets</p>
+<p><strong>Behavior:</strong> Device waits for closing <code>]</code> (set_items) or app waits for <code>\n</code></p>
+<p><strong>Gotcha:</strong> 5-second timeout clears incomplete buffers</p>
+<p><strong>Solution:</strong> Ensure all chunks sent within timeout window</p>
+
+<h3>15.6 Maximum Items</h3>
+
+<p><strong>Limit:</strong> 100 items</p>
+<p><strong>Behavior:</strong> Items beyond 100 are silently dropped</p>
+<p><strong>Solution:</strong> Enforce limit in app before sending</p>
+
+<h3>15.7 Disconnection During NVS Write</h3>
+
+<p><strong>Scenario:</strong> Device disconnects while writing to NVS</p>
+<p><strong>Behavior:</strong> Up to 10 increments may be lost (batching)</p>
+<p><strong>Mitigation:</strong> Device flushes on disconnect event</p>
+
+<hr>
+
+<h2 id="troubleshooting">16. Troubleshooting</h2>
+
+<h3>16.1 Quick Diagnostics</h3>
+
+<table>
+    <tr><th>Symptom</th><th>Check</th><th>Likely Cause</th></tr>
+    <tr><td>Can't find device</td><td>Device powered on? Advertising?</td><td>Power or BLE issue</td></tr>
+    <tr><td>Can't connect</td><td>Scan stopped before connect?</td><td>GATT 133 race</td></tr>
+    <tr><td>No notifications</td><td>NOTIFY subscribed?</td><td>Missing subscription</td></tr>
+    <tr><td>Commands ignored</td><td>Correct characteristic UUID?</td><td>Wrong characteristic</td></tr>
+    <tr><td>Counts wrong</td><td>Device is source of truth</td><td>Check sync sequence</td></tr>
+    <tr><td>Items missing</td><td>set_items included all items?</td><td>Partial sync</td></tr>
+    <tr><td>Garbled messages</td><td>Chunk reassembly working?</td><td>Buffer issues</td></tr>
+</table>
+
+<h3>16.2 Logging Points</h3>
+
+<p><strong>App-side (add to datasource):</strong></p>
+<pre><code>// Log raw bytes
+notifyStream.listen((data) {
+  debugPrint('BLE RX: ${String.fromCharCodes(data)}');
+});
+
+// Log parsed messages
+final message = BleMessageModel.fromJson(jsonString);
+debugPrint('BLE MSG: ${message.type} - ${message.data}');</code></pre>
+
+<p><strong>Device-side (already enabled):</strong></p>
+<pre><code>// Connect serial monitor at 115200 baud
+// All BLE events logged to Serial</code></pre>
+
+<hr>
+
+<h2 id="appendices">Appendices</h2>
+
+<h3>Appendix A: File Locations</h3>
+
+<h4>App Code</h4>
+<table>
+    <tr><th>Component</th><th>Path</th></tr>
+    <tr><td>BLE Constants</td><td><code>lib/core/utils/bluetooth_constants.dart</code></td></tr>
+    <tr><td>Datasource Interface</td><td><code>lib/features/bluetooth/data/datasources/bluetooth_datasource.dart</code></td></tr>
+    <tr><td>Datasource Implementation</td><td><code>lib/features/bluetooth/data/datasources/bluetooth_datasource_impl.dart</code></td></tr>
+    <tr><td>Message Model</td><td><code>lib/features/bluetooth/data/models/ble_message_model.dart</code></td></tr>
+    <tr><td>Device Model</td><td><code>lib/features/bluetooth/data/models/ble_device_model.dart</code></td></tr>
+    <tr><td>Repository</td><td><code>lib/features/bluetooth/data/repositories/bluetooth_repository_impl.dart</code></td></tr>
+    <tr><td>Entities</td><td><code>lib/features/bluetooth/domain/entities/</code></td></tr>
+    <tr><td>Use Cases</td><td><code>lib/features/bluetooth/domain/usecases/</code></td></tr>
+    <tr><td>BLoC</td><td><code>lib/features/bluetooth/presentation/bloc/bluetooth_bloc.dart</code></td></tr>
+</table>
+
+<h4>Firmware Code</h4>
+<table>
+    <tr><th>Component</th><th>Location in <code>Trackwise_ESP32.ino</code></th></tr>
+    <tr><td>BLE UUIDs</td><td>Lines ~29-35</td></tr>
+    <tr><td>Multi-device NVS keys</td><td>Lines ~47-51</td></tr>
+    <tr><td>Handshake handler</td><td><code>handleHandshake()</code></td></tr>
+    <tr><td>Override handlers</td><td><code>handleOverrideStart/Chunk/End()</code></td></tr>
+    <tr><td>Sync complete handler</td><td><code>handleSyncComplete()</code></td></tr>
+    <tr><td>SetItemsCallback</td><td><code>class SetItemsCallback</code></td></tr>
+    <tr><td>WriteCallback</td><td><code>class WriteCallback</code></td></tr>
+    <tr><td>ServerCallbacks</td><td><code>class ServerCallbacks</code></td></tr>
+    <tr><td>Non-blocking transmit</td><td><code>processBleTransmit()</code></td></tr>
+    <tr><td>Daily reset check</td><td><code>checkDailyReset()</code></td></tr>
+    <tr><td>NVS operations</td><td>Various helper functions</td></tr>
+</table>
+
+<hr>
+
+<h3>Appendix B: Device Limits</h3>
+
+<table>
+    <tr><th>Limit</th><th>Value</th><th>Enforced By</th></tr>
+    <tr><td>Max items</td><td>100</td><td><code>maxPrefsSlots</code> constant</td></tr>
+    <tr><td>Max item name</td><td>30 characters</td><td>Truncation</td></tr>
+    <tr><td>Max category</td><td>30 characters</td><td>Truncation</td></tr>
+    <tr><td>Max increment</td><td>1000</td><td>Clamping</td></tr>
+    <tr><td>Min increment</td><td>1</td><td>Clamping</td></tr>
+    <tr><td>Max reminder value</td><td>9,999</td><td>Clamping</td></tr>
+    <tr><td>Max count value</td><td>2,147,483,647</td><td>int32 limit</td></tr>
+    <tr><td>Max log entries</td><td>1000</td><td>Circular buffer</td></tr>
+    <tr><td>Max set_items payload</td><td>32KB</td><td>CHAR_SET_ITEMS buffer</td></tr>
+    <tr><td>Max WRITE command payload</td><td>8KB</td><td>CHAR_WRITE buffer</td></tr>
+    <tr><td>Max message size</td><td>64KB</td><td>App buffer limit</td></tr>
+    <tr><td>Max BLE MTU</td><td>517 bytes</td><td>BLE spec</td></tr>
+</table>
+
+<div class="note">
+    <strong>Important:</strong> Commands sent via CHAR_WRITE <strong>must</strong> end with <code>\n</code> (newline). The firmware accumulates chunks and processes complete messages on newline detection.
+</div>
+
+<hr>
+
+<h3>Appendix C: Complete UUID Reference</h3>
+
+<pre><code>Service:       12345678-1234-1234-1234-123456789000
+CHAR_READ:     12345678-1234-1234-1234-123456789001
+CHAR_NOTIFY:   12345678-1234-1234-1234-123456789002
+CHAR_SET_ITEMS:12345678-1234-1234-1234-123456789008
+CHAR_WRITE:    12345678-1234-1234-1234-123456789010</code></pre>
+
+<hr>
+
+<h3>Appendix D: Device Instance ID</h3>
+
+<p>The device instance ID uniquely identifies each physical device. It is returned in handshake responses.</p>
+
+<table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td><strong>Source</strong></td><td>BLE MAC address</td></tr>
+    <tr><td><strong>Format</strong></td><td>MAC address string (e.g., "AA:BB:CC:DD:EE:FF")</td></tr>
+    <tr><td><strong>Persistence</strong></td><td>Hardware-fixed (survives factory reset)</td></tr>
+    <tr><td><strong>NVS Storage</strong></td><td>None (read directly from BLE stack)</td></tr>
+</table>
+
+<div class="note">
+    <strong>Note:</strong> In v1.0, the device instance ID was a generated UUID stored in NVS. In v2.0, it uses the BLE MAC address which is hardware-fixed and does not require NVS storage.
+</div>
+
+<hr>
+
+<h3>Appendix E: Revision History</h3>
+
+<table>
+    <tr><th>Version</th><th>Date</th><th>Author</th><th>Changes</th></tr>
+    <tr><td>1.0</td><td>2025-01-24</td><td>Generated from codebase</td><td>Initial specification</td></tr>
+    <tr><td>2.0</td><td>2026-01-27</td><td>Multi-device update</td><td>Added handshake, override, sync_complete commands; device states; updated sync flows</td></tr>
+</table>
+
+<hr>
+
+<h2>Quick Reference Card</h2>
+
+<div class="quick-ref">┌─────────────────────────────────────────────────────────────┐
+│                  TRAXELOS BLE QUICK REFERENCE               │
+├─────────────────────────────────────────────────────────────┤
+│ Device Name: Traxelos_One                                       │
+│ Service: 12345678-1234-1234-1234-123456789000               │
+├─────────────────────────────────────────────────────────────┤
+│ CHARACTERISTICS:                                            │
+│   NOTIFY  ...002  ← Device notifications (subscribe!)      │
+│   WRITE   ...010  → Commands (handshake, set_selected...)  │
+│   SET_ITEMS ...008 → Legacy item list (JSON array)         │
+├─────────────────────────────────────────────────────────────┤
+│ MULTI-DEVICE SYNC (v2.0):                                   │
+│   {"cmd":"handshake","uid":"...","sync_seq":N}             │
+│     → FIRST command after connect!                         │
+│   {"cmd":"override_start","uid":"...","sync_seq":N,        │
+│    "total_chunks":M}                                       │
+│   {"cmd":"override_chunk","index":I,"items":[...]}         │
+│   {"cmd":"override_end","selected_id":X}                   │
+│   {"cmd":"sync_complete","sync_seq":N}                     │
+├─────────────────────────────────────────────────────────────┤
+│ LEGACY COMMANDS:                                            │
+│   {"cmd":"set_selected","id":N}      Select item 0-99      │
+│   {"cmd":"set_time","utc_time":"...","offset":N}           │
+│   {"cmd":"prepare_read","type":"prefs|logs","page":N}      │
+│   {"cmd":"clear_logs"}               After syncing logs    │
+├─────────────────────────────────────────────────────────────┤
+│ NOTIFICATIONS (Device → App):                               │
+│   {"status":"in_sync|conflict|wrong_account|uninitialized"}│
+│   {"type":"prefs",...}     Full item list + selected_id    │
+│   {"type":"event",...}     Button press (increment/reset)  │
+│   {"type":"item_delta",...} Single item count update       │
+│   {"type":"logs",...}      Historical events (paginated)   │
+│   {"type":"error",...}     Error message                   │
+├─────────────────────────────────────────────────────────────┤
+│ SYNC FLOW:                                                  │
+│   1. Connect → handshake                                   │
+│   2a. in_sync → device sends prefs/logs → sync_complete    │
+│   2b. conflict → override_start → chunks → override_end    │
+│   2c. uninitialized → override (includes UID pairing)      │
+├─────────────────────────────────────────────────────────────┤
+│ GOLDEN RULES:                                               │
+│   - ALWAYS send handshake first after connect              │
+│   - in_sync: Device is source of truth                     │
+│   - conflict: App (Firestore) is source of truth           │
+│   - set_items preserves device counts                      │
+│   - override_chunk overwrites with app counts              │
+└─────────────────────────────────────────────────────────────┘</div>
+
+</body>
+</html>

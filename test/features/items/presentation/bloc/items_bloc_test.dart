@@ -3,16 +3,16 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/domain/usecases/get_items_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/create_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/update_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/delete_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/increment_item_usecase.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_event.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_state.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/domain/usecases/get_items_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/create_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/update_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/delete_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/increment_item_usecase.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_event.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_state.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';
@@ -149,6 +149,8 @@ void main() {
     blocTest<ItemsBloc, ItemsState>(
       'emits [ItemsLoading, ItemsLoaded(isWatching: true)] when successful',
       build: () {
+        when(() => mockItemRepository.ensureDeviceItemIds(any()))
+            .thenAnswer((_) async => const Right(0));
         when(() => mockWatchItems(any())).thenAnswer(
           (_) => Stream.value(Right(testItems)),
         );
@@ -172,6 +174,8 @@ void main() {
     blocTest<ItemsBloc, ItemsState>(
       'emits [ItemsLoading, ItemsError] when stream fails',
       build: () {
+        when(() => mockItemRepository.ensureDeviceItemIds(any()))
+            .thenAnswer((_) async => const Right(0));
         when(() => mockWatchItems(any())).thenAnswer(
           (_) => Stream.value(const Left(ServerFailure('Stream error'))),
         );
@@ -195,6 +199,8 @@ void main() {
     blocTest<ItemsBloc, ItemsState>(
       'emits multiple states from stream updates',
       build: () {
+        when(() => mockItemRepository.ensureDeviceItemIds(any()))
+            .thenAnswer((_) async => const Right(0));
         when(() => mockWatchItems(any())).thenAnswer(
           (_) => Stream.fromIterable([
             Right(testItems),
@@ -222,6 +228,8 @@ void main() {
     blocTest<ItemsBloc, ItemsState>(
       'cancels existing subscription before creating new one',
       build: () {
+        when(() => mockItemRepository.ensureDeviceItemIds(any()))
+            .thenAnswer((_) async => const Right(0));
         when(() => mockWatchItems(any())).thenAnswer(
           (_) => Stream.value(Right(testItems)),
         );
@@ -235,10 +243,12 @@ void main() {
           itemRepository: mockItemRepository,
         );
       },
-      act: (bloc) {
+      act: (bloc) async {
         bloc.add(WatchItemsEvent(userId));
+        await Future.delayed(const Duration(milliseconds: 50));
         bloc.add(WatchItemsEvent(userId));
       },
+      wait: const Duration(milliseconds: 100),
       expect: () => [
         ItemsLoading(),
         ItemsLoaded(testItems, isWatching: true),

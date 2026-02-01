@@ -33,4 +33,8 @@ abstract class AuthRepository {
   ///
   /// Emits the current user when signed in, null when signed out.
   Stream<User?> watchAuthState();
+
+  /// Reauthenticate the current user (required for sensitive operations).
+  /// Returns the provider ID used for reauthentication.
+  Future<Either<Failure, String>> reauthenticate();
 }

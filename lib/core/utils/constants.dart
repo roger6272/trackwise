@@ -6,15 +6,15 @@ class AppConstants {
   AppConstants._();
 
   // App Info
-  static const String appName = 'Traxogic';
+  static const String appName = 'Traxelos';
   static const String appVersion = '1.0.0';
 
   // Item Constraints
   static const int maxItemNameLength = 30;
   static const int minIncrementValue = 1;
-  static const int maxIncrementValue = 100;
+  static const int maxIncrementValue = 1000;
   static const int minReminderValue = 0;
-  static const int maxReminderValue = 1000;
+  static const int maxReminderValue = 9999;
 
   // Category Constraints
   static const int maxCategoryNameLength = 30;

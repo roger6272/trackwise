@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:injectable/injectable.dart';
+
+import '../../../../core/utils/logger.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../models/category_model.dart';
@@ -55,8 +56,8 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
           return categories;
         })
         .handleError((error, stackTrace) {
-          if (kDebugMode) print('❌ watchCategories stream error: $error');
-          if (kDebugMode) print('Stack trace: $stackTrace');
+          AppLogger.debug('watchCategories stream error: $error');
+          AppLogger.debug('Stack trace: $stackTrace');
           throw ServerException('Failed to watch categories: $error');
         });
   }

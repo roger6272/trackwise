@@ -4,51 +4,77 @@
 
 ## Project-Specific Instructions
 
-This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean architecture.
+This is a Flutter app (Traxelos) using clean architecture with BLoC pattern.
 
 ## Cross-Codebase Awareness
 
 **CRITICAL: Always consider ALL codebases AND documentation when making enhancements, troubleshooting, or doing project reviews/analysis:**
 
-1. **New App Code** (clean architecture)
+1. **App Code**
    - Location: `lib/features/`, `lib/core/`, `lib/backend/`
-   - This is the target architecture we're migrating to
    - Uses BLoC pattern and clean architecture principles
 
-2. **Old App Code** (FlutterFlow)
-   - Location: `lib/flutter_flow/`, `lib/auth/`, `lib/custom_code/`
-   - Reference for existing behavior and business logic
-   - Check here to understand how features currently work
-
-3. **Firmware** (ESP32)
+2. **Firmware** (ESP32)
    - Location: `firmware/Trackwise_ESP32/`
    - BLE protocol, commands, and device behavior
    - **Essential for BLE-related issues** - always check firmware to understand expected data formats, command sequences, and timing
 
-4. **BLE Protocol Specification**
+3. **BLE Protocol Specification**
    - Location: `docs/BLE_PROTOCOL.md`
    - **Source of truth** for app-device communication
    - Contains: UUIDs, commands, notifications, timing, sync sequences, edge cases
-   - **Check this FIRST** when debugging BLE issues before reading firmware code
-   - **IMPORTANT:** Also review this doc for whole-project reviews, architecture analysis, or when asked to understand how the system works - it documents the critical app↔device interface
+   - **ALWAYS read this doc** when the task involves:
+     - Bluetooth/BLE code (app or firmware)
+     - Protocol design, review, or optimization questions
+     - Sync, notifications, or device communication
+     - Any question about how app and device communicate
+     - Whole-project reviews or architecture analysis
+   - Read BEFORE diving into firmware code - the doc explains the "why" behind the implementation
 
-5. **User Guide**
+4. **User Guide**
    - Location: `docs/USER_GUIDE.md`
    - **Non-technical user documentation** - how end users interact with the product
    - Contains: Feature explanations, user flows, troubleshooting, quick reference
    - **Consult when:** Making UI/UX changes, adding features, writing user-facing text, or creating other documentation
    - Ensures code changes align with documented user expectations
 
-6. **Product Overview**
+5. **Product Overview**
    - Location: `docs/PRODUCT_OVERVIEW.md`
    - **Business/product context** - what the product is and why it exists
    - Contains: Problem/solution, key features, differentiators, use cases
    - **Consult when:** Making architectural decisions or prioritizing features
 
+6. **Architecture Decision Records (ADRs)**
+   - Location: `docs/decisions/`
+   - **Documents explaining WHY** non-obvious design decisions were made
+   - **ALWAYS check here first** when questioning an existing design choice
+   - If a decision seems wrong, read the ADR before suggesting changes
+   - When making new significant decisions, create a new ADR
+   - **What's "non-obvious"?** A decision where someone might ask "why didn't they just...?"
+     - You rejected a simpler approach (e.g., "why two notifications instead of one?")
+     - Multiple valid options existed (e.g., "why JSON over binary?")
+     - It looks like a bug but isn't (e.g., "why does set_items ignore counts?")
+     - Trade-offs were weighed (e.g., "why batch every 10 instead of every 1?")
+     - It contradicts common patterns (e.g., "why device over cloud as source of truth?")
+   - **Quick test:** If explaining "why" takes more than one sentence, consider an ADR. If no ADR exists for a non-obvious design, double check with user before making changes.
+
+7. **Troubleshooting Playbook**
+   - Location: `docs/TROUBLESHOOTING.md`
+   - **Quick diagnostic guides** for common issues
+   - Contains: Connection issues, sync problems, count mismatches, notification issues, daily reset problems
+   - **Consult when:** Debugging BLE issues, investigating user-reported bugs, or understanding failure modes
+   - Includes diagnostic commands and quick reference tables
+
+8. **Data Flow & Sync Scenarios**
+   - Location: `docs/DATA_FLOW.md`
+   - **Visual guide** to how data moves through the system
+   - Contains: Three-tier architecture, sync scenario diagrams, real-time event flow, multi-device sync, consistency rules
+   - **Consult when:** Debugging sync issues, understanding source-of-truth decisions, or working on multi-device features
+   - Includes ASCII sequence diagrams and decision trees
+
 **Before any change:**
 - Check if the issue spans app ↔ firmware communication
 - Verify BLE command/response formats match between app and firmware
-- Review existing FlutterFlow implementation for reference behavior
 - Ensure new code maintains compatibility with firmware protocol
 
 ## Epics and Tasks (CCPM)
@@ -61,21 +87,6 @@ This is a Flutter app (Traxogic) being migrated from FlutterFlow to clean archit
 4. Before starting any task, **verify it aligns with the relevant PRD**
 5. If a task contradicts the PRD, **flag this to the user** before proceeding
 6. Don't blindly execute tasks - they may have been incorrectly defined
-
-## Migration Work
-
-**CRITICAL: Before any migration-related changes:**
-
-1. **Read the PRD** at `.claude/prds/trackwise-app-migration.md`
-2. **Verify the task/epic aligns** with the PRD's phased approach
-3. **Check that feature flags exist** in `lib/core/config/migration_flags.dart` before switching implementations
-4. **Use feature flags** to toggle between old and new implementations
-5. **Keep FF pages as fallback** until new pages are fully tested
-
-The PRD specifies:
-- Phase 1: Wire up existing code (enable migration flags one by one)
-- Phase 2: Complete missing pages (implement remaining pages)
-- Phase 3: Cleanup (remove FF imports, delete FF directories)
 
 ## Continued Sessions
 
@@ -107,4 +118,28 @@ Always run tests before committing:
 Follow existing patterns in the codebase.
 - Use BLoC pattern for state management
 - Follow clean architecture structure in `features/`
-- Match FlutterFlow visual styling exactly during migration
+
+## Documentation Maintenance
+
+**When making changes, always check if documentation needs updating.**
+
+| If you change... | Update these docs |
+|------------------|-------------------|
+| BLE commands, notifications, protocol | `docs/BLE_PROTOCOL.md`, check `DATA_FLOW.md` for examples |
+| Handshake request/response format | `docs/BLE_PROTOCOL.md`, `docs/DATA_FLOW.md` (has response examples) |
+| Sync logic, data flow | `docs/DATA_FLOW.md`, `docs/DATA_FLOW.html` |
+| Firmware behavior | `docs/BLE_PROTOCOL.md`, `docs/DATA_FLOW.md` |
+| Error handling, failure modes | `docs/TROUBLESHOOTING.md`, `docs/BLE_PROTOCOL.md` (error codes) |
+| User-facing features, UI flows | `docs/USER_GUIDE.md` |
+| Product capabilities, use cases | `docs/PRODUCT_OVERVIEW.md` |
+| Non-obvious design decisions | Create new `docs/decisions/ADR-XXX.md` |
+
+**Note:** `DATA_FLOW.html` is a styled version of `DATA_FLOW.md` - update both when changing data flow diagrams.
+
+**Guidelines:**
+- Update docs in the **same commit** as the code change when possible
+- If a doc describes behavior you're changing, **update it or flag the inconsistency**
+- When adding new features, check if they should be documented in User Guide
+- Keep diagrams and examples in sync with actual implementation
+
+**After fixing bugs:** Always add the pattern to `docs/TROUBLESHOOTING.md` if the root cause was non-obvious (took investigation to find, involved timing/state issues, or could recur). Include: symptoms, root cause, the fix, and a "key lesson" takeaway. This is not optional — treat it as part of the fix.

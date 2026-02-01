@@ -6,6 +6,7 @@ import '../widgets/app_shell.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
+import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/items/presentation/pages/items_list_page.dart';
 import '../../features/items/presentation/pages/item_detail_page.dart';
 import '../../features/items/presentation/pages/item_form_page.dart';
@@ -17,8 +18,8 @@ import '../../features/export/presentation/pages/export_page.dart';
 import '../../features/items/presentation/pages/deleted_items_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_search_page.dart';
-import '../../features/bluetooth/presentation/pages/device_management_page.dart';
 import '../../features/bluetooth/presentation/pages/bluetooth_test_page.dart';
+import '../../features/bluetooth/presentation/pages/paired_devices_page.dart';
 import '../../features/items/domain/entities/item.dart';
 import '../../features/categories/presentation/pages/manage_categories_page.dart';
 
@@ -42,15 +43,21 @@ class AppRouter {
         final loggingIn = state.matchedLocation == LoginPage.routePath ||
             state.matchedLocation == SignupPage.routePath ||
             state.matchedLocation == ForgotPasswordPage.routePath;
+        final onOnboarding = state.matchedLocation == OnboardingPage.routePath;
 
         // If not logged in and not on auth page, redirect to login
         if (!loggedIn && !loggingIn) {
           return LoginPage.routePath;
         }
 
-        // If logged in and on auth page, redirect to home
+        // If logged in and on auth page, redirect based on onboarding status
         if (loggedIn && loggingIn) {
-          return '/';
+          return authStateNotifier.needsOnboarding ? OnboardingPage.routePath : '/';
+        }
+
+        // If logged in but needs onboarding, redirect to onboarding
+        if (authStateNotifier.needsOnboarding && !onOnboarding) {
+          return OnboardingPage.routePath;
         }
 
         // Handle saved redirect location
@@ -78,6 +85,11 @@ class AppRouter {
           name: ForgotPasswordPage.routeName,
           path: ForgotPasswordPage.routePath,
           builder: (context, state) => const ForgotPasswordPage(),
+        ),
+        GoRoute(
+          name: OnboardingPage.routeName,
+          path: OnboardingPage.routePath,
+          builder: (context, state) => const OnboardingPage(),
         ),
 
         // Main app with shell navigation
@@ -166,11 +178,6 @@ class AppRouter {
                   path: 'search',
                   builder: (context, state) => const BluetoothSearchPage(),
                 ),
-                GoRoute(
-                  name: DeviceManagementPage.routeName,
-                  path: 'device',
-                  builder: (context, state) => const DeviceManagementPage(),
-                ),
                 // Temporary test route - remove after Task #18
                 GoRoute(
                   name: 'BluetoothTestPage',
@@ -213,6 +220,11 @@ class AppRouter {
                   name: ManageCategoriesPage.routeName,
                   path: 'categories',
                   builder: (context, state) => const ManageCategoriesPage(),
+                ),
+                GoRoute(
+                  name: PairedDevicesPage.routeName,
+                  path: PairedDevicesPage.routePath,
+                  builder: (context, state) => const PairedDevicesPage(),
                 ),
               ],
             ),

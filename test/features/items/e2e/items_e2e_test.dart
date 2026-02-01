@@ -4,15 +4,15 @@ library;
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/domain/usecases/create_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/delete_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/get_items_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/increment_item_usecase.dart';
-import 'package:trackwise/features/items/domain/usecases/update_item_usecase.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_event.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_state.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/domain/usecases/create_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/delete_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/get_items_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/increment_item_usecase.dart';
+import 'package:traxelos/features/items/domain/usecases/update_item_usecase.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_event.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_state.dart';
 
 import 'e2e_test_helper.dart';
 

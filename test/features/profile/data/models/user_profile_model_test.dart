@@ -3,8 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/features/profile/data/models/user_profile_model.dart';
-import 'package:trackwise/features/profile/domain/entities/user_profile.dart';
+import 'package:traxelos/features/profile/data/models/user_profile_model.dart';
+import 'package:traxelos/features/profile/domain/entities/user_profile.dart';
 
 class MockFirebaseUser extends Mock implements firebase.User {}
 

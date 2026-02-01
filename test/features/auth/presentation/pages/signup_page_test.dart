@@ -5,10 +5,10 @@ import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:trackwise/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_event.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_state.dart';
-import 'package:trackwise/features/auth/presentation/pages/signup_page.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_event.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_state.dart';
+import 'package:traxelos/features/auth/presentation/pages/signup_page.dart';
 
 import '../../helpers/test_fixtures.dart';
 

@@ -54,6 +54,7 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
         itemId: event.itemId,
         sinceResetTime: event.sinceResetTime,
         untilResetTime: event.untilResetTime,
+        isFirstCycle: event.isFirstCycle,
       ),
     );
 
@@ -89,6 +90,7 @@ class ChartsBloc extends Bloc<ChartsEvent, ChartsState> {
         itemId: event.itemId,
         sinceResetTime: event.sinceResetTime,
         untilResetTime: event.untilResetTime,
+        isFirstCycle: event.isFirstCycle,
       ),
     );
 

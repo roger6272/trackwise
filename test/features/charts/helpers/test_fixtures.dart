@@ -1,7 +1,7 @@
-import 'package:trackwise/features/charts/domain/entities/chart_data.dart';
-import 'package:trackwise/features/charts/domain/entities/chart_data_point.dart';
-import 'package:trackwise/features/events/domain/entities/event_log.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/charts/domain/entities/chart_data.dart';
+import 'package:traxelos/features/charts/domain/entities/chart_data_point.dart';
+import 'package:traxelos/features/events/domain/entities/event_log.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
 
 /// Test fixtures for Charts tests.
 

@@ -2,10 +2,10 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/events/domain/entities/event_log.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/domain/usecases/create_item_usecase.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/events/domain/entities/event_log.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/domain/usecases/create_item_usecase.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';
@@ -131,11 +131,11 @@ void main() {
       verifyNever(() => mockRepository.createItem(any()));
     });
 
-    test('should return ValidationFailure for incrementBy > 100', () async {
+    test('should return ValidationFailure for incrementBy > 1000', () async {
       // Arrange
       final params = CreateItemParams(
         name: 'Test',
-        incrementBy: 101,
+        incrementBy: 1001,
         reminder: ReminderType.none,
         reminderValue: 0,
         userId: userId,
@@ -147,7 +147,7 @@ void main() {
       // Assert
       expect(result, isA<Left>());
       expect((result as Left).value, isA<ValidationFailure>());
-      expect((result as Left).value.message, contains('100'));
+      expect((result as Left).value.message, contains('1000'));
       verifyNever(() => mockRepository.createItem(any()));
     });
 
@@ -170,13 +170,13 @@ void main() {
       verifyNever(() => mockRepository.createItem(any()));
     });
 
-    test('should return ValidationFailure for reminderValue > 1000', () async {
+    test('should return ValidationFailure for reminderValue > 9999', () async {
       // Arrange
       final params = CreateItemParams(
         name: 'Test',
         incrementBy: 1,
         reminder: ReminderType.target,
-        reminderValue: 1001,
+        reminderValue: 10000,
         userId: userId,
       );
 
@@ -186,7 +186,7 @@ void main() {
       // Assert
       expect(result, isA<Left>());
       expect((result as Left).value, isA<ValidationFailure>());
-      expect((result as Left).value.message, contains('1000'));
+      expect((result as Left).value.message, contains('9999'));
       verifyNever(() => mockRepository.createItem(any()));
     });
 

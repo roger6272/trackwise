@@ -6,12 +6,16 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
+import '../../../bluetooth/domain/repositories/bluetooth_repository.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
+import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
 import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../../items/domain/repositories/item_repository.dart';
@@ -93,22 +97,10 @@ class _ProfilePageState extends State<ProfilePage> {
               if (state is AccountDeleted) {
                 await _handleAccountDeleted(context);
               } else if (state is ProfileError) {
-                // If deletion failed due to re-auth required, sign out and go to login
-                // The user's Firestore data may already be deleted at this point,
-                // so they need to re-authenticate and try again
+                // If deletion failed due to re-auth required, show reauthentication dialog
                 if (state.message.toLowerCase().contains('sign in') ||
                     state.message.toLowerCase().contains('log in')) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          'Session expired. Please log in again to complete account deletion.'),
-                      backgroundColor: _error,
-                    ),
-                  );
-                  // Clean up device before signing out
-                  await _cleanupDevice(context);
-                  // Sign out and navigate to login
-                  context.read<AuthBloc>().add(const SignOutEvent());
+                  _showReauthenticationDialog(context);
                   return;
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -181,6 +173,13 @@ class _ProfilePageState extends State<ProfilePage> {
                               icon: Icons.category_outlined,
                               title: 'Manage Categories',
                               onTap: () => context.push('/profile/categories'),
+                            ),
+                            _buildDivider(context),
+                            _buildSettingItem(
+                              context,
+                              icon: Icons.watch_outlined,
+                              title: 'Paired Devices',
+                              onTap: () => context.push('/profile/paired-devices'),
                             ),
                             _buildDivider(context),
                             _buildSettingItem(
@@ -442,94 +441,127 @@ class _ProfilePageState extends State<ProfilePage> {
     final secondaryBackground = AppColors.secondaryBackground(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
-    return BlocBuilder<BluetoothBloc, BluetoothState>(
-      builder: (context, bluetoothState) {
-        final isConnected = bluetoothState.isConnected;
-
-        return InkWell(
-          onTap: isConnected ? () => _showDeleteConfirmation(context) : null,
+    return InkWell(
+      onTap: () => _showDeleteConfirmation(context),
+      borderRadius: BorderRadius.circular(12.0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: secondaryBackground,
           borderRadius: BorderRadius.circular(12.0),
-          child: Opacity(
-            opacity: isConnected ? 1.0 : 0.5,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16.0),
+          border: Border.all(
+            color: _error.withValues(alpha: 0.3),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: _error,
+              size: 24.0,
+            ),
+            const SizedBox(width: 12.0),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Delete Account',
+                    style: GoogleFonts.inter(
+                      color: _error,
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2.0),
+                  Text(
+                    'Permanently delete your account and all data',
+                    style: GoogleFonts.inter(
+                      color: secondaryText,
+                      fontSize: 12.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: secondaryText,
+              size: 20.0,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+    final isConnected = context.read<BluetoothBloc>().state.isConnected;
+
+    final deviceMessage = isConnected
+        ? 'Your connected device will be automatically reset and unpaired.'
+        : 'Any paired devices not currently connected will need to be factory reset.\n\nOn device: Hold A+B for 7 seconds.';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Account?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will permanently delete all your data including:\n\n'
+              '• Your profile\n'
+              '• All items\n'
+              '• All event logs\n'
+              '• Your account\n\n'
+              'This action cannot be undone.',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: secondaryBackground,
-                borderRadius: BorderRadius.circular(12.0),
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: _error.withValues(alpha: 0.3),
-                  width: 1.0,
+                  color: Colors.orange.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    Icons.warning_amber_rounded,
-                    color: _error,
-                    size: 24.0,
+                    isConnected ? Icons.bluetooth_connected : Icons.info_outline,
+                    color: Colors.orange,
+                    size: 20,
                   ),
-                  const SizedBox(width: 12.0),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Delete Account',
-                          style: GoogleFonts.inter(
-                            color: _error,
-                            fontSize: 16.0,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2.0),
-                        Text(
-                          isConnected
-                              ? 'Permanently delete your account and all data'
-                              : 'Device connection required',
-                          style: GoogleFonts.inter(
-                            color: secondaryText,
-                            fontSize: 12.0,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      deviceMessage,
+                      style: TextStyle(
+                        color: secondaryText,
+                        fontSize: 13.0,
+                      ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: secondaryText,
-                    size: 20.0,
                   ),
                 ],
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showDeleteConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Account?'),
-        content: const Text(
-          'This will permanently delete all your data including:\n\n'
-          '- Your profile\n'
-          '- All items\n'
-          '- All event logs\n'
-          '- Your account\n\n'
-          'This action cannot be undone. Are you sure?',
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               _showFinalDeleteConfirmation(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -545,7 +577,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Final Confirmation'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -568,16 +600,22 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               if (controller.text == 'DELETE') {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+                // Clean up device BEFORE deleting account.
+                // Account deletion triggers auth state change which redirects
+                // to login, potentially before BlocConsumer listener runs.
+                // Use page context (not dialog context) since dialog is dismissed.
+                await _cleanupDevice(context);
+                if (!context.mounted) return;
                 context.read<ProfileBloc>().add(const DeleteAccountEvent());
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(
                     content: Text('Please type DELETE to confirm'),
                     backgroundColor: Colors.orange,
@@ -594,22 +632,109 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showSignOutConfirmation(BuildContext context) {
+    final bluetoothBloc = context.read<BluetoothBloc>();
+    final authBloc = context.read<AuthBloc>();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Sign Out?'),
         content: const Text('Are you sure you want to sign out?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<AuthBloc>().add(const SignOutEvent());
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              // Disconnect from device if connected (don't clear data, just disconnect)
+              if (bluetoothBloc.state.isConnected) {
+                bluetoothBloc.add(const DisconnectFromDevice());
+                await Future.delayed(const Duration(milliseconds: 200));
+              }
+              authBloc.add(const SignOutEvent());
             },
             child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shows a dialog to reauthenticate before sensitive operations like account deletion.
+  void _showReauthenticationDialog(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryBackground = AppColors.primaryBackground(brightness);
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: primaryBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        title: Text(
+          'Session Expired',
+          style: GoogleFonts.interTight(
+            color: primaryText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'For security, please sign in again to delete your account.',
+          style: GoogleFonts.inter(
+            color: secondaryText,
+            fontSize: 14.0,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(color: secondaryText),
+            ),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              // Show loading indicator
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Signing in...')),
+              );
+              // Reauthenticate and retry deletion
+              final authRepository = sl<AuthRepository>();
+              final result = await authRepository.reauthenticate();
+              result.fold(
+                (failure) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(failure.message),
+                      backgroundColor: _error,
+                    ),
+                  );
+                },
+                (_) async {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  // Clean up device BEFORE deleting account (same reason as above)
+                  await _cleanupDevice(context);
+                  if (!context.mounted) return;
+                  context.read<ProfileBloc>().add(const DeleteAccountEvent());
+                },
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: _error,
+            ),
+            child: Text(
+              'Sign In & Delete',
+              style: GoogleFonts.inter(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -777,8 +902,12 @@ class _ProfilePageState extends State<ProfilePage> {
           (categories) => {for (final c in categories) c.id: c.name},
         );
 
-        // Send reset items to device
-        bluetoothBloc.add(SendItemsToDevice(resetItems!, categoryNames: categoryNames));
+        syncItemsToDevice(
+          bluetoothBloc: bluetoothBloc,
+          allItems: resetItems!,
+          deviceSelectedId: bluetoothBloc.state.selectedItemId,
+          categoryNames: categoryNames,
+        );
       }
 
       scaffoldMessenger.showSnackBar(
@@ -807,38 +936,35 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _handleAccountDeleted(BuildContext context) async {
-    // Clean up device if connected
-    await _cleanupDevice(context);
-
-    // Navigate to login screen using go_router (replaces entire stack)
+    // Device cleanup already happened before DeleteAccountEvent was dispatched.
+    // Navigate to login screen using go_router (replaces entire stack).
     context.go('/login');
   }
 
-  /// Cleans up the Bluetooth device by clearing items, logs, and disconnecting.
-  /// Waits for commands to be sent before returning.
+  /// Cleans up the Bluetooth device by unpairing and disconnecting.
+  /// Called BEFORE account deletion to ensure the unpair command is sent
+  /// while the page is still mounted (account deletion triggers auth state
+  /// change which redirects to login via GoRouter).
   Future<void> _cleanupDevice(BuildContext context) async {
     try {
       final bluetoothBloc = context.read<BluetoothBloc>();
-      if (bluetoothBloc.state.isConnected) {
-        // Clear all items from device (send empty list)
-        bluetoothBloc.add(const SendItemsToDevice([]));
-        // Deselect current item (-1 means no selection)
-        bluetoothBloc.add(const SendSelectedItem('none', -1));
-        // Clear device logs
-        bluetoothBloc.add(const ClearDeviceLogs());
+      final deviceId = bluetoothBloc.state.connectedDevice?.id;
+      if (deviceId == null) return;
 
-        // Wait for BLE commands to be sent before disconnecting
-        await Future.delayed(const Duration(milliseconds: 500));
+      // Send unpair directly via repository (awaited) to guarantee the
+      // BLE write completes before proceeding to account deletion.
+      final repository = sl<BluetoothRepository>();
+      await repository.unpairDevice(deviceId);
 
-        // Disconnect from device (forget connection)
-        bluetoothBloc.add(const DisconnectFromDevice());
+      // Wait for firmware to process and commit NVS
+      await Future.delayed(const Duration(milliseconds: 500));
 
-        // Wait for disconnect to complete
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
+      // Disconnect
+      bluetoothBloc.add(const DisconnectFromDevice());
+      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       // Ignore errors during cleanup - account deletion should proceed
-      debugPrint('Device cleanup error during account deletion: $e');
+      AppLogger.debug('Device cleanup error: $e');
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
+import '../../domain/entities/paired_device.dart';
 
 /// Status of the Bluetooth BLoC.
 enum BluetoothStatus {
@@ -68,6 +69,42 @@ class BluetoothState extends Equatable {
   /// Whether Bluetooth adapter is enabled
   final bool bluetoothEnabled;
 
+  // ========== Multi-Device Fields ==========
+
+  /// List of devices paired to the user's account.
+  final List<PairedDevice> pairedDevices;
+
+  /// Device instance ID of the currently connected device.
+  /// Used to identify which paired device is connected.
+  final String? connectedDeviceInstanceId;
+
+  /// Whether a sync conflict was detected.
+  /// When true, UI should show the conflict dialog.
+  final bool hasConflict;
+
+  /// App's sync sequence number (for conflict dialog context).
+  final int? conflictAppSyncSeq;
+
+  /// Device's sync sequence number (for conflict dialog context).
+  final int? conflictDeviceSyncSeq;
+
+  /// Device instance ID from conflict (needed to add after successful override).
+  final String? conflictDeviceInstanceId;
+
+  /// Whether device needs setup (uninitialized/factory reset).
+  /// When true, UI should show setup dialog: "New device detected. Transfer your items?"
+  final bool needsSetup;
+
+  /// Device instance ID from uninitialized device (needed to add after successful setup).
+  final String? setupDeviceInstanceId;
+
+  /// Whether an override sync is in progress.
+  final bool isOverriding;
+
+  /// Whether the device is locked to a different user account.
+  /// When true, UI should show wrong account dialog and disconnect.
+  final bool hasWrongAccount;
+
   const BluetoothState({
     this.status = BluetoothStatus.initial,
     this.discoveredDevices = const [],
@@ -79,6 +116,16 @@ class BluetoothState extends Equatable {
     this.hasMoreLogs = false,
     this.permissionsGranted = false,
     this.bluetoothEnabled = false,
+    this.pairedDevices = const [],
+    this.connectedDeviceInstanceId,
+    this.hasConflict = false,
+    this.conflictAppSyncSeq,
+    this.conflictDeviceSyncSeq,
+    this.conflictDeviceInstanceId,
+    this.needsSetup = false,
+    this.setupDeviceInstanceId,
+    this.isOverriding = false,
+    this.hasWrongAccount = false,
   });
 
   /// Creates a copy of this state with the given fields replaced.
@@ -93,11 +140,24 @@ class BluetoothState extends Equatable {
     bool? hasMoreLogs,
     bool? permissionsGranted,
     bool? bluetoothEnabled,
+    List<PairedDevice>? pairedDevices,
+    String? connectedDeviceInstanceId,
+    bool? hasConflict,
+    int? conflictAppSyncSeq,
+    int? conflictDeviceSyncSeq,
+    String? conflictDeviceInstanceId,
+    bool? needsSetup,
+    String? setupDeviceInstanceId,
+    bool? isOverriding,
+    bool? hasWrongAccount,
     bool clearConnectedDevice = false,
     bool clearConnectingDeviceId = false,
     bool clearErrorMessage = false,
     bool clearLastMessage = false,
     bool clearSelectedItemId = false,
+    bool clearConnectedDeviceInstanceId = false,
+    bool clearConflict = false,
+    bool clearSetup = false,
   }) {
     return BluetoothState(
       status: status ?? this.status,
@@ -110,6 +170,18 @@ class BluetoothState extends Equatable {
       hasMoreLogs: hasMoreLogs ?? this.hasMoreLogs,
       permissionsGranted: permissionsGranted ?? this.permissionsGranted,
       bluetoothEnabled: bluetoothEnabled ?? this.bluetoothEnabled,
+      pairedDevices: pairedDevices ?? this.pairedDevices,
+      connectedDeviceInstanceId: clearConnectedDeviceInstanceId
+          ? null
+          : (connectedDeviceInstanceId ?? this.connectedDeviceInstanceId),
+      hasConflict: clearConflict ? false : (hasConflict ?? this.hasConflict),
+      conflictAppSyncSeq: clearConflict ? null : (conflictAppSyncSeq ?? this.conflictAppSyncSeq),
+      conflictDeviceSyncSeq: clearConflict ? null : (conflictDeviceSyncSeq ?? this.conflictDeviceSyncSeq),
+      conflictDeviceInstanceId: clearConflict ? null : (conflictDeviceInstanceId ?? this.conflictDeviceInstanceId),
+      needsSetup: clearSetup ? false : (needsSetup ?? this.needsSetup),
+      setupDeviceInstanceId: clearSetup ? null : (setupDeviceInstanceId ?? this.setupDeviceInstanceId),
+      isOverriding: isOverriding ?? this.isOverriding,
+      hasWrongAccount: hasWrongAccount ?? this.hasWrongAccount,
     );
   }
 
@@ -140,6 +212,16 @@ class BluetoothState extends Equatable {
         hasMoreLogs,
         permissionsGranted,
         bluetoothEnabled,
+        pairedDevices,
+        connectedDeviceInstanceId,
+        hasConflict,
+        conflictAppSyncSeq,
+        conflictDeviceSyncSeq,
+        conflictDeviceInstanceId,
+        needsSetup,
+        setupDeviceInstanceId,
+        isOverriding,
+        hasWrongAccount,
       ];
 
   @override

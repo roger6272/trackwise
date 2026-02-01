@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/features/auth/domain/usecases/watch_auth_state_usecase.dart';
+import 'package:traxelos/features/auth/domain/usecases/watch_auth_state_usecase.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/utils/constants.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../core/di/injection.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
@@ -53,6 +55,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
   String selectedCategoryId = '';
 
   bool _isLoading = false;
+
+  // Key to force dropdown rebuild after returning from Manage Categories
+  int _categoryDropdownKey = 0;
 
   @override
   void initState() {
@@ -200,7 +205,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
-                            maxLength: 30,
+                            maxLength: AppConstants.maxItemNameLength,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Name is required';
@@ -229,6 +234,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               label: 'Category (optional)',
                               labelColor: primaryText,
                               child: DropdownButtonFormField<String>(
+                                key: ValueKey(_categoryDropdownKey),
                                 value: validCategoryId,
                                 items: [
                                   DropdownMenuItem<String>(
@@ -274,7 +280,10 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 onChanged: (val) {
                                   // Handle "Manage Categories" navigation
                                   if (val == '__manage__') {
-                                    context.push('/profile/categories');
+                                    context.push('/profile/categories').then((_) {
+                                      // Increment key to force dropdown rebuild with correct value
+                                      if (mounted) setState(() => _categoryDropdownKey++);
+                                    });
                                     return;
                                   }
                                   setState(() => selectedCategoryId = val ?? '');
@@ -622,10 +631,10 @@ class _ItemFormPageState extends State<ItemFormPage> {
   /// Returns true if duplicate exists, false otherwise.
   Future<bool> _checkDuplicateName(String name) async {
     final userId = _getUserId();
-    debugPrint('🔍 _checkDuplicateName: userId=$userId, name=$name');
+    AppLogger.debug('_checkDuplicateName: userId=$userId, name=$name');
 
     if (userId.isEmpty) {
-      debugPrint('🔍 _checkDuplicateName: userId is empty, skipping check');
+      AppLogger.debug('_checkDuplicateName: userId is empty, skipping check');
       return false;
     }
 
@@ -633,36 +642,36 @@ class _ItemFormPageState extends State<ItemFormPage> {
     final normalizedName = name.toLowerCase();
 
     // Fetch active items
-    debugPrint('🔍 _checkDuplicateName: fetching active items...');
+    AppLogger.debug('_checkDuplicateName: fetching active items...');
     final activeResult = await itemRepository.getItems(userId);
     final activeItems = activeResult.fold(
       (failure) {
-        debugPrint('🔍 _checkDuplicateName: failed to fetch active items: ${failure.message}');
+        AppLogger.debug('_checkDuplicateName: failed to fetch active items: ${failure.message}');
         return <Item>[];
       },
       (items) {
-        debugPrint('🔍 _checkDuplicateName: got ${items.length} active items');
+        AppLogger.debug('_checkDuplicateName: got ${items.length} active items');
         return items;
       },
     );
 
     // Fetch deleted items
-    debugPrint('🔍 _checkDuplicateName: fetching deleted items...');
+    AppLogger.debug('_checkDuplicateName: fetching deleted items...');
     final deletedResult = await itemRepository.getDeletedItems(userId);
     final deletedItems = deletedResult.fold(
       (failure) {
-        debugPrint('🔍 _checkDuplicateName: failed to fetch deleted items: ${failure.message}');
+        AppLogger.debug('_checkDuplicateName: failed to fetch deleted items: ${failure.message}');
         return <Item>[];
       },
       (items) {
-        debugPrint('🔍 _checkDuplicateName: got ${items.length} deleted items');
+        AppLogger.debug('_checkDuplicateName: got ${items.length} deleted items');
         return items;
       },
     );
 
     // Combine all items
     final allItems = [...activeItems, ...deletedItems];
-    debugPrint('🔍 _checkDuplicateName: checking ${allItems.length} total items');
+    AppLogger.debug('_checkDuplicateName: checking ${allItems.length} total items');
 
     // Check for duplicate (excluding current item if editing)
     for (final item in allItems) {
@@ -670,7 +679,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
       if (isEditMode && item.id == widget.item!.id) continue;
 
       if (item.name.toLowerCase() == normalizedName) {
-        debugPrint('🔍 _checkDuplicateName: DUPLICATE FOUND - ${item.name}');
+        AppLogger.debug('_checkDuplicateName: DUPLICATE FOUND - ${item.name}');
         return true; // Duplicate found
       }
     }
@@ -679,29 +688,29 @@ class _ItemFormPageState extends State<ItemFormPage> {
   }
 
   Future<void> _handleSave(BuildContext blocContext) async {
-    debugPrint('🔵 _handleSave called');
+    AppLogger.debug('_handleSave called');
 
     // Prevent double-tap by checking and setting loading state immediately
     if (_isLoading) {
-      debugPrint('🔴 Already saving, ignoring duplicate tap');
+      AppLogger.debug('Already saving, ignoring duplicate tap');
       return;
     }
 
     if (!formKey.currentState!.validate()) {
-      debugPrint('🔴 Form validation failed');
+      AppLogger.debug('Form validation failed');
       return;
     }
-    debugPrint('🟢 Form validation passed');
+    AppLogger.debug('Form validation passed');
 
     // Set loading state to prevent further taps
     setState(() => _isLoading = true);
 
     final name = nameController.text.trim();
-    debugPrint('🟡 Checking for duplicate name: $name');
+    AppLogger.debug('Checking for duplicate name: $name');
 
     // Check for duplicate item name
     final duplicateExists = await _checkDuplicateName(name);
-    debugPrint('🟡 Duplicate check result: $duplicateExists');
+    AppLogger.debug('Duplicate check result: $duplicateExists');
     if (duplicateExists) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -733,17 +742,17 @@ class _ItemFormPageState extends State<ItemFormPage> {
         categoryId: selectedCategoryId, // '' for uncategorized
       );
 
-      debugPrint('🟡 Updating item: id=${updatedItem.id}, name=$name');
-      debugPrint('🟡 Original: incrementBy=${widget.item!.incrementBy}, reminder=${widget.item!.reminder}');
-      debugPrint('🟡 Form values: incrementBy=$incrementBy, reminder=$reminder');
-      debugPrint('🟡 Updated item: incrementBy=${updatedItem.incrementBy}, reminder=${updatedItem.reminder}');
+      AppLogger.debug('Updating item: id=${updatedItem.id}, name=$name');
+      AppLogger.debug('Original: incrementBy=${widget.item!.incrementBy}, reminder=${widget.item!.reminder}');
+      AppLogger.debug('Form values: incrementBy=$incrementBy, reminder=$reminder');
+      AppLogger.debug('Updated item: incrementBy=${updatedItem.incrementBy}, reminder=${updatedItem.reminder}');
 
       final itemRepository = sl<ItemRepository>();
       final result = await itemRepository.updateItem(updatedItem);
 
       result.fold(
         (failure) {
-          debugPrint('❌ Failed to update item: ${failure.message}');
+          AppLogger.debug('Failed to update item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -752,7 +761,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           }
         },
         (item) async {
-          debugPrint('🟢 Item updated: ${item.id}');
+          AppLogger.debug('Item updated: ${item.id}');
           // Note: Device sync for updates is handled by items_list_page.dart's
           // BlocBuilder buildWhen callback to avoid duplicate syncs
           if (mounted) context.pop();
@@ -761,11 +770,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
     } else {
       // Create new item directly via repository to ensure we wait for completion
       final userId = _getUserId();
-      debugPrint('🟡 Creating item: name=$name, initialValue=$initialValue, userId=$userId');
+      AppLogger.debug('Creating item: name=$name, initialValue=$initialValue, userId=$userId');
 
       // Guard against empty userId
       if (userId.isEmpty) {
-        debugPrint('❌ Cannot create item: userId is empty (not authenticated)');
+        AppLogger.debug('Cannot create item: userId is empty (not authenticated)');
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -800,7 +809,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
       result.fold(
         (failure) {
-          debugPrint('❌ Failed to create item: ${failure.message}');
+          AppLogger.debug('Failed to create item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -809,13 +818,14 @@ class _ItemFormPageState extends State<ItemFormPage> {
           }
         },
         (createdItem) async {
-          debugPrint('🟢 Item created with ID: ${createdItem.id}');
+          AppLogger.debug('Item created with ID: ${createdItem.id}, deviceItemId: ${createdItem.deviceItemId}');
 
           // Don't auto-select the item - let user learn to activate it via swipe
           // The items_list_page will show an activation hint for the first item
 
-          // List sync handled by items_list_page buildWhen
-          if (mounted) context.pop();
+          // Return created item so items_list_page can include it in device sync
+          // (Firestore stream may not have updated yet when buildWhen runs)
+          if (mounted) context.pop(createdItem);
         },
       );
     }

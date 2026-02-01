@@ -4,14 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_event.dart';
-import 'package:trackwise/features/auth/presentation/bloc/auth_state.dart';
-import 'package:trackwise/features/profile/domain/entities/user_profile.dart';
-import 'package:trackwise/features/profile/presentation/bloc/profile_bloc.dart';
-import 'package:trackwise/features/profile/presentation/bloc/profile_event.dart';
-import 'package:trackwise/features/profile/presentation/bloc/profile_state.dart';
-import 'package:trackwise/features/profile/presentation/pages/profile_page.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_event.dart';
+import 'package:traxelos/features/auth/presentation/bloc/auth_state.dart';
+import 'package:traxelos/features/profile/domain/entities/user_profile.dart';
+import 'package:traxelos/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:traxelos/features/profile/presentation/bloc/profile_event.dart';
+import 'package:traxelos/features/profile/presentation/bloc/profile_state.dart';
+import 'package:traxelos/features/profile/presentation/pages/profile_page.dart';
 
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}

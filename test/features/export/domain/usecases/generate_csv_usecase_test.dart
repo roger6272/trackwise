@@ -2,11 +2,11 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/categories/domain/entities/category.dart';
-import 'package:trackwise/features/export/domain/entities/csv_export_config.dart';
-import 'package:trackwise/features/export/domain/usecases/generate_csv_usecase.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart' show Item, ReminderType;
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/categories/domain/entities/category.dart';
+import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
+import 'package:traxelos/features/export/domain/usecases/generate_csv_usecase.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart' show Item, ReminderType;
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

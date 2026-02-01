@@ -8,14 +8,14 @@ import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import 'package:trackwise/core/state/app_ui_state.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_event.dart';
-import 'package:trackwise/features/bluetooth/presentation/bloc/bluetooth_state.dart';
-import 'package:trackwise/features/items/domain/entities/item.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_bloc.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_event.dart';
-import 'package:trackwise/features/items/presentation/bloc/items_state.dart';
+import 'package:traxelos/core/state/app_ui_state.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'package:traxelos/features/items/domain/entities/item.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_event.dart';
+import 'package:traxelos/features/items/presentation/bloc/items_state.dart';
 
 class MockItemsBloc extends MockBloc<ItemsEvent, ItemsState>
     implements ItemsBloc {}

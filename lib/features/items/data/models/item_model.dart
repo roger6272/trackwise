@@ -175,6 +175,56 @@ class ItemModel extends Item {
     }
   }
 
+  /// Creates a copy of this ItemModel with the given fields replaced.
+  ///
+  /// Unlike Item.copyWith which returns Item, this returns ItemModel
+  /// so Firestore serialization methods remain available.
+  @override
+  ItemModel copyWith({
+    String? id,
+    String? name,
+    int? count,
+    int? todayCount,
+    int? incrementBy,
+    ReminderType? reminder,
+    int? reminderValue,
+    DateTime? lastResetTime,
+    int? resetNumber,
+    DateTime? lastUpdated,
+    String? userId,
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
+    int? order,
+    int? initialCount,
+    int? goal,
+    bool clearGoal = false,
+    String? categoryId,
+    bool clearCategoryId = false,
+    int? categoryOrder,
+    int? deviceItemId,
+  }) {
+    return ItemModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      count: count ?? this.count,
+      todayCount: todayCount ?? this.todayCount,
+      incrementBy: incrementBy ?? this.incrementBy,
+      reminder: reminder ?? this.reminder,
+      reminderValue: reminderValue ?? this.reminderValue,
+      lastResetTime: lastResetTime ?? this.lastResetTime,
+      resetNumber: resetNumber ?? this.resetNumber,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      userId: userId ?? this.userId,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+      order: order ?? this.order,
+      initialCount: initialCount ?? this.initialCount,
+      goal: clearGoal ? null : (goal ?? this.goal),
+      categoryId: clearCategoryId ? null : (categoryId ?? this.categoryId),
+      categoryOrder: categoryOrder ?? this.categoryOrder,
+      deviceItemId: deviceItemId ?? this.deviceItemId,
+    );
+  }
+
   /// Converts this model to a domain entity.
   ///
   /// Since ItemModel extends Item, this is a simple cast.

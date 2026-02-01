@@ -2,11 +2,11 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/exceptions.dart';
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/events/domain/entities/event_log.dart';
-import 'package:trackwise/features/items/data/models/item_model.dart';
-import 'package:trackwise/features/items/data/repositories/item_repository_impl.dart';
+import 'package:traxelos/core/error/exceptions.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/events/domain/entities/event_log.dart';
+import 'package:traxelos/features/items/data/models/item_model.dart';
+import 'package:traxelos/features/items/data/repositories/item_repository_impl.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';

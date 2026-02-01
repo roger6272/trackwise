@@ -3,12 +3,12 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:trackwise/core/error/failures.dart';
-import 'package:trackwise/features/charts/domain/entities/chart_data.dart';
-import 'package:trackwise/features/charts/domain/usecases/get_chart_data_usecase.dart';
-import 'package:trackwise/features/charts/presentation/bloc/charts_bloc.dart';
-import 'package:trackwise/features/charts/presentation/bloc/charts_event.dart';
-import 'package:trackwise/features/charts/presentation/bloc/charts_state.dart';
+import 'package:traxelos/core/error/failures.dart';
+import 'package:traxelos/features/charts/domain/entities/chart_data.dart';
+import 'package:traxelos/features/charts/domain/usecases/get_chart_data_usecase.dart';
+import 'package:traxelos/features/charts/presentation/bloc/charts_bloc.dart';
+import 'package:traxelos/features/charts/presentation/bloc/charts_event.dart';
+import 'package:traxelos/features/charts/presentation/bloc/charts_state.dart';
 
 import '../../helpers/test_helper.dart';
 import '../../helpers/test_fixtures.dart';
