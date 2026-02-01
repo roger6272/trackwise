@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/utils/logger.dart';
@@ -33,12 +34,14 @@ class CategoryRepositoryImpl implements CategoryRepository {
         .map<Either<Failure, List<Category>>>(
           (categories) => Right(categories.map((m) => m.toEntity()).toList()),
         )
-        .handleError((error, stackTrace) {
-      // Log the error for debugging
+        .onErrorResume((error, stackTrace) {
       AppLogger.debug('watchCategories error: $error');
-      AppLogger.debug('Stack trace: $stackTrace');
-      // Re-throw to let the BLoC's onError handle it
-      throw error;
+      if (error is ServerException) {
+        return Stream<Either<Failure, List<Category>>>.value(
+            Left(ServerFailure(error.message)));
+      }
+      return Stream<Either<Failure, List<Category>>>.value(
+          Left(ServerFailure('Unexpected error: $error')));
     });
   }
 

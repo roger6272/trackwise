@@ -50,11 +50,15 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadAppVersion() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    if (mounted) {
-      setState(() {
-        _appVersion = 'v${packageInfo.version} (${packageInfo.buildNumber})';
-      });
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = 'v${packageInfo.version} (${packageInfo.buildNumber})';
+        });
+      }
+    } catch (e) {
+      AppLogger.debug('Failed to load app version: $e');
     }
   }
 
@@ -66,7 +70,6 @@ class _ProfilePageState extends State<ProfilePage> {
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
-    final secondaryBackground = AppColors.secondaryBackground(brightness);
     final alternate = AppColors.alternate(brightness);
 
     return GestureDetector(
