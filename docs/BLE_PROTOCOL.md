@@ -195,7 +195,7 @@ Synchronize device RTC clock with phone time.
 **Device Behavior:**
 1. Parses UTC time string using `strptime`
 2. Sets internal RTC clock
-3. Stores timezone offset in NVS (`timezone_offset`)
+3. Stores timezone offset in NVS (`tz_offset`)
 4. Triggers daily reset check (in case date changed)
 5. If `ack: true`, sends acknowledgment response
 
@@ -1589,7 +1589,7 @@ Index-based storage where `<i>` = 0 to 99:
 | `item_total` | int | Number of items (0-100) |
 | `selected_did` | int | Currently selected deviceItemId (-1 if none) |
 | `selected_index` | int | Index of currently selected item |
-| `timezone_offset` | int | Minutes offset from UTC |
+| `tz_offset` | int | Minutes offset from UTC |
 | `last_reset_date` | string | "YYYY-MM-DD" of last daily reset |
 | `paired_uid` | string | Firebase user ID this device is paired to (empty = unpaired) |
 | `sync_seq_no` | int | Last sync sequence number (0 = never synced) |
@@ -2100,7 +2100,7 @@ The device instance ID uniquely identifies each physical device. It is returned 
 ┌─────────────────────────────────────────────────────────────┐
 │                  TRAXELOS BLE QUICK REFERENCE               │
 ├─────────────────────────────────────────────────────────────┤
-│ Device Name: Traxelos                                       │
+│ Device Name: Traxelos_One                                   │
 │ Service: 12345678-1234-1234-1234-123456789000               │
 ├─────────────────────────────────────────────────────────────┤
 │ CHARACTERISTICS:                                            │

@@ -94,7 +94,7 @@ See [Connecting Your Device](#3-connecting-your-device) below.
 
 4. **Tap "Find Device"**
    - The app will open the search page and automatically scan for nearby devices
-   - Your device will appear in the list (e.g., "Traxelos_device")
+   - Your device will appear in the list (e.g., "Traxelos_One")
 
 5. **Select your device**
    - Tap the device name to connect

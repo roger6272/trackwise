@@ -122,7 +122,7 @@ Per-Item (index 0-99):              Global:
 ├── cat_<i>  → category            ├── selected_index → index of selection
 ├── c_<i>    → count               ├── paired_uid     → Firebase UID
 ├── tc_<i>   → todaycount          ├── sync_seq_no    → last sync sequence
-├── i_<i>    → increment           ├── timezone_offset→ minutes from UTC
+├── i_<i>    → increment           ├── tz_offset      → minutes from UTC
 ├── r_<i>    → reminder type       └── last_reset_date→ "YYYY-MM-DD"
 ├── rv_<i>   → reminder value
 ├── lr_<i>   → lastResetTime
