@@ -195,6 +195,8 @@ Your custom order is saved and synced to your device.
 
 *You'll feel a triple vibration when you reach an item's goal, or a single vibration when a reminder condition is met (see [Setting Reminders](#8-setting-reminders)).*
 
+*The maximum count for any item is **9,999**. When you reach this limit, the device will display "MAX REACHED" and give a double vibration on each press. Reset the item to continue counting.*
+
 ### Device Buttons
 
 #### Arduino IDE (Serial Monitor)

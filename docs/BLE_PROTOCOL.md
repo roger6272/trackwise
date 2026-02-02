@@ -359,12 +359,12 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | `id` | int | Yes | 0-99 | `deviceItemId` |
 | `name` | string | Yes | max 30 chars | Item display name |
 | `category` | string | Yes | max 30 chars | Category name |
-| `count` | int | Yes | 0 to 2^31 | Total count |
-| `todaycount` | int | Yes | 0 to 2^31 | Count since daily reset |
+| `count` | int | Yes | 0-9999 | Total count |
+| `todaycount` | int | Yes | 0-9999 | Count since daily reset |
 | `increment` | int | Yes | 1-1000 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
 | `reminder_value` | int | Yes | 0-9999 | Target/interval value |
-| `goal` | int | Yes | 0+ | Target goal count (0 = no goal) |
+| `goal` | int | Yes | 0-9999 | Target goal count (0 = no goal) |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
 | `reset_number` | int | Yes | 0+ | Reset counter |
 
@@ -375,10 +375,12 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | `id` | Clamped to 0-99 | Array index |
 | `name` | Truncated to 30 chars | Empty string |
 | `category` | Truncated to 30 chars | Empty string |
+| `count` | Clamped to 0-9999 | 0 |
+| `todaycount` | Clamped to 0-9999 | 0 |
 | `increment` | Clamped to 1-1000 | 1 |
 | `reminder` | Clamped to 0-2 | 0 |
 | `reminder_value` | Clamped to 0-9999 | 0 |
-| `goal` | Clamped to 0-9999999 | 0 |
+| `goal` | Clamped to 0-9999 | 0 |
 
 **Critical Behavior - Count Preservation:**
 
@@ -670,12 +672,12 @@ Device: {"status": "seq_updated"}
 | `device_item_id` | int | Yes | 0-99 | ID that maps back to Firestore document |
 | `name` | string | Yes | max 30 chars | Item display name |
 | `category` | string | Yes | max 30 chars | Category name |
-| `count` | int | Yes | 0 to 2^31 | Total count |
-| `todaycount` | int | Yes | 0 to 2^31 | Count since daily reset |
+| `count` | int | Yes | 0-9999 | Total count |
+| `todaycount` | int | Yes | 0-9999 | Count since daily reset |
 | `increment` | int | Yes | 1-1000 | Increment per button press |
 | `reminder` | int | Yes | 0-2 | Reminder type |
 | `reminder_value` | int | Yes | 0-9999 | Target/interval value |
-| `goal` | int | Yes | 0+ | Target goal count (0 = no goal) |
+| `goal` | int | Yes | 0-9999 | Target goal count (0 = no goal) |
 | `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
 | `reset_number` | int | Yes | 0+ | Reset counter |
 
@@ -1963,7 +1965,8 @@ for (final uuid in required) {
 | Max increment | 1000 | Clamping |
 | Min increment | 1 | Clamping |
 | Max reminder value | 9999 | Clamping |
-| Max count value | 2,147,483,647 | int32 limit |
+| Max count/todaycount | 9999 | Clamping |
+| Max goal | 9999 | Clamping |
 | Max log entries | 1000 | Circular buffer |
 | Max set_items payload | 32KB | CHAR_SET_ITEMS buffer |
 | Max WRITE command payload | 8KB | CHAR_WRITE buffer |

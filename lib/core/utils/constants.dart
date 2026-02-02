@@ -15,6 +15,7 @@ class AppConstants {
   static const int maxIncrementValue = 1000;
   static const int minReminderValue = 0;
   static const int maxReminderValue = 9999;
+  static const int maxCountValue = 9999;
 
   // Category Constraints
   static const int maxCategoryNameLength = 30;

@@ -87,6 +87,9 @@ int overrideNextSlot = 0;       // Next sequential slot index for saving items
 #define EVENT_RESET 1
 #define EVENT_SWITCH 2
 
+// ============== COUNT LIMITS ==============
+#define MAX_COUNT 9999  // Maximum value for count and todaycount
+
 // ============== ERROR CODES ==============
 // Error codes for notifyError() - enables reliable error handling in app
 // Ranges: 1xx = payload, 2xx = storage, 3xx = protocol, 4xx = state
@@ -590,13 +593,13 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   String category = safeString(item["category"] | "", 30);
   prefs.putString(key, category);
 
-  // Store count
+  // Store count (clamped to MAX_COUNT)
   snprintf(key, sizeof(key), "c_%d", slotId);
-  prefs.putInt(key, item["count"] | 0);
+  prefs.putInt(key, clampInt(item["count"] | 0, 0, MAX_COUNT));
 
-  // Store todaycount
+  // Store todaycount (clamped to MAX_COUNT)
   snprintf(key, sizeof(key), "tc_%d", slotId);
-  prefs.putInt(key, item["todaycount"] | 0);
+  prefs.putInt(key, clampInt(item["todaycount"] | 0, 0, MAX_COUNT));
 
   // Store increment (1-1000)
   snprintf(key, sizeof(key), "i_%d", slotId);
@@ -614,9 +617,9 @@ void saveItemToSlot(int slotId, JsonObject& item) {
   int reminderVal = clampInt(item["reminder_value"] | 0, 0, 9999);
   prefs.putInt(key, reminderVal);
 
-  // Store goal (0 = no goal)
+  // Store goal (0 = no goal, clamped to MAX_COUNT)
   snprintf(key, sizeof(key), "g_%d", slotId);
-  int goal = clampInt(item["goal"] | 0, 0, 9999999);
+  int goal = clampInt(item["goal"] | 0, 0, MAX_COUNT);
   prefs.putInt(key, goal);
 
   // Store lastResetTime
@@ -1439,7 +1442,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         int reminder = item["reminder"] | REMINDER_NONE;
         if (!isValidReminder(reminder)) reminder = REMINDER_NONE;
         int reminderValue = clampInt(item["reminder_value"] | 0, 0, 9999);  // 0-9999
-        int goal = clampInt(item["goal"] | 0, 0, 9999999);  // 0 = no goal
+        int goal = clampInt(item["goal"] | 0, 0, MAX_COUNT);  // 0 = no goal
 
         // Find existing data for this deviceItemId (device is source of truth)
         int count = 0;
@@ -2269,9 +2272,26 @@ void handleCommand(char cmd) {
       nvsEndSafe();
       return;
     }
+    // Clamp check: already at max count
+    if (itemCount >= MAX_COUNT) {
+      triggerVibrationPattern(2);  // Double vibrate for max reached
+      displayMessage("MAX REACHED");
+      // Send delta so app stays in sync, but no event (no actual change)
+      if (isConnected) notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
+      nvsEndSafe();
+      return;
+    }
+
     //update first
     itemCount += itemIncrement;
+    // Clamp to MAX_COUNT if increment would exceed it
+    if (itemCount > MAX_COUNT) {
+      itemCount = MAX_COUNT;
+      triggerVibrationPattern(2);  // Double vibrate for max reached
+      displayMessage("MAX REACHED");
+    }
     itemTodayCount += itemIncrement;
+    if (itemTodayCount > MAX_COUNT) itemTodayCount = MAX_COUNT;
     incrementsSinceWrite++;
     countsDirty = true;
 

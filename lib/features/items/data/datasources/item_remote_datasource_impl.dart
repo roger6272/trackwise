@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../../core/utils/constants.dart';
 import '../../../../core/utils/logger.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -323,8 +324,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       final updatedItem = ItemModel(
         id: item.id,
         name: item.name,
-        count: item.count + amount,
-        todayCount: item.todayCount + amount,
+        count: (item.count + amount).clamp(0, AppConstants.maxCountValue),
+        todayCount: (item.todayCount + amount).clamp(0, AppConstants.maxCountValue),
         incrementBy: item.incrementBy,
         reminder: item.reminder,
         reminderValue: item.reminderValue,
@@ -406,8 +407,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
             final resetNumber = item['resetNumber'] as int?;
 
             final updateData = <String, dynamic>{
-              'count': count,
-              'todaycount': todaycount,
+              'count': count.clamp(0, AppConstants.maxCountValue),
+              'todaycount': todaycount.clamp(0, AppConstants.maxCountValue),
             };
 
             // Only include lastResetTime if it's a real value (not 0/epoch)
