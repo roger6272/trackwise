@@ -164,10 +164,6 @@ class _ExportPageState extends State<ExportPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Export Preview Card
-                          _buildPreviewCard(context),
-                          const SizedBox(height: 24.0),
-
                           // Date Range Section
                           _buildSectionHeader(
                             context: context,
@@ -306,6 +302,11 @@ class _ExportPageState extends State<ExportPage> {
                               letterSpacing: 0.0,
                             ),
                           ),
+
+                          _buildSectionDivider(context),
+
+                          // Export Preview Card
+                          _buildPreviewCard(context),
 
                           _buildSectionDivider(context),
 
