@@ -11,6 +11,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
 import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
@@ -714,12 +715,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
     if (duplicateExists) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An item with this name already exists'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showErrorSnackBar(context, 'An item with this name already exists');
       }
       return;
     }
@@ -755,9 +751,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           AppLogger.debug('Failed to update item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to update item: ${failure.message}')),
-            );
+            showErrorSnackBar(context, 'Failed to update item: ${failure.message}');
           }
         },
         (item) async {
@@ -777,12 +771,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         AppLogger.debug('Cannot create item: userId is empty (not authenticated)');
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please sign in again to create items'),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          showErrorSnackBar(context, 'Please sign in again to create items');
         }
         return;
       }
@@ -812,9 +801,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           AppLogger.debug('Failed to create item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to create item: ${failure.message}')),
-            );
+            showErrorSnackBar(context, 'Failed to create item: ${failure.message}');
           }
         },
         (createdItem) async {

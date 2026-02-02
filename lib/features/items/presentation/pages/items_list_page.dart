@@ -15,6 +15,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../bluetooth/domain/entities/ble_message.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
@@ -374,12 +375,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             },
                             listener: (context, state) {
                               if (state is ItemsError) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(state.message),
-                                    backgroundColor: AppColors.actionDelete,
-                                  ),
-                                );
+                                showErrorSnackBar(context, state.message);
                               }
                             },
                             buildWhen: (previous, current) {

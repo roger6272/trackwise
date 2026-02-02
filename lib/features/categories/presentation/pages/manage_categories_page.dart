@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
@@ -87,12 +88,7 @@ class _ManageCategoriesContent extends StatelessWidget {
       body: BlocConsumer<CategoriesBloc, CategoriesState>(
         listener: (context, state) {
           if (state is CategoriesError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            showErrorSnackBar(context, state.message);
           }
         },
         builder: (context, state) {

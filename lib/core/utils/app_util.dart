@@ -9,6 +9,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
+import '../theme/app_colors.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 // Re-exports for convenience
@@ -185,34 +187,46 @@ class LatLng {
       longitude == other.longitude;
 }
 
-// ============== Snackbar Helper ==============
+// ============== Snackbar Helpers ==============
 
-void showSnackbar(
+void showErrorSnackBar(
   BuildContext context,
   String message, {
-  bool loading = false,
-  int duration = 4,
+  String? actionLabel,
+  VoidCallback? onAction,
 }) {
   ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Row(
-        children: [
-          if (loading)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: 10.0),
-              child: SizedBox(
-                height: 20,
-                width: 20,
-                child: const CircularProgressIndicator(
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          Text(message),
-        ],
-      ),
-      duration: Duration(seconds: duration),
+      content: Text(message),
+      backgroundColor: AppColors.error,
+      duration: Duration(seconds: onAction != null ? 6 : 4),
+      action: actionLabel != null && onAction != null
+          ? SnackBarAction(
+              label: actionLabel,
+              textColor: Colors.white,
+              onPressed: onAction,
+            )
+          : null,
+    ),
+  );
+}
+
+void showSuccessSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      backgroundColor: AppColors.success,
+    ),
+  );
+}
+
+void showInfoSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
     ),
   );
 }

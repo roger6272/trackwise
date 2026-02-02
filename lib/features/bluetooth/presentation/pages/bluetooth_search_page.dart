@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../domain/entities/ble_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
@@ -81,12 +82,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
           }
           // Show error snackbar
           if (state.status == BluetoothStatus.error && state.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage!),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            showErrorSnackBar(context, state.errorMessage!);
           }
         },
         builder: (context, state) {

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
@@ -100,11 +101,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
       },
       onCancel: () {
         context.read<BluetoothBloc>().add(const CancelSyncConflict());
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Disconnected. Connect again to sync.'),
-          ),
-        );
+        showInfoSnackBar(context, 'Disconnected. Connect again to sync.');
       },
     );
   }

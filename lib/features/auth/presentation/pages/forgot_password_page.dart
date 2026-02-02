@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -293,12 +294,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   void _handleAuthStateChange(BuildContext context, AuthState state) {
     if (state is PasswordResetSent) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset email sent! Check your inbox.'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      showSuccessSnackBar(context, 'Password reset email sent! Check your inbox.');
       // Go back to login after showing success message
       Future.delayed(const Duration(seconds: 2), () {
         if (context.mounted) {
@@ -306,12 +302,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         }
       });
     } else if (state is AuthError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(state.message),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      showErrorSnackBar(context, state.message);
     }
   }
 }

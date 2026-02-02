@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -523,12 +524,7 @@ class _SignupPageState extends State<SignupPage> {
       // Navigate to onboarding for new users
       context.go(OnboardingPage.routePath);
     } else if (state is AuthError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(state.message),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      showErrorSnackBar(context, state.message);
       // Clear password fields on error for security and retry
       _passwordController.clear();
       _confirmPasswordController.clear();

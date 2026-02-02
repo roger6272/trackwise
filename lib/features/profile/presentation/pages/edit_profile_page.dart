@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../domain/entities/user_profile.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
@@ -74,21 +75,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       listener: (context, state) {
         if (state is ProfileUpdated) {
           setState(() => _isSaving = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile updated successfully'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          showSuccessSnackBar(context, 'Profile updated successfully');
           context.pop();
         } else if (state is ProfileError) {
           setState(() => _isSaving = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          showErrorSnackBar(context, state.message);
         }
       },
       child: GestureDetector(

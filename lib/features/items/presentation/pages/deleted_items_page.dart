@@ -8,6 +8,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
@@ -110,12 +111,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                 return BlocConsumer<DeletedItemsBloc, DeletedItemsState>(
                   listener: (context, state) {
                     if (state is ItemRestored) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Item restored successfully'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
+                      showSuccessSnackBar(context, 'Item restored successfully');
                       // Set restored item as active in app
                       context.read<AppUiState>().activeItemId = state.itemId;
 
@@ -128,12 +124,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                       }
                     }
                     if (state is DeletedItemsError) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(state.message),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
+                      showErrorSnackBar(context, state.message);
                     }
                   },
                   builder: (context, state) {

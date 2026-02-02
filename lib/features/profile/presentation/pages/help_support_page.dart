@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Combined Help Center and Contact Us page.
@@ -58,11 +59,9 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       await launchUrl(uri);
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open email app'),
-            backgroundColor: AppColors.error,
-          ),
+        showErrorSnackBar(context, 'Could not open email app',
+          actionLabel: 'Retry',
+          onAction: () => _sendSupportEmail(),
         );
       }
     }

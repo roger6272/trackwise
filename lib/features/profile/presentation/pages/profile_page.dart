@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../main.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
@@ -102,12 +103,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _showReauthenticationDialog(context);
                   return;
                 }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
+                showErrorSnackBar(context, state.message);
               }
             },
             builder: (context, state) {
@@ -733,12 +729,7 @@ class _ProfilePageState extends State<ProfilePage> {
               result.fold(
                 (failure) {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(failure.message),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
+                  showErrorSnackBar(context, failure.message);
                 },
                 (_) async {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -847,12 +838,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Get user ID
     final authState = context.read<AuthBloc>().state;
     if (authState is! auth.Authenticated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please sign in to continue'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      showErrorSnackBar(context, 'Please sign in to continue');
       return;
     }
     final userId = authState.user.id;
