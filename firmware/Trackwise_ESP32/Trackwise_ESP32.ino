@@ -2585,8 +2585,9 @@ void setup() {
 
 
 
-  resetTodayCountsIfNeeded();
-  delay(100);
+  // Daily reset check is deferred until set_time is received from the app.
+  // Running it here with a potentially-invalid RTC would incorrectly
+  // reset todaycount values on every power cycle.
 
   pinMode(VIBRATION_PIN, OUTPUT);
   digitalWrite(VIBRATION_PIN, LOW);

@@ -383,6 +383,18 @@ final offset = DateTime.now().timeZoneOffset.inMinutes;
 
 ---
 
+### 5.4 "todaycount resets to 0 after power cycle"
+
+**Symptoms:** Today's count shows 0 after turning the device off and on, even though it's the same day.
+
+**Root Cause:** On boot, the RTC may have lost power and defaults to compile time. The daily reset check (`resetTodayCountsIfNeeded()`) compared the stale RTC date against `last_reset_date` in NVS, saw a mismatch, and reset all `todaycount` values to 0 before the app could send `set_time`.
+
+**Fix:** Deferred the daily reset check from `setup()` — it now only runs after `set_time` is received from the app, when the RTC has a valid time.
+
+**Key Lesson:** Never run date-dependent logic on boot before the clock source is validated. If the RTC is battery-backed but may lose power, treat its time as untrusted until the app confirms it.
+
+---
+
 ## 6. Device State Issues
 
 ### 6.1 "Device stuck showing 'SEE APP'"
