@@ -565,7 +565,7 @@ On this page you can:
 
 Your device has two power modes:
 - **Active** - Fast response when you're counting
-- **Low Power** - Saves battery when idle for 30+ seconds
+- **Low Power** - Saves battery when idle for 5+ minutes
 
 The device switches automatically - no action needed!
 

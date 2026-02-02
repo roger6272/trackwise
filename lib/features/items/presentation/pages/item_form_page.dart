@@ -410,8 +410,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 return 'Count per press is required';
                               }
                               final intValue = int.tryParse(value);
-                              if (intValue == null || intValue < 1 || intValue > 100) {
-                                return 'Must be between 1 and 100';
+                              if (intValue == null || intValue < 1 || intValue > 1000) {
+                                return 'Must be between 1 and 1000';
                               }
                               return null;
                             },
@@ -483,8 +483,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   return 'Reminder value is required';
                                 }
                                 final intValue = int.tryParse(value);
-                                if (intValue == null || intValue < 0 || intValue > 1000) {
-                                  return 'Must be between 0 and 1000';
+                                if (intValue == null || intValue < 0 || intValue > 9999) {
+                                  return 'Must be between 0 and 9999';
                                 }
                                 return null;
                               },

@@ -37,7 +37,7 @@
 |-------|----------|
 | Device in low power mode | Press any button to wake it |
 | Already connected elsewhere | Disconnect from other phone first |
-| Device name filter wrong | Should be `"Traxelos"` |
+| Device not advertising as expected | Device advertises as `"Traxelos_One"` |
 | Android location permission | Request `ACCESS_FINE_LOCATION` |
 
 ---

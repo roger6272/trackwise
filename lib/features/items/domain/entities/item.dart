@@ -33,13 +33,13 @@ class Item extends Equatable {
   /// Daily count - resets at midnight on ESP32 device
   final int todayCount;
 
-  /// Amount to increment per event (1-100)
+  /// Amount to increment per event (1-1000)
   final int incrementBy;
 
   /// Type of reminder system
   final ReminderType reminder;
 
-  /// Threshold value for reminders (0-1000)
+  /// Threshold value for reminders (0-9999)
   ///
   /// - For [ReminderType.target]: Remind when count reaches this value
   /// - For [ReminderType.interval]: Remind every N increments

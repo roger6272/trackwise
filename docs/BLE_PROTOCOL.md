@@ -1689,7 +1689,7 @@ On BLE disconnect, the device:
 | State | CPU Speed | BLE Advertising | Entry Condition |
 |-------|-----------|-----------------|-----------------|
 | Active | 240 MHz | 40ms interval | Any activity |
-| Low Power | 80 MHz | 500ms interval | 30s idle + disconnected |
+| Low Power | 80 MHz | 500ms interval | 5 min idle + disconnected |
 
 ### 13.2 Low Power Entry
 
