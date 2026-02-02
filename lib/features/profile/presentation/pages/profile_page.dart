@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
@@ -95,8 +96,12 @@ class _ProfilePageState extends State<ProfilePage> {
           child: BlocConsumer<ProfileBloc, ProfileState>(
             listener: (context, state) async {
               if (state is AccountDeleted) {
+                await _cleanupDevice(context);
+                if (!context.mounted) return;
                 await _handleAccountDeleted(context);
               } else if (state is ProfileError) {
+                // Re-enable auth notifications (suppressed before DeleteAccountEvent)
+                AuthStateNotifier.instance.updateNotifyOnAuthChange(true);
                 // If deletion failed due to re-auth required, show reauthentication dialog
                 if (state.message.toLowerCase().contains('sign in') ||
                     state.message.toLowerCase().contains('log in')) {
@@ -625,12 +630,10 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               if (controller.text == 'DELETE') {
                 Navigator.pop(dialogContext);
-                // Clean up device BEFORE deleting account.
-                // Account deletion triggers auth state change which redirects
-                // to login, potentially before BlocConsumer listener runs.
-                // Use page context (not dialog context) since dialog is dismissed.
-                await _cleanupDevice(context);
                 if (!context.mounted) return;
+                // Suppress GoRouter redirect from auth state change so
+                // BlocConsumer listener can run cleanup before navigating.
+                AuthStateNotifier.instance.updateNotifyOnAuthChange(false);
                 context.read<ProfileBloc>().add(const DeleteAccountEvent());
               } else {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
@@ -733,9 +736,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
                 (_) async {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  // Clean up device BEFORE deleting account (same reason as above)
-                  await _cleanupDevice(context);
                   if (!context.mounted) return;
+                  // Suppress GoRouter redirect (same reason as above)
+                  AuthStateNotifier.instance.updateNotifyOnAuthChange(false);
                   context.read<ProfileBloc>().add(const DeleteAccountEvent());
                 },
               );
@@ -942,15 +945,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _handleAccountDeleted(BuildContext context) async {
-    // Device cleanup already happened before DeleteAccountEvent was dispatched.
+    // Device cleanup happens in the BlocConsumer listener before this is called.
     // Navigate to login screen using go_router (replaces entire stack).
     context.go('/login');
   }
 
   /// Cleans up the Bluetooth device by unpairing and disconnecting.
-  /// Called BEFORE account deletion to ensure the unpair command is sent
-  /// while the page is still mounted (account deletion triggers auth state
-  /// change which redirects to login via GoRouter).
+  /// Called AFTER successful account deletion (in BlocConsumer listener)
+  /// to avoid wiping the device if deletion fails (e.g. re-auth required).
   Future<void> _cleanupDevice(BuildContext context) async {
     try {
       final bluetoothBloc = context.read<BluetoothBloc>();
