@@ -68,7 +68,7 @@ class _BottomNavBar extends StatelessWidget {
                 unselectedColor: unselectedColor,
               ),
               _BluetoothNavIcon(
-                label: 'Devices',
+                label: 'Bluetooth',
                 isSelected: currentIndex == 1,
                 onTap: () => _onItemTapped(context, 1),
                 selectedColor: selectedColor,
@@ -76,7 +76,7 @@ class _BottomNavBar extends StatelessWidget {
               ),
               _NavIcon(
                 icon: Icons.person_rounded,
-                label: 'Profile',
+                label: 'Account',
                 isSelected: currentIndex == 2,
                 onTap: () => _onItemTapped(context, 2),
                 selectedColor: selectedColor,
