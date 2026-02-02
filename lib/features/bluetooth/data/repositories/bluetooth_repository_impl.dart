@@ -280,6 +280,27 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }
 
   @override
+  Future<Either<Failure, void>> deleteItem(
+    String deviceId,
+    int deviceItemId,
+  ) async {
+    try {
+      final jsonData = jsonEncode({
+        'cmd': 'delete_item',
+        'deviceItemId': deviceItemId,
+      });
+      await dataSource.writeCommand(deviceId, jsonData);
+      return const Right(null);
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('Failed to delete item: ${e.message}'));
+    } on FlutterBluePlusException catch (e) {
+      return Left(BluetoothFailure('Failed to delete item: ${e.description}'));
+    } catch (e) {
+      return Left(BluetoothFailure('Failed to delete item: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> unpairDevice(String deviceId) async {
     try {
       final jsonData = jsonEncode({
