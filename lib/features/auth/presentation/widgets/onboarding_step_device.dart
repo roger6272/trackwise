@@ -98,14 +98,10 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
           );
         }
 
-        // Handle device setup required (new/factory-reset device)
-        if (state.needsSetup) {
-          context.read<BluetoothBloc>().add(const ConfirmDeviceSetup());
-        }
-
         // Handle successful sync — pairing complete
         if (state.isConnected &&
             state.connectedDeviceInstanceId != null &&
+            !state.needsSetup &&
             !_pairingCompleted) {
           _completePairing(state);
         }

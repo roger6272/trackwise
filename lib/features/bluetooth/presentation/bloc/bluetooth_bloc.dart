@@ -1142,7 +1142,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     CancelDeviceSetup event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(clearSetup: true));
+    emit(state.copyWith(
+      clearSetup: true,
+      clearConnectedDeviceInstanceId: true,
+    ));
 
     // Disconnect from device (device stays empty/unpaired)
     final deviceId = state.connectedDevice?.id;
@@ -1152,7 +1155,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       emit(state.copyWith(
         status: BluetoothStatus.ready,
         clearConnectedDevice: true,
-        clearConnectedDeviceInstanceId: true,
       ));
     }
   }
