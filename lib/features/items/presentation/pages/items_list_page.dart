@@ -367,7 +367,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           ),
                           // Connection status banner
                           if (!isConnected)
-                            _buildDisconnectedBanner(context),
+                            _buildDisconnectedBanner(context)
+                          else if (bluetoothState.isSyncing)
+                            _buildSyncingBanner(context),
                           // Labeled divider showing Today/Total mode
                           _buildLabeledDivider(appUiState, secondaryText),
                           // Items List
@@ -1289,6 +1291,45 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncingBanner(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12.0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          decoration: BoxDecoration(
+            color: secondaryText.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 12.0,
+                height: 12.0,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: secondaryText,
+                ),
+              ),
+              const SizedBox(width: 6.0),
+              Text(
+                'Syncing...',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: secondaryText,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),

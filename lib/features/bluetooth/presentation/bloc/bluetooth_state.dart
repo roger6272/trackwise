@@ -105,6 +105,10 @@ class BluetoothState extends Equatable {
   /// When true, UI should show wrong account dialog and disconnect.
   final bool hasWrongAccount;
 
+  /// Whether initial sync is in progress after connecting.
+  /// When true, UI shows a syncing indicator while counts update.
+  final bool isSyncing;
+
   const BluetoothState({
     this.status = BluetoothStatus.initial,
     this.discoveredDevices = const [],
@@ -126,6 +130,7 @@ class BluetoothState extends Equatable {
     this.setupDeviceInstanceId,
     this.isOverriding = false,
     this.hasWrongAccount = false,
+    this.isSyncing = false,
   });
 
   /// Creates a copy of this state with the given fields replaced.
@@ -150,6 +155,7 @@ class BluetoothState extends Equatable {
     String? setupDeviceInstanceId,
     bool? isOverriding,
     bool? hasWrongAccount,
+    bool? isSyncing,
     bool clearConnectedDevice = false,
     bool clearConnectingDeviceId = false,
     bool clearErrorMessage = false,
@@ -182,6 +188,7 @@ class BluetoothState extends Equatable {
       setupDeviceInstanceId: clearSetup ? null : (setupDeviceInstanceId ?? this.setupDeviceInstanceId),
       isOverriding: isOverriding ?? this.isOverriding,
       hasWrongAccount: hasWrongAccount ?? this.hasWrongAccount,
+      isSyncing: isSyncing ?? this.isSyncing,
     );
   }
 
@@ -222,6 +229,7 @@ class BluetoothState extends Equatable {
         setupDeviceInstanceId,
         isOverriding,
         hasWrongAccount,
+        isSyncing,
       ];
 
   @override

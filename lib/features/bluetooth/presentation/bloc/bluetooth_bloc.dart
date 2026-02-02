@@ -522,6 +522,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         status: BluetoothStatus.connected,
         connectedDevice: device,
         clearConnectingDeviceId: true,
+        isSyncing: true,
       ));
 
       // Start listening to messages
@@ -536,6 +537,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         clearConnectedDevice: true,
         clearConnectingDeviceId: true,
         clearConnectedDeviceInstanceId: true,
+        isSyncing: false,
       ));
 
       // Auto-reconnect if not manual disconnect (with exponential backoff)
@@ -806,9 +808,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final message = event.message;
 
     // Initial state update (selectedItemId will be updated after sync)
+    // Clear isSyncing when prefs arrive (counts are about to update)
     emit(state.copyWith(
       lastMessage: message,
       hasMoreLogs: message.hasMore,
+      isSyncing: message.type == BleMessageType.prefs ? false : null,
     ));
 
     // Sync device data to Firestore
@@ -965,6 +969,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       conflictDeviceInstanceId: event.deviceInstanceId,
       // Also set connectedDeviceInstanceId so paired devices page shows it as connected
       connectedDeviceInstanceId: event.deviceInstanceId,
+      isSyncing: false,
     ));
   }
 
@@ -1060,7 +1065,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SyncCompleted event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(connectedDeviceInstanceId: event.deviceInstanceId));
+    emit(state.copyWith(
+      connectedDeviceInstanceId: event.deviceInstanceId,
+      isSyncing: false,
+    ));
     // Reload paired devices to update UI
     add(const LoadPairedDevices());
   }
@@ -1078,6 +1086,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       setupDeviceInstanceId: event.deviceInstanceId,
       // Also set connectedDeviceInstanceId so paired devices page shows it as connected
       connectedDeviceInstanceId: event.deviceInstanceId,
+      isSyncing: false,
     ));
   }
 
@@ -1175,7 +1184,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     WrongAccountDetected event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(hasWrongAccount: true));
+    emit(state.copyWith(hasWrongAccount: true, isSyncing: false));
   }
 
   /// User dismissed wrong account dialog - disconnect from device.
