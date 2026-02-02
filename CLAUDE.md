@@ -167,3 +167,5 @@ Follow existing patterns in the codebase.
 - Keep diagrams and examples in sync with actual implementation
 
 **After fixing bugs:** Always add the pattern to `docs/TROUBLESHOOTING.md` if the root cause was non-obvious (took investigation to find, involved timing/state issues, or could recur). Include: symptoms, root cause, the fix, and a "key lesson" takeaway. This is not optional — treat it as part of the fix.
+
+**After fixing bugs (ADR check):** If the fix involves a design decision that looks wrong at first glance or contradicts common patterns, create an ADR in `docs/decisions/`. The test: would a future developer reading this code think "this looks like a bug" and try to revert it? If yes, write an ADR. This is separate from the troubleshooting entry — troubleshooting explains the bug, ADR explains the counter-intuitive fix.
