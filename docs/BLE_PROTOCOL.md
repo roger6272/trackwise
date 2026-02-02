@@ -1129,9 +1129,9 @@ void handleError(Map<String, dynamic> error) {
 
 | Value | Constant | Behavior | Example |
 |-------|----------|----------|---------|
-| 0 | `REMINDER_NONE` | No vibration | - |
-| 1 | `REMINDER_TARGET` | Vibrate when `count == reminder_value` | Vibrate at count 100 |
-| 2 | `REMINDER_INTERVAL` | Vibrate when `count % reminder_value == 0` | Vibrate every 10 counts |
+| 0 | `REMINDER_NONE` (None) | No vibration | - |
+| 1 | `REMINDER_TARGET` (At Target Count) | Vibrate when `count == reminder_value` | Vibrate at count 100 |
+| 2 | `REMINDER_INTERVAL` (Every X Increments) | Vibrate when `count % reminder_value == 0` | Vibrate every 10 counts |
 
 **Goal Vibration:**
 
