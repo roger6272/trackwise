@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 
 import '../../../../core/di/injection.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
@@ -67,6 +68,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
@@ -83,6 +85,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
             backgroundColor: primaryBackground,
             automaticallyImplyLeading: false,
             leading: IconButton(
+              tooltip: 'Back',
               icon: Icon(
                 Icons.arrow_back_rounded,
                 color: primaryText,
@@ -92,10 +95,8 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
             ),
             title: Text(
               'Recently Deleted',
-              style: GoogleFonts.interTight(
+              style: textTheme.titleLarge?.copyWith(
                 color: primaryText,
-                fontSize: 20.0,
-                fontWeight: FontWeight.w600,
               ),
             ),
             centerTitle: true,
@@ -110,12 +111,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                 return BlocConsumer<DeletedItemsBloc, DeletedItemsState>(
                   listener: (context, state) {
                     if (state is ItemRestored) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Item restored successfully'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
+                      showSuccessSnackBar(context, 'Item restored successfully');
                       // Set restored item as active in app
                       context.read<AppUiState>().activeItemId = state.itemId;
 
@@ -128,12 +124,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                       }
                     }
                     if (state is DeletedItemsError) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(state.message),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
+                      showErrorSnackBar(context, state.message);
                     }
                   },
                   builder: (context, state) {
@@ -186,19 +177,16 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
             const SizedBox(height: 16.0),
             Text(
               'No Deleted Items',
-              style: GoogleFonts.interTight(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: secondaryText,
-                fontSize: 18.0,
-                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8.0),
             Text(
               'Items you delete will appear here for 90 days before being permanently removed.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: secondaryText,
-                fontSize: 14.0,
               ),
             ),
           ],
@@ -239,9 +227,8 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
         children: [
           Text(
             '$count item${count == 1 ? '' : 's'} will be permanently deleted after 90 days',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14.0,
             ),
           ),
           if (!isConnected) ...[
@@ -269,9 +256,8 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                       const SizedBox(width: 6.0),
                       Text(
                         'Connect to restore items',
-                        style: GoogleFonts.inter(
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: secondaryText,
-                          fontSize: 12.0,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -317,28 +303,24 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                 children: [
                   Text(
                     item.name,
-                    style: GoogleFonts.interTight(
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: primaryText,
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 4.0),
                   Text(
                     'Deleted $deletedDateStr',
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: secondaryText,
-                      fontSize: 12.0,
                     ),
                   ),
                   const SizedBox(height: 2.0),
                   Text(
                     '$daysRemaining days remaining',
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: daysRemaining <= 7
                           ? AppColors.error
                           : secondaryText,
-                      fontSize: 12.0,
                       fontWeight: daysRemaining <= 7
                           ? FontWeight.w600
                           : FontWeight.normal,
@@ -361,10 +343,10 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      isConnected ? AppColors.primary : Colors.grey,
+                      isConnected ? AppColors.primary : AppColors.disabled,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade400,
-                  disabledForegroundColor: Colors.white70,
+                  disabledBackgroundColor: AppColors.disabled,
+                  disabledForegroundColor: AppColors.disabledForeground,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12.0,
                     vertical: 8.0,
@@ -384,8 +366,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                       )
                     : Text(
                         'Restore',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.0,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),

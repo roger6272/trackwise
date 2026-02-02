@@ -195,10 +195,10 @@ Synchronize device RTC clock with phone time.
 | JST (UTC+9) | 540 |
 
 **Device Behavior:**
-1. Parses UTC time string using `strptime`
+1. Parses UTC time string using `sscanf`
 2. Sets internal RTC clock
 3. Stores timezone offset in NVS (`tz_offset`)
-4. Triggers daily reset check (in case date changed)
+4. Triggers daily reset check via `resetTodayCountsIfNeeded()` (in case date changed)
 5. If `ack: true`, sends acknowledgment response
 
 **Response:** None by default. If `ack: true`:

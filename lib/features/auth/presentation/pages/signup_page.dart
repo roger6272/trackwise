@@ -3,10 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -93,11 +92,9 @@ class _SignupPageState extends State<SignupPage> {
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 70.0, 0.0, 32.0),
       child: Text(
         'Traxelos',
-        style: GoogleFonts.interTight(
+        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
           color: Colors.white,
-          fontSize: 32.0,
           letterSpacing: 0.0,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -136,11 +133,9 @@ class _SignupPageState extends State<SignupPage> {
                 Text(
                   'Get Started',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.interTight(
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
                     color: AppColors.primaryText(brightness),
-                    fontSize: 36.0,
                     letterSpacing: 0.0,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Padding(
@@ -148,9 +143,8 @@ class _SignupPageState extends State<SignupPage> {
                   child: Text(
                     'Create an account by using the form below.',
                     textAlign: TextAlign.start,
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.secondaryText(brightness),
-                      fontSize: 16.0,
                       letterSpacing: 0.0,
                       fontWeight: FontWeight.w500,
                     ),
@@ -182,17 +176,14 @@ class _SignupPageState extends State<SignupPage> {
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.email],
           cursorColor: AppColors.primary,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.primaryText(brightness),
-            fontSize: 16.0,
             letterSpacing: 0.0,
-            fontWeight: FontWeight.normal,
           ),
           decoration: InputDecoration(
             labelText: 'Email',
-            labelStyle: GoogleFonts.inter(
+            labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.secondaryText(brightness),
-              fontSize: 16.0,
               letterSpacing: 0.0,
               fontWeight: FontWeight.w500,
             ),
@@ -252,17 +243,14 @@ class _SignupPageState extends State<SignupPage> {
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.password],
           cursorColor: AppColors.primary,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.primaryText(brightness),
-            fontSize: 16.0,
             letterSpacing: 0.0,
-            fontWeight: FontWeight.normal,
           ),
           decoration: InputDecoration(
             labelText: 'Password',
-            labelStyle: GoogleFonts.inter(
+            labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.secondaryText(brightness),
-              fontSize: 16.0,
               letterSpacing: 0.0,
               fontWeight: FontWeight.w500,
             ),
@@ -333,17 +321,14 @@ class _SignupPageState extends State<SignupPage> {
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (_) => _signUp(context),
           cursorColor: AppColors.primary,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.primaryText(brightness),
-            fontSize: 16.0,
             letterSpacing: 0.0,
-            fontWeight: FontWeight.normal,
           ),
           decoration: InputDecoration(
             labelText: 'Confirm Password',
-            labelStyle: GoogleFonts.inter(
+            labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.secondaryText(brightness),
-              fontSize: 16.0,
               letterSpacing: 0.0,
               fontWeight: FontWeight.w500,
             ),
@@ -432,9 +417,8 @@ class _SignupPageState extends State<SignupPage> {
                 )
               : Text(
                   'Create Account',
-                  style: GoogleFonts.interTight(
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: Colors.white,
-                    fontSize: 16.0,
                     letterSpacing: 0.0,
                     fontWeight: FontWeight.w500,
                   ),
@@ -452,9 +436,8 @@ class _SignupPageState extends State<SignupPage> {
         child: Text(
           'Or sign up with',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.secondaryText(brightness),
-            fontSize: 16.0,
             letterSpacing: 0.0,
             fontWeight: FontWeight.w500,
           ),
@@ -495,7 +478,6 @@ class _SignupPageState extends State<SignupPage> {
         padding: const EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 12.0),
         child: InkWell(
           splashColor: Colors.transparent,
-          focusColor: Colors.transparent,
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
           onTap: () => context.pop(),
@@ -505,18 +487,15 @@ class _SignupPageState extends State<SignupPage> {
               children: [
                 TextSpan(
                   text: 'Already have an account? ',
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.primaryText(brightness),
-                    fontSize: 14.0,
                     letterSpacing: 0.0,
-                    fontWeight: FontWeight.normal,
                   ),
                 ),
                 TextSpan(
                   text: 'Sign in here',
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.primary,
-                    fontSize: 14.0,
                     letterSpacing: 0.0,
                     fontWeight: FontWeight.w600,
                   ),
@@ -545,12 +524,7 @@ class _SignupPageState extends State<SignupPage> {
       // Navigate to onboarding for new users
       context.go(OnboardingPage.routePath);
     } else if (state is AuthError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(state.message),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      showErrorSnackBar(context, state.message);
       // Clear password fields on error for security and retry
       _passwordController.clear();
       _confirmPasswordController.clear();

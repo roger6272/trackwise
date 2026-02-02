@@ -62,6 +62,64 @@ class AppColors {
   static const Color darkAccent3 = Color(0x4DEE8B60);
   static const Color darkAccent4 = Color(0xB2262D34);
 
+  // ==================== Trend/Stat Colors ====================
+
+  /// Positive trend (green)
+  static const Color positive = Color(0xFF017400);
+
+  /// Negative trend (red)
+  static const Color negative = Color(0xFF9F0202);
+
+  /// Neutral trend (grey)
+  static const Color neutral = Color(0xFF6B7280);
+
+  // ==================== Chart Colors ====================
+
+  /// Initial/base count bar (gray)
+  static const Color chartInitial = Color(0xFF9E9E9E);
+
+  /// Selected/pressed bar state (darker gray)
+  static const Color chartSelected = Color(0xFF757575);
+
+  /// Tooltip background
+  static const Color chartTooltip = Color(0xD9000000); // black 85%
+
+  // ==================== Disabled State ====================
+
+  /// Disabled background (e.g., buttons when BLE disconnected)
+  static const Color disabled = Color(0xFF9E9E9E);
+
+  /// Disabled foreground (slightly muted white)
+  static const Color disabledForeground = Color(0xB3FFFFFF); // white 70%
+
+  // ==================== Slidable Action Colors ====================
+
+  static const Color actionActivate = Color(0xFF3C38B5);
+  static const Color actionMoveToTop = Color(0xFF0891B2);
+  static const Color actionDelete = Color(0xFFD11F43);
+  static const Color actionDisabled = Color(0xFF565656);
+
+  // ==================== Activated Item Highlight ====================
+
+  static const Color activatedLight = Color(0xFFCAC6FF);
+  static const Color activatedDark = Color(0xFF3D3A6D);
+  static Color activated(Brightness brightness) =>
+      brightness == Brightness.dark ? activatedDark : activatedLight;
+
+  // ==================== Surface Variant ====================
+
+  static const Color surfaceLight = Color(0xFFF8F9FB);
+  static const Color surfaceDark = Color(0xFF1C1C1E);
+  static Color surface(Brightness brightness) =>
+      brightness == Brightness.dark ? surfaceDark : surfaceLight;
+
+  // ==================== Error Background ====================
+
+  static Color errorBackground(Brightness brightness) =>
+      brightness == Brightness.dark
+          ? error.withValues(alpha: 0.15)
+          : const Color(0xFFFFE6E6);
+
   // ==================== Helper Methods ====================
 
   /// Get primary text color based on brightness

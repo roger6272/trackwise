@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../domain/entities/csv_export_config.dart';
 import '../bloc/export_bloc.dart';
 import '../bloc/export_event.dart';
@@ -111,21 +112,11 @@ class _ExportPageState extends State<ExportPage> {
       child: BlocConsumer<ExportBloc, ExportState>(
         listener: (context, state) {
           if (state is ExportSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Export sent! Check your email.'),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            showSuccessSnackBar(context, 'Export sent! Check your email.');
             context.pop();
           }
           if (state is ExportError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            showErrorSnackBar(context, state.message);
           }
         },
         builder: (context, state) {
@@ -143,6 +134,7 @@ class _ExportPageState extends State<ExportPage> {
                 backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                 automaticallyImplyLeading: false,
                 leading: IconButton(
+                  tooltip: 'Back',
                   icon: Icon(
                     Icons.arrow_back_rounded,
                     color: Theme.of(context).colorScheme.onSurface,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
@@ -55,16 +54,15 @@ class DeviceSetupDialog extends StatelessWidget {
       ),
       title: Text(
         'New Device Detected',
-        style: GoogleFonts.interTight(
+        style: TextStyle(
           fontWeight: FontWeight.w600,
           color: primaryText,
         ),
       ),
       content: Text(
         'This will pair the device to your account. Your items will sync automatically.',
-        style: GoogleFonts.inter(
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: secondaryText,
-          fontSize: 14.0,
         ),
       ),
       actions: [
@@ -75,7 +73,7 @@ class DeviceSetupDialog extends StatelessWidget {
           },
           child: Text(
             'Cancel',
-            style: GoogleFonts.inter(color: secondaryText),
+            style: TextStyle(color: secondaryText),
           ),
         ),
         FilledButton(
@@ -88,7 +86,7 @@ class DeviceSetupDialog extends StatelessWidget {
           ),
           child: Text(
             'Set Up',
-            style: GoogleFonts.inter(color: Colors.white),
+            style: const TextStyle(color: Colors.white),
           ),
         ),
       ],

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../../core/theme/app_colors.dart';
 
 /// Hero stats display with animated count and trend badge.
@@ -44,10 +42,6 @@ class _HeroStatsState extends State<HeroStats>
   late Animation<double> _countAnimation;
   int _previousCount = 0;
 
-  // Semantic colors for trend indicators
-  static const Color _positiveColor = Color(0xFF017400);
-  static const Color _negativeColor = Color(0xFF9F0202);
-  static const Color _neutralColor = Color(0xFF6B7280);
 
   @override
   void initState() {
@@ -91,6 +85,7 @@ class _HeroStatsState extends State<HeroStats>
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     const primary = AppColors.primary;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
@@ -106,7 +101,7 @@ class _HeroStatsState extends State<HeroStats>
             builder: (context, child) {
               return Text(
                 _countAnimation.value.round().toString(),
-                style: GoogleFonts.interTight(
+                style: textTheme.displayLarge?.copyWith(
                   fontSize: 52.0,
                   fontWeight: FontWeight.w700,
                   color: primary,
@@ -119,8 +114,7 @@ class _HeroStatsState extends State<HeroStats>
           // "Current Count" label
           Text(
             'Current Count',
-            style: GoogleFonts.inter(
-              fontSize: 14.0,
+            style: textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w500,
               color: primaryText.withValues(alpha: 0.7),
             ),
@@ -135,7 +129,7 @@ class _HeroStatsState extends State<HeroStats>
             ),
             child: Text(
               '+${widget.periodIncrements} this period',
-              style: GoogleFonts.inter(
+              style: textTheme.bodyMedium?.copyWith(
                 fontSize: 13.0,
                 fontWeight: FontWeight.w600,
                 color: primary,
@@ -151,6 +145,7 @@ class _HeroStatsState extends State<HeroStats>
   }
 
   Widget _buildTrendBadge(Color primaryText, Color secondaryText) {
+    final textTheme = Theme.of(context).textTheme;
     final percentChange = widget.percentChange;
     final isPositive = percentChange != null && percentChange > 0;
     final isNegative = percentChange != null && percentChange < 0;
@@ -161,16 +156,16 @@ class _HeroStatsState extends State<HeroStats>
     final IconData icon;
 
     if (isPositive) {
-      badgeColor = _positiveColor.withValues(alpha: 0.12);
-      textColor = _positiveColor;
+      badgeColor = AppColors.positive.withValues(alpha: 0.12);
+      textColor = AppColors.positive;
       icon = Icons.trending_up_rounded;
     } else if (isNegative) {
-      badgeColor = _negativeColor.withValues(alpha: 0.12);
-      textColor = _negativeColor;
+      badgeColor = AppColors.negative.withValues(alpha: 0.12);
+      textColor = AppColors.negative;
       icon = Icons.trending_down_rounded;
     } else {
-      badgeColor = _neutralColor.withValues(alpha: 0.12);
-      textColor = _neutralColor;
+      badgeColor = AppColors.neutral.withValues(alpha: 0.12);
+      textColor = AppColors.neutral;
       icon = Icons.trending_flat_rounded;
     }
 
@@ -196,9 +191,8 @@ class _HeroStatsState extends State<HeroStats>
           const SizedBox(width: 6.0),
           Text(
             percentText,
-            style: GoogleFonts.interTight(
+            style: textTheme.titleSmall?.copyWith(
               fontSize: 14.0,
-              fontWeight: FontWeight.w600,
               color: textColor,
             ),
           ),
@@ -211,7 +205,7 @@ class _HeroStatsState extends State<HeroStats>
           const SizedBox(width: 8.0),
           Text(
             'vs ${widget.priorPeriodCount}',
-            style: GoogleFonts.inter(
+            style: textTheme.bodyMedium?.copyWith(
               fontSize: 13.0,
               fontWeight: FontWeight.w500,
               color: textColor.withValues(alpha: 0.8),
@@ -220,8 +214,7 @@ class _HeroStatsState extends State<HeroStats>
           const SizedBox(width: 6.0),
           Text(
             widget.periodLabel,
-            style: GoogleFonts.inter(
-              fontSize: 12.0,
+            style: textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w500,
               color: textColor.withValues(alpha: 0.6),
             ),

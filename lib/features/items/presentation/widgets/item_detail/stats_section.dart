@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -67,10 +66,6 @@ class ChartSection extends StatelessWidget {
     this.initialCount = 0,
   });
 
-  // Trend colors
-  static const Color _positiveColor = Color(0xFF017400);
-  static const Color _negativeColor = Color(0xFF9F0202);
-  static const Color _neutralColor = Color(0xFF6B7280);
 
   /// Get the chart window label based on range.
   String _getWindowLabel() {
@@ -89,6 +84,7 @@ class ChartSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primary = AppColors.primaryAdaptive(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
@@ -109,8 +105,7 @@ class ChartSection extends StatelessWidget {
               const SizedBox(width: 6.0),
               Text(
                 _getWindowLabel(),
-                style: GoogleFonts.inter(
-                  fontSize: 12.0,
+                style: textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: secondaryText,
                   letterSpacing: 0.3,
@@ -141,6 +136,7 @@ class ChartSection extends StatelessWidget {
     Color alternate,
   ) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryText = AppColors.primaryText(brightness);
     final primaryBackground = AppColors.primaryBackground(brightness);
     // Filter control background - blue tint to distinguish from content
@@ -156,6 +152,7 @@ class ChartSection extends StatelessWidget {
             primary,
             controlBackground,
             secondaryText,
+            textTheme,
           ),
         ),
         const SizedBox(width: 8.0),
@@ -179,6 +176,7 @@ class ChartSection extends StatelessWidget {
     Color primary,
     Color background,
     Color secondaryText,
+    TextTheme textTheme,
   ) {
     const periods = ['1D', '7D', '30D'];
 
@@ -225,8 +223,7 @@ class ChartSection extends StatelessWidget {
                 child: Center(
                   child: Text(
                     period,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.0,
+                    style: textTheme.bodySmall?.copyWith(
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? Colors.white : secondaryText,
                     ),
@@ -272,91 +269,103 @@ class ChartSection extends StatelessWidget {
       child: Row(
         children: [
           // Previous day button
-          GestureDetector(
-            onTap: () => onDateChanged(
-              selectedDate.subtract(const Duration(days: 1)),
-            ),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6.0),
-              decoration: BoxDecoration(
-                color: primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6.0),
+          Semantics(
+            label: 'Previous day',
+            button: true,
+            child: GestureDetector(
+              onTap: () => onDateChanged(
+                selectedDate.subtract(const Duration(days: 1)),
               ),
-              child: Icon(
-                Icons.chevron_left_rounded,
-                size: 18.0,
-                color: primary,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6.0),
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6.0),
+                ),
+                child: Icon(
+                  Icons.chevron_left_rounded,
+                  size: 18.0,
+                  color: primary,
+                ),
               ),
             ),
           ),
           // Date display (tappable, centered, fills space)
           Expanded(
-            child: GestureDetector(
-              onTap: () => _showDatePickerBottomSheet(context),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      range == '1D' ? 'Viewing' : 'Ending',
-                      style: GoogleFonts.inter(
-                        fontSize: 9.0,
-                        fontWeight: FontWeight.w500,
-                        color: secondaryText,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            isToday ? 'Today' : dateFormat.format(selectedDate),
-                            style: GoogleFonts.interTight(
-                              fontSize: 12.0,
-                              fontWeight: FontWeight.w600,
-                              color: primaryText,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 2.0),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 14.0,
+            child: Semantics(
+              label: 'Select date',
+              button: true,
+              child: GestureDetector(
+                onTap: () => _showDatePickerBottomSheet(context),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        range == '1D' ? 'Viewing' : 'Ending',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.w500,
                           color: secondaryText,
+                          letterSpacing: 0.3,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              isToday ? 'Today' : dateFormat.format(selectedDate),
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontSize: 12.0,
+                                color: primaryText,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 2.0),
+                          Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 14.0,
+                            color: secondaryText,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
           // Next day button
-          GestureDetector(
-            onTap: canGoForward
-                ? () => onDateChanged(
-                      selectedDate.add(const Duration(days: 1)),
-                    )
-                : null,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6.0),
-              decoration: BoxDecoration(
-                color: canGoForward
-                    ? primary.withValues(alpha: 0.1)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(6.0),
-              ),
-              child: Icon(
-                Icons.chevron_right_rounded,
-                size: 18.0,
-                color: canGoForward ? primary : secondaryText.withValues(alpha: 0.25),
+          Semantics(
+            label: 'Next day',
+            button: true,
+            enabled: canGoForward,
+            child: GestureDetector(
+              onTap: canGoForward
+                  ? () => onDateChanged(
+                        selectedDate.add(const Duration(days: 1)),
+                      )
+                  : null,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6.0),
+                decoration: BoxDecoration(
+                  color: canGoForward
+                      ? primary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6.0),
+                ),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18.0,
+                  color: canGoForward ? primary : secondaryText.withValues(alpha: 0.25),
+                ),
               ),
             ),
           ),
@@ -372,6 +381,7 @@ class ChartSection extends StatelessWidget {
 
   void _showDatePickerBottomSheet(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primary = AppColors.primaryAdaptive(brightness);
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
@@ -417,13 +427,12 @@ class ChartSection extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: GoogleFonts.interTight(
-                              fontSize: 18.0,
-                              fontWeight: FontWeight.w600,
+                            style: textTheme.titleMedium?.copyWith(
                               color: primaryText,
                             ),
                           ),
                           IconButton(
+                            tooltip: 'Close',
                             onPressed: () => Navigator.pop(context),
                             icon: Icon(
                               Icons.close_rounded,
@@ -466,7 +475,7 @@ class ChartSection extends StatelessWidget {
                               ),
                               child: Text(
                                 'Cancel',
-                                style: GoogleFonts.inter(
+                                style: textTheme.bodyLarge?.copyWith(
                                   fontSize: 15.0,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -491,7 +500,7 @@ class ChartSection extends StatelessWidget {
                               ),
                               child: Text(
                                 'Confirm',
-                                style: GoogleFonts.inter(
+                                style: textTheme.bodyLarge?.copyWith(
                                   fontSize: 15.0,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -535,6 +544,7 @@ class ChartSection extends StatelessWidget {
   /// Builds the chart header with hero stat, trend, and toggle.
   Widget _buildChartHeader(BuildContext context, Color primary, Color alternate) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final secondaryText = AppColors.secondaryText(brightness);
 
     return Padding(
@@ -566,8 +576,7 @@ class ChartSection extends StatelessWidget {
                     children: [
                       Text(
                         '+$periodTotal',
-                        style: GoogleFonts.interTight(
-                          fontSize: 28.0,
+                        style: textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: primary,
                         ),
@@ -578,8 +587,7 @@ class ChartSection extends StatelessWidget {
                           children: [
                             TextSpan(
                               text: 'increments',
-                              style: GoogleFonts.inter(
-                                fontSize: 14.0,
+                              style: textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w500,
                                 color: secondaryText,
                               ),
@@ -587,8 +595,7 @@ class ChartSection extends StatelessWidget {
                             if (showInitialCount)
                               TextSpan(
                                 text: ' (from $initialCount)',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12.0,
+                                style: textTheme.bodySmall?.copyWith(
                                   fontWeight: FontWeight.w400,
                                   color: secondaryText.withOpacity(0.7),
                                 ),
@@ -601,7 +608,7 @@ class ChartSection extends StatelessWidget {
                   // Trend indicator
                   if (periodLabel.isNotEmpty) ...[
                     const SizedBox(height: 2.0),
-                    _buildTrendBadge(secondaryText),
+                    _buildTrendBadge(secondaryText, textTheme),
                   ],
                 ],
               ),
@@ -616,7 +623,7 @@ class ChartSection extends StatelessWidget {
   }
 
   /// Builds the trend badge showing period-over-period change.
-  Widget _buildTrendBadge(Color secondaryText) {
+  Widget _buildTrendBadge(Color secondaryText, TextTheme textTheme) {
     final isPositive = percentChange != null && percentChange! > 0;
     final isNegative = percentChange != null && percentChange! < 0;
 
@@ -624,13 +631,13 @@ class ChartSection extends StatelessWidget {
     final IconData trendIcon;
 
     if (isPositive) {
-      trendColor = _positiveColor;
+      trendColor = AppColors.positive;
       trendIcon = Icons.trending_up_rounded;
     } else if (isNegative) {
-      trendColor = _negativeColor;
+      trendColor = AppColors.negative;
       trendIcon = Icons.trending_down_rounded;
     } else {
-      trendColor = _neutralColor;
+      trendColor = AppColors.neutral;
       trendIcon = Icons.trending_flat_rounded;
     }
 
@@ -649,8 +656,7 @@ class ChartSection extends StatelessWidget {
         const SizedBox(width: 4.0),
         Text(
           '$percentText vs $priorPeriodCount $periodLabel',
-          style: GoogleFonts.inter(
-            fontSize: 12.0,
+          style: textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w500,
             color: secondaryText,
           ),
@@ -666,6 +672,7 @@ class ChartSection extends StatelessWidget {
     Color alternate,
     Color secondaryText,
   ) {
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       decoration: BoxDecoration(
         color: alternate,
@@ -682,6 +689,7 @@ class ChartSection extends StatelessWidget {
             onTap: () => onChartTypeChanged(false),
             primary: primary,
             secondaryText: secondaryText,
+            textTheme: textTheme,
           ),
           _buildToggleOption(
             icon: Icons.show_chart_rounded,
@@ -690,6 +698,7 @@ class ChartSection extends StatelessWidget {
             onTap: () => onChartTypeChanged(true),
             primary: primary,
             secondaryText: secondaryText,
+            textTheme: textTheme,
           ),
         ],
       ),
@@ -703,6 +712,7 @@ class ChartSection extends StatelessWidget {
     required VoidCallback onTap,
     required Color primary,
     required Color secondaryText,
+    required TextTheme textTheme,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -734,8 +744,7 @@ class ChartSection extends StatelessWidget {
             const SizedBox(width: 4.0),
             Text(
               label,
-              style: GoogleFonts.inter(
-                fontSize: 12.0,
+              style: textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w500,
                 color: isSelected ? Colors.white : secondaryText,
               ),
@@ -762,12 +771,12 @@ class ChartSection extends StatelessWidget {
             }
 
             if (state is ChartsError) {
+              final textTheme = Theme.of(context).textTheme;
               return Center(
                 child: Text(
                   'Error: ${state.message}',
-                  style: GoogleFonts.inter(
-                    fontSize: 14.0,
-                    color: _negativeColor,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.negative,
                   ),
                 ),
               );

@@ -162,6 +162,19 @@ abstract class BluetoothRepository {
   /// - Left(BluetoothFailure): Command failed
   Future<Either<Failure, void>> clearLogs(String deviceId);
 
+  /// Deletes an item on the ESP32 device by device item ID.
+  ///
+  /// Sends JSON: {"cmd": "delete_item", "deviceItemId": deviceItemId}
+  /// Device shifts remaining items down and updates selection if needed.
+  ///
+  /// Returns:
+  /// - Right(void): Delete command sent successfully
+  /// - Left(BluetoothFailure): Command failed
+  Future<Either<Failure, void>> deleteItem(
+    String deviceId,
+    int deviceItemId,
+  );
+
   /// Unpairs the device from the current account.
   ///
   /// Sends JSON: {"cmd": "unpair"}

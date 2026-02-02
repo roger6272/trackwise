@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
@@ -41,6 +41,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
@@ -58,9 +59,8 @@ class _BluetoothPageState extends State<BluetoothPage> {
           backgroundColor: primaryBackground,
           title: Text(
             'Bluetooth',
-            style: GoogleFonts.interTight(
+            style: textTheme.titleLarge?.copyWith(
               color: primaryText,
-              fontWeight: FontWeight.w600,
               fontSize: 22.0,
             ),
           ),
@@ -101,11 +101,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
       },
       onCancel: () {
         context.read<BluetoothBloc>().add(const CancelSyncConflict());
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Disconnected. Connect again to sync.'),
-          ),
-        );
+        showInfoSnackBar(context, 'Disconnected. Connect again to sync.');
       },
     );
   }
@@ -120,7 +116,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
         label: const Text('Disconnect'),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          foregroundColor: Colors.red,
+          foregroundColor: AppColors.error,
         ),
       );
     }
@@ -189,21 +185,21 @@ class _BluetoothPageState extends State<BluetoothPage> {
               icon: Icons.bluetooth,
               label: 'Bluetooth',
               value: state.bluetoothEnabled ? 'Enabled' : 'Disabled',
-              valueColor: state.bluetoothEnabled ? Colors.green : Colors.red,
+              valueColor: state.bluetoothEnabled ? AppColors.success : AppColors.error,
             ),
             const Divider(height: 24),
             _InfoRow(
               icon: Icons.security,
               label: 'Permissions',
               value: state.permissionsGranted ? 'Granted' : 'Required',
-              valueColor: state.permissionsGranted ? Colors.green : Colors.orange,
+              valueColor: state.permissionsGranted ? AppColors.success : AppColors.warning,
             ),
             const Divider(height: 24),
             _InfoRow(
               icon: Icons.devices,
               label: 'Device',
               value: state.connectedDevice?.name ?? 'Not connected',
-              valueColor: state.isConnected ? Colors.green : null,
+              valueColor: state.isConnected ? AppColors.success : null,
             ),
           ],
         ),
@@ -260,7 +256,7 @@ class _StatusCard extends StatelessWidget {
     if (state.isConnected) {
       return (
         Icons.bluetooth_connected,
-        Colors.green,
+        AppColors.success,
         'Connected',
         'Connected to ${state.connectedDevice?.name ?? "device"}',
       );
@@ -269,7 +265,7 @@ class _StatusCard extends StatelessWidget {
     if (state.isConnecting) {
       return (
         Icons.bluetooth_searching,
-        Colors.orange,
+        AppColors.warning,
         'Connecting',
         'Establishing connection...',
       );
@@ -278,7 +274,7 @@ class _StatusCard extends StatelessWidget {
     if (!state.permissionsGranted) {
       return (
         Icons.security,
-        Colors.orange,
+        AppColors.warning,
         'Permissions Required',
         'Grant Bluetooth permissions to connect',
       );
@@ -287,7 +283,7 @@ class _StatusCard extends StatelessWidget {
     if (!state.bluetoothEnabled) {
       return (
         Icons.bluetooth_disabled,
-        Colors.red,
+        AppColors.error,
         'Bluetooth Disabled',
         'Enable Bluetooth in settings',
       );
@@ -295,7 +291,7 @@ class _StatusCard extends StatelessWidget {
 
     return (
       Icons.bluetooth,
-      Colors.blue,
+      AppColors.primary,
       'Ready to Connect',
       'Search for your ESP32 device',
     );

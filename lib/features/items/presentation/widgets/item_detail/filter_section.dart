@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/utils/interval_calculator.dart';
@@ -29,6 +28,7 @@ class FilterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final secondaryText = AppColors.secondaryText(brightness);
 
     return Column(
@@ -40,8 +40,7 @@ class FilterSection extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
           child: Text(
             'Filter by Reset Cycle',
-            style: GoogleFonts.inter(
-              fontSize: 12.0,
+            style: textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w600,
               color: secondaryText,
               letterSpacing: 0.3,

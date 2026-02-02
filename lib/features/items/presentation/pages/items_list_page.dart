@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +15,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../bluetooth/domain/entities/ble_message.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
@@ -86,6 +89,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   bool _isSearching = false;
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounceTimer;
 
   // Cached category maps (updated via BlocListener when categories change)
   Map<String, String> _cachedCategoryNames = {};
@@ -100,6 +104,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
   String? _lastSyncedCategoryId;
   DateTime? _lastSyncTime;
 
+  // Whether the "Connect Your Device" card has been dismissed
+  bool _connectCardDismissed = false;
+
   // Key to force category dropdown rebuild after returning from Manage Categories
   int _categoryDropdownKey = 0;
 
@@ -110,6 +117,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     // Mark user as existing (completed onboarding) when they reach items page
     _markOnboardingComplete();
+
+    // Load paired devices so the "Connect Your Device" card knows whether to show
+    context.read<BluetoothBloc>().add(const LoadPairedDevices());
 
     // Animation for reorder hint: lift effect
     _reorderHintController = AnimationController(
@@ -142,32 +152,22 @@ class _ItemsListContentState extends State<_ItemsListContent>
     await userRepository.completeOnboarding(primaryUseCase: 'existing_user');
   }
 
-  // Static colors (theme-independent)
-  static const Color _primary = Color(0xFF4B39EF);
-
   // Number formatter for count display
   static final NumberFormat _countFormat = NumberFormat.decimalPattern();
-  static const Color _activatedColorLight = Color(0xFFCAC6FF);
-  static const Color _activatedColorDark = Color(0xFF3D3A6D);
-  static const Color _activateActionColor = Color(0xFF3C38B5);
-  static const Color _moveToTopActionColor = Color(0xFF0891B2);
-  static const Color _deleteActionColor = Color(0xFFD11F43);
-  static const Color _disabledActionColor = Color(0xFF565656);
   static const int _maxItems = 100;
 
   @override
   Widget build(BuildContext context) {
     final appUiState = context.watch<AppUiState>();
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
 
     // Theme-aware colors
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
     final alternate = AppColors.alternate(brightness);
-    final activatedColor = brightness == Brightness.dark
-        ? _activatedColorDark
-        : _activatedColorLight;
+    final activatedColor = AppColors.activated(brightness);
 
     // Auth is guaranteed to be ready by parent BlocBuilder
     // Restore saved category filter from AppUiState
@@ -237,10 +237,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   automaticallyImplyLeading: false,
                   title: Text(
                     'Items',
-                    style: GoogleFonts.interTight(
+                    style: textTheme.titleLarge?.copyWith(
                       color: primaryText,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 20.0,
                     ),
                   ),
                   centerTitle: true,
@@ -248,6 +246,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   actions: [
                     // Search icon (opens search, X in search bar closes it)
                     IconButton(
+                      tooltip: 'Search items',
                       onPressed: () {
                         if (!_isSearching) {
                           setState(() => _isSearching = true);
@@ -266,6 +265,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         selector: (state) => state is ItemsLoaded && state.items.length >= _maxItems,
                         builder: (context, hasReachedLimit) {
                           return IconButton(
+                            tooltip: 'Create item',
                             onPressed: () async {
                               if (!isConnected) {
                                 await _showConnectDeviceDialog(context);
@@ -279,12 +279,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                               await context.pushNamed<Item>(ItemFormPage.routeName);
                             },
                             style: IconButton.styleFrom(
-                              backgroundColor: isConnected ? _primary : Colors.grey.shade400,
+                              backgroundColor: isConnected ? AppColors.primary : AppColors.disabled,
                               shape: const CircleBorder(),
                             ),
                             icon: Icon(
                               Icons.add_rounded,
-                              color: isConnected ? Colors.white : Colors.grey.shade600,
+                              color: isConnected ? Colors.white : AppColors.neutral,
                               size: 24.0,
                             ),
                           );
@@ -381,12 +381,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             },
                             listener: (context, state) {
                               if (state is ItemsError) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(state.message),
-                                    backgroundColor: _deleteActionColor,
-                                  ),
-                                );
+                                showErrorSnackBar(context, state.message);
                               }
                             },
                             buildWhen: (previous, current) {
@@ -408,7 +403,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                     width: 50.0,
                                     height: 50.0,
                                     child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(_primary),
+                                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                                     ),
                                   ),
                                 );
@@ -740,7 +735,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                   // Regular ListView when disconnected or searching
                                   // No hints shown when disconnected (device connection required for actions)
                                   final listWidget = RefreshIndicator(
-                                    color: _primary,
+                                    color: AppColors.primary,
                                     onRefresh: () async {
                                       context.read<ItemsBloc>().add(WatchItemsEvent(widget.userId));
                                       // Wait a bit for the stream to emit
@@ -886,9 +881,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   const SizedBox(width: 4),
                   Text(
                     label,
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: secondaryText.withValues(alpha: 0.7),
-                      fontSize: 12.0,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -907,9 +901,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
       padding: const EdgeInsets.fromLTRB(0.0, 8.0, 16.0, 4.0),
       child: Text(
         categoryName,
-        style: GoogleFonts.inter(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: secondaryText.withValues(alpha: 0.7),
-          fontSize: 12.0,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -924,9 +917,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
       padding: const EdgeInsets.fromLTRB(0.0, 8.0, 16.0, 4.0),
       child: Text(
         categoryName,
-        style: GoogleFonts.inter(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: secondaryText.withValues(alpha: 0.7),
-          fontSize: 12.0,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -978,22 +970,22 @@ class _ItemsListContentState extends State<_ItemsListContent>
       child: TextField(
         controller: _searchController,
         autofocus: true,
-        style: GoogleFonts.inter(
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           color: primaryText,
-          fontSize: 16.0,
         ),
         decoration: InputDecoration(
           hintText: 'Search items...',
-          hintStyle: GoogleFonts.inter(
+          hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: secondaryText,
-            fontSize: 16.0,
           ),
           prefixIcon: Icon(Icons.search_rounded, color: secondaryText),
           suffixIcon: IconButton(
+            tooltip: 'Clear search',
             icon: Icon(Icons.close_rounded, color: secondaryText),
             onPressed: () {
               if (_searchQuery.isNotEmpty) {
                 // Clear text first
+                _searchDebounceTimer?.cancel();
                 _searchController.clear();
                 setState(() => _searchQuery = '');
               } else {
@@ -1011,7 +1003,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
           ),
         ),
         onChanged: (value) {
-          setState(() => _searchQuery = value.toLowerCase());
+          _searchDebounceTimer?.cancel();
+          _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+            if (mounted) setState(() => _searchQuery = value.toLowerCase());
+          });
         },
       ),
     );
@@ -1054,7 +1049,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
           value: validCategoryId,
           isExpanded: true,
           icon: Icon(Icons.expand_more_rounded, color: secondaryText),
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: primaryText,
             fontSize: 15.0,
             fontWeight: FontWeight.w500,
@@ -1070,7 +1065,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   const SizedBox(width: 12),
                   Text(
                     'All Categories',
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: primaryText,
                       fontSize: 15.0,
                       fontWeight: FontWeight.w500,
@@ -1089,7 +1084,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       Expanded(
                         child: Text(
                           category.name,
-                          style: GoogleFonts.inter(
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: primaryText,
                             fontSize: 15.0,
                             fontWeight: FontWeight.w500,
@@ -1109,7 +1104,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   const SizedBox(width: 12),
                   Text(
                     'Uncategorized',
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: secondaryText,
                       fontSize: 15.0,
                       fontWeight: FontWeight.w500,
@@ -1128,7 +1123,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   const SizedBox(width: 12),
                   Text(
                     'Manage Categories',
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.primary,
                       fontSize: 15.0,
                       fontWeight: FontWeight.w500,
@@ -1207,7 +1202,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
           decoration: BoxDecoration(
-            color: _activateActionColor.withAlpha(15),
+            color: AppColors.actionActivate.withAlpha(15),
             borderRadius: BorderRadius.circular(12.0),
           ),
           child: Row(
@@ -1216,13 +1211,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
               Icon(
                 Icons.push_pin_rounded,
                 size: 11.0,
-                color: _activateActionColor,
+                color: AppColors.actionActivate,
               ),
               const SizedBox(width: 4.0),
               Flexible(
                 child: Text(
                   '${activeItem.name} · $categoryName',
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: secondaryText,
                     fontSize: 11.0,
                     fontWeight: FontWeight.w500,
@@ -1271,9 +1266,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 const SizedBox(width: 6.0),
                 Text(
                   'Tap to connect device',
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: secondaryText,
-                    fontSize: 12.0,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1316,7 +1310,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
           decoration: BoxDecoration(
             color: isActivated ? activatedColor : alternate,
             border: isActivated
-                ? Border(left: BorderSide(color: _activateActionColor, width: 4.0))
+                ? Border(left: BorderSide(color: AppColors.actionActivate, width: 4.0))
                 : null,
           ),
           child: InkWell(
@@ -1348,9 +1342,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   Expanded(
                     child: Text(
                       item.name,
-                      style: GoogleFonts.interTight(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: !isConnected ? secondaryText : primaryText,
-                        fontWeight: FontWeight.w600,
                         fontSize: 17.0,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -1366,7 +1359,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           ? (isDark ? const Color(0xFFB8B4FF) : const Color(0xFF8580E0))
                           : (isDark ? const Color(0xFF6B7280) : const Color(0xFFD1D5DB));
                       final textColor = isActivated
-                          ? (isDark ? const Color(0xFFB8B4FF) : _activateActionColor)
+                          ? (isDark ? const Color(0xFFB8B4FF) : AppColors.actionActivate)
                           : primaryText;
                       return Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1388,10 +1381,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                 child: Text(
                                   _countFormat.format(displayCount),
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.inter(
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: textColor,
-                                    fontSize: 18.0,
-                                    fontWeight: FontWeight.w600,
                                     fontFeatures: const [FontFeature.tabularFigures()],
                                   ),
                                 ),
@@ -1446,7 +1437,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             children: [
             // Activate (pin) action
             SlidableAction(
-              backgroundColor: isConnected ? _activateActionColor : _disabledActionColor,
+              backgroundColor: isConnected ? AppColors.actionActivate : AppColors.actionDisabled,
               icon: Icons.push_pin_rounded,
               autoClose: false,
               onPressed: (slidableContext) async {
@@ -1498,7 +1489,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
             // Move to Top action
             SlidableAction(
-              backgroundColor: isConnected ? _moveToTopActionColor : _disabledActionColor,
+              backgroundColor: isConnected ? AppColors.actionMoveToTop : AppColors.actionDisabled,
               icon: Icons.vertical_align_top_rounded,
               autoClose: false,
               onPressed: (slidableContext) async {
@@ -1529,6 +1520,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   }
                   // Clear search to show item at top
                   if (_searchQuery.isNotEmpty) {
+                    _searchDebounceTimer?.cancel();
                     setState(() {
                       _searchController.clear();
                       _searchQuery = '';
@@ -1542,7 +1534,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               },
             ),
             SlidableAction(
-              backgroundColor: isConnected ? _primary : _disabledActionColor,
+              backgroundColor: isConnected ? AppColors.primary : AppColors.actionDisabled,
               icon: Icons.edit,
               autoClose: false,
               onPressed: (slidableContext) async {
@@ -1560,7 +1552,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               },
             ),
             SlidableAction(
-              backgroundColor: isConnected ? _deleteActionColor : _disabledActionColor,
+              backgroundColor: isConnected ? AppColors.actionDelete : AppColors.actionDisabled,
               icon: Icons.delete_outline_rounded,
               autoClose: false,
               onPressed: (slidableContext) async {
@@ -1691,18 +1683,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
           const SizedBox(height: 16.0),
           Text(
             'No items found',
-            style: GoogleFonts.interTight(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: primaryText,
-              fontSize: 20.0,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8.0),
           Text(
             'Try a different search term',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14.0,
             ),
           ),
         ],
@@ -1711,10 +1700,99 @@ class _ItemsListContentState extends State<_ItemsListContent>
   }
 
   Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText, bool isConnected) {
+    final brightness = Theme.of(context).brightness;
+    final bluetoothState = context.watch<BluetoothBloc>().state;
+    final showConnectCard = bluetoothState.pairedDevices.isEmpty &&
+        !isConnected &&
+        !_connectCardDismissed;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // "Connect Your Device" card for users with no paired devices
+          if (showConnectCard) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Semantics(
+                label: 'Connect your device card',
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.bluetooth,
+                            color: AppColors.primaryAdaptive(brightness),
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Connect Your Device',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: primaryText,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Pair your Traxelos One to start counting',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: secondaryText,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Semantics(
+                            label: 'Dismiss connect device card',
+                            child: IconButton(
+                              icon: Icon(Icons.close, color: secondaryText, size: 20),
+                              onPressed: () => setState(() => _connectCardDismissed = true),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => context.pushNamed('BluetoothSearchPage'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Connect Now',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32.0),
+          ],
           Icon(
             Icons.inbox_outlined,
             size: 72.0,
@@ -1723,18 +1801,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
           const SizedBox(height: 16.0),
           Text(
             'No items yet',
-            style: GoogleFonts.interTight(
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: primaryText,
-              fontSize: 24.0,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8.0),
           Text(
             'Create your first item to start tracking',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
-              fontSize: 14.0,
             ),
           ),
           const SizedBox(height: 24.0),
@@ -1745,20 +1820,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   }
                 : null,
             style: FilledButton.styleFrom(
-              backgroundColor: _primary,
-              disabledBackgroundColor: _primary.withValues(alpha: 0.3),
+              backgroundColor: AppColors.primary,
+              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
             ),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Create Item'),
           ),
-          if (!isConnected) ...[
+          if (!isConnected && !showConnectCard) ...[
             const SizedBox(height: 8.0),
             Text(
               'Connect device to create items',
-              style: GoogleFonts.inter(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: secondaryText.withValues(alpha: 0.7),
-                fontSize: 12.0,
               ),
             ),
           ],
@@ -1816,7 +1890,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
             TextButton(
               onPressed: () => Navigator.pop(alertDialogContext, true),
-              style: TextButton.styleFrom(foregroundColor: _deleteActionColor),
+              style: TextButton.styleFrom(foregroundColor: AppColors.actionDelete),
               child: const Text('Delete'),
             ),
           ],
@@ -1878,9 +1952,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         Expanded(
                           child: Text(
                             'Long press and drag to reorder items',
-                            style: GoogleFonts.inter(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.white,
-                              fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1956,9 +2029,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   Expanded(
                     child: Text(
                       'Swipe left and tap the pin icon to activate this item on your device',
-                      style: GoogleFonts.inter(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white,
-                        fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -2105,6 +2177,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     _reorderHintOverlay = null;
     _firstItemController?.dispose();
     _reorderHintController?.dispose();
+    _searchDebounceTimer?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();

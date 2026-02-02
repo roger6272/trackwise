@@ -158,8 +158,10 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Stop any ongoing scan before connecting (helps avoid GATT 133 errors)
     if (FlutterBluePlus.isScanningNow) {
       await FlutterBluePlus.stopScan();
-      // Brief delay to let the BLE stack settle
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Wait for BLE stack to settle after stopping scan (prevents GATT 133)
+      await Future.delayed(
+        const Duration(milliseconds: BluetoothConstants.scanStopDelayMs),
+      );
     }
 
     // Disconnect from any existing connection

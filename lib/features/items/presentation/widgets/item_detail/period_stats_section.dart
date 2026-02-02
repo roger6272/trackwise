@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -32,6 +31,7 @@ class PeriodStatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final secondaryText = AppColors.secondaryText(brightness);
     final primary = AppColors.primaryAdaptive(brightness);
     final alternate = AppColors.alternate(brightness);
@@ -64,8 +64,7 @@ class PeriodStatsSection extends StatelessWidget {
               const SizedBox(width: 6.0),
               Text(
                 'Summary',
-                style: GoogleFonts.inter(
-                  fontSize: 12.0,
+                style: textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: secondaryText,
                   letterSpacing: 0.3,
@@ -87,7 +86,7 @@ class PeriodStatsSection extends StatelessWidget {
                       _showInitialBreakdown
                           ? '${initialCount + interval.count}'
                           : '+${interval.count}',
-                      style: GoogleFonts.interTight(
+                      style: textTheme.titleLarge?.copyWith(
                         fontSize: 32.0,
                         fontWeight: FontWeight.w700,
                         color: primary,
@@ -97,8 +96,7 @@ class PeriodStatsSection extends StatelessWidget {
                     if (_showInitialBreakdown) ...[
                       Text(
                         'from $initialCount',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.0,
+                        style: textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w500,
                           color: secondaryText.withValues(alpha: 0.7),
                         ),
@@ -106,7 +104,7 @@ class PeriodStatsSection extends StatelessWidget {
                     ] else ...[
                       Text(
                         'total',
-                        style: GoogleFonts.inter(
+                        style: textTheme.bodyMedium?.copyWith(
                           fontSize: 13.0,
                           fontWeight: FontWeight.w500,
                           color: secondaryText,
@@ -155,6 +153,7 @@ class _TimeRangeDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     final dateTimeFormat = DateFormat('MMM d, h:mm a');
 
     return Column(
@@ -163,8 +162,7 @@ class _TimeRangeDisplay extends StatelessWidget {
       children: [
         Text(
           dateTimeFormat.format(startDate),
-          style: GoogleFonts.inter(
-            fontSize: 14.0,
+          style: textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w500,
             color: secondaryText,
           ),
@@ -179,8 +177,7 @@ class _TimeRangeDisplay extends StatelessWidget {
         ),
         Text(
           isCurrent ? 'Now' : dateTimeFormat.format(endDate),
-          style: GoogleFonts.inter(
-            fontSize: 14.0,
+          style: textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
             color: secondaryText,
           ),

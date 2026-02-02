@@ -1729,6 +1729,8 @@ void processWriteCommand(const String& jsonStr) {
           DEBUG_LOG("✅ Selected item [%d]: deviceItemId=%d (%s) category=%s resetNumber=%d\n", i, targetDeviceId, itemName.c_str(), itemCategory.c_str(), itemResetNumber);
           found = true;
           nvsEndSafe();
+          // Notify app of current item state (spec: set_selected sends item_delta)
+          notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
           return;
         }
       }
@@ -1979,6 +1981,8 @@ void processWriteCommand(const String& jsonStr) {
         prefs.end();
         DEBUG_LOG("✅ RTC set to UTC: %04d-%02d-%02d %02d:%02d:%02d (local offset: %d min)\n",
                       y, mo, d, h, mi, s, offsetMinutes);
+        // Trigger daily reset check in case the date changed
+        resetTodayCountsIfNeeded();
         sendAckIfRequested(doc, "set_time", true);
       } else {
         DEBUG_PRINTLN("❌ set_time: missing utc_time parameter");

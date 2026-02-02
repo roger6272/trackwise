@@ -567,6 +567,10 @@
     <h1>Traxelos One Device Display Reference</h1>
     <p class="subtitle"><strong>For developers:</strong> This document describes the physical device's display states, layouts, and transitions. For app-device communication, see <a href="BLE_PROTOCOL.md">BLE_PROTOCOL.md</a>. For end-user instructions, see <a href="USER_GUIDE.html">USER_GUIDE.html</a>.</p>
 
+    <div class="todo">
+        <strong>Note:</strong> This is the <strong>target spec</strong> for the production Traxelos One device. The current firmware prototype implements a simplified subset of these display states (e.g., text-only messages instead of icons and layouts). See <a href="BLE_PROTOCOL.md">BLE_PROTOCOL.md</a> for what the prototype firmware actually implements today.
+    </div>
+
     <h2>Device Layout</h2>
 
     <p>The Traxelos One is a handheld device with a large front-facing display and two buttons.</p>
@@ -759,7 +763,67 @@
 
     <!-- State 5 -->
     <div class="state-card">
-        <h3 id="sleep-mode">5. Sleep Mode (Power Saving) <span class="state-label">Idle</span></h3>
+        <h3 id="conflict-state">5. Conflict State <span class="state-label">Destructive</span></h3>
+        <p class="field-label">When:</p>
+        <p>Sync sequence mismatch detected during handshake (device's sync_seq &ne; app's sync_seq).</p>
+        <p class="field-label">Display:</p>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="centered-text">
+                    <div class="title">Conflict</div>
+                    <div class="title">See App</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Conflict State &mdash; persistent until resolved via app</p>
+        <p class="field-label">Behavior:</p>
+        <ul>
+            <li><strong>Buttons disabled</strong> &mdash; all physical button presses are ignored</li>
+            <li>Display shows "Conflict" / "See App" persistently (not a transient notification)</li>
+            <li>Device waits for the app to send override commands or disconnect</li>
+        </ul>
+        <p class="field-label">Exit conditions:</p>
+        <ul>
+            <li><code>override_end</code> received &mdash; conflict resolved, returns to <a href="#main-item-view">Main Item View</a></li>
+            <li>BLE disconnect &mdash; device exits conflict state and returns to normal mode</li>
+        </ul>
+    </div>
+
+    <!-- State 6 -->
+    <div class="state-card">
+        <h3 id="wrong-account">6. Wrong Account <span class="state-label">Destructive</span></h3>
+        <p class="field-label">When:</p>
+        <p>A different account (not the paired one) attempts to connect via handshake.</p>
+        <p class="field-label">Display:</p>
+    <div style="display: flex; justify-content: center;">
+        <div class="device-frame">
+            <div class="oled-screen">
+                <div class="centered-text">
+                    <div class="title">Wrong Account</div>
+                    <div class="title">See App</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="screen-caption">Wrong Account &mdash; persistent until disconnect</p>
+        <p class="field-label">Behavior:</p>
+        <ul>
+            <li><strong>Buttons disabled</strong> &mdash; all physical button presses are ignored</li>
+            <li>Display shows "Wrong Account" / "See App" persistently</li>
+            <li>Device waits for the app to disconnect</li>
+        </ul>
+        <p class="field-label">Exit conditions:</p>
+        <ul>
+            <li>BLE disconnect &mdash; device returns to normal mode</li>
+            <li>Factory reset (A+B hold 7s) &mdash; clears pairing, returns to <a href="#welcome-pairing">Welcome / Pairing</a></li>
+        </ul>
+    </div>
+
+    <!-- State 7 -->
+    <div class="state-card">
+        <h3 id="sleep-mode">7. Sleep Mode (Power Saving) <span class="state-label">Idle</span></h3>
         <p class="field-label">When:</p>
         <p>5 minutes of inactivity from Main Item View.</p>
         <p class="field-label">Display:</p>
@@ -775,7 +839,7 @@
 
     <!-- State 6 -->
     <div class="state-card">
-        <h3>6. Factory Reset <span class="state-label">Destructive</span></h3>
+        <h3>8. Factory Reset <span class="state-label">Destructive</span></h3>
         <p class="field-label">When:</p>
         <p>Both A and B held for 7 seconds.</p>
         <p class="field-label">Display:</p>
@@ -877,6 +941,46 @@
         <!-- Return to Main -->
         <div class="flow-node default" style="padding: 6px 16px; font-size: 0.8em;">&#8593; Back to Main Item View</div>
 
+        <!-- Conflict State -->
+        <div class="flow-separator"></div>
+        <div class="flow-row" style="gap: 64px; margin-top: 0;">
+            <!-- Left: Conflict -->
+            <div class="flow-col">
+                <div class="flow-note">Handshake: sync_seq mismatch</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node destructive">Conflict State (See App)</div>
+                <div class="flow-note" style="margin: 4px 0;">Buttons disabled</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">override_end / disconnect</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node default" style="padding: 6px 16px; font-size: 0.8em;">&#8593; Main Item View</div>
+            </div>
+
+            <!-- Right: Wrong Account -->
+            <div class="flow-col">
+                <div class="flow-note">Handshake: wrong UID</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node destructive">Wrong Account</div>
+                <div class="flow-note" style="margin: 4px 0;">Buttons disabled</div>
+                <div class="flow-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-label">disconnect / factory reset</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head"></div>
+                </div>
+                <div class="flow-node default" style="padding: 6px 16px; font-size: 0.8em;">&#8593; Normal / Welcome</div>
+            </div>
+        </div>
+
         <!-- Separator -->
         <div class="flow-separator"></div>
 
@@ -955,8 +1059,6 @@
         <tbody>
             <tr><td><strong>Connected</strong></td><td>BLE connection established</td><td>Bluetooth icon + "Connected"</td><td>3 seconds</td></tr>
             <tr><td><strong>Disconnected</strong></td><td>BLE connection lost</td><td>Crossed-out Bluetooth icon + "Disconnected"</td><td>3 seconds</td></tr>
-            <tr><td><strong>Wrong Account</strong></td><td>A different account (not the paired one) connects</td><td>"Wrong Account"</td><td>3 seconds</td></tr>
-            <tr><td><strong>Conflict / See App</strong></td><td>User presses button while a sync conflict exists</td><td>"Conflict" + "See App" (two lines)</td><td>3 seconds</td></tr>
             <tr><td><strong>Memory almost full</strong></td><td>NVS usage &ge; 90%</td><td>"Memory almost full. Please sync."</td><td>3 seconds (once per wake)</td></tr>
             <tr><td><strong>Storage full</strong></td><td>NVS usage = 100%</td><td>"Storage full. Sync now."</td><td>Shown on every A press (blocks counting)</td></tr>
         </tbody>

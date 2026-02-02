@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -81,11 +80,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 70.0, 0.0, 32.0),
       child: Text(
         'Traxelos',
-        style: GoogleFonts.interTight(
+        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
           color: Colors.white,
-          fontSize: 32.0,
           letterSpacing: 0.0,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -127,11 +124,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   child: Text(
                     'Forgot Password',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.interTight(
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: AppColors.primaryText(brightness),
-                      fontSize: 36.0,
                       letterSpacing: 0.0,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -140,9 +135,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   child: Text(
                     'Please fill out your email below in order to receive a reset password link.',
                     textAlign: TextAlign.start,
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.secondaryText(brightness),
-                      fontSize: 16.0,
                       letterSpacing: 0.0,
                       fontWeight: FontWeight.w500,
                     ),
@@ -195,17 +189,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           autofillHints: const [AutofillHints.email],
           cursorColor: AppColors.primary,
           onFieldSubmitted: (_) => _resetPassword(context),
-          style: GoogleFonts.inter(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.primaryText(brightness),
-            fontSize: 16.0,
             letterSpacing: 0.0,
-            fontWeight: FontWeight.normal,
           ),
           decoration: InputDecoration(
             labelText: 'Email',
-            labelStyle: GoogleFonts.inter(
+            labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.secondaryText(brightness),
-              fontSize: 16.0,
               letterSpacing: 0.0,
               fontWeight: FontWeight.w500,
             ),
@@ -282,9 +273,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 )
               : Text(
                   'Send Reset Link',
-                  style: GoogleFonts.interTight(
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: Colors.white,
-                    fontSize: 16.0,
                     letterSpacing: 0.0,
                     fontWeight: FontWeight.w500,
                   ),
@@ -304,12 +294,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   void _handleAuthStateChange(BuildContext context, AuthState state) {
     if (state is PasswordResetSent) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset email sent! Check your inbox.'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      showSuccessSnackBar(context, 'Password reset email sent! Check your inbox.');
       // Go back to login after showing success message
       Future.delayed(const Duration(seconds: 2), () {
         if (context.mounted) {
@@ -317,12 +302,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         }
       });
     } else if (state is AuthError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(state.message),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      showErrorSnackBar(context, state.message);
     }
   }
 }

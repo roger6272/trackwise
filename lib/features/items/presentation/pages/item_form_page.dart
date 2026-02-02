@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 
 import '../../../../core/utils/constants.dart';
 import '../../../../core/utils/logger.dart';
@@ -11,6 +11,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
 import '../../../categories/presentation/bloc/categories_bloc.dart';
 import '../../../categories/presentation/bloc/categories_event.dart';
@@ -112,6 +113,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
   Widget build(BuildContext context) {
     // Theme-aware colors
     final brightness = Theme.of(context).brightness;
+    final textTheme = Theme.of(context).textTheme;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
@@ -155,6 +157,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
               backgroundColor: primaryBackground,
               automaticallyImplyLeading: false,
               leading: IconButton(
+                tooltip: 'Back',
                 icon: Icon(
                   Icons.arrow_back_rounded,
                   color: primaryText,
@@ -166,11 +169,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
               ),
               title: Text(
                 isEditMode ? 'Edit Item' : 'Create Item',
-                style: GoogleFonts.interTight(
+                style: textTheme.titleLarge?.copyWith(
                   color: primaryText,
-                  fontSize: 20.0,
                   letterSpacing: 0.0,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               centerTitle: true,
@@ -189,6 +190,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         _buildFieldSection(
                           label: 'Item Name',
                           labelColor: primaryText,
+                          textTheme: textTheme,
                           child: TextFormField(
                             controller: nameController,
                             focusNode: nameFocusNode,
@@ -196,13 +198,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             textCapitalization: TextCapitalization.words,
                             textInputAction: TextInputAction.next,
                             decoration: _buildInputDecoration(
+                              textTheme: textTheme,
                               hint: 'Enter item name...',
                               alternate: alternate,
                               secondaryText: secondaryText,
                             ),
-                            style: GoogleFonts.inter(
+                            style: textTheme.bodyLarge?.copyWith(
                               color: primaryText,
-                              fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
                             maxLength: AppConstants.maxItemNameLength,
@@ -233,6 +235,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             return _buildFieldSection(
                               label: 'Category (optional)',
                               labelColor: primaryText,
+                              textTheme: textTheme,
                               child: DropdownButtonFormField<String>(
                                 key: ValueKey(_categoryDropdownKey),
                                 value: validCategoryId,
@@ -241,9 +244,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                     value: '',
                                     child: Text(
                                       'Uncategorized',
-                                      style: GoogleFonts.inter(
+                                      style: textTheme.bodyLarge?.copyWith(
                                         color: secondaryText,
-                                        fontSize: 16.0,
                                         fontStyle: FontStyle.italic,
                                       ),
                                     ),
@@ -252,9 +254,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                     value: category.id,
                                     child: Text(
                                       category.name,
-                                      style: GoogleFonts.inter(
+                                      style: textTheme.bodyLarge?.copyWith(
                                         color: primaryText,
-                                        fontSize: 16.0,
                                       ),
                                     ),
                                   )),
@@ -267,9 +268,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                         const SizedBox(width: 12),
                                         Text(
                                           'Manage Categories',
-                                          style: GoogleFonts.inter(
+                                          style: textTheme.bodyLarge?.copyWith(
                                             color: AppColors.primaryAdaptive(brightness),
-                                            fontSize: 16.0,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -288,9 +288,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   }
                                   setState(() => selectedCategoryId = val ?? '');
                                 },
-                                style: GoogleFonts.inter(
+                                style: textTheme.bodyLarge?.copyWith(
                                   color: primaryText,
-                                  fontSize: 16.0,
                                 ),
                                 dropdownColor: alternate,
                                 icon: Icon(
@@ -320,6 +319,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                           _buildFieldSection(
                             label: 'Initial Value',
                             labelColor: primaryText,
+                            textTheme: textTheme,
                             child: TextFormField(
                               controller: initialValueController,
                               focusNode: initialValueFocusNode,
@@ -329,13 +329,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: _buildInputDecoration(
+                                textTheme: textTheme,
                                 hint: 'Enter initial count...',
                                 alternate: alternate,
                                 secondaryText: secondaryText,
                               ),
-                              style: GoogleFonts.inter(
+                              style: textTheme.bodyLarge?.copyWith(
                                 color: primaryText,
-                                fontSize: 16.0,
                                 letterSpacing: 0.0,
                               ),
                               validator: (value) {
@@ -353,6 +353,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         _buildFieldSection(
                           label: 'Goal (optional)',
                           labelColor: primaryText,
+                          textTheme: textTheme,
                           child: TextFormField(
                             controller: goalController,
                             focusNode: goalFocusNode,
@@ -362,13 +363,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: _buildInputDecoration(
+                              textTheme: textTheme,
                               hint: 'Enter target goal...',
                               alternate: alternate,
                               secondaryText: secondaryText,
                             ),
-                            style: GoogleFonts.inter(
+                            style: textTheme.bodyLarge?.copyWith(
                               color: primaryText,
-                              fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
                             validator: (value) {
@@ -385,6 +386,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         _buildFieldSection(
                           label: 'Count Per Press',
                           labelColor: primaryText,
+                          textTheme: textTheme,
                           child: TextFormField(
                             controller: incrementByController,
                             focusNode: incrementByFocusNode,
@@ -394,13 +396,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: _buildInputDecoration(
+                              textTheme: textTheme,
                               hint: 'e.g. 1, 5, 10...',
                               alternate: alternate,
                               secondaryText: secondaryText,
                             ),
-                            style: GoogleFonts.inter(
+                            style: textTheme.bodyLarge?.copyWith(
                               color: primaryText,
-                              fontSize: 16.0,
                               letterSpacing: 0.0,
                             ),
                             validator: (value) {
@@ -418,6 +420,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                         _buildFieldSection(
                           label: 'Reminder (Vibration)',
                           labelColor: primaryText,
+                          textTheme: textTheme,
                           child: DropdownButtonFormField<ReminderType>(
                             value: selectedReminder,
                             items: const [
@@ -428,9 +431,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                             onChanged: (val) {
                               setState(() => selectedReminder = val);
                             },
-                            style: GoogleFonts.inter(
+                            style: textTheme.bodyLarge?.copyWith(
                               color: primaryText,
-                              fontSize: 16.0,
                             ),
                             dropdownColor: alternate,
                             icon: Icon(
@@ -457,6 +459,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                           _buildFieldSection(
                             label: 'Reminder Value',
                             labelColor: primaryText,
+                            textTheme: textTheme,
                             child: TextFormField(
                               controller: reminderValueController,
                               focusNode: reminderValueFocusNode,
@@ -466,13 +469,13 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: _buildInputDecoration(
+                                textTheme: textTheme,
                                 hint: 'Enter reminder value...',
                                 alternate: alternate,
                                 secondaryText: secondaryText,
                               ),
-                              style: GoogleFonts.inter(
+                              style: textTheme.bodyLarge?.copyWith(
                                 color: primaryText,
-                                fontSize: 16.0,
                                 letterSpacing: 0.0,
                               ),
                               validator: (value) {
@@ -507,9 +510,8 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   ),
                                   child: Text(
                                     'Cancel',
-                                    style: GoogleFonts.interTight(
+                                    style: textTheme.titleSmall?.copyWith(
                                       color: primaryText,
-                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
@@ -531,9 +533,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                   ),
                                   child: Text(
                                     isEditMode ? 'Update' : 'Create',
-                                    style: GoogleFonts.interTight(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: textTheme.titleSmall,
                                   ),
                                 ),
                                 ),
@@ -562,13 +562,14 @@ class _ItemFormPageState extends State<ItemFormPage> {
     required String label,
     required Widget child,
     required Color labelColor,
+    required TextTheme textTheme,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: textTheme.bodyLarge?.copyWith(
             color: labelColor,
             letterSpacing: 0.0,
             fontWeight: FontWeight.w600,
@@ -584,12 +585,12 @@ class _ItemFormPageState extends State<ItemFormPage> {
     required String hint,
     required Color alternate,
     required Color secondaryText,
+    required TextTheme textTheme,
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.inter(
+      hintStyle: textTheme.bodyLarge?.copyWith(
         color: secondaryText,
-        fontSize: 16.0,
         letterSpacing: 0.0,
       ),
       enabledBorder: OutlineInputBorder(
@@ -714,12 +715,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
     if (duplicateExists) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An item with this name already exists'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showErrorSnackBar(context, 'An item with this name already exists');
       }
       return;
     }
@@ -755,9 +751,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           AppLogger.debug('Failed to update item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to update item: ${failure.message}')),
-            );
+            showErrorSnackBar(context, 'Failed to update item: ${failure.message}');
           }
         },
         (item) async {
@@ -777,12 +771,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
         AppLogger.debug('Cannot create item: userId is empty (not authenticated)');
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please sign in again to create items'),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          showErrorSnackBar(context, 'Please sign in again to create items');
         }
         return;
       }
@@ -812,9 +801,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
           AppLogger.debug('Failed to create item: ${failure.message}');
           if (mounted) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to create item: ${failure.message}')),
-            );
+            showErrorSnackBar(context, 'Failed to create item: ${failure.message}');
           }
         },
         (createdItem) async {

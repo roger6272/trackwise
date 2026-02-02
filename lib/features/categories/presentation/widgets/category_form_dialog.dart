@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/constants.dart';
@@ -49,7 +48,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
       backgroundColor: backgroundColor,
       title: Text(
         isEditing ? 'Edit Category' : 'New Category',
-        style: GoogleFonts.interTight(
+        style: TextStyle(
           fontWeight: FontWeight.w600,
           color: primaryText,
         ),
@@ -60,14 +59,14 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
           controller: _nameController,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
-          style: GoogleFonts.inter(color: primaryText),
+          style: TextStyle(color: primaryText),
           decoration: InputDecoration(
             labelText: 'Category Name',
-            labelStyle: GoogleFonts.inter(color: secondaryText),
+            labelStyle: TextStyle(color: secondaryText),
             hintText: 'e.g., Electronics, Office Supplies',
-            hintStyle: GoogleFonts.inter(color: secondaryText.withValues(alpha: 0.5)),
+            hintStyle: TextStyle(color: secondaryText.withValues(alpha: 0.5)),
             counterText: '${_nameController.text.length}/${AppConstants.maxCategoryNameLength}',
-            counterStyle: GoogleFonts.inter(color: secondaryText, fontSize: 12),
+            counterStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: secondaryText),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -95,7 +94,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
-            style: GoogleFonts.inter(color: secondaryText),
+            style: TextStyle(color: secondaryText),
           ),
         ),
         FilledButton(
@@ -105,7 +104,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
           ),
           child: Text(
             isEditing ? 'Save' : 'Create',
-            style: GoogleFonts.inter(color: Colors.white),
+            style: const TextStyle(color: Colors.white),
           ),
         ),
       ],
