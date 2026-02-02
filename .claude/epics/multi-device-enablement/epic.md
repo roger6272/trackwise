@@ -1,8 +1,8 @@
 ---
 name: multi-device-enablement
-status: backlog
+status: completed
 created: 2026-01-25T22:43:11Z
-progress: 0%
+progress: 100%
 prd: .claude/prds/multi-device-enablement.md
 github: [Will be updated when synced to GitHub]
 ---
@@ -62,14 +62,14 @@ Sequential phases - firmware must be complete before app can use new protocol:
 
 ## Task Breakdown
 
-- [ ] Task 1: Firmware - Rename device_id to device_item_id throughout codebase
-- [ ] Task 2: Firmware - Implement NVS storage, device instance ID, and pairing mode
-- [ ] Task 3: Firmware - Implement handshake protocol and conflict state handling
-- [ ] Task 4: Firmware - Implement override chunking and sync_complete
-- [ ] Task 5: App - Update Firestore schema and user repository
-- [ ] Task 6: App - Implement BLE commands (handshake, override, sync_complete)
-- [ ] Task 7: App - Implement sync flows with internet check and retry logic
-- [ ] Task 8: App - Implement conflict dialog and paired devices page
+- [x] Task 1: Firmware - Rename device_id to device_item_id throughout codebase
+- [x] Task 2: Firmware - Implement NVS storage, device instance ID, and pairing mode
+- [x] Task 3: Firmware - Implement handshake protocol and conflict state handling
+- [x] Task 4: Firmware - Implement override chunking and sync_complete
+- [x] Task 5: App - Update Firestore schema and user repository
+- [x] Task 6: App - Implement BLE commands (handshake, override, sync_complete)
+- [x] Task 7: App - Implement sync flows with internet check and retry logic
+- [x] Task 8: App - Implement conflict dialog and paired devices page
 
 ## Dependencies
 
@@ -104,14 +104,14 @@ Full technical implementation details: `docs/MULTI_DEVICE_IMPLEMENTATION_PLAN.md
 
 ## Tasks Created
 
-- [ ] 001.md - Firmware - Rename device_id to device_item_id (parallel: true)
-- [ ] 002.md - Firmware - NVS storage, device instance ID, and pairing mode (parallel: false, depends: 001)
-- [ ] 003.md - Firmware - Handshake protocol and conflict state handling (parallel: false, depends: 001, 002)
-- [ ] 004.md - Firmware - Override chunking and sync_complete (parallel: false, depends: 001, 002, 003)
-- [ ] 005.md - App - Update Firestore schema and user repository (parallel: true)
-- [ ] 006.md - App - Implement BLE commands (parallel: false, depends: 005)
-- [ ] 007.md - App - Implement sync flows with internet check and retry (parallel: false, depends: 005, 006)
-- [ ] 008.md - App - Implement conflict dialog and paired devices page (parallel: false, depends: 005, 006, 007)
+- [x] 001.md - Firmware - Rename device_id to device_item_id (parallel: true)
+- [x] 002.md - Firmware - NVS storage, device instance ID, and pairing mode (parallel: false, depends: 001)
+- [x] 003.md - Firmware - Handshake protocol and conflict state handling (parallel: false, depends: 001, 002)
+- [x] 004.md - Firmware - Override chunking and sync_complete (parallel: false, depends: 001, 002, 003)
+- [x] 005.md - App - Update Firestore schema and user repository (parallel: true)
+- [x] 006.md - App - Implement BLE commands (parallel: false, depends: 005)
+- [x] 007.md - App - Implement sync flows with internet check and retry (parallel: false, depends: 005, 006)
+- [x] 008.md - App - Implement conflict dialog and paired devices page (parallel: false, depends: 005, 006, 007)
 
 **Summary:**
 - Total tasks: 8
