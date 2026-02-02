@@ -16,7 +16,6 @@ import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
-import '../../../bluetooth/domain/entities/ble_message.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -545,7 +544,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                                       // Capture references BEFORE any async operations
                                       final itemsBloc = context.read<ItemsBloc>();
-                                      final itemRepository = itemsBloc.itemRepository;
                                       final currentState = state;
                                       final isFilteredByCategory = currentState.isFilteredByCategory;
 

@@ -1,4 +1,5 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,10 +22,13 @@ import 'package:traxelos/features/items/domain/entities/item.dart';
 import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
 import 'package:traxelos/features/items/presentation/bloc/items_event.dart';
 import 'package:traxelos/features/items/presentation/bloc/items_state.dart';
+import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
 import 'package:traxelos/features/items/presentation/pages/item_form_page.dart';
 
 class MockItemsBloc extends MockBloc<ItemsEvent, ItemsState>
     implements ItemsBloc {}
+
+class MockItemRepository extends Mock implements ItemRepository {}
 
 class MockBluetoothBloc extends MockBloc<BluetoothEvent, BluetoothState>
     implements BluetoothBloc {}
@@ -43,6 +47,7 @@ void main() {
   late MockAuthBloc mockAuthBloc;
   late MockCategoriesBloc mockCategoriesBloc;
   late MockAppUiState mockAppUiState;
+  late MockItemRepository mockItemRepository;
 
   final testItem = Item(
     id: 'test_item_1',
@@ -74,6 +79,7 @@ void main() {
     mockAuthBloc = MockAuthBloc();
     mockCategoriesBloc = MockCategoriesBloc();
     mockAppUiState = MockAppUiState();
+    mockItemRepository = MockItemRepository();
 
     // Register mock blocs in service locator
     final sl = GetIt.instance;
@@ -83,8 +89,18 @@ void main() {
     if (sl.isRegistered<CategoriesBloc>()) {
       sl.unregister<CategoriesBloc>();
     }
+    if (sl.isRegistered<ItemRepository>()) {
+      sl.unregister<ItemRepository>();
+    }
     sl.registerFactory<ItemsBloc>(() => mockItemsBloc);
     sl.registerFactory<CategoriesBloc>(() => mockCategoriesBloc);
+    sl.registerLazySingleton<ItemRepository>(() => mockItemRepository);
+
+    // Default: no duplicate items
+    when(() => mockItemRepository.getItems(any()))
+        .thenAnswer((_) async => const Right(<Item>[]));
+    when(() => mockItemRepository.getDeletedItems(any()))
+        .thenAnswer((_) async => const Right(<Item>[]));
 
     when(() => mockItemsBloc.state).thenReturn(ItemsInitial());
     when(() => mockBluetoothBloc.state).thenReturn(const BluetoothState());
@@ -102,6 +118,9 @@ void main() {
     }
     if (sl.isRegistered<CategoriesBloc>()) {
       sl.unregister<CategoriesBloc>();
+    }
+    if (sl.isRegistered<ItemRepository>()) {
+      sl.unregister<ItemRepository>();
     }
   });
 
@@ -155,11 +174,14 @@ void main() {
     });
 
     testWidgets('validates empty name', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       // Scroll down to make the Create button visible
-      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -300));
       await tester.pumpAndSettle();
 
       // Clear the name field and submit
@@ -263,7 +285,7 @@ void main() {
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Must be between 1 and 100'), findsOneWidget);
+      expect(find.text('Must be between 1 and 1000'), findsOneWidget);
     });
 
     testWidgets('validates reminder value range', (tester) async {
@@ -289,15 +311,18 @@ void main() {
       await tester.tap(find.text('At Target Count').last);
       await tester.pumpAndSettle();
 
-      // TextFormField order with reminder visible:
-      // 0=name, 1=initialValue, 2=goal, 3=incrementBy, 4=reminderValue
-      final reminderField = find.byType(TextFormField).at(4);
-      await tester.enterText(reminderField, '9999');
+      // Scroll again to ensure the newly visible reminder value field is on screen
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      // Find reminder value field by its label text instead of fragile index
+      final reminderField = find.widgetWithText(TextFormField, '0');
+      await tester.enterText(reminderField.last, '10000');
 
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Must be between 0 and 1000'), findsOneWidget);
+      expect(find.text('Must be between 0 and 9999'), findsOneWidget);
     });
   });
 
