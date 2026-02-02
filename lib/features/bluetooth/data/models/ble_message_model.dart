@@ -111,12 +111,13 @@ class BleMessageModel extends BleMessage {
     }
 
     // For error, all fields are at top level (not in 'data')
-    // Format: {"type": "error", "cmd": "...", "reason": "..."}
+    // Format: {"type": "error", "cmd": "...", "error_code": 101, "reason": "..."}
     if (type == BleMessageType.error) {
       return BleMessageModel(
         type: type,
         data: {
           'cmd': parsed['cmd'],
+          'error_code': parsed['error_code'],
           'reason': parsed['reason'],
         },
         receivedAt: DateTime.now(),
