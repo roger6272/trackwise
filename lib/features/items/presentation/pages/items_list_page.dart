@@ -925,7 +925,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
-  /// Calculates which category should be sticky based on scroll offset
+  /// Calculates which category should be sticky based on scroll offset.
+  /// Iterates through all categories (including empty ones) to match the
+  /// actual list layout, preventing the sticky header from skipping empty
+  /// categories.
   String? _calculateStickyCategory(List<Item> filteredItems, double scrollOffset) {
     if (filteredItems.isEmpty) return null;
 
@@ -933,31 +936,44 @@ class _ItemsListContentState extends State<_ItemsListContent>
     const double itemHeight = 76.0; // tile + padding
     const double labelHeight = 28.0; // label widget height
 
+    // Group items by category
+    final itemsByCategory = <String, List<Item>>{};
+    for (final item in filteredItems) {
+      final catId = item.categoryId ?? '';
+      itemsByCategory.putIfAbsent(catId, () => []).add(item);
+    }
+
+    // Build ordered category list matching the actual list layout
+    final orderedCategories = <String>[];
+    final sortedCategoryIds = _cachedCategoryOrder.keys.toList()
+      ..sort((a, b) => (_cachedCategoryOrder[a] ?? 0).compareTo(_cachedCategoryOrder[b] ?? 0));
+    for (final catId in sortedCategoryIds) {
+      orderedCategories.add(catId);
+    }
+    orderedCategories.add(''); // Uncategorized always last
+
     double currentOffset = 0.0;
     String? lastCategory;
 
-    for (int i = 0; i < filteredItems.length; i++) {
-      final item = filteredItems[i];
-      final currentCat = item.categoryId ?? '';
-      final prevCat = i > 0 ? (filteredItems[i - 1].categoryId ?? '') : null;
-      final isFirstInCategory = prevCat == null || currentCat != prevCat;
+    for (final catId in orderedCategories) {
+      final categoryName = catId.isEmpty
+          ? 'Uncategorized'
+          : _cachedCategoryNames[catId] ?? 'Unknown';
 
-      // Add label height if first in category (labels are separate entries)
-      if (isFirstInCategory) {
-        final categoryName = currentCat.isEmpty
-            ? 'Uncategorized'
-            : _cachedCategoryNames[currentCat] ?? 'Unknown';
-        if (currentOffset > scrollOffset) {
+      // Check if the next label is below the scroll position
+      if (currentOffset > scrollOffset) {
+        return lastCategory;
+      }
+      lastCategory = categoryName;
+      currentOffset += labelHeight;
+
+      // Add item heights for this category
+      final catItems = itemsByCategory[catId] ?? [];
+      for (int i = 0; i < catItems.length; i++) {
+        currentOffset += itemHeight;
+        if (currentOffset > scrollOffset + 40) {
           return lastCategory;
         }
-        lastCategory = categoryName;
-        currentOffset += labelHeight;
-      }
-
-      currentOffset += itemHeight;
-
-      if (currentOffset > scrollOffset + 40) {
-        return lastCategory;
       }
     }
 
