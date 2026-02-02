@@ -157,7 +157,7 @@ void main() {
           (failure) => fail('Should not fail'),
           (csv) {
             final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Category,Event Type,Date,Event Count');
+            expect(lines[0], 'Item Name,Category,Event Type,Period Start,Event Count');
             // Week 1: 2+3=5
             // Week 2: 4+1=5
             expect(lines.length, 3); // Header + 2 weeks
@@ -187,7 +187,7 @@ void main() {
           (failure) => fail('Should not fail'),
           (csv) {
             final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Category,Event Type,Date,Event Count');
+            expect(lines[0], 'Item Name,Category,Event Type,Period Start,Event Count');
             // January: 5+3=8
             // February: 7
             expect(lines.length, 3); // Header + 2 months

@@ -134,11 +134,13 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return itemNameMap[itemId] ?? 'Unknown Item';
     }
 
-    // Header row - use Timestamp for raw, Date for aggregated
+    // Header row - use Timestamp for raw, Date for daily, Period Start for weekly/monthly
     if (aggregationLevel == ExportAggregationLevel.raw) {
       buffer.writeln('Item Name,Category,Event Type,Cycle,Timestamp,Event Count');
-    } else {
+    } else if (aggregationLevel == ExportAggregationLevel.daily) {
       buffer.writeln('Item Name,Category,Event Type,Date,Event Count');
+    } else {
+      buffer.writeln('Item Name,Category,Event Type,Period Start,Event Count');
     }
 
     if (events.isEmpty) {
