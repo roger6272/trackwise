@@ -7,6 +7,9 @@ import '../../domain/entities/ble_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
+import '../widgets/ble_device_list_tile.dart';
+import '../widgets/ble_status_banner.dart';
+import '../widgets/blinking_widget.dart';
 
 /// Page for scanning and discovering BLE devices.
 ///
@@ -102,7 +105,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
 
   Widget _buildStatusBanner(BuildContext context, BluetoothState state) {
     if (!state.permissionsGranted) {
-      return _StatusBanner(
+      return BleStatusBanner(
         message: 'Bluetooth permissions required',
         color: AppColors.warning,
         action: TextButton(
@@ -115,7 +118,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
     }
 
     if (!state.bluetoothEnabled) {
-      return const _StatusBanner(
+      return const BleStatusBanner(
         message: 'Bluetooth is disabled. Please enable it in settings.',
         color: AppColors.error,
       );
@@ -142,10 +145,10 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
                 }
               : null,
           icon: state.isScanning
-              ? const _BlinkingWidget(child: Icon(Icons.bluetooth_searching))
+              ? const BlinkingWidget(child: Icon(Icons.bluetooth_searching))
               : const Icon(Icons.bluetooth_searching),
           label: state.isScanning
-              ? const _BlinkingWidget(child: Text('Scanning...'))
+              ? const BlinkingWidget(child: Text('Scanning...'))
               : const Text('Scan for Devices'),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -221,152 +224,12 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
       itemCount: sortedDevices.length,
       itemBuilder: (context, index) {
         final device = sortedDevices[index];
-        return _DeviceListTile(
+        return BleDeviceListTile(
           device: device,
           isConnecting: state.connectingDeviceId == device.id,
           onTap: () {
             context.read<BluetoothBloc>().add(ConnectToDevice(device.id));
           },
-        );
-      },
-    );
-  }
-}
-
-class _StatusBanner extends StatelessWidget {
-  final String message;
-  final Color color;
-  final Widget? action;
-
-  const _StatusBanner({
-    required this.message,
-    required this.color,
-    this.action,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: color,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-          if (action != null) action!,
-        ],
-      ),
-    );
-  }
-}
-
-class _DeviceListTile extends StatelessWidget {
-  final BleDevice device;
-  final bool isConnecting;
-  final VoidCallback onTap;
-
-  const _DeviceListTile({
-    required this.device,
-    required this.isConnecting,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: _buildSignalIcon(),
-        title: Text(
-          device.name.isNotEmpty ? device.name : 'Unknown Device',
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Text(
-          '${device.id}\nSignal: ${device.rssi} dBm',
-        ),
-        isThreeLine: true,
-        trailing: isConnecting
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.chevron_right),
-        onTap: isConnecting ? null : onTap,
-      ),
-    );
-  }
-
-  Widget _buildSignalIcon() {
-    // RSSI ranges: -30 to -50 = excellent, -50 to -70 = good, -70 to -90 = weak
-    IconData icon;
-    Color color;
-
-    if (device.rssi > -50) {
-      icon = Icons.signal_cellular_4_bar;
-      color = AppColors.success;
-    } else if (device.rssi > -70) {
-      icon = Icons.signal_cellular_alt;
-      color = AppColors.warning;
-    } else {
-      icon = Icons.signal_cellular_alt_1_bar;
-      color = AppColors.error;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: color),
-    );
-  }
-}
-
-class _BlinkingWidget extends StatefulWidget {
-  final Widget child;
-
-  const _BlinkingWidget({required this.child});
-
-  @override
-  State<_BlinkingWidget> createState() => _BlinkingWidgetState();
-}
-
-class _BlinkingWidgetState extends State<_BlinkingWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 1.0, end: 0.3).animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _animation.value,
-          child: widget.child,
         );
       },
     );
