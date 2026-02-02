@@ -2120,8 +2120,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     if (signatureChanged || categoryChanged) {
       if (!recentlySynced) {
-        _lastSyncedSignature = currentSignature;
-        _lastSyncedCategoryId = selectedCatId;
         _lastSyncTime = now;
         context.read<BluetoothBloc>().add(SendItemsToDevice(
           currentCategoryItems,
@@ -2135,8 +2133,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
           ));
         });
       }
-      // Note: Don't update signature when debounced - let the next
-      // buildWhen detect the change and sync when debounce expires
+      // Always update signature so debounced changes don't trigger
+      // a stale re-sync on the next unrelated state change
+      _lastSyncedSignature = currentSignature;
+      _lastSyncedCategoryId = selectedCatId;
     }
   }
 
