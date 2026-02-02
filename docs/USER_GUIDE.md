@@ -455,6 +455,15 @@ Your CSV file includes:
 
 ## 11. Managing Your Account
 
+### Dark Mode
+
+Toggle between light and dark themes:
+
+1. Go to **Account tab**
+2. Tap the **Dark Mode** switch
+
+Your preference is saved automatically.
+
 ### Editing Your Profile
 
 1. Go to **Account tab**
