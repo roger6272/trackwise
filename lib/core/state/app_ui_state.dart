@@ -7,7 +7,6 @@ import '../utils/logger.dart';
 /// Only contains UI-specific state. Bluetooth state is managed by BluetoothBloc.
 class AppUiState extends ChangeNotifier {
   static const String _activeItemKey = 'app_active_item_id';
-  static const String _swipeHintShownKey = 'app_swipe_hint_shown';
   static const String _reorderHintShownKey = 'app_reorder_hint_shown';
   static const String _activationHintShownKey = 'app_activation_hint_shown';
 
@@ -89,20 +88,6 @@ class AppUiState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============== Swipe Hint (Persisted) ==============
-
-  /// Whether the swipe hint animation has been shown
-  bool _hasShownSwipeHint = false;
-  bool get hasShownSwipeHint => _hasShownSwipeHint;
-
-  /// Mark swipe hint as shown (persisted)
-  void markSwipeHintShown() {
-    _hasShownSwipeHint = true;
-    if (_initialized) {
-      _prefs.setBool(_swipeHintShownKey, true);
-    }
-  }
-
   // ============== Reorder Hint (Persisted) ==============
 
   /// Whether the reorder hint animation has been shown
@@ -140,12 +125,11 @@ class AppUiState extends ChangeNotifier {
 
     _prefs = await SharedPreferences.getInstance();
     _activeItemId = _prefs.getString(_activeItemKey) ?? '';
-    _hasShownSwipeHint = _prefs.getBool(_swipeHintShownKey) ?? false;
     _hasShownReorderHint = _prefs.getBool(_reorderHintShownKey) ?? false;
     _hasShownActivationHint = _prefs.getBool(_activationHintShownKey) ?? false;
     _initialized = true;
 
-    AppLogger.debug('AppUiState.initialize(): swipe=$_hasShownSwipeHint, reorder=$_hasShownReorderHint, activation=$_hasShownActivationHint');
+    AppLogger.debug('AppUiState.initialize(): reorder=$_hasShownReorderHint, activation=$_hasShownActivationHint');
 
     notifyListeners();
   }

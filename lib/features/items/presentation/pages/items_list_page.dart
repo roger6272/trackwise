@@ -76,7 +76,6 @@ class _ItemsListContent extends StatefulWidget {
 class _ItemsListContentState extends State<_ItemsListContent>
     with TickerProviderStateMixin {
   final scaffoldKey = GlobalKey<ScaffoldState>();
-  SlidableController? _firstItemController;
   AnimationController? _reorderHintController;
   Animation<double>? _liftAnimation;
   bool _reorderHintTriggered = false;
@@ -113,8 +112,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
   @override
   void initState() {
     super.initState();
-    _firstItemController = SlidableController(this);
-
     // Mark user as existing (completed onboarding) when they reach items page
     _markOnboardingComplete();
 
@@ -754,8 +751,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       itemBuilder: (context, index) {
                                         final item = filteredItems[index];
                                         // Only pass controller for hint animation when not yet shown (and not searching)
-                                        final needsController = index == 0 && !appUiState.hasShownSwipeHint && _searchQuery.isEmpty;
-
                                         // Determine if this item needs a category label (first in its group)
                                         String? categoryLabelText;
                                         if (!state.isFilteredByCategory) {
@@ -779,7 +774,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           secondaryText,
                                           alternate,
                                           activatedColor,
-                                          controller: needsController ? _firstItemController : null,
                                           categoryLabel: categoryLabelText,
                                         );
                                       },
@@ -1347,7 +1341,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Color secondaryText,
     Color alternate,
     Color activatedColor, {
-    SlidableController? controller,
     Animation<double>? liftAnimation,
     String? categoryLabel,
     bool isDragProxy = false,
@@ -1480,7 +1473,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Slidable(
-          controller: controller,
           endActionPane: ActionPane(
             motion: const ScrollMotion(),
             extentRatio: 0.65,
@@ -2101,7 +2093,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     _activationHintOverlay?.remove();
     _activationHintOverlay = null;
     appUiState.markActivationHintShown();
-    appUiState.markSwipeHintShown();
   }
 
   /// Dismisses activation hint if showing (called when any item is swiped/actioned)
@@ -2224,7 +2215,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     _activationHintOverlay = null;
     _reorderHintOverlay?.remove();
     _reorderHintOverlay = null;
-    _firstItemController?.dispose();
     _reorderHintController?.dispose();
     _searchDebounceTimer?.cancel();
     _searchController.dispose();
