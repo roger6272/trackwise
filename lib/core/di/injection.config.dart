@@ -288,6 +288,11 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i153.EventLogRepository>(),
               gh<_i452.ItemRepository>(),
             ));
+    gh.lazySingleton<_i62.PerformSyncUseCase>(() => _i62.PerformSyncUseCase(
+          gh<_i649.BluetoothRepository>(),
+          gh<_i721.UserRepository>(),
+          gh<_i394.ConnectivityService>(),
+        ));
     gh.lazySingleton<_i1008.SyncDeviceDataUseCase>(
         () => _i1008.SyncDeviceDataUseCase(
               gh<_i452.ItemRepository>(),
@@ -357,13 +362,6 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.lazySingleton<_i259.AuthRepository>(() => _i319.AuthRepositoryImpl(
         dataSource: gh<_i810.AuthFirebaseDataSource>()));
-    gh.lazySingleton<_i62.PerformSyncUseCase>(() => _i62.PerformSyncUseCase(
-          gh<_i649.BluetoothRepository>(),
-          gh<_i721.UserRepository>(),
-          gh<_i452.ItemRepository>(),
-          gh<_i531.CategoryRepository>(),
-          gh<_i394.ConnectivityService>(),
-        ));
     gh.lazySingleton<_i62.PerformOverrideUseCase>(
         () => _i62.PerformOverrideUseCase(
               gh<_i649.BluetoothRepository>(),

@@ -80,8 +80,6 @@ class PerformSyncParams extends Equatable {
 class PerformSyncUseCase {
   final BluetoothRepository _bluetoothRepository;
   final UserRepository _userRepository;
-  final ItemRepository _itemRepository;
-  final CategoryRepository _categoryRepository;
   final ConnectivityService _connectivityService;
 
   /// Maximum number of devices allowed per account.
@@ -96,8 +94,6 @@ class PerformSyncUseCase {
   PerformSyncUseCase(
     this._bluetoothRepository,
     this._userRepository,
-    this._itemRepository,
-    this._categoryRepository,
     this._connectivityService,
   );
 

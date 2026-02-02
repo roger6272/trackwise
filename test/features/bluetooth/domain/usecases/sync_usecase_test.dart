@@ -52,8 +52,6 @@ void main() {
     performSyncUseCase = PerformSyncUseCase(
       mockBluetoothRepository,
       mockUserRepository,
-      mockItemRepository,
-      mockCategoryRepository,
       mockConnectivityService,
     );
 
