@@ -37,10 +37,18 @@ class HandshakeResult extends Equatable {
   /// Only present when status is [SyncStatus.conflict].
   final int? deviceSyncSeq;
 
+  /// BLE protocol version reported by device.
+  final int? protocolVersion;
+
+  /// Firmware version string reported by device (e.g. "1.5.0").
+  final String? firmwareVersion;
+
   const HandshakeResult({
     required this.status,
     required this.deviceInstanceId,
     this.deviceSyncSeq,
+    this.protocolVersion,
+    this.firmwareVersion,
   });
 
   /// Creates a HandshakeResult from device JSON response.
@@ -73,16 +81,25 @@ class HandshakeResult extends Equatable {
       status: status,
       deviceInstanceId: json['device_instance_id'] as String? ?? '',
       deviceSyncSeq: json['device_seq'] as int?,
+      protocolVersion: json['protocol_version'] as int?,
+      firmwareVersion: json['firmware_version'] as String?,
     );
   }
 
   @override
-  List<Object?> get props => [status, deviceInstanceId, deviceSyncSeq];
+  List<Object?> get props => [
+        status,
+        deviceInstanceId,
+        deviceSyncSeq,
+        protocolVersion,
+        firmwareVersion,
+      ];
 
   @override
   String toString() {
     return 'HandshakeResult(status: $status, deviceInstanceId: $deviceInstanceId, '
-        'deviceSyncSeq: $deviceSyncSeq)';
+        'deviceSyncSeq: $deviceSyncSeq, protocolVersion: $protocolVersion, '
+        'firmwareVersion: $firmwareVersion)';
   }
 }
 
