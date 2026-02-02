@@ -778,6 +778,20 @@ When items aren't syncing correctly, check in this order:
 
 ---
 
+### 9.16 "Device wiped but account deletion failed (requires-recent-login)"
+
+**Symptoms:** Email/password user tries to delete account, device gets factory reset, but `user.delete()` fails with `requires-recent-login`. User is stuck with a wiped device and an account that still exists.
+
+**Root Cause:** Device cleanup (`_cleanupDevice`) ran *before* `user.delete()`. For email/password users, Firebase can require re-authentication. If re-auth fails (e.g., user cancels or flow errors), the account isn't deleted — but the device is already wiped.
+
+**Fix Applied:** Moved `_cleanupDevice` to *after* `user.delete()` succeeds, in the `BlocConsumer` listener that handles the `AccountDeleted` state. To prevent Firebase's `authStateChanges()` from triggering a GoRouter redirect before cleanup finishes, `AuthStateNotifier.updateNotifyOnAuthChange(false)` suppresses one auth state notification.
+
+**Key Lesson:** Never perform destructive side effects (device wipe, data deletion) before the operation they depend on (`user.delete()`) has confirmed success. If the operation can fail (and `requires-recent-login` is common for email/password), the side effects become unrecoverable.
+
+**See also:** [ADR-004](decisions/ADR-004-device-cleanup-after-account-deletion.md) for the full design rationale.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -808,3 +822,4 @@ When items aren't syncing correctly, check in this order:
 | Categories stop updating | Stream killed by rethrow — use `onErrorResume` not `handleError` |
 | Email empty after Google sign-in | `getProfile()` missing email in `copyWith()` merge |
 | Sticky header wrong category | `_calculateStickyCategory` ignores empty categories — must match list layout |
+| Device wiped but account not deleted | Cleanup must run AFTER `user.delete()` — see ADR-004 |

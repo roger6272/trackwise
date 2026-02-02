@@ -529,7 +529,7 @@ Items stay in Recently Deleted for 90 days before permanent deletion.
 2. Tap **"Help & Support"**
 
 On this page you can:
-- Review **Quick Tips** for getting the most out of your device
+- Browse **Frequently Asked Questions** about using your device
 - Tap **"Email Support"** to contact us directly
 
 **Support Email:** support@digi1st.com
@@ -636,7 +636,7 @@ Time syncs automatically when your device connects via Bluetooth. If the time se
 ### Still Need Help?
 
 1. Go to **Account > Help & Support**
-2. Review the Quick Tips section
+2. Browse the FAQ section
 3. Tap **"Email Support"** to contact us
 
 **Support Email:** support@digi1st.com

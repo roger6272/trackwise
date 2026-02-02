@@ -166,7 +166,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       ),
       (
         question: 'How do I reset my count?',
-        answer: 'Daily counts reset automatically at midnight. You can also manually reset by going to the item details and tapping the reset option, which resets both the total count and daily count.',
+        answer: 'Daily counts reset automatically at midnight. To reset all items at once, go to Account > Start New Cycle. You can also reset a single item by holding Button B on your device for 3 seconds.',
       ),
       (
         question: 'How do I export my data?',
