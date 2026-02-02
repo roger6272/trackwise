@@ -1,8 +1,8 @@
 ---
 name: enhanced-onboarding
-status: backlog
+status: completed
 created: 2026-02-02T01:27:08Z
-progress: 0%
+progress: 100%
 prd: .claude/prds/enhanced-onboarding.md
 github: [Will be updated when synced to GitHub]
 ---
@@ -84,14 +84,14 @@ Replace the single-screen onboarding form with a 5-step PageView wizard that reu
 
 ## Task Breakdown
 
-- [ ] **Task 1: Extract reusable BLE widgets from BluetoothSearchPage** — Pull permission banner, device list tile, and scan button into shared widgets under `bluetooth/presentation/widgets/` (feature-scoped, not `core/` — only onboarding and search page use them). Update `BluetoothSearchPage` to use the extracted widgets (no behavior change).
-- [ ] **Task 2: Add onboarding tracking fields to User entity/model/repository** — Add `onboardingDevicePaired` and `onboardingItemCreated` to User entity, UserModel (Firestore serialization), and extend `completeOnboarding()` to accept and write them.
-- [ ] **Task 3: Build onboarding PageView skeleton with navigation** — Rewrite `OnboardingPage` as a PageView with 5 steps, progress dots, back button, and skip handling. Each step is a placeholder widget initially. Wire up `completeOnboarding()` on any exit path (skip or completion), including `authStateNotifier.updateAuthState(onboardingCompleted: true)` to trigger the router redirect to home. *Depends on: Task 2.*
-- [ ] **Task 4: Implement Step 1 (User Profile) and Step 2 (Product Intro)** — Migrate existing profile form into Step 1 widget. Build Step 2 as a static intro screen with product description and illustration. *Depends on: Task 3.*
-- [ ] **Task 5: Implement Step 3 (Device Scan & Connect)** — Build scan/connect step using extracted BLE widgets and BluetoothBloc. Handle permissions inline, Bluetooth-off state, device list, connection progress, and all handshake outcomes. Include skip and "I don't have a device yet" options. *Depends on: Tasks 1, 3.*
-- [ ] **Task 6: Implement Step 4 (Create First Item) and Step 5 (Done)** — Build simplified item form (name + goal + count-per-press) with use-case-based suggestions. Build conditional Done screen. Wire item creation through existing `ItemRepository.createItem()` and device sync. *Depends on: Task 3.*
-- [ ] **Task 7: Add post-onboarding "Connect Your Device" card to home empty state** — Show dismissible connect card in `items_list_page.dart` when the user has no paired devices in Firestore (check via existing paired devices data, not the onboarding tracking field — more reliable and works for users who skip onboarding entirely). Card links to Bluetooth scan page. Disappears after first successful device connection.
-- [ ] **Task 8: Update documentation** — Update `docs/USER_GUIDE.md` Section 2.3 (Complete Onboarding) to reflect the new multi-step flow. Verify no other docs reference the old onboarding form.
+- [x] **Task 1: Extract reusable BLE widgets from BluetoothSearchPage** — Pull permission banner, device list tile, and scan button into shared widgets under `bluetooth/presentation/widgets/` (feature-scoped, not `core/` — only onboarding and search page use them). Update `BluetoothSearchPage` to use the extracted widgets (no behavior change).
+- [x] **Task 2: Add onboarding tracking fields to User entity/model/repository** — Add `onboardingDevicePaired` and `onboardingItemCreated` to User entity, UserModel (Firestore serialization), and extend `completeOnboarding()` to accept and write them.
+- [x] **Task 3: Build onboarding PageView skeleton with navigation** — Rewrite `OnboardingPage` as a PageView with 5 steps, progress dots, back button, and skip handling. Each step is a placeholder widget initially. Wire up `completeOnboarding()` on any exit path (skip or completion), including `authStateNotifier.updateAuthState(onboardingCompleted: true)` to trigger the router redirect to home. *Depends on: Task 2.*
+- [x] **Task 4: Implement Step 1 (User Profile) and Step 2 (Product Intro)** — Migrate existing profile form into Step 1 widget. Build Step 2 as a static intro screen with product description and illustration. *Depends on: Task 3.*
+- [x] **Task 5: Implement Step 3 (Device Scan & Connect)** — Build scan/connect step using extracted BLE widgets and BluetoothBloc. Handle permissions inline, Bluetooth-off state, device list, connection progress, and all handshake outcomes. Include skip and "I don't have a device yet" options. *Depends on: Tasks 1, 3.*
+- [x] **Task 6: Implement Step 4 (Create First Item) and Step 5 (Done)** — Build simplified item form (name + goal + count-per-press) with use-case-based suggestions. Build conditional Done screen. Wire item creation through existing `ItemRepository.createItem()` and device sync. *Depends on: Task 3.*
+- [x] **Task 7: Add post-onboarding "Connect Your Device" card to home empty state** — Show dismissible connect card in `items_list_page.dart` when the user has no paired devices in Firestore (check via existing paired devices data, not the onboarding tracking field — more reliable and works for users who skip onboarding entirely). Card links to Bluetooth scan page. Disappears after first successful device connection.
+- [x] **Task 8: Update documentation** — Update `docs/USER_GUIDE.md` Section 2.3 (Complete Onboarding) to reflect the new multi-step flow. Verify no other docs reference the old onboarding form.
 
 ## Dependencies
 
@@ -109,14 +109,14 @@ Replace the single-screen onboarding form with a 5-step PageView wizard that reu
 - BLE errors during onboarding don't block the user (skip always available)
 
 ## Tasks Created
-- [ ] 001.md - Extract reusable BLE widgets from BluetoothSearchPage (parallel: true)
-- [ ] 002.md - Add onboarding tracking fields to User entity/model/repository (parallel: true)
-- [ ] 003.md - Build onboarding PageView skeleton with navigation (parallel: false, depends: 002)
-- [ ] 004.md - Implement Step 1 (User Profile) and Step 2 (Product Intro) (parallel: true, depends: 003)
-- [ ] 005.md - Implement Step 3 (Device Scan and Connect) (parallel: true, depends: 001, 003)
-- [ ] 006.md - Implement Step 4 (Create First Item) and Step 5 (Done) (parallel: true, depends: 003)
-- [ ] 007.md - Add post-onboarding Connect Your Device card to home empty state (parallel: true)
-- [ ] 008.md - Update documentation for new onboarding flow (parallel: false, depends: 004, 005, 006)
+- [x] 001.md - Extract reusable BLE widgets from BluetoothSearchPage (parallel: true)
+- [x] 002.md - Add onboarding tracking fields to User entity/model/repository (parallel: true)
+- [x] 003.md - Build onboarding PageView skeleton with navigation (parallel: false, depends: 002)
+- [x] 004.md - Implement Step 1 (User Profile) and Step 2 (Product Intro) (parallel: true, depends: 003)
+- [x] 005.md - Implement Step 3 (Device Scan and Connect) (parallel: true, depends: 001, 003)
+- [x] 006.md - Implement Step 4 (Create First Item) and Step 5 (Done) (parallel: true, depends: 003)
+- [x] 007.md - Add post-onboarding Connect Your Device card to home empty state (parallel: true)
+- [x] 008.md - Update documentation for new onboarding flow (parallel: false, depends: 004, 005, 006)
 
 Total tasks: 8
 Parallel tasks: 6
