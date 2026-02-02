@@ -582,12 +582,12 @@ class PerformOverrideUseCase {
 
     // Find the Firestore ID of the selected item
     String? selectedFirestoreId;
-    if (selectedItemId >= 0) {
-      final selectedItem = deviceItems.firstWhere(
-        (i) => i.deviceItemId == selectedItemId,
-        orElse: () => deviceItems.isNotEmpty ? deviceItems.first : deviceItems.first,
+    if (selectedItemId >= 0 && deviceItems.isNotEmpty) {
+      final selectedItem = deviceItems.cast<Item?>().firstWhere(
+        (i) => i?.deviceItemId == selectedItemId,
+        orElse: () => deviceItems.first,
       );
-      selectedFirestoreId = selectedItem.id;
+      selectedFirestoreId = selectedItem?.id;
     }
 
     return Right(SyncResult(
