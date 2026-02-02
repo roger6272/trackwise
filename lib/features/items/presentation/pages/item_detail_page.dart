@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -478,10 +477,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               ),
               title: Text(
                 widget.itemName ?? 'None',
-                style: GoogleFonts.interTight(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: primaryText,
                   fontWeight: FontWeight.w600,
-                  fontSize: 22.0,
                 ),
               ),
               centerTitle: true,
@@ -502,7 +500,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       child: Center(
                         child: Text(
                           'Updated ${_formatLastUpdated()} \u2022 Pull to refresh',
-                          style: GoogleFonts.inter(
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontSize: 11.0,
                             color: secondaryText.withValues(alpha: 0.6),
                           ),
@@ -531,14 +529,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _StickyFilterHeaderDelegate(
-                      backgroundColor: brightness == Brightness.light
-                          ? const Color(0xFFF8F9FB)
-                          : const Color(0xFF1C1C1E),
+                      backgroundColor: AppColors.surface(brightness),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: brightness == Brightness.light
-                              ? const Color(0xFFF8F9FB)
-                              : const Color(0xFF1C1C1E),
+                          color: AppColors.surface(brightness),
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(24.0),
                             topRight: Radius.circular(24.0),

@@ -351,7 +351,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.85),
+                      color: AppColors.chartTooltip,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
@@ -399,9 +399,9 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     required int initialCount,
   }) {
     // Colors for the stacked bars
-    const Color initialColor = Color(0xFF9E9E9E); // Gray for initial count
-    const Color earnedColor = AppColors.primary; // Purple for earned
-    const Color selectedColor = Color(0xFF757575); // Darker gray when selected
+    const Color initialColor = AppColors.chartInitial;
+    const Color earnedColor = AppColors.primary;
+    const Color selectedColor = AppColors.chartSelected;
 
     return List.generate(totalBars, (i) {
       final isSelected = selectedIndex == i;

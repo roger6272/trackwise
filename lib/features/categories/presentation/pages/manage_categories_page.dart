@@ -284,7 +284,7 @@ class _ManageCategoriesContent extends StatelessWidget {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: AppColors.secondaryText(brightness)),
             ),
           ),
           TextButton(

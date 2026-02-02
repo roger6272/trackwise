@@ -273,12 +273,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                               await context.pushNamed<Item>(ItemFormPage.routeName);
                             },
                             style: IconButton.styleFrom(
-                              backgroundColor: isConnected ? AppColors.primary : Colors.grey.shade400,
+                              backgroundColor: isConnected ? AppColors.primary : AppColors.disabled,
                               shape: const CircleBorder(),
                             ),
                             icon: Icon(
                               Icons.add_rounded,
-                              color: isConnected ? Colors.white : Colors.grey.shade600,
+                              color: isConnected ? Colors.white : AppColors.neutral,
                               size: 24.0,
                             ),
                           );

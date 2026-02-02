@@ -73,6 +73,25 @@ class AppColors {
   /// Neutral trend (grey)
   static const Color neutral = Color(0xFF6B7280);
 
+  // ==================== Chart Colors ====================
+
+  /// Initial/base count bar (gray)
+  static const Color chartInitial = Color(0xFF9E9E9E);
+
+  /// Selected/pressed bar state (darker gray)
+  static const Color chartSelected = Color(0xFF757575);
+
+  /// Tooltip background
+  static const Color chartTooltip = Color(0xD9000000); // black 85%
+
+  // ==================== Disabled State ====================
+
+  /// Disabled background (e.g., buttons when BLE disconnected)
+  static const Color disabled = Color(0xFF9E9E9E);
+
+  /// Disabled foreground (slightly muted white)
+  static const Color disabledForeground = Color(0xB3FFFFFF); // white 70%
+
   // ==================== Slidable Action Colors ====================
 
   static const Color actionActivate = Color(0xFF3C38B5);

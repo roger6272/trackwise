@@ -343,10 +343,10 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      isConnected ? AppColors.primary : Colors.grey,
+                      isConnected ? AppColors.primary : AppColors.disabled,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade400,
-                  disabledForegroundColor: Colors.white70,
+                  disabledBackgroundColor: AppColors.disabled,
+                  disabledForegroundColor: AppColors.disabledForeground,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12.0,
                     vertical: 8.0,
