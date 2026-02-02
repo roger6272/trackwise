@@ -60,6 +60,11 @@ class AppRouter {
           return OnboardingPage.routePath;
         }
 
+        // If logged in, onboarding complete, but still on onboarding page, redirect to home
+        if (loggedIn && !authStateNotifier.needsOnboarding && onOnboarding) {
+          return '/';
+        }
+
         // Handle saved redirect location
         if (authStateNotifier.shouldRedirect) {
           final redirectLocation = authStateNotifier.getRedirectLocation();
