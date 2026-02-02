@@ -5,6 +5,11 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
 import '../../domain/repositories/user_repository.dart';
+import '../widgets/onboarding_step_create_item.dart';
+import '../widgets/onboarding_step_device.dart';
+import '../widgets/onboarding_step_done.dart';
+import '../widgets/onboarding_step_intro.dart';
+import '../widgets/onboarding_step_profile.dart';
 
 /// Multi-step onboarding wizard shown to new users after signup.
 ///
@@ -188,30 +193,44 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _StepPlaceholder(
-                    step: 1,
-                    title: 'User Profile',
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                  OnboardingStepProfile(
+                    selectedUseCase: selectedUseCase,
+                    selectedReferral: selectedReferral,
+                    nameText: nameText,
+                    otherUseCaseText: otherUseCaseText,
+                    otherReferralText: otherReferralText,
+                    onUseCaseChanged: (value) =>
+                        setState(() => selectedUseCase = value),
+                    onReferralChanged: (value) =>
+                        setState(() => selectedReferral = value),
+                    onNameChanged: (value) =>
+                        setState(() => nameText = value),
+                    onOtherUseCaseChanged: (value) =>
+                        setState(() => otherUseCaseText = value),
+                    onOtherReferralChanged: (value) =>
+                        setState(() => otherReferralText = value),
                   ),
-                  _StepPlaceholder(
-                    step: 2,
-                    title: 'Product Intro',
-                    color: AppColors.info.withValues(alpha: 0.1),
+                  const OnboardingStepIntro(),
+                  OnboardingStepDevice(
+                    onPairingComplete: ({required paired, deviceName}) {
+                      onDevicePairingComplete(
+                        paired: paired,
+                        deviceName: deviceName,
+                      );
+                    },
                   ),
-                  _StepPlaceholder(
-                    step: 3,
-                    title: 'Device Scan & Connect',
-                    color: AppColors.success.withValues(alpha: 0.1),
+                  OnboardingStepCreateItem(
+                    selectedUseCase: selectedUseCase,
+                    onItemCreated: ({required created, itemName}) {
+                      onItemCreationComplete(
+                        created: created,
+                        itemName: itemName,
+                      );
+                    },
                   ),
-                  _StepPlaceholder(
-                    step: 4,
-                    title: 'Create First Item',
-                    color: AppColors.warning.withValues(alpha: 0.1),
-                  ),
-                  _StepPlaceholder(
-                    step: 5,
-                    title: 'Done!',
-                    color: AppColors.success.withValues(alpha: 0.1),
+                  OnboardingStepDone(
+                    deviceName: pairedDeviceName,
+                    itemName: createdItemName,
                   ),
                 ],
               ),
@@ -277,36 +296,38 @@ class _OnboardingPageState extends State<OnboardingPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Primary action button
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: FilledButton(
-              onPressed: _isLoading ? null : _onPrimaryAction,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          // Primary action button (hidden on Step 3 — BLE step handles its own flow,
+          // and Step 4 — create item step has its own Create button)
+          if (_currentStep != 2 && _currentStep != 3)
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: _isLoading ? null : _onPrimaryAction,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        _primaryButtonLabel,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(
-                      _primaryButtonLabel,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
             ),
-          ),
           // Skip option (Steps 1, 3, 4 only)
           if (_showSkip) ...[
             const SizedBox(height: 8),
@@ -395,52 +416,5 @@ class _OnboardingPageState extends State<OnboardingPage> {
         onItemCreationComplete(created: false);
         break;
     }
-  }
-}
-
-/// Placeholder step widget for initial skeleton.
-/// Each step will be replaced by its real implementation in subsequent tasks.
-class _StepPlaceholder extends StatelessWidget {
-  final int step;
-  final String title;
-  final Color color;
-
-  const _StepPlaceholder({
-    required this.step,
-    required this.title,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final primaryText = AppColors.primaryText(Theme.of(context).brightness);
-
-    return Container(
-      margin: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Step $step',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: primaryText,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: primaryText.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
