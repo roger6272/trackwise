@@ -35,6 +35,8 @@ class OnboardingStepDevice extends StatefulWidget {
 class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
   bool _hasAutoStartedScan = false;
   bool _pairingCompleted = false;
+  bool _wrongAccountShown = false;
+  bool _conflictShown = false;
 
   @override
   void initState() {
@@ -67,6 +69,8 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<BluetoothBloc, BluetoothState>(
+      listenWhen: (previous, current) =>
+          previous != current,
       listener: (context, state) {
         _tryAutoStartScan(state);
 
@@ -76,13 +80,18 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
           showErrorSnackBar(context, state.errorMessage!);
         }
 
-        // Handle wrong account
-        if (state.hasWrongAccount) {
+        // Handle wrong account (only on transition to true)
+        if (state.hasWrongAccount && !_wrongAccountShown) {
+          _wrongAccountShown = true;
           _showWrongAccountDialog(context);
         }
+        if (!state.hasWrongAccount) {
+          _wrongAccountShown = false;
+        }
 
-        // Handle sync conflict
-        if (state.hasConflict) {
+        // Handle sync conflict (only on transition to true)
+        if (state.hasConflict && !_conflictShown) {
+          _conflictShown = true;
           SyncConflictDialog.show(
             context: context,
             onConfirm: () {
@@ -96,6 +105,9 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
                   .add(const CancelSyncConflict());
             },
           );
+        }
+        if (!state.hasConflict) {
+          _conflictShown = false;
         }
 
         // Handle successful sync — pairing complete
