@@ -565,17 +565,17 @@ If all 5 work, BLE communication is healthy.
 
 ---
 
-### 9.2 "Sync debounce swallows changes"
+### 9.2 "Duplicate prefs sent after item move"
 
-**Symptoms:** Item config changed but device never updates
+**Symptoms:** Moving an item out of the selected item's category sends prefs correctly, but the next count increment triggers another unnecessary prefs send.
 
-**Root Cause:** Debounce logic updated the signature even when skipping the sync.
+**Root Cause:** Debounce logic skipped the sync **and** skipped updating the signature. The Firestore stream confirmation arrived within 500ms (debounced), but with slightly different `categoryOrder` values than the optimistic state. The stale `_lastSyncedSignature` persisted, and the next unrelated state change (count increment) saw a mismatch and triggered a duplicate sync.
 
-**Pattern:** Change A triggers sync (signature updated) → Change B arrives within 500ms → debounce skips sync but **updates signature** → future `buildWhen` sees matching signature → change B is permanently lost.
+**Pattern:** Move triggers sync (signature updated) → Firestore confirms within 500ms with reordered `categoryOrder` → debounce skips sync AND skips signature update → next `buildWhen` (from count increment) sees stale signature mismatch → unnecessary duplicate sync.
 
-**Fix Applied:** Only update `_lastSyncedSignature` after a successful sync, never during debounce.
+**Fix Applied:** Always update `_lastSyncedSignature` and `_lastSyncedCategoryId` regardless of debounce. Only the actual send is debounced.
 
-**Key Lesson:** Debounce should defer work, not discard it. Never mark state as "done" when you skipped the work.
+**Key Lesson:** Debounce should defer sending, not defer acknowledging state. Always update the baseline signature so future comparisons are against the latest known state.
 
 ---
 
