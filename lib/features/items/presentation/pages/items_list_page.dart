@@ -1422,14 +1422,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Listener(
-        onPointerMove: (event) {
-          // Detect left swipe to dismiss activation hint
-          if (event.delta.dx < -3) {
-            _dismissActivationHintIfShowing();
-          }
-        },
-        child: Slidable(
+      child: Slidable(
           controller: controller,
           endActionPane: ActionPane(
             motion: const ScrollMotion(),
@@ -1623,7 +1616,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
         ),
           child: tileContent,
         ),
-      ),
     );
 
     // Apply lift animation for reorder hint (simulates long-press drag start)
