@@ -47,6 +47,12 @@ class User extends Equatable {
   /// New users should be redirected to onboarding page.
   final bool onboardingCompleted;
 
+  /// Whether the user paired a device during onboarding.
+  final bool onboardingDevicePaired;
+
+  /// Whether the user created an item during onboarding.
+  final bool onboardingItemCreated;
+
   /// User's primary use case for the product.
   /// Collected during onboarding for product insights.
   final String? primaryUseCase;
@@ -65,6 +71,8 @@ class User extends Equatable {
     this.lastSelectedDeviceItemId = -1,
     this.pairedDevices = const [],
     this.onboardingCompleted = false,
+    this.onboardingDevicePaired = false,
+    this.onboardingItemCreated = false,
     this.primaryUseCase,
     this.referralSource,
   });
@@ -80,6 +88,8 @@ class User extends Equatable {
     int? lastSelectedDeviceItemId,
     List<PairedDevice>? pairedDevices,
     bool? onboardingCompleted,
+    bool? onboardingDevicePaired,
+    bool? onboardingItemCreated,
     String? primaryUseCase,
     String? referralSource,
   }) {
@@ -94,6 +104,10 @@ class User extends Equatable {
           lastSelectedDeviceItemId ?? this.lastSelectedDeviceItemId,
       pairedDevices: pairedDevices ?? this.pairedDevices,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      onboardingDevicePaired:
+          onboardingDevicePaired ?? this.onboardingDevicePaired,
+      onboardingItemCreated:
+          onboardingItemCreated ?? this.onboardingItemCreated,
       primaryUseCase: primaryUseCase ?? this.primaryUseCase,
       referralSource: referralSource ?? this.referralSource,
     );
@@ -110,6 +124,8 @@ class User extends Equatable {
         lastSelectedDeviceItemId,
         pairedDevices,
         onboardingCompleted,
+        onboardingDevicePaired,
+        onboardingItemCreated,
         primaryUseCase,
         referralSource,
       ];

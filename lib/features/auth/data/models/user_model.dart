@@ -20,6 +20,8 @@ class UserModel extends User {
     super.lastSelectedDeviceItemId,
     super.pairedDevices,
     super.onboardingCompleted,
+    super.onboardingDevicePaired,
+    super.onboardingItemCreated,
     super.primaryUseCase,
     super.referralSource,
   });
@@ -68,6 +70,10 @@ class UserModel extends User {
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
       onboardingCompleted: onboardingCompleted,
+      onboardingDevicePaired:
+          data['onboarding_device_paired'] as bool? ?? false,
+      onboardingItemCreated:
+          data['onboarding_item_created'] as bool? ?? false,
       primaryUseCase: data['primary_use_case'] as String?,
       referralSource: data['referral_source'] as String?,
     );
@@ -99,6 +105,10 @@ class UserModel extends User {
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
       onboardingCompleted: onboardingCompleted,
+      onboardingDevicePaired:
+          data['onboarding_device_paired'] as bool? ?? false,
+      onboardingItemCreated:
+          data['onboarding_item_created'] as bool? ?? false,
       primaryUseCase: data['primary_use_case'] as String?,
       referralSource: data['referral_source'] as String?,
     );
@@ -114,6 +124,8 @@ class UserModel extends User {
       'last_selected_device_item_id': lastSelectedDeviceItemId,
       'paired_devices': pairedDevices.map((d) => d.toFirestore()).toList(),
       'onboarding_completed': onboardingCompleted,
+      'onboarding_device_paired': onboardingDevicePaired,
+      'onboarding_item_created': onboardingItemCreated,
       if (primaryUseCase != null) 'primary_use_case': primaryUseCase,
       if (referralSource != null) 'referral_source': referralSource,
     };
@@ -131,6 +143,8 @@ class UserModel extends User {
       lastSelectedDeviceItemId: lastSelectedDeviceItemId,
       pairedDevices: pairedDevices,
       onboardingCompleted: onboardingCompleted,
+      onboardingDevicePaired: onboardingDevicePaired,
+      onboardingItemCreated: onboardingItemCreated,
       primaryUseCase: primaryUseCase,
       referralSource: referralSource,
     );
@@ -148,6 +162,8 @@ class UserModel extends User {
     int? lastSelectedDeviceItemId,
     List<PairedDevice>? pairedDevices,
     bool? onboardingCompleted,
+    bool? onboardingDevicePaired,
+    bool? onboardingItemCreated,
     String? primaryUseCase,
     String? referralSource,
   }) {
@@ -162,6 +178,10 @@ class UserModel extends User {
           lastSelectedDeviceItemId ?? this.lastSelectedDeviceItemId,
       pairedDevices: pairedDevices ?? this.pairedDevices,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      onboardingDevicePaired:
+          onboardingDevicePaired ?? this.onboardingDevicePaired,
+      onboardingItemCreated:
+          onboardingItemCreated ?? this.onboardingItemCreated,
       primaryUseCase: primaryUseCase ?? this.primaryUseCase,
       referralSource: referralSource ?? this.referralSource,
     );

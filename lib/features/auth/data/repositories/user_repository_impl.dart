@@ -267,6 +267,8 @@ class UserRepositoryImpl implements UserRepository {
     String? displayName,
     required String primaryUseCase,
     String? referralSource,
+    bool? onboardingDevicePaired,
+    bool? onboardingItemCreated,
   }) async {
     try {
       final firebaseUser = _requireCurrentUser();
@@ -280,6 +282,13 @@ class UserRepositoryImpl implements UserRepository {
 
       if (referralSource != null && referralSource.isNotEmpty) {
         updateData['referral_source'] = referralSource;
+      }
+
+      if (onboardingDevicePaired != null) {
+        updateData['onboarding_device_paired'] = onboardingDevicePaired;
+      }
+      if (onboardingItemCreated != null) {
+        updateData['onboarding_item_created'] = onboardingItemCreated;
       }
 
       // Update Firestore

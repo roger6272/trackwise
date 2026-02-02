@@ -81,6 +81,8 @@ abstract class UserRepository {
   /// [displayName] - User's name (optional).
   /// [primaryUseCase] - How the user plans to use the product.
   /// [referralSource] - How the user heard about the product (optional).
+  /// [onboardingDevicePaired] - Whether the user paired a device during onboarding (optional).
+  /// [onboardingItemCreated] - Whether the user created an item during onboarding (optional).
   ///
   /// Returns [AuthFailure] if not authenticated.
   /// Returns [ServerFailure] if Firestore operation fails.
@@ -88,5 +90,7 @@ abstract class UserRepository {
     String? displayName,
     required String primaryUseCase,
     String? referralSource,
+    bool? onboardingDevicePaired,
+    bool? onboardingItemCreated,
   });
 }
