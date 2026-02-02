@@ -107,3 +107,17 @@ Replace the single-screen onboarding form with a 5-step PageView wizard that reu
 - No regressions: existing users with `onboarding_completed = true` are unaffected
 - New Firestore fields populated correctly for analytics
 - BLE errors during onboarding don't block the user (skip always available)
+
+## Tasks Created
+- [ ] 001.md - Extract reusable BLE widgets from BluetoothSearchPage (parallel: true)
+- [ ] 002.md - Add onboarding tracking fields to User entity/model/repository (parallel: true)
+- [ ] 003.md - Build onboarding PageView skeleton with navigation (parallel: false, depends: 002)
+- [ ] 004.md - Implement Step 1 (User Profile) and Step 2 (Product Intro) (parallel: true, depends: 003)
+- [ ] 005.md - Implement Step 3 (Device Scan and Connect) (parallel: true, depends: 001, 003)
+- [ ] 006.md - Implement Step 4 (Create First Item) and Step 5 (Done) (parallel: true, depends: 003)
+- [ ] 007.md - Add post-onboarding Connect Your Device card to home empty state (parallel: true)
+- [ ] 008.md - Update documentation for new onboarding flow (parallel: false, depends: 004, 005, 006)
+
+Total tasks: 8
+Parallel tasks: 6
+Sequential tasks: 2
