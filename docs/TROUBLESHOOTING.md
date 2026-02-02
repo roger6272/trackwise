@@ -754,6 +754,16 @@ When items aren't syncing correctly, check in this order:
 
 **Key Lesson:** When merging data from two sources (Firebase Auth + Firestore), ensure all fields are included in the merge. Missing a field silently returns the empty/default value.
 
+### 9.14 "Sticky header shows wrong category when first category is empty"
+
+**Symptoms:** In the "All Categories" view, scrolling up replaces the first (empty) category's header with the second category's name. The sticky header at the top shows the wrong category.
+
+**Root Cause:** `_calculateStickyCategory()` in `items_list_page.dart` only iterated over `filteredItems` (actual items), completely ignoring empty category labels. The actual list includes empty categories as label entries (for drag-drop zones), but the offset calculation didn't account for their height. So when the first category had no items, the method started at the first item's category (the second one).
+
+**Fix Applied:** Rewrote `_calculateStickyCategory()` to iterate through all categories from `_cachedCategoryOrder` (including empty ones) in the same order as the actual list layout, properly accounting for empty category label heights.
+
+**Key Lesson:** When calculating scroll-based positions for a list, the calculation must match the actual list structure exactly — including non-data entries like empty section headers.
+
 ---
 
 ## Quick Reference: Error → Solution
@@ -784,3 +794,4 @@ When items aren't syncing correctly, check in this order:
 | S button crosses categories | Check if sync path filters by selected category |
 | Categories stop updating | Stream killed by rethrow — use `onErrorResume` not `handleError` |
 | Email empty after Google sign-in | `getProfile()` missing email in `copyWith()` merge |
+| Sticky header wrong category | `_calculateStickyCategory` ignores empty categories — must match list layout |
