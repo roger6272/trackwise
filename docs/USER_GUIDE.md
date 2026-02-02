@@ -57,13 +57,12 @@ Download Traxelos One from the App Store (iOS) or Google Play (Android).
 
 ### Step 3: Complete Onboarding
 
-After creating your account, a guided setup walks you through five steps:
+After creating your account, a guided setup walks you through four steps:
 
 1. **Your Profile** — Enter your name, select your primary use case (e.g., Habit Tracking, Inventory), and how you heard about us. All fields are optional.
 2. **Welcome to Traxelos One** — A quick overview of what the device is, what you need, and what comes next.
 3. **Find Your Device** — The app scans for your Traxelos One via Bluetooth. Tap your device in the list to connect and pair it. *(Tap "I don't have a device yet" to skip.)*
-4. **Create Your First Item** — Name your first counter, set an optional daily goal, and choose how much each press counts. *(Only shown if you paired a device in the previous step.)*
-5. **You're All Set!** — A confirmation screen showing your paired device and created item. Tap **Get Started** to enter the app.
+4. **You're All Set!** — A confirmation screen showing your paired device. Tap **Get Started** to enter the app. *(Only shown if you paired a device in the previous step.)*
 
 *You can skip any step — tap "Skip for now" to move on or finish early.*
 

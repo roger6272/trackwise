@@ -20,8 +20,13 @@ import '../../../bluetooth/presentation/widgets/sync_conflict_dialog.dart';
 class OnboardingStepDevice extends StatefulWidget {
   final void Function({required bool paired, String? deviceName})
       onPairingComplete;
+  final Widget? actions;
 
-  const OnboardingStepDevice({super.key, required this.onPairingComplete});
+  const OnboardingStepDevice({
+    super.key,
+    required this.onPairingComplete,
+    this.actions,
+  });
 
   @override
   State<OnboardingStepDevice> createState() => _OnboardingStepDeviceState();
@@ -108,7 +113,12 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
       builder: (context, state) {
         return Padding(
           padding: const EdgeInsets.all(24),
-          child: _buildContent(context, state),
+          child: Column(
+            children: [
+              Expanded(child: _buildContent(context, state)),
+              if (widget.actions != null) widget.actions!,
+            ],
+          ),
         );
       },
     );

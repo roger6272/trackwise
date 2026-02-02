@@ -7,7 +7,9 @@ import '../../../../core/theme/app_colors.dart';
 /// Presents a brief overview of Traxelos One — what it is, what the user
 /// needs, and what comes next in the onboarding flow.
 class OnboardingStepIntro extends StatelessWidget {
-  const OnboardingStepIntro({super.key});
+  const OnboardingStepIntro({super.key, this.actions});
+
+  final Widget? actions;
 
   @override
   Widget build(BuildContext context) {
@@ -70,14 +72,15 @@ class OnboardingStepIntro extends StatelessWidget {
             icon: Icons.rocket_launch,
             title: "What's next",
             body:
-                "We'll help you pair your device and create your first "
-                'item to start counting.',
+                "We'll help you pair your device so you can start "
+                'counting right away.',
             primaryText: primaryText,
             secondaryText: secondaryText,
             textTheme: textTheme,
             brightness: brightness,
           ),
           const SizedBox(height: 24),
+          if (actions != null) actions!,
         ],
       ),
     );

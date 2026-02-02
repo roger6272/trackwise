@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
-/// Step 5: Onboarding completion screen.
+/// Step 4: Onboarding completion screen.
 ///
-/// Shows a success summary with the paired device name and created item name.
-/// Only shown when both device pairing (Step 3) and item creation (Step 4)
-/// were completed.
+/// Shows a success summary with the paired device name.
+/// Only shown when device pairing (Step 3) was completed.
 class OnboardingStepDone extends StatelessWidget {
   final String? deviceName;
-  final String? itemName;
+  final Widget? actions;
 
   const OnboardingStepDone({
     super.key,
     this.deviceName,
-    this.itemName,
+    this.actions,
   });
 
   @override
@@ -51,103 +50,52 @@ class OnboardingStepDone extends StatelessWidget {
           const SizedBox(height: 32),
 
           // Info card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: secondaryBackground,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.success.withValues(alpha: 0.3),
-                width: 1,
+          if (deviceName != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: secondaryBackground,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.success.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Semantics(
+                label: 'Paired device: $deviceName',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.bluetooth_connected,
+                      color: AppColors.primaryAdaptive(brightness),
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Device',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: secondaryText,
+                            ),
+                          ),
+                          Text(
+                            deviceName!,
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: primaryText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            child: Column(
-              children: [
-                // Device row
-                if (deviceName != null) ...[
-                  Semantics(
-                    label: 'Paired device: $deviceName',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.bluetooth_connected,
-                          color: AppColors.primaryAdaptive(brightness),
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Device',
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: secondaryText,
-                                ),
-                              ),
-                              Text(
-                                deviceName!,
-                                style: textTheme.bodyLarge?.copyWith(
-                                  color: primaryText,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                // Divider between rows
-                if (deviceName != null && itemName != null) ...[
-                  const SizedBox(height: 12),
-                  Divider(
-                    color: AppColors.alternate(brightness),
-                    height: 1,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                // Item row
-                if (itemName != null) ...[
-                  Semantics(
-                    label: 'Created item: $itemName',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.pin_outlined,
-                          color: AppColors.primaryAdaptive(brightness),
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Item',
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: secondaryText,
-                                ),
-                              ),
-                              Text(
-                                itemName!,
-                                style: textTheme.bodyLarge?.copyWith(
-                                  color: primaryText,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
           const SizedBox(height: 32),
 
           // Subtitle
@@ -160,6 +108,8 @@ class OnboardingStepDone extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ),
+          const SizedBox(height: 24),
+          if (actions != null) actions!,
         ],
       ),
     );

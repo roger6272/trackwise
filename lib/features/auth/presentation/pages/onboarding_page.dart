@@ -5,7 +5,6 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
 import '../../domain/repositories/user_repository.dart';
-import '../widgets/onboarding_step_create_item.dart';
 import '../widgets/onboarding_step_device.dart';
 import '../widgets/onboarding_step_done.dart';
 import '../widgets/onboarding_step_intro.dart';
@@ -13,12 +12,11 @@ import '../widgets/onboarding_step_profile.dart';
 
 /// Multi-step onboarding wizard shown to new users after signup.
 ///
-/// 5-step PageView flow:
+/// 4-step PageView flow:
 /// 1. User Profile & Preferences (name, use case, referral)
 /// 2. Product Introduction (static content)
 /// 3. Device Scan & Connect (BLE pairing via BluetoothBloc)
-/// 4. Create First Item (simplified item form)
-/// 5. Done (conditional — only if steps 3+4 both completed)
+/// 4. Done (conditional — only if step 3 completed)
 ///
 /// Each step is a separate widget. This page manages the PageView,
 /// progress indicator, navigation, and completion logic.
@@ -35,7 +33,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final _pageController = PageController();
 
-  // Current step (0-indexed internally, displayed as 1-5)
+  // Current step (0-indexed internally, displayed as 1-4)
   int _currentStep = 0;
 
   // Loading state for completion calls
@@ -52,11 +50,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   bool devicePaired = false;
   String? pairedDeviceName;
 
-  // --- Step 4 state: Item Creation ---
-  bool itemCreated = false;
-  String? createdItemName;
-
-  static const _totalSteps = 5;
+  static const _totalSteps = 4;
 
   @override
   void dispose() {
@@ -106,7 +100,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       primaryUseCase: useCase,
       referralSource: referral,
       onboardingDevicePaired: devicePaired,
-      onboardingItemCreated: itemCreated,
+      onboardingItemCreated: false,
     );
 
     if (!mounted) return;
@@ -151,25 +145,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
     });
 
     if (!paired) {
-      // Skipped pairing — also skip item creation, finish onboarding
+      // Skipped pairing — finish onboarding
       _finishOnboarding();
     } else {
-      _nextStep(); // Go to Step 4
-    }
-  }
-
-  /// Called when Step 4 (item creation) completes or is skipped.
-  void onItemCreationComplete({required bool created, String? itemName}) {
-    setState(() {
-      itemCreated = created;
-      createdItemName = itemName;
-    });
-
-    if (!created || !devicePaired) {
-      // Skipped or no device — finish onboarding (no Done screen)
-      _finishOnboarding();
-    } else {
-      // Both complete — show Done screen (Step 5)
+      // Paired — show Done screen (step 3)
       _nextStep();
     }
   }
@@ -187,7 +166,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           children: [
             // Top bar: back button + progress dots
             _buildTopBar(context, primaryText),
-            // Step content
+            // Step content (buttons scroll with content)
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -209,8 +188,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         setState(() => otherUseCaseText = value),
                     onOtherReferralChanged: (value) =>
                         setState(() => otherReferralText = value),
+                    actions: _buildActions(context),
                   ),
-                  const OnboardingStepIntro(),
+                  OnboardingStepIntro(
+                    actions: _buildActions(context),
+                  ),
                   OnboardingStepDevice(
                     onPairingComplete: ({required paired, deviceName}) {
                       onDevicePairingComplete(
@@ -218,25 +200,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         deviceName: deviceName,
                       );
                     },
-                  ),
-                  OnboardingStepCreateItem(
-                    selectedUseCase: selectedUseCase,
-                    onItemCreated: ({required created, itemName}) {
-                      onItemCreationComplete(
-                        created: created,
-                        itemName: itemName,
-                      );
-                    },
+                    actions: _buildActions(context),
                   ),
                   OnboardingStepDone(
                     deviceName: pairedDeviceName,
-                    itemName: createdItemName,
+                    actions: _buildActions(context),
                   ),
                 ],
               ),
             ),
-            // Bottom actions
-            _buildBottomActions(context),
           ],
         ),
       ),
@@ -248,8 +220,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
         children: [
-          // Back button (Steps 2-4 only)
-          if (_currentStep >= 1 && _currentStep <= 3)
+          // Back button (Steps 2-3 only)
+          if (_currentStep >= 1 && _currentStep <= 2)
             IconButton(
               tooltip: 'Back',
               icon: Icon(Icons.arrow_back, color: primaryText),
@@ -287,18 +259,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildBottomActions(BuildContext context) {
+  Widget _buildActions(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final secondaryText = AppColors.secondaryText(brightness);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Primary action button (hidden on Step 3 — BLE step handles its own flow,
-          // and Step 4 — create item step has its own Create button)
-          if (_currentStep != 2 && _currentStep != 3)
+          // Primary action button (hidden on Step 3 — BLE step handles its own flow)
+          if (_currentStep != 2)
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -328,7 +299,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       ),
               ),
             ),
-          // Skip option (Steps 1, 3, 4 only)
+          // Skip option (Steps 1 and 3 only)
           if (_showSkip) ...[
             const SizedBox(height: 8),
             TextButton(
@@ -357,8 +328,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
       case 2:
         return 'Continue'; // Placeholder — Step 3 will handle its own actions
       case 3:
-        return 'Continue'; // Placeholder — Step 4 will handle its own actions
-      case 4:
         return 'Get Started';
       default:
         return 'Continue';
@@ -366,8 +335,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   bool get _showSkip {
-    // Steps 1, 3, 4 have skip options. Step 2 (intro) and Step 5 (done) do not.
-    return _currentStep == 0 || _currentStep == 2 || _currentStep == 3;
+    // Steps 1 and 3 have skip options. Step 2 (intro) and Step 4 (done) do not.
+    return _currentStep == 0 || _currentStep == 2;
   }
 
   String get _skipLabel {
@@ -376,8 +345,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
         return 'Skip for now';
       case 2:
         return "I don't have a device yet";
-      case 3:
-        return 'Skip';
       default:
         return 'Skip';
     }
@@ -394,10 +361,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       case 2: // Step 3: placeholder — will be wired to BLE connect
         _nextStep();
         break;
-      case 3: // Step 4: placeholder — will be wired to item creation
-        _nextStep();
-        break;
-      case 4: // Step 5: Done — finish onboarding
+      case 3: // Step 4: Done — finish onboarding
         _finishOnboarding();
         break;
     }
@@ -411,9 +375,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
         break;
       case 2: // Skip pairing — finish onboarding
         onDevicePairingComplete(paired: false);
-        break;
-      case 3: // Skip item creation — finish onboarding
-        onItemCreationComplete(created: false);
         break;
     }
   }

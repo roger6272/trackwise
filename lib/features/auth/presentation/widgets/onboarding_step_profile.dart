@@ -20,6 +20,7 @@ class OnboardingStepProfile extends StatelessWidget {
     required this.onNameChanged,
     required this.onOtherUseCaseChanged,
     required this.onOtherReferralChanged,
+    this.actions,
   });
 
   final String? selectedUseCase;
@@ -32,6 +33,7 @@ class OnboardingStepProfile extends StatelessWidget {
   final ValueChanged<String> onNameChanged;
   final ValueChanged<String> onOtherUseCaseChanged;
   final ValueChanged<String> onOtherReferralChanged;
+  final Widget? actions;
 
   static const _useCases = <(String, String, String)>[
     ('inventory', 'Inventory Tracking', 'Track stock, supplies, or materials'),
@@ -245,6 +247,7 @@ class OnboardingStepProfile extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 24),
+          if (actions != null) actions!,
         ],
       ),
     );
