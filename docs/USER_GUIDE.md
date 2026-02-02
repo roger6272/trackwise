@@ -60,7 +60,7 @@ Download Traxelos One from the App Store (iOS) or Google Play (Android).
 After creating your account, a guided setup walks you through four steps:
 
 1. **Your Profile** — Enter your name, select your primary use case (e.g., Habit Tracking, Inventory), and how you heard about us. All fields are optional.
-2. **Welcome to Traxelos One** — A quick overview of what the device is, what you need, and what comes next.
+2. **Welcome to Traxelos One** — A quick overview of how it works, what you need, and what comes next.
 3. **Find Your Device** — The app scans for your Traxelos One via Bluetooth. Tap your device in the list to connect and pair it. *(Tap "I don't have a device yet" to skip.)*
 4. **You're All Set!** — A confirmation screen showing your paired device. Tap **Get Started** to enter the app. *(Only shown if you paired a device in the previous step.)*
 
@@ -192,6 +192,8 @@ Your custom order is saved and synced to your device.
 1. Make sure your device is connected (check the Bluetooth tab)
 2. Press the **count button** on your device
 3. The app updates automatically
+
+> When you first connect, a brief **"Syncing..."** indicator appears on the items list while your counts update from the device. This disappears once sync is complete.
 
 *You'll feel a triple vibration when you reach an item's goal, or a single vibration when a reminder condition is met (see [Setting Reminders](#8-setting-reminders)).*
 
@@ -433,8 +435,9 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
    - **Date Range** - Select start and end dates (default: last 30 days)
    - **Aggregation** - Raw, Daily, Weekly, or Monthly (default: Daily)
    - **Data Scope** - Total (all data) or Latest Cycle only
-4. Enter your **email address**
-5. Tap **"Export to Email"**
+4. Review the **Export Preview** card to confirm your settings
+5. Enter your **email address**
+6. Tap **"Export to Email"**
 
 ### Aggregation Options
 
@@ -448,10 +451,9 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 ### What's in the Export?
 
 Your CSV file includes:
-- Item names
-- Timestamps
-- Count values
-- Category information
+- Item names and categories
+- Date column — labeled **"Date"** for daily, **"Period Start"** for weekly/monthly, or **"Timestamp"** for raw
+- Event type and count values
 
 ---
 

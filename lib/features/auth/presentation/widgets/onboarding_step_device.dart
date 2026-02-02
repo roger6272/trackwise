@@ -10,7 +10,6 @@ import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../bluetooth/presentation/widgets/ble_device_list_tile.dart';
 import '../../../bluetooth/presentation/widgets/ble_status_banner.dart';
 import '../../../bluetooth/presentation/widgets/blinking_widget.dart';
-import '../../../bluetooth/presentation/widgets/sync_conflict_dialog.dart';
 
 /// Step 3 of onboarding: scan for and connect to a BLE device.
 ///
@@ -35,8 +34,6 @@ class OnboardingStepDevice extends StatefulWidget {
 class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
   bool _hasAutoStartedScan = false;
   bool _pairingCompleted = false;
-  bool _wrongAccountShown = false;
-  bool _conflictShown = false;
 
   @override
   void initState() {
@@ -69,8 +66,6 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<BluetoothBloc, BluetoothState>(
-      listenWhen: (previous, current) =>
-          previous != current,
       listener: (context, state) {
         _tryAutoStartScan(state);
 
@@ -80,35 +75,8 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
           showErrorSnackBar(context, state.errorMessage!);
         }
 
-        // Handle wrong account (only on transition to true)
-        if (state.hasWrongAccount && !_wrongAccountShown) {
-          _wrongAccountShown = true;
-          _showWrongAccountDialog(context);
-        }
-        if (!state.hasWrongAccount) {
-          _wrongAccountShown = false;
-        }
-
-        // Handle sync conflict (only on transition to true)
-        if (state.hasConflict && !_conflictShown) {
-          _conflictShown = true;
-          SyncConflictDialog.show(
-            context: context,
-            onConfirm: () {
-              context
-                  .read<BluetoothBloc>()
-                  .add(const ConfirmSyncOverride());
-            },
-            onCancel: () {
-              context
-                  .read<BluetoothBloc>()
-                  .add(const CancelSyncConflict());
-            },
-          );
-        }
-        if (!state.hasConflict) {
-          _conflictShown = false;
-        }
+        // Wrong account and sync conflict dialogs are handled globally
+        // by BlocListeners in main.dart — no duplicate handling here.
 
         // Handle successful sync — pairing complete
         if (state.isConnected &&
@@ -420,50 +388,4 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
     );
   }
 
-  void _showWrongAccountDialog(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final primaryText = AppColors.primaryText(brightness);
-    final secondaryText = AppColors.secondaryText(brightness);
-    final backgroundColor = AppColors.secondaryBackground(brightness);
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: backgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Text(
-          'Wrong Account',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: primaryText,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        content: Text(
-          'This device is paired to a different account. '
-          'To use it with this account, perform a factory reset on the device '
-          '(hold the button for 10 seconds until the LED flashes red).',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: secondaryText,
-              ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              context
-                  .read<BluetoothBloc>()
-                  .add(const DismissWrongAccount());
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: const Text('OK', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
 }

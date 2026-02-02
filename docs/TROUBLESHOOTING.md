@@ -766,6 +766,18 @@ When items aren't syncing correctly, check in this order:
 
 ---
 
+### 9.15 "Wrong account / sync conflict dialog shows twice during onboarding"
+
+**Symptoms:** During onboarding device pairing, the "Wrong Account" or "Sync Conflict" dialog appears twice, stacked on top of each other.
+
+**Root Cause:** Two independent listeners were both showing the same dialog. `main.dart` has global `BlocListener`s (with proper `listenWhen` guards) for `hasWrongAccount`, `hasConflict`, and `needsSetup`. `onboarding_step_device.dart` had its own duplicate listeners for wrong account and conflict, with inline dialog implementations. During onboarding, both widgets are in the tree, so both fired.
+
+**Fix Applied:** Removed the duplicate wrong account and conflict dialog handling from `onboarding_step_device.dart`. The global listeners in `main.dart` already handle these for all pages, including onboarding.
+
+**Key Lesson:** When `main.dart` has global `BlocListener`s for a state flag, don't add page-level listeners for the same flag. Check `main.dart` first before adding dialog-showing listeners to individual pages/widgets.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -784,6 +796,7 @@ When items aren't syncing correctly, check in this order:
 | Override selects wrong item | Check AppUiState vs BluetoothState selectedItemId sync |
 | Wrong category after drag | Check `_lastSyncedSignature` null after `ItemsLoading` transition |
 | Wrong category after reset | Ensure sync goes through `syncItemsToDevice()`, not raw `SendItemsToDevice` |
+| Dialog shows twice | Guard `BlocConsumer.listener` with `listenWhen` or tracking boolean |
 | Items missing deviceItemId | Use `fromFirestore` + `copyWith`, not manual `ItemModel(...)` |
 | Multiple items with id=0 | Check device_item_id in Firestore (null?) |
 | Unnecessary sync after navigation | `_lastSyncedSignature` null after `ItemsLoading` — needs `_initSyncTracking` |

@@ -46,7 +46,7 @@ class OnboardingStepIntro extends StatelessWidget {
           // Info sections
           _InfoSection(
             icon: Icons.touch_app,
-            title: 'What is it?',
+            title: 'How it works',
             body:
                 'A physical counting device that pairs with this app via '
                 'Bluetooth to track anything you need.',
