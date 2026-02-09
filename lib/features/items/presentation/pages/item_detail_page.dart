@@ -20,7 +20,7 @@ import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
-import '../widgets/item_detail/filter_section.dart';
+import '../widgets/item_detail/cycle_selection_bottom_sheet.dart';
 import '../widgets/item_detail/period_stats_section.dart';
 import '../widgets/item_detail/periods_table.dart';
 import '../widgets/item_detail/shimmer_skeletons.dart';
@@ -118,8 +118,22 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   late int _resetNumber;
   DateTime? _lastResetTime;
 
+  /// User-defined cycle names.
+  Map<String, String> _cycleNames = {};
+
   /// Flag to trigger data reload after widget update.
   bool _needsDataReload = false;
+
+  /// Whether viewing the current (most recent) cycle.
+  /// All Time (-1) is NOT considered current — it's a summary view.
+  bool get _isViewingCurrentCycle {
+    if (_selectedInterval == null) return true;
+    if (_selectedInterval == -1) return false;
+    if (_intervals.length > 1) {
+      return _selectedInterval == _intervals[1].intervalNumber;
+    }
+    return true;
+  }
 
   /// Whether viewing first cycle (All Time or Period 0).
   /// Initial count is only included in charts for the first cycle.
@@ -154,11 +168,30 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     // to save power. The initial values are passed via widget parameters.
     // Charts and events are loaded separately via their blocs.
 
+    // Load cycle names from the item
+    _loadCycleNames();
+
     // Subscribe to Bluetooth logs - reload events when logs sync completes
     _subscribeToBluetoothLogs();
 
     // Reload events after delay if device is connected (catches recently synced logs)
     _reloadIfConnected();
+  }
+
+  /// Load cycle names from the item in Firestore.
+  Future<void> _loadCycleNames() async {
+    final result = await sl<ItemRepository>().getItem(widget.itemId);
+    if (!mounted) return;
+    result.fold(
+      (_) {},
+      (item) {
+        if (item.cycleNames.isNotEmpty) {
+          setState(() {
+            _cycleNames = Map<String, String>.from(item.cycleNames);
+          });
+        }
+      },
+    );
   }
 
   /// Reload events if device is connected (to catch recently synced data).
@@ -263,6 +296,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _reminderValue = item.reminderValue;
           _resetNumber = item.resetNumber;
           _lastResetTime = item.lastResetTime;
+          _cycleNames = Map<String, String>.from(item.cycleNames);
         });
       },
     );
@@ -382,6 +416,81 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     }
   }
 
+  /// Get the display label for the currently selected cycle.
+  String _getSelectedCycleLabel() {
+    if (_selectedInterval == null || _selectedInterval == -1) return 'All Time';
+    final periods = _intervals.where((i) => i.intervalNumber >= 0).toList();
+    final totalPeriods = periods.length;
+    final index = periods.indexWhere(
+      (i) => i.intervalNumber == _selectedInterval,
+    );
+    if (index < 0) return 'All Time';
+    return getCycleDisplayName(
+      _selectedInterval!,
+      index,
+      totalPeriods,
+      _cycleNames,
+    );
+  }
+
+  /// Get the count for the selected interval.
+  int _getSelectedCycleCount() {
+    if (_selectedInterval == null) return _currentCount;
+    if (_intervals.isEmpty) return _currentCount;
+    if (_selectedInterval == -1) {
+      // All Time: total increments across all cycles + initial count
+      final allTime = _intervals.firstWhere(
+        (i) => i.intervalNumber == -1,
+        orElse: () => _intervals.first,
+      );
+      return allTime.count + _initialCount;
+    }
+    final interval = _intervals.firstWhere(
+      (i) => i.intervalNumber == _selectedInterval,
+      orElse: () => _intervals.first,
+    );
+    // First cycle (lowest intervalNumber) includes initial count
+    final periods = _intervals.where((i) => i.intervalNumber >= 0);
+    final firstIntervalNumber = periods.isNotEmpty
+        ? periods.map((p) => p.intervalNumber).reduce((a, b) => a < b ? a : b)
+        : -1;
+    if (interval.intervalNumber == firstIntervalNumber && _initialCount > 0) {
+      return interval.count + _initialCount;
+    }
+    return interval.count;
+  }
+
+  /// Show the cycle selection bottom sheet.
+  void _showCycleSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CycleSelectionBottomSheet(
+        intervals: _intervals,
+        selectedInterval: _selectedInterval ?? -1,
+        cycleNames: _cycleNames,
+        onIntervalSelected: (interval) =>
+            _onIntervalSelected(interval, context),
+        onCycleRenamed: _onCycleRenamed,
+      ),
+    );
+  }
+
+  /// Handle cycle rename from bottom sheet.
+  Future<void> _onCycleRenamed(int resetNumber, String newName) async {
+    final updated = Map<String, String>.from(_cycleNames);
+    if (newName.isEmpty) {
+      updated.remove(resetNumber.toString());
+    } else {
+      updated[resetNumber.toString()] = newName;
+    }
+    setState(() {
+      _cycleNames = updated;
+    });
+    await sl<ItemRepository>().updateCycleNames(widget.itemId, updated);
+  }
+
   /// Handle interval selection - auto-snap date and reload chart.
   void _onIntervalSelected(int intervalNumber, BuildContext context) {
     setState(() {
@@ -493,23 +602,77 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
-                  // Last updated indicator at top
+                  // Last updated indicator + cycle chip
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
-                      child: Center(
-                        child: Text(
-                          'Updated ${_formatLastUpdated()} \u2022 Pull to refresh',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 11.0,
-                            color: secondaryText.withValues(alpha: 0.6),
+                      child: Column(
+                        children: [
+                          Center(
+                            child: Text(
+                              'Updated ${_formatLastUpdated()} \u2022 Pull to refresh',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontSize: 11.0,
+                                color: secondaryText.withValues(alpha: 0.6),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8.0),
+                          // Cycle selector chip
+                          Center(
+                            child: Semantics(
+                              label: 'Select cycle period',
+                              button: true,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(20.0),
+                                  onTap: () => _showCycleSelector(context),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14.0,
+                                      vertical: 8.0,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(20.0),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.filter_list_rounded,
+                                          size: 16.0,
+                                          color: primary,
+                                        ),
+                                        const SizedBox(width: 6.0),
+                                        Text(
+                                          _getSelectedCycleLabel(),
+                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            fontSize: 13.0,
+                                            fontWeight: FontWeight.w600,
+                                            color: primary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4.0),
+                                        Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          size: 18.0,
+                                          color: primary,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                   // Static Header (Current Count, Initial, Goal)
-                  // Now updates on refresh
+                  // Cycle-aware: grayed ring for non-current cycles
                   SliverToBoxAdapter(
                     child: StaticHeader(
                       currentCount: _currentCount,
@@ -519,63 +682,40 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       reminderType: _reminderType,
                       reminderValue: _reminderValue,
                       resetNumber: _resetNumber,
+                      isCurrentCycle: _isViewingCurrentCycle,
+                      isAllTime: _selectedInterval == -1,
+                      selectedCycleCount: _getSelectedCycleCount(),
                     ),
                   ),
-                  // Gap between static header and filtered zone
+                  // Gap between static header and content zone
                   const SliverToBoxAdapter(
-                    child: SizedBox(height: 24.0),
+                    child: SizedBox(height: 16.0),
                   ),
-                  // Sticky Filter Section (part of filtered zone)
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _StickyFilterHeaderDelegate(
-                      backgroundColor: AppColors.surface(brightness),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface(brightness),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(24.0),
-                            topRight: Radius.circular(24.0),
-                          ),
-                          boxShadow: [
-                            // Top shadow to separate from header section
-                            BoxShadow(
-                              color: brightness == Brightness.light
-                                  ? Colors.black.withValues(alpha: 0.08)
-                                  : Colors.black.withValues(alpha: 0.4),
-                              blurRadius: 12.0,
-                              offset: const Offset(0, -6),
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.fromLTRB(20.0, 18.0, 20.0, 6.0),
-                        child: FilterSection(
-                          intervals: _intervals,
-                          selectedInterval: _selectedInterval ?? -1,
-                          onIntervalChanged: (interval) =>
-                              _onIntervalSelected(interval, context),
-                        ),
-                      ),
-                      maxHeight: 104.0,
-                      minHeight: 104.0,
-                    ),
-                  ),
-                  // Filtered Content Zone (continues from filter section)
-                  // ALL content below is affected by filters
+                  // Filtered Content Zone
+                  // ALL content below is affected by cycle selection
                   SliverToBoxAdapter(
                     child: Container(
-                      color: brightness == Brightness.light
-                          ? const Color(0xFFF8F9FB)
-                          : const Color(0xFF1C1C1E),
+                      decoration: BoxDecoration(
+                        color: brightness == Brightness.light
+                            ? const Color(0xFFF8F9FB)
+                            : const Color(0xFF1C1C1E),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(24.0),
+                          topRight: Radius.circular(24.0),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: brightness == Brightness.light
+                                ? Colors.black.withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 12.0,
+                            offset: const Offset(0, -6),
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
                       child: Column(
                         children: [
-                          // Divider between filter and content
-                          Container(
-                            height: 1.0,
-                            margin: const EdgeInsets.symmetric(horizontal: 20.0),
-                            color: secondaryText.withValues(alpha: 0.12),
-                          ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 24.0),
                             child: BlocBuilder<EventsBloc, EventsState>(
@@ -676,6 +816,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       onIntervalSelected: (interval) =>
                                           _onIntervalSelected(interval, context),
                                       initialCount: widget.initialCount ?? 0,
+                                      cycleNames: _cycleNames,
                                     ),
                                   ],
                                 );
@@ -782,64 +923,5 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Reload the chart based on current settings.
   void _reloadChart(BuildContext context) {
     _chartsBloc.add(_createChartEvent());
-  }
-}
-
-/// Delegate for the sticky filter header.
-///
-/// When pinned (scrolled), shows a flat background matching the filtered zone.
-/// When not pinned (at rest), shows the rounded top corners.
-class _StickyFilterHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  final double maxHeight;
-  final double minHeight;
-  final Color backgroundColor;
-
-  _StickyFilterHeaderDelegate({
-    required this.child,
-    required this.maxHeight,
-    required this.minHeight,
-    required this.backgroundColor,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    // When pinned (shrinkOffset > 0), use flat background
-    // When at rest, show the child with rounded corners
-    final isPinned = shrinkOffset > 0;
-
-    if (isPinned) {
-      // Pinned state: flat background, no rounded corners
-      return Container(
-        color: backgroundColor,
-        child: child is Container
-            ? Container(
-                color: backgroundColor,
-                padding: (child as Container).padding,
-                child: (child as Container).child,
-              )
-            : child,
-      );
-    }
-
-    return SizedBox.expand(child: child);
-  }
-
-  @override
-  double get maxExtent => maxHeight;
-
-  @override
-  double get minExtent => minHeight;
-
-  @override
-  bool shouldRebuild(covariant _StickyFilterHeaderDelegate oldDelegate) {
-    return maxHeight != oldDelegate.maxHeight ||
-        minHeight != oldDelegate.minHeight ||
-        child != oldDelegate.child ||
-        backgroundColor != oldDelegate.backgroundColor;
   }
 }

@@ -30,6 +30,16 @@ class StaticHeader extends StatelessWidget {
   /// Number of times the item has been reset.
   final int resetNumber;
 
+  /// Whether the user is viewing the current (most recent) cycle.
+  /// When false, the ring is grayed and goal pill is hidden.
+  final bool isCurrentCycle;
+
+  /// Whether the user is viewing "All Time" (summary across all cycles).
+  final bool isAllTime;
+
+  /// Count for the selected cycle (used when viewing a non-current cycle).
+  final int? selectedCycleCount;
+
   const StaticHeader({
     super.key,
     required this.currentCount,
@@ -39,6 +49,9 @@ class StaticHeader extends StatelessWidget {
     required this.reminderType,
     this.reminderValue = 0,
     this.resetNumber = 0,
+    this.isCurrentCycle = true,
+    this.isAllTime = false,
+    this.selectedCycleCount,
   });
 
   @override
@@ -55,20 +68,22 @@ class StaticHeader extends StatelessWidget {
         children: [
           // Goal ring with current count (no container)
           _buildGoalRing(context, primary, primaryText, secondaryText),
-          const SizedBox(height: 20.0),
-          // Item stats row (in card, matching Activity/Statistics styling)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-            decoration: BoxDecoration(
-              color: alternate,
-              borderRadius: BorderRadius.circular(12.0),
-              border: Border.all(
-                color: primaryText.withValues(alpha: 0.06),
-                width: 1.0,
+          // Item stats row — only shown for current cycle
+          if (isCurrentCycle) ...[
+            const SizedBox(height: 20.0),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+              decoration: BoxDecoration(
+                color: alternate,
+                borderRadius: BorderRadius.circular(12.0),
+                border: Border.all(
+                  color: primaryText.withValues(alpha: 0.06),
+                  width: 1.0,
+                ),
               ),
+              child: _buildStatsRow(context, primaryText, secondaryText),
             ),
-            child: _buildStatsRow(context, primaryText, secondaryText),
-          ),
+          ],
         ],
       ),
     );
@@ -81,7 +96,12 @@ class StaticHeader extends StatelessWidget {
     Color secondaryText,
   ) {
     final textTheme = Theme.of(context).textTheme;
-    final hasGoal = goal != null;
+    final hasGoal = goal != null && isCurrentCycle;
+
+    // Display count: for non-current cycles, show the cycle's count
+    final displayCount = isCurrentCycle
+        ? currentCount
+        : (selectedCycleCount ?? 0);
 
     // Calculate progress
     double progressFraction = 0.0;
@@ -100,8 +120,10 @@ class StaticHeader extends StatelessWidget {
 
     // Use teal-green success color which complements purple better
     const successColor = AppColors.success;
-    final ringColor = hasGoal
-        ? (isComplete ? successColor : primary)
+    final ringColor = isCurrentCycle
+        ? (hasGoal
+            ? (isComplete ? successColor : primary)
+            : secondaryText.withValues(alpha: 0.2))
         : secondaryText.withValues(alpha: 0.2);
 
     return Column(
@@ -132,19 +154,19 @@ class StaticHeader extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    currentCount.toString(),
+                    displayCount.toString(),
                     style: textTheme.displayLarge?.copyWith(
                       fontSize: 48.0,
                       fontWeight: FontWeight.w700,
-                      color: primary,
+                      color: isCurrentCycle ? primary : secondaryText,
                       height: 1.0,
                     ),
                   ),
                   const SizedBox(height: 4.0),
                   Text(
-                    // Only show "from X" on the original cycle (resetNumber == 0)
-                    // After a reset, show "Current Count" since the original initial is no longer relevant
-                    (initialCount > 0 && resetNumber == 0) ? 'from $initialCount' : 'Current Count',
+                    isCurrentCycle
+                        ? ((initialCount > 0 && resetNumber == 0) ? 'from $initialCount' : 'Current Count')
+                        : (isAllTime ? 'Total' : 'Cycle Total'),
                     style: textTheme.bodyMedium?.copyWith(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w500,
@@ -156,7 +178,7 @@ class StaticHeader extends StatelessWidget {
             ],
           ),
         ),
-        // Goal stats (only when goal is set)
+        // Goal stats (only when goal is set AND viewing current cycle)
         if (hasGoal) ...[
           const SizedBox(height: 12.0),
           Container(
@@ -237,15 +259,17 @@ class StaticHeader extends StatelessWidget {
           secondaryText: secondaryText,
           textTheme: textTheme,
         ),
-        _buildDivider(secondaryText),
-        _buildStatItem(
-          icon: reminderIcon,
-          label: 'Reminder',
-          value: reminderLabel,
-          primaryText: primaryText,
-          secondaryText: secondaryText,
-          textTheme: textTheme,
-        ),
+        if (isCurrentCycle) ...[
+          _buildDivider(secondaryText),
+          _buildStatItem(
+            icon: reminderIcon,
+            label: 'Reminder',
+            value: reminderLabel,
+            primaryText: primaryText,
+            secondaryText: secondaryText,
+            textTheme: textTheme,
+          ),
+        ],
       ],
     );
   }

@@ -213,6 +213,15 @@ abstract class ItemRemoteDataSource {
   /// Throws [ServerException] if the Firestore batch operation fails.
   Future<List<ItemModel>> resetAllItems(String userId);
 
+  /// Updates cycle names for an item (targeted field update).
+  ///
+  /// Parameters:
+  /// - [itemId]: The item to update
+  /// - [cycleNames]: Map of resetNumber (as string) to custom name
+  ///
+  /// Throws [ServerException] if the Firestore operation fails.
+  Future<void> updateCycleNames(String itemId, Map<String, String> cycleNames);
+
   /// Ensures all items have a valid deviceItemId assigned.
   ///
   /// Scans all non-deleted items for a user. Any items with null deviceItemId

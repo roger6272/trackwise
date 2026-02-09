@@ -135,5 +135,103 @@ void main() {
       expect(result.reminder, ReminderType.none);
       expect(result.reminderValue, 0);
     });
+
+    group('cycleNames', () {
+      test('should round-trip cycleNames through toFirestore/fromFirestore', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+          cycleNames: {'0': 'First Batch', '1': 'Second Batch'},
+        );
+
+        // Act
+        final firestoreMap = model.toFirestore();
+
+        // Assert - toFirestore writes cycle_names
+        expect(firestoreMap['cycle_names'], {'0': 'First Batch', '1': 'Second Batch'});
+
+        // Round-trip: build a mock doc from the firestore map
+        final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();
+        when(() => mockDoc.id).thenReturn('test');
+        when(() => mockDoc.data()).thenReturn(firestoreMap);
+        final restored = ItemModel.fromFirestore(mockDoc);
+
+        expect(restored.cycleNames, {'0': 'First Batch', '1': 'Second Batch'});
+      });
+
+      test('should default cycleNames to empty map when field is missing', () {
+        // Arrange
+        final map = {
+          'item_name': 'Coffee',
+          'uid': 'user_123',
+        };
+        final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();
+        when(() => mockDoc.id).thenReturn('test');
+        when(() => mockDoc.data()).thenReturn(map);
+
+        // Act
+        final result = ItemModel.fromFirestore(mockDoc);
+
+        // Assert
+        expect(result.cycleNames, isEmpty);
+      });
+
+      test('should preserve cycleNames in copyWith', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+          cycleNames: {'0': 'Alpha'},
+        );
+
+        // Act - copyWith without specifying cycleNames should preserve it
+        final copied = model.copyWith(name: 'Updated');
+
+        // Assert
+        expect(copied.name, 'Updated');
+        expect(copied.cycleNames, {'0': 'Alpha'});
+
+        // Act - copyWith with new cycleNames should override
+        final overridden = model.copyWith(cycleNames: {'1': 'Beta'});
+        expect(overridden.cycleNames, {'1': 'Beta'});
+      });
+
+      test('should include cycleNames in toFirestore even when empty', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+        );
+
+        // Act
+        final result = model.toFirestore();
+
+        // Assert - empty map is always written
+        expect(result.containsKey('cycle_names'), isTrue);
+        expect(result['cycle_names'], isEmpty);
+      });
+    });
   });
 }

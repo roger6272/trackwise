@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/utils/interval_calculator.dart';
+import 'cycle_selection_bottom_sheet.dart';
 
 /// Table displaying all periods for side-by-side comparison.
 ///
@@ -25,12 +26,16 @@ class PeriodsTable extends StatefulWidget {
   /// Added to total for All Time and Period 1.
   final int initialCount;
 
+  /// User-defined cycle names (resetNumber string → name).
+  final Map<String, String> cycleNames;
+
   const PeriodsTable({
     super.key,
     required this.intervals,
     required this.selectedInterval,
     required this.onIntervalSelected,
     this.initialCount = 0,
+    this.cycleNames = const {},
   });
 
   @override
@@ -128,14 +133,12 @@ class _PeriodsTableState extends State<PeriodsTable> {
 
     for (var i = 0; i < periods.length; i++) {
       final interval = periods[i];
-      String label;
-      if (i == 0) {
-        label = 'Current';
-      } else if (i == 1) {
-        label = 'Previous';
-      } else {
-        label = 'Cycle ${periods.length - i}';
-      }
+      final label = getCycleDisplayName(
+        interval.intervalNumber,
+        i,
+        periods.length,
+        widget.cycleNames,
+      );
 
       // Period 1 (intervalNumber == 0) includes initial value
       final isFirstPeriod = interval.intervalNumber == firstPeriodIntervalNumber;
@@ -336,14 +339,19 @@ class _PeriodsTableState extends State<PeriodsTable> {
                       ),
                       const SizedBox(width: 6.0),
                     ],
-                    Text(
-                      row.label,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontSize: 13.0,
-                        fontWeight: isSelected || row.isAllTime
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: textColor,
+                    Flexible(
+                      child: Text(
+                        row.label.length > 15
+                            ? '${row.label.substring(0, 15)}...'
+                            : row.label,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontSize: 13.0,
+                          fontWeight: isSelected || row.isAllTime
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: textColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
