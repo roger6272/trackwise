@@ -20,8 +20,8 @@ import '../../domain/entities/item.dart';
 import '../../domain/repositories/item_repository.dart';
 import '../../domain/utils/interval_calculator.dart';
 import '../../domain/utils/stats_calculator.dart';
+import '../widgets/item_detail/cycle_note_card.dart';
 import '../widgets/item_detail/cycle_selection_bottom_sheet.dart';
-import '../widgets/item_detail/period_stats_section.dart';
 import '../widgets/item_detail/periods_table.dart';
 import '../widgets/item_detail/shimmer_skeletons.dart';
 import '../widgets/item_detail/static_header.dart';
@@ -121,6 +121,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// User-defined cycle names.
   Map<String, String> _cycleNames = {};
 
+  /// User-defined cycle notes.
+  Map<String, String> _cycleNotes = {};
+
   /// Flag to trigger data reload after widget update.
   bool _needsDataReload = false;
 
@@ -168,8 +171,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     // to save power. The initial values are passed via widget parameters.
     // Charts and events are loaded separately via their blocs.
 
-    // Load cycle names from the item
-    _loadCycleNames();
+    // Load cycle names and notes from the item
+    _loadCycleData();
 
     // Subscribe to Bluetooth logs - reload events when logs sync completes
     _subscribeToBluetoothLogs();
@@ -178,18 +181,21 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _reloadIfConnected();
   }
 
-  /// Load cycle names from the item in Firestore.
-  Future<void> _loadCycleNames() async {
+  /// Load cycle names and notes from the item in Firestore.
+  Future<void> _loadCycleData() async {
     final result = await sl<ItemRepository>().getItem(widget.itemId);
     if (!mounted) return;
     result.fold(
       (_) {},
       (item) {
-        if (item.cycleNames.isNotEmpty) {
-          setState(() {
+        setState(() {
+          if (item.cycleNames.isNotEmpty) {
             _cycleNames = Map<String, String>.from(item.cycleNames);
-          });
-        }
+          }
+          if (item.cycleNotes.isNotEmpty) {
+            _cycleNotes = Map<String, String>.from(item.cycleNotes);
+          }
+        });
       },
     );
   }
@@ -297,6 +303,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _resetNumber = item.resetNumber;
           _lastResetTime = item.lastResetTime;
           _cycleNames = Map<String, String>.from(item.cycleNames);
+          _cycleNotes = Map<String, String>.from(item.cycleNotes);
         });
       },
     );
@@ -352,6 +359,23 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       if (_resetNumber > maxEventResetNumber) {
         // Fallback start time: lastResetTime (if reset), or lastUpdated (creation time), or now
         final fallbackStart = _lastResetTime ?? widget.lastUpdated ?? DateTime.now();
+
+        // Fix the previous interval's endTime if events are stale (reset event
+        // not yet loaded). We know a reset happened because _resetNumber >
+        // maxEventResetNumber, so the previous interval should be closed.
+        if (maxEventResetNumber >= 0 && _lastResetTime != null) {
+          final prevIdx = newIntervals.indexWhere(
+            (i) => i.intervalNumber == maxEventResetNumber,
+          );
+          if (prevIdx >= 0 && newIntervals[prevIdx].endTime == null) {
+            newIntervals[prevIdx] = IntervalData(
+              intervalNumber: newIntervals[prevIdx].intervalNumber,
+              count: newIntervals[prevIdx].count,
+              startTime: newIntervals[prevIdx].startTime,
+              endTime: _lastResetTime,
+            );
+          }
+        }
 
         // Create a virtual current interval for the new period (no events yet)
         final virtualCurrentInterval = IntervalData(
@@ -491,6 +515,22 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     await sl<ItemRepository>().updateCycleNames(widget.itemId, updated);
   }
 
+  /// Handle cycle note update.
+  Future<void> _onCycleNoteUpdated(String newNote) async {
+    final interval = _selectedInterval;
+    if (interval == null || interval == -1) return;
+    final updated = Map<String, String>.from(_cycleNotes);
+    if (newNote.isEmpty) {
+      updated.remove(interval.toString());
+    } else {
+      updated[interval.toString()] = newNote;
+    }
+    setState(() {
+      _cycleNotes = updated;
+    });
+    await sl<ItemRepository>().updateCycleNotes(widget.itemId, updated);
+  }
+
   /// Handle interval selection - auto-snap date and reload chart.
   void _onIntervalSelected(int intervalNumber, BuildContext context) {
     setState(() {
@@ -517,6 +557,21 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     }
 
     _reloadChart(context);
+  }
+
+  /// Get the interval data for the currently selected cycle.
+  IntervalData _getSelectedIntervalData() {
+    final fallback = IntervalData(
+      intervalNumber: -1,
+      count: 0,
+      startTime: _lastResetTime ?? DateTime.now(),
+      endTime: null,
+    );
+    if (_intervals.isEmpty) return fallback;
+    return _intervals.firstWhere(
+      (i) => i.intervalNumber == (_selectedInterval ?? -1),
+      orElse: () => _intervals.first,
+    );
   }
 
   /// Filter events by selected interval.
@@ -602,22 +657,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
-                  // Last updated indicator + cycle chip
+                  // Cycle selector chip + updated indicator
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
                       child: Column(
                         children: [
-                          Center(
-                            child: Text(
-                              'Updated ${_formatLastUpdated()} \u2022 Pull to refresh',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontSize: 11.0,
-                                color: secondaryText.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8.0),
                           // Cycle selector chip
                           Center(
                             child: Semantics(
@@ -631,18 +676,22 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 14.0,
-                                      vertical: 8.0,
+                                      vertical: 7.0,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: primary.withValues(alpha: 0.1),
+                                      color: primary.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(20.0),
+                                      border: Border.all(
+                                        color: primary.withValues(alpha: 0.15),
+                                        width: 1.0,
+                                      ),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
                                           Icons.filter_list_rounded,
-                                          size: 16.0,
+                                          size: 15.0,
                                           color: primary,
                                         ),
                                         const SizedBox(width: 6.0),
@@ -667,163 +716,181 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Static Header (Current Count, Initial, Goal)
-                  // Cycle-aware: grayed ring for non-current cycles
-                  SliverToBoxAdapter(
-                    child: StaticHeader(
-                      currentCount: _currentCount,
-                      initialCount: _initialCount,
-                      goal: _goal,
-                      incrementBy: _incrementBy,
-                      reminderType: _reminderType,
-                      reminderValue: _reminderValue,
-                      resetNumber: _resetNumber,
-                      isCurrentCycle: _isViewingCurrentCycle,
-                      isAllTime: _selectedInterval == -1,
-                      selectedCycleCount: _getSelectedCycleCount(),
-                    ),
-                  ),
-                  // Gap between static header and content zone
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 16.0),
-                  ),
-                  // Filtered Content Zone
-                  // ALL content below is affected by cycle selection
-                  SliverToBoxAdapter(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: brightness == Brightness.light
-                            ? const Color(0xFFF8F9FB)
-                            : const Color(0xFF1C1C1E),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(24.0),
-                          topRight: Radius.circular(24.0),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: brightness == Brightness.light
-                                ? Colors.black.withValues(alpha: 0.08)
-                                : Colors.black.withValues(alpha: 0.4),
-                            blurRadius: 12.0,
-                            offset: const Offset(0, -6),
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 24.0),
-                            child: BlocBuilder<EventsBloc, EventsState>(
-                              builder: (context, eventsState) {
-                                // Show shimmer skeleton while loading
-                                if (eventsState is EventsLoading) {
-                                  return const Column(
-                                    children: [
-                                      ChartSectionSkeleton(),
-                                      SizedBox(height: 16.0),
-                                      DynamicStatsSkeleton(),
-                                    ],
-                                  );
-                                }
-
-                                // Filter events by selected interval
-                                final filteredEvents = eventsState is EventsLoaded
-                                    ? _filterEventsByInterval(eventsState.events)
-                                    : <EventLog>[];
-                                final stats = _calculateStats(filteredEvents);
-                                // Get the selected interval data for period stats
-                                // For "All Time" (-1), use the first interval which is the Total row
-                                // For specific intervals, find the matching one
-                                // Create fallback for newly created items with no events
-                                final fallbackInterval = IntervalData(
-                                  intervalNumber: -1,
-                                  count: 0,
-                                  startTime: _lastResetTime ?? DateTime.now(),
-                                  endTime: null,
-                                );
-                                final selectedIntervalData = _intervals.isNotEmpty
-                                    ? _intervals.firstWhere(
-                                        (i) => i.intervalNumber == (_selectedInterval ?? -1),
-                                        orElse: () => _intervals.first,
-                                      )
-                                    : fallbackInterval;
-
-                                // Use intervals or create fallback list for table
-                                final displayIntervals = _intervals.isNotEmpty
-                                    ? _intervals
-                                    : [fallbackInterval];
-
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Summary card (total + time range)
-                                    PeriodStatsSection(
-                                      interval: selectedIntervalData,
-                                      initialCount: widget.initialCount ?? 0,
-                                    ),
-                                    const SizedBox(height: 16.0),
-                                    // Chart Section
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: alternate,
-                                        borderRadius: BorderRadius.circular(12.0),
-                                        border: Border.all(
-                                          color: primary.withValues(alpha: 0.1),
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      padding: const EdgeInsets.only(top: 12.0),
-                                      child: ChartSection(
-                                        showCumulative: _showCumulative,
-                                        onChartTypeChanged: (value) {
-                                          setState(() {
-                                            _showCumulative = value;
-                                          });
-                                          _reloadChart(context);
-                                        },
-                                        range: _aggregation,
-                                        onAggregationChanged: (value) {
-                                          setState(() {
-                                            _aggregation = value;
-                                          });
-                                          _reloadChart(context);
-                                        },
-                                        selectedDate: _selectedDate,
-                                        onDateChanged: (date) {
-                                          setState(() {
-                                            _selectedDate = date;
-                                          });
-                                          _reloadChart(context);
-                                        },
-                                        periodTotal: stats.totalCount,
-                                        percentChange: stats.percentChange,
-                                        priorPeriodCount: stats.priorPeriodCount,
-                                        periodLabel: stats.periodLabel,
-                                        // Only show initial count in first cycle (All Time or Period 0)
-                                        initialCount: _isFirstCycle ? (widget.initialCount ?? 0) : 0,
-                                      ),
-                                    ),
-                                    // Periods comparison table
-                                    const SizedBox(height: 16.0),
-                                    PeriodsTable(
-                                      intervals: displayIntervals,
-                                      selectedInterval: _selectedInterval ?? -1,
-                                      onIntervalSelected: (interval) =>
-                                          _onIntervalSelected(interval, context),
-                                      initialCount: widget.initialCount ?? 0,
-                                      cycleNames: _cycleNames,
-                                    ),
-                                  ],
-                                );
-                              },
+                          const SizedBox(height: 6.0),
+                          // Updated indicator (subtle)
+                          Center(
+                            child: Text(
+                              'Updated ${_formatLastUpdated()}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontSize: 10.0,
+                                color: secondaryText.withValues(alpha: 0.5),
+                              ),
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                  // Item Overview Card (Count Ring, Goal, Date, Config)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20.0, 6.0, 20.0, 0.0),
+                      child: StaticHeader(
+                        currentCount: _currentCount,
+                        initialCount: _initialCount,
+                        goal: _goal,
+                        resetNumber: _resetNumber,
+                        isCurrentCycle: _isViewingCurrentCycle,
+                        isAllTime: _selectedInterval == -1,
+                        selectedCycleCount: _getSelectedCycleCount(),
+                        selectedInterval: _getSelectedIntervalData(),
+                        incrementBy: _incrementBy,
+                        reminderType: _reminderType,
+                        reminderValue: _reminderValue,
+                      ),
+                    ),
+                  ),
+                  // Section header: Cycle Note (hidden for All Time)
+                  if (_selectedInterval != -1)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22.0, 16.0, 20.0, 6.0),
+                        child: Text(
+                          'Cycle Note',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            fontSize: 11.0,
+                            fontWeight: FontWeight.w700,
+                            color: secondaryText.withValues(alpha: 0.6),
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Notes Card (hidden for All Time)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 0.0),
+                      child: CycleNoteCard(
+                        note: _cycleNotes[(_selectedInterval ?? -1).toString()],
+                        onNoteChanged: _onCycleNoteUpdated,
+                        isAllTime: _selectedInterval == -1,
+                      ),
+                    ),
+                  ),
+                  // Section header: Activity
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22.0, 20.0, 20.0, 6.0),
+                      child: Text(
+                        'Activity',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontSize: 11.0,
+                          fontWeight: FontWeight.w700,
+                          color: secondaryText.withValues(alpha: 0.6),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Charts Card + Cycle History Table
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 24.0),
+                      child: BlocBuilder<EventsBloc, EventsState>(
+                        builder: (context, eventsState) {
+                          if (eventsState is EventsLoading) {
+                            return const Column(
+                              children: [
+                                ChartSectionSkeleton(),
+                                SizedBox(height: 10.0),
+                                DynamicStatsSkeleton(),
+                              ],
+                            );
+                          }
+
+                          final filteredEvents = eventsState is EventsLoaded
+                              ? _filterEventsByInterval(eventsState.events)
+                              : <EventLog>[];
+                          final stats = _calculateStats(filteredEvents);
+
+                          final fallbackInterval = IntervalData(
+                            intervalNumber: -1,
+                            count: 0,
+                            startTime: _lastResetTime ?? DateTime.now(),
+                            endTime: null,
+                          );
+                          final displayIntervals = _intervals.isNotEmpty
+                              ? _intervals
+                              : [fallbackInterval];
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Chart Card
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: alternate,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  border: Border.all(
+                                    color: primaryText.withValues(alpha: 0.06),
+                                    width: 1.0,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.only(top: 12.0),
+                                child: ChartSection(
+                                  showCumulative: _showCumulative,
+                                  onChartTypeChanged: (value) {
+                                    setState(() {
+                                      _showCumulative = value;
+                                    });
+                                    _reloadChart(context);
+                                  },
+                                  range: _aggregation,
+                                  onAggregationChanged: (value) {
+                                    setState(() {
+                                      _aggregation = value;
+                                    });
+                                    _reloadChart(context);
+                                  },
+                                  selectedDate: _selectedDate,
+                                  onDateChanged: (date) {
+                                    setState(() {
+                                      _selectedDate = date;
+                                    });
+                                    _reloadChart(context);
+                                  },
+                                  periodTotal: stats.totalCount,
+                                  percentChange: stats.percentChange,
+                                  priorPeriodCount: stats.priorPeriodCount,
+                                  periodLabel: stats.periodLabel,
+                                  initialCount: _isFirstCycle ? (widget.initialCount ?? 0) : 0,
+                                ),
+                              ),
+                              // Cycle History section
+                              const SizedBox(height: 16.0),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 2.0, bottom: 6.0),
+                                child: Text(
+                                  'Cycle History',
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    fontSize: 11.0,
+                                    fontWeight: FontWeight.w700,
+                                    color: secondaryText.withValues(alpha: 0.6),
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              PeriodsTable(
+                                intervals: displayIntervals,
+                                selectedInterval: _selectedInterval ?? -1,
+                                onIntervalSelected: (interval) =>
+                                    _onIntervalSelected(interval, context),
+                                initialCount: widget.initialCount ?? 0,
+                                cycleNames: _cycleNames,
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),

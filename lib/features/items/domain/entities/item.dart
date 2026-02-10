@@ -97,6 +97,11 @@ class Item extends Equatable {
   /// Empty map means all cycles use generated labels.
   final Map<String, String> cycleNames;
 
+  /// User-defined notes for reset cycles.
+  /// Maps resetNumber (as string) to note text (max 250 chars).
+  /// Empty map means no notes on any cycle.
+  final Map<String, String> cycleNotes;
+
   const Item({
     required this.id,
     required this.name,
@@ -117,6 +122,7 @@ class Item extends Equatable {
     this.categoryOrder = 0,
     this.deviceItemId,
     this.cycleNames = const {},
+    this.cycleNotes = const {},
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -145,6 +151,7 @@ class Item extends Equatable {
     int? categoryOrder,
     int? deviceItemId,
     Map<String, String>? cycleNames,
+    Map<String, String>? cycleNotes,
   }) {
     return Item(
       id: id ?? this.id,
@@ -166,6 +173,7 @@ class Item extends Equatable {
       categoryOrder: categoryOrder ?? this.categoryOrder,
       deviceItemId: deviceItemId ?? this.deviceItemId,
       cycleNames: cycleNames ?? this.cycleNames,
+      cycleNotes: cycleNotes ?? this.cycleNotes,
     );
   }
 
@@ -190,6 +198,7 @@ class Item extends Equatable {
         categoryOrder,
         deviceItemId,
         cycleNames,
+        cycleNotes,
       ];
 
   @override
@@ -199,6 +208,6 @@ class Item extends Equatable {
         'lastResetTime: $lastResetTime, resetNumber: $resetNumber, lastUpdated: $lastUpdated, '
         'userId: $userId, deletedAt: $deletedAt, order: $order, initialCount: $initialCount, '
         'goal: $goal, categoryId: $categoryId, categoryOrder: $categoryOrder, '
-        'deviceItemId: $deviceItemId, cycleNames: $cycleNames)';
+        'deviceItemId: $deviceItemId, cycleNames: $cycleNames, cycleNotes: $cycleNotes)';
   }
 }

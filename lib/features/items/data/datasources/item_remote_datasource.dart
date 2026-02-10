@@ -222,6 +222,15 @@ abstract class ItemRemoteDataSource {
   /// Throws [ServerException] if the Firestore operation fails.
   Future<void> updateCycleNames(String itemId, Map<String, String> cycleNames);
 
+  /// Updates cycle notes for an item (targeted field update).
+  ///
+  /// Parameters:
+  /// - [itemId]: The item to update
+  /// - [cycleNotes]: Map of resetNumber (as string) to note text
+  ///
+  /// Throws [ServerException] if the Firestore operation fails.
+  Future<void> updateCycleNotes(String itemId, Map<String, String> cycleNotes);
+
   /// Ensures all items have a valid deviceItemId assigned.
   ///
   /// Scans all non-deleted items for a user. Any items with null deviceItemId

@@ -322,4 +322,35 @@ void main() {
       expect((result as Left).value, isA<ServerFailure>());
     });
   });
+
+  group('updateCycleNotes', () {
+    const itemId = 'test_item_1';
+    final cycleNotes = {'0': 'First note', '1': 'Second note'};
+
+    test('should return Right(null) when data source succeeds', () async {
+      // Arrange
+      when(() => mockDataSource.updateCycleNotes(any(), any()))
+          .thenAnswer((_) async => Future.value());
+
+      // Act
+      final result = await repository.updateCycleNotes(itemId, cycleNotes);
+
+      // Assert
+      expect(result, const Right(null));
+      verify(() => mockDataSource.updateCycleNotes(itemId, cycleNotes)).called(1);
+    });
+
+    test('should return ServerFailure when data source throws', () async {
+      // Arrange
+      when(() => mockDataSource.updateCycleNotes(any(), any()))
+          .thenThrow(ServerException('Failed to update cycle notes'));
+
+      // Act
+      final result = await repository.updateCycleNotes(itemId, cycleNotes);
+
+      // Assert
+      expect(result, isA<Left>());
+      expect((result as Left).value, isA<ServerFailure>());
+    });
+  });
 }

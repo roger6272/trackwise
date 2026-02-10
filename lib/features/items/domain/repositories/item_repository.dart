@@ -234,6 +234,23 @@ abstract class ItemRepository {
     Map<String, String> cycleNames,
   );
 
+  /// Updates the cycle notes for an item.
+  ///
+  /// Performs a targeted Firestore update (only the cycle_notes field),
+  /// avoiding full document validation.
+  ///
+  /// Parameters:
+  /// - [itemId]: The item to update
+  /// - [cycleNotes]: Map of resetNumber (as string) to note text
+  ///
+  /// Returns:
+  /// - Right(void): Cycle notes successfully updated
+  /// - Left(ServerFailure): Firestore update failed
+  Future<Either<Failure, void>> updateCycleNotes(
+    String itemId,
+    Map<String, String> cycleNotes,
+  );
+
   /// Ensures all items have a valid deviceItemId assigned.
   ///
   /// Migrates items that were created before deviceItemId was implemented.

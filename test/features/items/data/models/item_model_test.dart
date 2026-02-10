@@ -233,5 +233,103 @@ void main() {
         expect(result['cycle_names'], isEmpty);
       });
     });
+
+    group('cycleNotes', () {
+      test('should round-trip cycleNotes through toFirestore/fromFirestore', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+          cycleNotes: {'0': 'First note', '1': 'Second note'},
+        );
+
+        // Act
+        final firestoreMap = model.toFirestore();
+
+        // Assert - toFirestore writes cycle_notes
+        expect(firestoreMap['cycle_notes'], {'0': 'First note', '1': 'Second note'});
+
+        // Round-trip: build a mock doc from the firestore map
+        final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();
+        when(() => mockDoc.id).thenReturn('test');
+        when(() => mockDoc.data()).thenReturn(firestoreMap);
+        final restored = ItemModel.fromFirestore(mockDoc);
+
+        expect(restored.cycleNotes, {'0': 'First note', '1': 'Second note'});
+      });
+
+      test('should default cycleNotes to empty map when field is missing', () {
+        // Arrange
+        final map = {
+          'item_name': 'Coffee',
+          'uid': 'user_123',
+        };
+        final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();
+        when(() => mockDoc.id).thenReturn('test');
+        when(() => mockDoc.data()).thenReturn(map);
+
+        // Act
+        final result = ItemModel.fromFirestore(mockDoc);
+
+        // Assert
+        expect(result.cycleNotes, isEmpty);
+      });
+
+      test('should preserve cycleNotes in copyWith', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+          cycleNotes: {'0': 'My note'},
+        );
+
+        // Act - copyWith without specifying cycleNotes should preserve it
+        final copied = model.copyWith(name: 'Updated');
+
+        // Assert
+        expect(copied.name, 'Updated');
+        expect(copied.cycleNotes, {'0': 'My note'});
+
+        // Act - copyWith with new cycleNotes should override
+        final overridden = model.copyWith(cycleNotes: {'1': 'New note'});
+        expect(overridden.cycleNotes, {'1': 'New note'});
+      });
+
+      test('should include cycleNotes in toFirestore even when empty', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+        );
+
+        // Act
+        final result = model.toFirestore();
+
+        // Assert - empty map is always written
+        expect(result.containsKey('cycle_notes'), isTrue);
+        expect(result['cycle_notes'], isEmpty);
+      });
+    });
   });
 }

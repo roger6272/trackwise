@@ -1,13 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/entities/item.dart';
+import '../../../domain/utils/interval_calculator.dart';
 
-/// Static header displaying current count with goal ring.
-///
-/// This section is NOT affected by filters - it shows the item's
-/// current state regardless of date/aggregation selection.
+/// Item overview card displaying count ring, goal, date info, and config stats.
 class StaticHeader extends StatelessWidget {
   /// The current count (initial + all increments).
   final int currentCount;
@@ -18,20 +18,10 @@ class StaticHeader extends StatelessWidget {
   /// Optional goal for progress display.
   final int? goal;
 
-  /// Amount incremented per event.
-  final int incrementBy;
-
-  /// Type of reminder configured.
-  final ReminderType reminderType;
-
-  /// Value for the reminder (target count or interval).
-  final int reminderValue;
-
   /// Number of times the item has been reset.
   final int resetNumber;
 
   /// Whether the user is viewing the current (most recent) cycle.
-  /// When false, the ring is grayed and goal pill is hidden.
   final bool isCurrentCycle;
 
   /// Whether the user is viewing "All Time" (summary across all cycles).
@@ -40,18 +30,31 @@ class StaticHeader extends StatelessWidget {
   /// Count for the selected cycle (used when viewing a non-current cycle).
   final int? selectedCycleCount;
 
+  /// Interval data for displaying date info below the ring.
+  final IntervalData? selectedInterval;
+
+  /// Amount incremented per press.
+  final int incrementBy;
+
+  /// Type of reminder configured for this item.
+  final ReminderType reminderType;
+
+  /// Value for the reminder (target count or interval).
+  final int reminderValue;
+
   const StaticHeader({
     super.key,
     required this.currentCount,
     required this.initialCount,
     this.goal,
-    required this.incrementBy,
-    required this.reminderType,
-    this.reminderValue = 0,
     this.resetNumber = 0,
     this.isCurrentCycle = true,
     this.isAllTime = false,
     this.selectedCycleCount,
+    this.selectedInterval,
+    this.incrementBy = 1,
+    this.reminderType = ReminderType.none,
+    this.reminderValue = 0,
   });
 
   @override
@@ -60,32 +63,26 @@ class StaticHeader extends StatelessWidget {
     final primary = AppColors.primaryAdaptive(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
-    final alternate = AppColors.alternate(brightness);
+    final secondaryBg = AppColors.secondaryBackground(brightness);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 12.0),
-      child: Column(
-        children: [
-          // Goal ring with current count (no container)
-          _buildGoalRing(context, primary, primaryText, secondaryText),
-          // Item stats row — only shown for current cycle
-          if (isCurrentCycle) ...[
-            const SizedBox(height: 20.0),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-              decoration: BoxDecoration(
-                color: alternate,
-                borderRadius: BorderRadius.circular(12.0),
-                border: Border.all(
-                  color: primaryText.withValues(alpha: 0.06),
-                  width: 1.0,
-                ),
-              ),
-              child: _buildStatsRow(context, primaryText, secondaryText),
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+      decoration: BoxDecoration(
+        color: secondaryBg,
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(
+          color: primary.withValues(alpha: 0.10),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primary.withValues(alpha: 0.04),
+            blurRadius: 12.0,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
+      child: _buildGoalRing(context, primary, primaryText, secondaryText),
     );
   }
 
@@ -109,11 +106,9 @@ class StaticHeader extends StatelessWidget {
     bool isComplete = false;
 
     if (hasGoal) {
-      final totalRange = goal! - initialCount;
-      final currentProgress = currentCount - initialCount;
-      progressFraction = totalRange > 0
-          ? (currentProgress / totalRange).clamp(0.0, 1.0)
-          : (currentCount >= goal! ? 1.0 : 0.0);
+      progressFraction = goal! > 0
+          ? (currentCount / goal!).clamp(0.0, 1.0)
+          : (currentCount > 0 ? 1.0 : 0.0);
       remaining = goal! - currentCount;
       isComplete = currentCount >= goal!;
     }
@@ -130,21 +125,21 @@ class StaticHeader extends StatelessWidget {
       children: [
         // Ring with count
         SizedBox(
-          width: 180.0,
-          height: 180.0,
+          width: 190.0,
+          height: 190.0,
           child: Stack(
             alignment: Alignment.center,
             children: [
               // Background ring
               SizedBox(
-                width: 180.0,
-                height: 180.0,
+                width: 190.0,
+                height: 190.0,
                 child: CustomPaint(
                   painter: _GoalRingPainter(
                     progress: hasGoal ? progressFraction : 0.0,
                     ringColor: ringColor,
-                    backgroundColor: secondaryText.withValues(alpha: 0.1),
-                    strokeWidth: 14.0,
+                    backgroundColor: secondaryText.withValues(alpha: 0.08),
+                    strokeWidth: 12.0,
                     hasGoal: hasGoal,
                   ),
                 ),
@@ -156,21 +151,23 @@ class StaticHeader extends StatelessWidget {
                   Text(
                     displayCount.toString(),
                     style: textTheme.displayLarge?.copyWith(
-                      fontSize: 48.0,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 52.0,
+                      fontWeight: FontWeight.w800,
                       color: isCurrentCycle ? primary : secondaryText,
                       height: 1.0,
+                      letterSpacing: -1.0,
                     ),
                   ),
-                  const SizedBox(height: 4.0),
+                  const SizedBox(height: 6.0),
                   Text(
                     isCurrentCycle
                         ? ((initialCount > 0 && resetNumber == 0) ? 'from $initialCount' : 'Current Count')
                         : (isAllTime ? 'Total' : 'Cycle Total'),
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontSize: 13.0,
-                      fontWeight: FontWeight.w500,
+                    style: textTheme.labelSmall?.copyWith(
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w600,
                       color: secondaryText,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ],
@@ -211,12 +208,35 @@ class StaticHeader extends StatelessWidget {
             ),
           ),
         ],
+        // Date info below ring
+        if (selectedInterval != null) ...[
+          const SizedBox(height: 10.0),
+          _buildDateInfo(textTheme, secondaryText, primary),
+        ],
+        // Config stats (Per Press | Reminder) — grayed out for non-current cycles
+        const SizedBox(height: 14.0),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(top: 14.0),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: secondaryText.withValues(alpha: 0.10),
+                width: 1.0,
+              ),
+            ),
+          ),
+          child: Opacity(
+            opacity: isCurrentCycle ? 1.0 : 0.4,
+            child: _buildConfigStats(textTheme, primaryText, secondaryText),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStatsRow(
-    BuildContext context,
+  Widget _buildConfigStats(
+    TextTheme textTheme,
     Color primaryText,
     Color secondaryText,
   ) {
@@ -237,31 +257,26 @@ class StaticHeader extends StatelessWidget {
         break;
     }
 
-    final textTheme = Theme.of(context).textTheme;
-
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildStatItem(
-          icon: Icons.add_rounded,
-          label: 'Per Press',
-          value: '+$incrementBy',
-          primaryText: primaryText,
-          secondaryText: secondaryText,
-          textTheme: textTheme,
+        Expanded(
+          child: _buildStatItem(
+            icon: Icons.add_rounded,
+            label: 'Per Press',
+            value: '+$incrementBy',
+            primaryText: primaryText,
+            secondaryText: secondaryText,
+            textTheme: textTheme,
+          ),
         ),
-        _buildDivider(secondaryText),
-        _buildStatItem(
-          icon: Icons.restart_alt_rounded,
-          label: 'Cycle',
-          value: '#${resetNumber + 1}',
-          primaryText: primaryText,
-          secondaryText: secondaryText,
-          textTheme: textTheme,
+        Container(
+          width: 1.0,
+          height: 36.0,
+          margin: const EdgeInsets.symmetric(horizontal: 12.0),
+          color: secondaryText.withValues(alpha: 0.10),
         ),
-        if (isCurrentCycle) ...[
-          _buildDivider(secondaryText),
-          _buildStatItem(
+        Expanded(
+          child: _buildStatItem(
             icon: reminderIcon,
             label: 'Reminder',
             value: reminderLabel,
@@ -269,7 +284,7 @@ class StaticHeader extends StatelessWidget {
             secondaryText: secondaryText,
             textTheme: textTheme,
           ),
-        ],
+        ),
       ],
     );
   }
@@ -282,40 +297,108 @@ class StaticHeader extends StatelessWidget {
     required Color secondaryText,
     required TextTheme textTheme,
   }) {
-    return Column(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 32.0,
+          height: 32.0,
+          decoration: BoxDecoration(
+            color: secondaryText.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          child: Icon(icon, size: 16.0, color: secondaryText),
+        ),
+        const SizedBox(width: 10.0),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: textTheme.titleSmall?.copyWith(
+                fontSize: 14.0,
+                color: primaryText,
+              ),
+            ),
+            Text(
+              label,
+              style: textTheme.labelSmall?.copyWith(
+                fontSize: 11.0,
+                color: secondaryText,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateInfo(
+    TextTheme textTheme,
+    Color secondaryText,
+    Color primary,
+  ) {
+    final interval = selectedInterval!;
+
+    if (isCurrentCycle) {
+      // Current cycle: "Started [date]"
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.calendar_today_rounded,
+            size: 12.0,
+            color: secondaryText.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 5.0),
+          Text(
+            'Started ${_formatDate(interval.startTime)}',
+            style: textTheme.labelSmall?.copyWith(
+              fontSize: 11.0,
+              color: secondaryText.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Historical / All Time: "[date] → [date/Now] · X days"
+    final startStr = _formatDate(interval.startTime);
+    final endStr = isAllTime || interval.isCurrent
+        ? 'Now'
+        : _formatDate(interval.endTime!);
+    final days = interval.duration.inDays;
+    final daysLabel = days == 1 ? '1 day' : '$days days';
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
-          icon,
-          size: 18.0,
-          color: secondaryText,
+          Icons.date_range_rounded,
+          size: 12.0,
+          color: secondaryText.withValues(alpha: 0.7),
         ),
-        const SizedBox(height: 6.0),
-        Text(
-          value,
-          style: textTheme.titleSmall?.copyWith(
-            fontSize: 14.0,
-            color: primaryText,
-          ),
-        ),
-        const SizedBox(height: 2.0),
-        Text(
-          label,
-          style: textTheme.labelSmall?.copyWith(
-            fontSize: 11.0,
-            color: secondaryText,
+        const SizedBox(width: 5.0),
+        Flexible(
+          child: Text(
+            '$startStr \u2192 $endStr \u2022 $daysLabel',
+            style: textTheme.labelSmall?.copyWith(
+              fontSize: 11.0,
+              color: secondaryText.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDivider(Color color) {
-    return Container(
-      width: 1.0,
-      height: 36.0,
-      color: color.withValues(alpha: 0.2),
-    );
+  String _formatDate(DateTime date) {
+    return DateFormat('MMM d, h:mm a').format(date);
   }
+
 }
 
 /// Custom painter for the goal progress ring.
