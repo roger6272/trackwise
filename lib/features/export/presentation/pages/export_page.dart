@@ -507,18 +507,11 @@ class _ExportPageState extends State<ExportPage> {
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: _cardBackground(context),
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: BorderRadius.circular(12.0),
         border: Border.all(
-          color: AppColors.primary.withAlpha(51),
+          color: _inputBackground(context),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -746,7 +739,6 @@ class _ExportPageState extends State<ExportPage> {
             label: 'Start',
             date: _startDate,
             onTap: () => _selectStartDate(context),
-            isStart: true,
           ),
         ),
         const Padding(
@@ -763,7 +755,6 @@ class _ExportPageState extends State<ExportPage> {
             label: 'End',
             date: _endDate,
             onTap: () => _selectEndDate(context),
-            isStart: false,
           ),
         ),
       ],
@@ -819,7 +810,6 @@ class _ExportPageState extends State<ExportPage> {
     required String label,
     required DateTime date,
     required VoidCallback onTap,
-    required bool isStart,
   }) {
     return Material(
       color: Colors.transparent,
@@ -827,7 +817,7 @@ class _ExportPageState extends State<ExportPage> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12.0),
         child: Container(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
           decoration: BoxDecoration(
             color: _cardBackground(context),
             borderRadius: BorderRadius.circular(12.0),
@@ -835,25 +825,9 @@ class _ExportPageState extends State<ExportPage> {
               color: _inputBackground(context),
               width: 1.0,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(8),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Row(
             children: [
-              Container(
-                width: 4,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isStart ? AppColors.primary : AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 12.0),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
