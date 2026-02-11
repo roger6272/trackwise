@@ -229,10 +229,14 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  /// Format date with time as YYYY-MM-DD HH:MM:SS.
+  /// Format date with time as YYYY-MM-DD HH:MM:SS ±HH:MM.
   String _formatDateTime(DateTime date) {
+    final offset = date.timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final hours = offset.inHours.abs().toString().padLeft(2, '0');
+    final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
-        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')} $sign$hours:$minutes';
   }
 
   /// Escape CSV value - wrap in quotes if contains comma, newline, or quote.

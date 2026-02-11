@@ -469,6 +469,7 @@ Your CSV file includes:
 - Date column — labeled **"Date"** for daily or **"Timestamp"** for raw
 - Event type and count values
 - **Cycle number and cycle note** (raw export only) — if you've added notes to your cycles, they appear alongside each event
+- **Timezone offset** (raw export only) — timestamps include your local UTC offset (e.g., `+05:30`, `-08:00`) so the data is unambiguous when shared
 
 ---
 
