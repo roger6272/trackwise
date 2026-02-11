@@ -446,30 +446,39 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 
 1. Go to **Account tab**
 2. Tap **"Export My Data"**
-3. Configure your export:
-   - **Data Scope** - Total (all data) or Latest Cycle only
-   - **Date Range** - Select start and end dates (only shown when "Total" is selected)
-   - **Aggregation** - Raw or Daily (default: Daily)
-   - **Items** - Tap to open a searchable picker and select which items to include (all selected by default)
-4. Enter your **email address**
-5. Review the **Export Preview** card to confirm your settings
-6. Tap **"Export to Email"**
+3. Choose an **Aggregation Level**:
+   - **Raw** — every single count event
+   - **By Day** — totals per item per day
+   - **By Cycle** — totals per item per reset cycle
+4. Configure additional options:
+   - *Raw / By Day:* Select a **Date Range** (start and end dates)
+   - *By Cycle:* Choose **All Cycles** or **Latest Cycle Only**
+   - **Items** — Tap to open a searchable picker and select which items to include (all selected by default)
+5. Enter your **email address**
+6. Review the **Export Preview** card to confirm your settings
+7. Tap **"Export to Email"**
 
 ### Aggregation Options
 
-| Level | What You Get |
-|-------|--------------|
-| **Raw** | Every single count event |
-| **Daily** | Totals for each day |
+| Level | What You Get | Extra Options |
+|-------|--------------|---------------|
+| **Raw** | Every single count event with full timestamp | Date range picker |
+| **By Day** | Totals for each item per day (reset/created events excluded) | Date range picker |
+| **By Cycle** | Totals for each item per reset cycle | All Cycles / Latest Cycle toggle |
 
 ### What's in the Export?
 
-Your CSV file includes:
-- Item names and categories
-- Date column — labeled **"Date"** for daily or **"Timestamp"** for raw
-- Event type and count values
-- **Cycle number and cycle note** (raw export only) — if you've added notes to your cycles, they appear alongside each event
-- **Timezone offset** (raw export only) — timestamps include your local UTC offset (e.g., `+05:30`, `-08:00`) so the data is unambiguous when shared
+**Raw export** columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count
+- Every event (increment, reset, created) as a separate row
+- **Timezone offset** — timestamps include your local UTC offset (e.g., `+05:30`, `-08:00`) so the data is unambiguous when shared
+
+**By Day export** columns: Item Name, Category, Event Type, Date, Event Count
+- Daily totals per item (reset and created events are excluded)
+
+**By Cycle export** columns: Item Name, Category, Cycle, Cycle Name, Cycle Note, Total Count
+- One row per item per cycle, showing the total count for that cycle
+- Includes **Cycle Name** and **Cycle Note** if you've named your cycles or added notes
+- Cycles with names or notes appear even if they have 0 events (e.g., empty cycles from quick resets)
 
 ---
 

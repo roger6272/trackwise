@@ -719,11 +719,17 @@
         <ol>
             <li>Go to <strong>Account tab</strong></li>
             <li>Tap <span class="ui">Export My Data</span></li>
-            <li>Configure your export:
+            <li>Choose an <strong>Aggregation Level</strong>:
                 <ul>
-                    <li><strong>Data Scope</strong> &mdash; Total (all data) or Latest Cycle only</li>
-                    <li><strong>Date Range</strong> &mdash; Select start and end dates (only shown when &ldquo;Total&rdquo; is selected)</li>
-                    <li><strong>Aggregation</strong> &mdash; Raw or Daily (default: Daily)</li>
+                    <li><strong>Raw</strong> &mdash; every single count event</li>
+                    <li><strong>By Day</strong> &mdash; totals per item per day</li>
+                    <li><strong>By Cycle</strong> &mdash; totals per item per reset cycle</li>
+                </ul>
+            </li>
+            <li>Configure additional options:
+                <ul>
+                    <li><em>Raw / By Day:</em> Select a <strong>Date Range</strong> (start and end dates)</li>
+                    <li><em>By Cycle:</em> Choose <strong>All Cycles</strong> or <strong>Latest Cycle Only</strong></li>
                     <li><strong>Items</strong> &mdash; Tap to open a searchable picker and select which items to include (all selected by default)</li>
                 </ul>
             </li>
@@ -735,21 +741,29 @@
 
     <h3>Aggregation Options</h3>
     <table>
-        <thead><tr><th>Level</th><th>What You Get</th></tr></thead>
+        <thead><tr><th>Level</th><th>What You Get</th><th>Extra Options</th></tr></thead>
         <tbody>
-            <tr><td><strong>Raw</strong></td><td>Every single count event</td></tr>
-            <tr><td><strong>Daily</strong></td><td>Totals for each day</td></tr>
+            <tr><td><strong>Raw</strong></td><td>Every single count event with full timestamp</td><td>Date range picker</td></tr>
+            <tr><td><strong>By Day</strong></td><td>Totals per item per day (reset/created events excluded)</td><td>Date range picker</td></tr>
+            <tr><td><strong>By Cycle</strong></td><td>Totals per item per reset cycle</td><td>All Cycles / Latest Cycle toggle</td></tr>
         </tbody>
     </table>
 
     <h3>What's in the Export?</h3>
-    <p>Your CSV file includes:</p>
+    <p><strong>Raw export</strong> columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count</p>
     <ul>
-        <li>Item names and categories</li>
-        <li>Date column &mdash; labeled <strong>&ldquo;Date&rdquo;</strong> for daily or <strong>&ldquo;Timestamp&rdquo;</strong> for raw</li>
-        <li>Event type and count values</li>
-        <li><strong>Cycle number and cycle note</strong> (raw export only) &mdash; if you&rsquo;ve added notes to your cycles, they appear alongside each event</li>
-        <li><strong>Timezone offset</strong> (raw export only) &mdash; timestamps include your local UTC offset (e.g., <code>+05:30</code>, <code>-08:00</code>) so the data is unambiguous when shared</li>
+        <li>Every event (increment, reset, created) as a separate row</li>
+        <li><strong>Timezone offset</strong> &mdash; timestamps include your local UTC offset (e.g., <code>+05:30</code>, <code>-08:00</code>) so the data is unambiguous when shared</li>
+    </ul>
+    <p><strong>By Day export</strong> columns: Item Name, Category, Event Type, Date, Event Count</p>
+    <ul>
+        <li>Daily totals per item (reset and created events are excluded)</li>
+    </ul>
+    <p><strong>By Cycle export</strong> columns: Item Name, Category, Cycle, Cycle Name, Cycle Note, Total Count</p>
+    <ul>
+        <li>One row per item per cycle, showing the total count for that cycle</li>
+        <li>Includes <strong>Cycle Name</strong> and <strong>Cycle Note</strong> if you&rsquo;ve named your cycles or added notes</li>
+        <li>Cycles with names or notes appear even if they have 0 events</li>
     </ul>
 
     <!-- Section 11 -->
