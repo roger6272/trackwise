@@ -873,9 +873,9 @@ class _ExportPageState extends State<ExportPage> {
       case ExportAggregationLevel.raw:
         return 'Export each individual event with timestamp.';
       case ExportAggregationLevel.daily:
-        return 'Group events by day with totals.';
+        return 'Group button presses by day. Resets and initial counts are not included.';
       case ExportAggregationLevel.byCycle:
-        return 'Group events by reset cycle with totals.';
+        return 'Total button presses per reset cycle. Initial counts are not included.';
     }
   }
 
