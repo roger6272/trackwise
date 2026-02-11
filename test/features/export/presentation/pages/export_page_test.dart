@@ -144,7 +144,7 @@ void main() {
       expect(find.byType(Scaffold), findsOneWidget);
     });
 
-    testWidgets('displays date range section', (tester) async {
+    testWidgets('displays date range section by default (daily mode)', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -158,11 +158,13 @@ void main() {
       expect(find.text('Aggregation Level'), findsOneWidget);
     });
 
-    testWidgets('displays data scope section', (tester) async {
+    testWidgets('displays three aggregation chips', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Data Scope'), findsOneWidget);
+      expect(find.text('Raw'), findsOneWidget);
+      expect(find.text('By Day'), findsOneWidget);
+      expect(find.text('By Cycle'), findsOneWidget);
     });
 
     testWidgets('displays items section', (tester) async {

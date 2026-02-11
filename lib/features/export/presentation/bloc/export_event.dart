@@ -18,7 +18,7 @@ class ExportCSV extends ExportEvent {
   final DateTime startDate;
   final DateTime endDate;
   final ExportAggregationLevel aggregationLevel;
-  final ExportDataScope dataScope;
+  final bool latestCycleOnly;
   final String email;
   final List<String>? itemIds;
 
@@ -26,13 +26,13 @@ class ExportCSV extends ExportEvent {
     required this.startDate,
     required this.endDate,
     required this.aggregationLevel,
-    this.dataScope = ExportDataScope.total,
+    this.latestCycleOnly = false,
     required this.email,
     this.itemIds,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, dataScope, email, itemIds];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, latestCycleOnly, email, itemIds];
 }
 
 /// Event to reset the export state.

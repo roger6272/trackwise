@@ -38,13 +38,14 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
         ? events.where((e) => params.itemIds!.contains(e.itemId)).toList()
         : events;
 
-    // Filter by data scope
-    if (params.dataScope == ExportDataScope.latestCycle && filteredEvents.isNotEmpty) {
-      // Find the maximum reset number per item (latest cycle per item)
+    // Filter to latest cycle only when byCycle + latestCycleOnly
+    if (params.aggregationLevel == ExportAggregationLevel.byCycle &&
+        params.latestCycleOnly &&
+        filteredEvents.isNotEmpty) {
       final Map<String, int> maxResetPerItem = {};
       for (final event in filteredEvents) {
-        final currentMax = maxResetPerItem[event.itemId] ?? 0;
-        if (event.resetNumber > currentMax) {
+        final currentMax = maxResetPerItem[event.itemId];
+        if (currentMax == null || event.resetNumber > currentMax) {
           maxResetPerItem[event.itemId] = event.resetNumber;
         }
       }
@@ -54,7 +55,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     }
 
     if (filteredEvents.isEmpty) {
-      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}, {}, {}));
+      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}, {}, {}, {}));
     }
 
     // Get userId from first event to fetch items and categories
@@ -69,11 +70,12 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return const Left(ValidationFailure('Events contain mixed user data'));
     }
 
-    // Build itemId -> categoryId and itemId -> itemName mappings
+    // Build itemId -> categoryId, itemId -> itemName, and cycle maps
     final itemsResult = await itemRepository.getItems(userId);
     final Map<String, String?> itemCategoryMap = {};
     final Map<String, String> itemNameMap = {};
     final Map<String, Map<String, String>> itemCycleNotesMap = {};
+    final Map<String, Map<String, String>> itemCycleNamesMap = {};
     itemsResult.fold(
       (_) {},
       (items) {
@@ -82,6 +84,9 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
           itemNameMap[item.id] = item.name;
           if (item.cycleNotes.isNotEmpty) {
             itemCycleNotesMap[item.id] = item.cycleNotes;
+          }
+          if (item.cycleNames.isNotEmpty) {
+            itemCycleNamesMap[item.id] = item.cycleNames;
           }
         }
       },
@@ -102,7 +107,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       },
     );
 
-    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap, itemCycleNotesMap);
+    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap, itemCycleNotesMap, itemCycleNamesMap);
     return Right(csv);
   }
 
@@ -114,6 +119,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     Map<String, String> categoryNameMap,
     Map<String, String> itemNameMap,
     Map<String, Map<String, String>> itemCycleNotesMap,
+    Map<String, Map<String, String>> itemCycleNamesMap,
   ) {
     final buffer = StringBuffer();
 
@@ -129,7 +135,6 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return itemNameMap[itemId] ?? 'Unknown Item';
     }
 
-    // Header row - use Timestamp for raw, Date for daily
     // Helper to get cycle note for an item's reset number
     String getCycleNote(String itemId, int resetNumber) {
       final notes = itemCycleNotesMap[itemId];
@@ -137,8 +142,18 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return notes[resetNumber.toString()] ?? '';
     }
 
+    // Helper to get cycle name for an item's reset number
+    String getCycleName(String itemId, int resetNumber) {
+      final names = itemCycleNamesMap[itemId];
+      if (names == null) return '';
+      return names[resetNumber.toString()] ?? '';
+    }
+
+    // Header row
     if (aggregationLevel == ExportAggregationLevel.raw) {
       buffer.writeln('Item Name,Category,Event Type,Cycle,Cycle Note,Timestamp,Event Count');
+    } else if (aggregationLevel == ExportAggregationLevel.byCycle) {
+      buffer.writeln('Item Name,Category,Cycle,Cycle Name,Cycle Note,Total Count');
     } else {
       buffer.writeln('Item Name,Category,Event Type,Date,Event Count');
     }
@@ -157,9 +172,14 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
           '${_escapeCSV(itemName)},${_escapeCSV(category)},${_escapeCSV(event.eventName)},${event.resetNumber},${_escapeCSV(cycleNote)},${_formatDateTime(event.createdTime)},${event.increment}',
         );
       }
+    } else if (aggregationLevel == ExportAggregationLevel.byCycle) {
+      // By cycle - group by item + cycle, sum increments (excluding reset/created)
+      _writeByCycleRows(buffer, events, getCategoryName, getItemName, getCycleName, getCycleNote, itemCycleNamesMap, itemCycleNotesMap);
     } else {
-      // Aggregated events - group by item, category, and date
-      final aggregated = _aggregateEvents(events, aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap);
+      // Daily aggregation - filter out reset and created events
+      final incrementEvents = events.where((e) => e.eventName != 'reset' && e.eventName != 'created').toList();
+
+      final aggregated = _aggregateEvents(incrementEvents, aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap);
 
       // Sort by item name, then by date
       final sortedKeys = aggregated.keys.toList()
@@ -177,6 +197,87 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     }
 
     return buffer.toString();
+  }
+
+  /// Write by-cycle aggregation rows.
+  void _writeByCycleRows(
+    StringBuffer buffer,
+    List<EventLog> events,
+    String Function(String) getCategoryName,
+    String Function(String) getItemName,
+    String Function(String, int) getCycleName,
+    String Function(String, int) getCycleNote,
+    Map<String, Map<String, String>> itemCycleNamesMap,
+    Map<String, Map<String, String>> itemCycleNotesMap,
+  ) {
+    // Filter out reset and created events
+    final incrementEvents = events.where((e) => e.eventName != 'reset' && e.eventName != 'created').toList();
+
+    // Group by itemId + resetNumber, sum increments
+    final Map<String, Map<int, int>> cycleAggregation = {}; // itemId -> {resetNumber -> totalCount}
+    for (final event in incrementEvents) {
+      cycleAggregation.putIfAbsent(event.itemId, () => {});
+      cycleAggregation[event.itemId]![event.resetNumber] =
+          (cycleAggregation[event.itemId]![event.resetNumber] ?? 0) + event.increment;
+    }
+
+    // Also collect all item+cycle combos from all events (including reset/created) to ensure cycles appear even with 0 count
+    for (final event in events) {
+      cycleAggregation.putIfAbsent(event.itemId, () => {});
+      cycleAggregation[event.itemId]!.putIfAbsent(event.resetNumber, () => 0);
+    }
+
+    // Also include cycles that have names or notes but no events
+    // (e.g., item was reset from device without app creating event logs)
+    for (final entry in itemCycleNamesMap.entries) {
+      cycleAggregation.putIfAbsent(entry.key, () => {});
+      for (final cycleKey in entry.value.keys) {
+        final resetNumber = int.tryParse(cycleKey);
+        if (resetNumber != null) {
+          cycleAggregation[entry.key]!.putIfAbsent(resetNumber, () => 0);
+        }
+      }
+    }
+    for (final entry in itemCycleNotesMap.entries) {
+      cycleAggregation.putIfAbsent(entry.key, () => {});
+      for (final cycleKey in entry.value.keys) {
+        final resetNumber = int.tryParse(cycleKey);
+        if (resetNumber != null) {
+          cycleAggregation[entry.key]!.putIfAbsent(resetNumber, () => 0);
+        }
+      }
+    }
+
+    // Build sorted rows: by item name, then by cycle number
+    final rows = <_ByCycleRow>[];
+    for (final entry in cycleAggregation.entries) {
+      final itemId = entry.key;
+      final itemName = getItemName(itemId);
+      final category = getCategoryName(itemId);
+      for (final cycleEntry in entry.value.entries) {
+        final resetNumber = cycleEntry.key;
+        rows.add(_ByCycleRow(
+          itemName: itemName,
+          category: category,
+          cycle: resetNumber + 1, // 1-based display
+          cycleName: getCycleName(itemId, resetNumber),
+          cycleNote: getCycleNote(itemId, resetNumber),
+          totalCount: cycleEntry.value,
+        ));
+      }
+    }
+
+    rows.sort((a, b) {
+      final nameCompare = a.itemName.compareTo(b.itemName);
+      if (nameCompare != 0) return nameCompare;
+      return a.cycle.compareTo(b.cycle);
+    });
+
+    for (final row in rows) {
+      buffer.writeln(
+        '${_escapeCSV(row.itemName)},${_escapeCSV(row.category)},${row.cycle},${_escapeCSV(row.cycleName)},${_escapeCSV(row.cycleNote)},${row.totalCount}',
+      );
+    }
   }
 
   /// Aggregate events by the specified level.
@@ -218,6 +319,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
   DateTime _getAggregationDate(DateTime date, ExportAggregationLevel level) {
     switch (level) {
       case ExportAggregationLevel.raw:
+      case ExportAggregationLevel.byCycle:
         return date;
       case ExportAggregationLevel.daily:
         return DateTime(date.year, date.month, date.day);
@@ -248,4 +350,23 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     }
     return value;
   }
+}
+
+/// Internal helper for by-cycle row data.
+class _ByCycleRow {
+  final String itemName;
+  final String category;
+  final int cycle;
+  final String cycleName;
+  final String cycleNote;
+  final int totalCount;
+
+  _ByCycleRow({
+    required this.itemName,
+    required this.category,
+    required this.cycle,
+    required this.cycleName,
+    required this.cycleNote,
+    required this.totalCount,
+  });
 }

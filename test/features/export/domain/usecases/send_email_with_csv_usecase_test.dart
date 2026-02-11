@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:traxelos/core/error/exceptions.dart';
 import 'package:traxelos/core/error/failures.dart';
 import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
+import 'package:traxelos/features/export/domain/entities/send_email_params.dart';
 import 'package:traxelos/features/export/domain/usecases/send_email_with_csv_usecase.dart';
 
 import '../../helpers/test_helper.dart';
@@ -149,6 +150,38 @@ void main() {
           )).called(1);
     });
 
+    test('should generate subject for byCycle latestCycleOnly', () async {
+      // Arrange
+      final params = SendEmailParams(
+        email: testEmail,
+        startDate: testStartDate,
+        endDate: testEndDate,
+        aggregationLevel: ExportAggregationLevel.byCycle,
+        latestCycleOnly: true,
+      );
+      when(() => mockGenerateCSV(any()))
+          .thenAnswer((_) async => const Right(testCSVContent));
+      when(() => mockMailDataSource.sendEmailWithAttachment(
+            toEmail: any(named: 'toEmail'),
+            subject: any(named: 'subject'),
+            body: any(named: 'body'),
+            csvContent: any(named: 'csvContent'),
+            filename: any(named: 'filename'),
+          )).thenAnswer((_) async {});
+
+      // Act
+      await useCase(params);
+
+      // Assert
+      verify(() => mockMailDataSource.sendEmailWithAttachment(
+            toEmail: any(named: 'toEmail'),
+            subject: 'Traxelos Export: Latest Cycle',
+            body: any(named: 'body'),
+            csvContent: any(named: 'csvContent'),
+            filename: any(named: 'filename'),
+          )).called(1);
+    });
+
     test('should pass correct CSVExportConfig to generateCSV', () async {
       // Arrange
       when(() => mockGenerateCSV(any()))
@@ -181,6 +214,7 @@ void main() {
       expect(config.startDate, testStartDate);
       expect(config.endDate, testEndDate);
       expect(config.aggregationLevel, ExportAggregationLevel.daily);
+      expect(config.latestCycleOnly, false);
       expect(config.itemIds, isNull);
     });
 
@@ -188,6 +222,20 @@ void main() {
       final config = testSendEmailParamsWithItems.toCSVExportConfig();
 
       expect(config.itemIds, [testItemId]);
+    });
+
+    test('should convert to CSVExportConfig with latestCycleOnly', () {
+      final params = SendEmailParams(
+        email: testEmail,
+        startDate: testStartDate,
+        endDate: testEndDate,
+        aggregationLevel: ExportAggregationLevel.byCycle,
+        latestCycleOnly: true,
+      );
+      final config = params.toCSVExportConfig();
+
+      expect(config.aggregationLevel, ExportAggregationLevel.byCycle);
+      expect(config.latestCycleOnly, true);
     });
   });
 }

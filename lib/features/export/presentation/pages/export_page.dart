@@ -36,7 +36,7 @@ class _ExportPageState extends State<ExportPage> {
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now();
   ExportAggregationLevel _aggregationLevel = ExportAggregationLevel.daily;
-  ExportDataScope _dataScope = ExportDataScope.total;
+  bool _latestCycleOnly = false;
 
   List<Item> _items = [];
   List<Category> _categories = [];
@@ -120,16 +120,9 @@ class _ExportPageState extends State<ExportPage> {
       case ExportAggregationLevel.raw:
         return 'Raw';
       case ExportAggregationLevel.daily:
-        return 'Daily';
-    }
-  }
-
-  String _getDataScopeLabel(ExportDataScope scope) {
-    switch (scope) {
-      case ExportDataScope.total:
-        return 'All data';
-      case ExportDataScope.latestCycle:
-        return 'Latest cycle';
+        return 'By Day';
+      case ExportAggregationLevel.byCycle:
+        return 'By Cycle';
     }
   }
 
@@ -192,90 +185,6 @@ class _ExportPageState extends State<ExportPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Data Scope Section
-                          _buildSectionHeader(
-                            context: context,
-                            icon: Icons.filter_list_rounded,
-                            title: 'Data Scope',
-                          ),
-                          const SizedBox(height: 12.0),
-                          Row(
-                            children: ExportDataScope.values.map((scope) {
-                              final selected = _dataScope == scope;
-                              return Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: scope != ExportDataScope.values.last ? 8.0 : 0,
-                                  ),
-                                  child: ChoiceChip(
-                                    label: SizedBox(
-                                      width: double.infinity,
-                                      child: Text(_getDataScopeLabel(scope), textAlign: TextAlign.center),
-                                    ),
-                                    selected: selected,
-                                    onSelected: (_) => setState(() => _dataScope = scope),
-                                    selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
-                                    backgroundColor: _inputBackground(context),
-                                    labelStyle: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 13.0,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.0,
-                                      color: selected ? Colors.white : _inputText(context),
-                                    ),
-                                    showCheckmark: false,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20.0),
-                                      side: BorderSide(
-                                        color: selected
-                                            ? AppColors.primaryAdaptive(Theme.of(context).brightness)
-                                            : _inputBackground(context),
-                                      ),
-                                    ),
-                                    labelPadding: EdgeInsets.zero,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                          const SizedBox(height: 8.0),
-                          Text(
-                            _getDataScopeDescription(_dataScope),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontFamily: 'Inter',
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              letterSpacing: 0.0,
-                            ),
-                          ),
-
-                          // Date Range Section — only shown when Total is selected
-                          if (_dataScope == ExportDataScope.total) ...[
-                            _buildSectionDivider(context),
-
-                            _buildSectionHeader(
-                              context: context,
-                              icon: Icons.date_range_rounded,
-                              title: 'Date Range',
-                            ),
-                            const SizedBox(height: 12.0),
-                            _buildDateRangeSelector(context),
-                            const SizedBox(height: 8.0),
-                            Center(
-                              child: Text(
-                                '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'Inter',
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.0,
-                                ),
-                              ),
-                            ),
-                          ],
-
-                          _buildSectionDivider(context),
-
                           // Aggregation Level Section
                           _buildSectionHeader(
                             context: context,
@@ -297,7 +206,13 @@ class _ExportPageState extends State<ExportPage> {
                                       child: Text(_getAggregationLabel(level), textAlign: TextAlign.center),
                                     ),
                                     selected: selected,
-                                    onSelected: (_) => setState(() => _aggregationLevel = level),
+                                    onSelected: (_) => setState(() {
+                                      _aggregationLevel = level;
+                                      // Reset cycle toggle when switching away from byCycle
+                                      if (level != ExportAggregationLevel.byCycle) {
+                                        _latestCycleOnly = false;
+                                      }
+                                    }),
                                     selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
                                     backgroundColor: _inputBackground(context),
                                     labelStyle: TextStyle(
@@ -332,6 +247,58 @@ class _ExportPageState extends State<ExportPage> {
                               letterSpacing: 0.0,
                             ),
                           ),
+
+                          // Conditional section below aggregation
+                          if (_aggregationLevel == ExportAggregationLevel.byCycle) ...[
+                            // Cycle Scope toggle
+                            _buildSectionDivider(context),
+                            _buildSectionHeader(
+                              context: context,
+                              icon: Icons.refresh_rounded,
+                              title: 'Cycle Scope',
+                            ),
+                            const SizedBox(height: 12.0),
+                            Row(
+                              children: [
+                                _buildCycleScopeChip(context, label: 'All Cycles', selected: !_latestCycleOnly, onSelected: () => setState(() => _latestCycleOnly = false)),
+                                const SizedBox(width: 8.0),
+                                _buildCycleScopeChip(context, label: 'Latest Cycle', selected: _latestCycleOnly, onSelected: () => setState(() => _latestCycleOnly = true)),
+                              ],
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              _latestCycleOnly
+                                  ? 'Export only data from the most recent reset cycle.'
+                                  : 'Export data from all reset cycles.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontFamily: 'Inter',
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                letterSpacing: 0.0,
+                              ),
+                            ),
+                          ] else ...[
+                            // Date Range Section for raw / daily
+                            _buildSectionDivider(context),
+                            _buildSectionHeader(
+                              context: context,
+                              icon: Icons.date_range_rounded,
+                              title: 'Date Range',
+                            ),
+                            const SizedBox(height: 12.0),
+                            _buildDateRangeSelector(context),
+                            const SizedBox(height: 8.0),
+                            Center(
+                              child: Text(
+                                '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'Inter',
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.0,
+                                ),
+                              ),
+                            ),
+                          ],
 
                           _buildSectionDivider(context),
 
@@ -498,6 +465,39 @@ class _ExportPageState extends State<ExportPage> {
     );
   }
 
+  Widget _buildCycleScopeChip(BuildContext context, {required String label, required bool selected, required VoidCallback onSelected}) {
+    return Expanded(
+      child: ChoiceChip(
+        label: SizedBox(
+          width: double.infinity,
+          child: Text(label, textAlign: TextAlign.center),
+        ),
+        selected: selected,
+        onSelected: (_) => onSelected(),
+        selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
+        backgroundColor: _inputBackground(context),
+        labelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13.0,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.0,
+          color: selected ? Colors.white : _inputText(context),
+        ),
+        showCheckmark: false,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.0),
+          side: BorderSide(
+            color: selected
+                ? AppColors.primaryAdaptive(Theme.of(context).brightness)
+                : _inputBackground(context),
+          ),
+        ),
+        labelPadding: EdgeInsets.zero,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+      ),
+    );
+  }
+
   /// Preview card showing export summary
   Widget _buildPreviewCard(BuildContext context) {
     final hasEmail = emailController.text.isNotEmpty;
@@ -542,19 +542,19 @@ class _ExportPageState extends State<ExportPage> {
             ],
           ),
           const SizedBox(height: 16.0),
-          if (_dataScope == ExportDataScope.total)
+          if (_aggregationLevel == ExportAggregationLevel.byCycle)
+            _buildPreviewRow(
+              context: context,
+              icon: Icons.refresh_rounded,
+              label: _latestCycleOnly ? 'Latest Cycle' : 'All Cycles',
+              subtitle: null,
+            )
+          else
             _buildPreviewRow(
               context: context,
               icon: Icons.calendar_today_rounded,
               label: '${_formatDateShort(_startDate)} → ${_formatDateShort(_endDate)}',
               subtitle: '$_dateRangeDays days',
-            )
-          else
-            _buildPreviewRow(
-              context: context,
-              icon: Icons.refresh_rounded,
-              label: 'Latest Cycle',
-              subtitle: null,
             ),
           const SizedBox(height: 10.0),
           _buildPreviewRow(
@@ -874,15 +874,8 @@ class _ExportPageState extends State<ExportPage> {
         return 'Export each individual event with timestamp.';
       case ExportAggregationLevel.daily:
         return 'Group events by day with totals.';
-    }
-  }
-
-  String _getDataScopeDescription(ExportDataScope scope) {
-    switch (scope) {
-      case ExportDataScope.total:
-        return 'Export all data within the selected date range, regardless of resets.';
-      case ExportDataScope.latestCycle:
-        return 'Export only data from the most recent reset cycle.';
+      case ExportAggregationLevel.byCycle:
+        return 'Group events by reset cycle with totals.';
     }
   }
 
@@ -937,12 +930,12 @@ class _ExportPageState extends State<ExportPage> {
     }
     if (_selectedItemIds.isEmpty) return;
 
-    final isLatestCycle = _dataScope == ExportDataScope.latestCycle;
+    final isByCycle = _aggregationLevel == ExportAggregationLevel.byCycle;
     blocContext.read<ExportBloc>().add(ExportCSV(
-      startDate: isLatestCycle ? DateTime(2020) : _startDate,
-      endDate: isLatestCycle ? DateTime.now() : _endDate,
+      startDate: isByCycle ? DateTime(2020) : _startDate,
+      endDate: isByCycle ? DateTime.now() : _endDate,
       aggregationLevel: _aggregationLevel,
-      dataScope: _dataScope,
+      latestCycleOnly: _latestCycleOnly,
       email: emailController.text.trim(),
       itemIds: _allSelected ? null : _selectedItemIds.toList(),
     ));

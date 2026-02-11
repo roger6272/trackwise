@@ -60,8 +60,11 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
 
   /// Generate email subject based on export parameters.
   String _generateSubject(SendEmailParams params) {
-    if (params.dataScope == ExportDataScope.latestCycle) {
+    if (params.aggregationLevel == ExportAggregationLevel.byCycle && params.latestCycleOnly) {
       return 'Traxelos Export: Latest Cycle';
+    }
+    if (params.aggregationLevel == ExportAggregationLevel.byCycle) {
+      return 'Traxelos Export: All Cycles';
     }
     final startStr = _formatDate(params.startDate);
     final endStr = _formatDate(params.endDate);
@@ -70,17 +73,29 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
 
   /// Generate email body based on export parameters.
   String _generateBody(SendEmailParams params) {
-    final aggregation = params.aggregationLevel.name;
-    final dateRange = params.dataScope == ExportDataScope.latestCycle
-        ? 'Latest cycle'
-        : '${_formatDate(params.startDate)} to ${_formatDate(params.endDate)}';
+    final String aggregationLabel;
+    switch (params.aggregationLevel) {
+      case ExportAggregationLevel.raw:
+        aggregationLabel = 'Raw';
+      case ExportAggregationLevel.daily:
+        aggregationLabel = 'Daily';
+      case ExportAggregationLevel.byCycle:
+        aggregationLabel = 'By Cycle';
+    }
+
+    final String dateRange;
+    if (params.aggregationLevel == ExportAggregationLevel.byCycle) {
+      dateRange = params.latestCycleOnly ? 'Latest cycle' : 'All cycles';
+    } else {
+      dateRange = '${_formatDate(params.startDate)} to ${_formatDate(params.endDate)}';
+    }
 
     return '''
 Your Traxelos data export is attached.
 
 Export Details:
 - Date Range: $dateRange
-- Aggregation: ${_capitalizeFirst(aggregation)}
+- Aggregation: $aggregationLabel
 ${params.itemIds != null ? '- Items: ${params.itemIds!.length} items selected' : '- Items: All items'}
 
 Thank you for using Traxelos!
@@ -89,10 +104,5 @@ Thank you for using Traxelos!
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  String _capitalizeFirst(String text) {
-    if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1);
   }
 }

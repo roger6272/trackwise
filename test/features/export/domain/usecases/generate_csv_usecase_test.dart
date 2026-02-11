@@ -29,7 +29,7 @@ void main() {
   });
 
   // Helper to set up item and category mocks
-  void setupItemAndCategoryMocks() {
+  void setupItemAndCategoryMocks({Map<String, String>? cycleNames, Map<String, String>? cycleNotes}) {
     when(() => mockItemRepository.getItems(any())).thenAnswer(
       (_) async => Right([
         Item(
@@ -44,6 +44,8 @@ void main() {
           reminderValue: 0,
           lastUpdated: DateTime.now(),
           order: 0,
+          cycleNames: cycleNames ?? const {},
+          cycleNotes: cycleNotes ?? const {},
         ),
         Item(
           id: 'item_2',
@@ -139,6 +141,147 @@ void main() {
           },
         );
       });
+
+      test('should exclude reset and created events from daily aggregation', () async {
+        // Arrange
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(testEventsWithResets));
+        setupItemAndCategoryMocks();
+
+        // Act
+        final result = await useCase(testCSVConfig);
+
+        // Assert
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            // Only increment events should be aggregated: 3 + 2 = 5 total
+            // reset and created should be excluded
+            expect(lines.any((l) => l.contains('reset')), false);
+            expect(lines.any((l) => l.contains('created')), false);
+            // Should have header + aggregated increment rows
+            expect(lines.length, greaterThan(1));
+          },
+        );
+      });
+    });
+
+    group('byCycle aggregation', () {
+      test('should aggregate events by cycle', () async {
+        // Arrange
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(testEventsMultiCycle));
+        setupItemAndCategoryMocks(
+          cycleNames: {'0': 'First batch', '1': 'Second batch'},
+          cycleNotes: {'0': 'Note 0', '1': 'Note 1'},
+        );
+
+        // Act
+        final result = await useCase(testCSVConfigByCycle);
+
+        // Assert
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            expect(lines[0], 'Item Name,Category,Cycle,Cycle Name,Cycle Note,Total Count');
+
+            // Coffee cycle 1 (resetNumber 0): 3 + 2 = 5
+            expect(lines.any((l) => l.contains('Coffee') && l.contains(',1,') && l.contains(',5')), true);
+            // Coffee cycle 2 (resetNumber 1): 4
+            expect(lines.any((l) => l.contains('Coffee') && l.contains(',2,') && l.contains(',4')), true);
+            // Tea cycle 1 (resetNumber 0): 1
+            expect(lines.any((l) => l.contains('Tea') && l.contains(',1,') && l.contains(',1')), true);
+
+            // Should have header + 3 data rows (Coffee cycle 1, Coffee cycle 2, Tea cycle 1)
+            expect(lines.length, 4);
+          },
+        );
+      });
+
+      test('should include cycle names and notes', () async {
+        // Arrange
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(testEventsMultiCycle));
+        setupItemAndCategoryMocks(
+          cycleNames: {'0': 'First batch', '1': 'Second batch'},
+          cycleNotes: {'0': 'Note 0', '1': 'Note 1'},
+        );
+
+        // Act
+        final result = await useCase(testCSVConfigByCycle);
+
+        // Assert
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            expect(csv, contains('First batch'));
+            expect(csv, contains('Second batch'));
+            expect(csv, contains('Note 0'));
+            expect(csv, contains('Note 1'));
+          },
+        );
+      });
+
+      test('should include cycles with names/notes but no events', () async {
+        // Arrange: events only go up to resetNumber 1, but cycleNames has key "2"
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(testEventsMultiCycle));
+        setupItemAndCategoryMocks(
+          cycleNames: {'0': 'First', '1': 'Second', '2': 'Third (no events)'},
+          cycleNotes: {'2': 'Note for empty cycle'},
+        );
+
+        // Act
+        final result = await useCase(testCSVConfigByCycle);
+
+        // Assert
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            // Coffee should have 3 cycles: 0, 1, 2 (even though 2 has no events)
+            expect(csv, contains('Third (no events)'));
+            expect(csv, contains('Note for empty cycle'));
+            // Cycle 3 (resetNumber 2) should appear with 0 count
+            expect(lines.any((l) => l.contains('Coffee') && l.contains(',3,') && l.contains(',0')), true);
+          },
+        );
+      });
+
+      test('should filter to latest cycle only when latestCycleOnly is true', () async {
+        // Arrange
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(testEventsMultiCycle));
+        setupItemAndCategoryMocks();
+
+        // Act
+        final result = await useCase(testCSVConfigByCycleLatest);
+
+        // Assert
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            expect(lines[0], 'Item Name,Category,Cycle,Cycle Name,Cycle Note,Total Count');
+
+            // item_1 latest cycle is resetNumber 1: 4
+            // item_2 latest cycle is resetNumber 0: 1
+            // Only 2 data rows + header
+            expect(lines.length, 3);
+            // Coffee cycle 2 (resetNumber 1): 4
+            expect(lines.any((l) => l.contains('Coffee') && l.contains(',4')), true);
+            // Tea cycle 1 (resetNumber 0): 1
+            expect(lines.any((l) => l.contains('Tea') && l.contains(',1')), true);
+          },
+        );
+      });
     });
 
     group('special characters', () {
@@ -200,6 +343,26 @@ void main() {
             final lines = csv.trim().split('\n');
             expect(lines.length, 1);
             expect(lines[0], 'Item Name,Category,Event Type,Date,Event Count');
+          },
+        );
+      });
+
+      test('should return byCycle header when no events', () async {
+        // Arrange
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => const Right([]));
+
+        // Act
+        final result = await useCase(testCSVConfigByCycle);
+
+        // Assert
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            expect(lines.length, 1);
+            expect(lines[0], 'Item Name,Category,Cycle,Cycle Name,Cycle Note,Total Count');
           },
         );
       });
@@ -327,15 +490,25 @@ void main() {
       expect(config.filename, 'tally_export_2024-01-01_to_2024-01-31_daily.csv');
     });
 
-    test('should generate filename for latest cycle', () {
+    test('should generate filename for byCycle', () {
       final config = CSVExportConfig(
         startDate: DateTime(2020),
         endDate: DateTime(2024, 1, 31),
-        aggregationLevel: ExportAggregationLevel.daily,
-        dataScope: ExportDataScope.latestCycle,
+        aggregationLevel: ExportAggregationLevel.byCycle,
       );
 
-      expect(config.filename, 'tally_export_latest_cycle_daily.csv');
+      expect(config.filename, 'tally_export_by_cycle.csv');
+    });
+
+    test('should generate filename for byCycle latest cycle', () {
+      final config = CSVExportConfig(
+        startDate: DateTime(2020),
+        endDate: DateTime(2024, 1, 31),
+        aggregationLevel: ExportAggregationLevel.byCycle,
+        latestCycleOnly: true,
+      );
+
+      expect(config.filename, 'tally_export_latest_cycle_by_cycle.csv');
     });
   });
 }

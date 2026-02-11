@@ -4,14 +4,7 @@ import 'package:equatable/equatable.dart';
 enum ExportAggregationLevel {
   raw,
   daily,
-}
-
-/// Data scope for CSV export.
-enum ExportDataScope {
-  /// Export all data within date range
-  total,
-  /// Export only data from the latest reset cycle
-  latestCycle,
+  byCycle,
 }
 
 /// Configuration for CSV export.
@@ -19,25 +12,28 @@ class CSVExportConfig extends Equatable {
   final DateTime startDate;
   final DateTime endDate;
   final ExportAggregationLevel aggregationLevel;
-  final ExportDataScope dataScope;
+  final bool latestCycleOnly; // Only relevant when byCycle is selected
   final List<String>? itemIds; // Optional: export for specific items only
 
   const CSVExportConfig({
     required this.startDate,
     required this.endDate,
     this.aggregationLevel = ExportAggregationLevel.daily,
-    this.dataScope = ExportDataScope.total,
+    this.latestCycleOnly = false,
     this.itemIds,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, dataScope, itemIds];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, latestCycleOnly, itemIds];
 
   /// Generate filename for the CSV export.
   String get filename {
-    final level = aggregationLevel.name;
-    if (dataScope == ExportDataScope.latestCycle) {
+    final level = aggregationLevel == ExportAggregationLevel.byCycle ? 'by_cycle' : aggregationLevel.name;
+    if (aggregationLevel == ExportAggregationLevel.byCycle && latestCycleOnly) {
       return 'tally_export_latest_cycle_$level.csv';
+    }
+    if (aggregationLevel == ExportAggregationLevel.byCycle) {
+      return 'tally_export_$level.csv';
     }
     final start = _formatDate(startDate);
     final end = _formatDate(endDate);
