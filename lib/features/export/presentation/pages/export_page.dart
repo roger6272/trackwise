@@ -199,33 +199,43 @@ class _ExportPageState extends State<ExportPage> {
                             title: 'Data Scope',
                           ),
                           const SizedBox(height: 12.0),
-                          Wrap(
-                            spacing: 8.0,
+                          Row(
                             children: ExportDataScope.values.map((scope) {
                               final selected = _dataScope == scope;
-                              return ChoiceChip(
-                                label: Text(_getDataScopeLabel(scope)),
-                                selected: selected,
-                                onSelected: (_) => setState(() => _dataScope = scope),
-                                selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
-                                backgroundColor: _inputBackground(context),
-                                labelStyle: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 13.0,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.0,
-                                  color: selected ? Colors.white : _inputText(context),
-                                ),
-                                showCheckmark: false,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20.0),
-                                  side: BorderSide(
-                                    color: selected
-                                        ? AppColors.primaryAdaptive(Theme.of(context).brightness)
-                                        : _inputBackground(context),
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    right: scope != ExportDataScope.values.last ? 8.0 : 0,
+                                  ),
+                                  child: ChoiceChip(
+                                    label: SizedBox(
+                                      width: double.infinity,
+                                      child: Text(_getDataScopeLabel(scope), textAlign: TextAlign.center),
+                                    ),
+                                    selected: selected,
+                                    onSelected: (_) => setState(() => _dataScope = scope),
+                                    selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
+                                    backgroundColor: _inputBackground(context),
+                                    labelStyle: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13.0,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.0,
+                                      color: selected ? Colors.white : _inputText(context),
+                                    ),
+                                    showCheckmark: false,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20.0),
+                                      side: BorderSide(
+                                        color: selected
+                                            ? AppColors.primaryAdaptive(Theme.of(context).brightness)
+                                            : _inputBackground(context),
+                                      ),
+                                    ),
+                                    labelPadding: EdgeInsets.zero,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                                   ),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                               );
                             }).toList(),
                           ),
@@ -273,33 +283,43 @@ class _ExportPageState extends State<ExportPage> {
                             title: 'Aggregation Level',
                           ),
                           const SizedBox(height: 12.0),
-                          Wrap(
-                            spacing: 8.0,
+                          Row(
                             children: ExportAggregationLevel.values.map((level) {
                               final selected = _aggregationLevel == level;
-                              return ChoiceChip(
-                                label: Text(_getAggregationLabel(level)),
-                                selected: selected,
-                                onSelected: (_) => setState(() => _aggregationLevel = level),
-                                selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
-                                backgroundColor: _inputBackground(context),
-                                labelStyle: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 13.0,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.0,
-                                  color: selected ? Colors.white : _inputText(context),
-                                ),
-                                showCheckmark: false,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20.0),
-                                  side: BorderSide(
-                                    color: selected
-                                        ? AppColors.primaryAdaptive(Theme.of(context).brightness)
-                                        : _inputBackground(context),
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    right: level != ExportAggregationLevel.values.last ? 8.0 : 0,
+                                  ),
+                                  child: ChoiceChip(
+                                    label: SizedBox(
+                                      width: double.infinity,
+                                      child: Text(_getAggregationLabel(level), textAlign: TextAlign.center),
+                                    ),
+                                    selected: selected,
+                                    onSelected: (_) => setState(() => _aggregationLevel = level),
+                                    selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
+                                    backgroundColor: _inputBackground(context),
+                                    labelStyle: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13.0,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.0,
+                                      color: selected ? Colors.white : _inputText(context),
+                                    ),
+                                    showCheckmark: false,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20.0),
+                                      side: BorderSide(
+                                        color: selected
+                                            ? AppColors.primaryAdaptive(Theme.of(context).brightness)
+                                            : _inputBackground(context),
+                                      ),
+                                    ),
+                                    labelPadding: EdgeInsets.zero,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                                   ),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                               );
                             }).toList(),
                           ),
