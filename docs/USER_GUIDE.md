@@ -450,8 +450,9 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
    - **Date Range** - Select start and end dates (default: last 30 days)
    - **Aggregation** - Raw, Daily, Weekly, or Monthly (default: Daily)
    - **Data Scope** - Total (all data) or Latest Cycle only
-4. Review the **Export Preview** card to confirm your settings
-5. Enter your **email address**
+   - **Items** - Tap to open a searchable picker and select which items to include (all selected by default)
+4. Enter your **email address**
+5. Review the **Export Preview** card to confirm your settings
 6. Tap **"Export to Email"**
 
 ### Aggregation Options
