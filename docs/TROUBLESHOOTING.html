@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troubleshooting Playbook</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --table-header: #f1f5f9;
+            --accent-bg: #eff6ff;
+            --accent-border: #bfdbfe;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 48px 56px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.2em;
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1em;
+            margin-bottom: 32px;
+        }
+
+        .related-docs {
+            color: var(--text-muted);
+            font-size: 0.95em;
+            margin-bottom: 24px;
+        }
+        .related-docs a { color: var(--primary-color); text-decoration: none; }
+        .related-docs a:hover { text-decoration: underline; }
+
+        h2 {
+            color: var(--secondary-color);
+            font-size: 1.5em;
+            margin-top: 56px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        h3 {
+            color: var(--text-color);
+            font-size: 1.15em;
+            margin-top: 28px;
+        }
+
+        h4 {
+            color: var(--text-muted);
+            font-size: 1em;
+            margin-top: 20px;
+        }
+
+        /* Table of Contents */
+        .toc {
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            border-radius: 8px;
+            padding: 24px 32px;
+            margin: 24px 0 40px;
+        }
+        .toc h3 { margin-top: 0; color: var(--secondary-color); }
+        .toc ol { margin: 0; padding-left: 20px; }
+        .toc li { margin: 6px 0; }
+        .toc a { color: var(--primary-color); text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.95em;
+        }
+        th, td {
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background: var(--table-header);
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        tr:hover td { background: #fafbfc; }
+
+        /* Lists */
+        ul, ol { padding-left: 24px; }
+        li { margin: 4px 0; }
+
+        /* Code blocks */
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        code {
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+        }
+        p code, li code, td code {
+            background: var(--table-header);
+            color: var(--secondary-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        /* Callout / Note */
+        .note {
+            background: var(--accent-bg);
+            border-left: 4px solid var(--primary-color);
+            padding: 14px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+            font-size: 0.95em;
+        }
+        .note strong { color: var(--secondary-color); }
+
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid var(--warning-color);
+            padding: 14px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+
+        .lesson {
+            background: #f0fdf4;
+            border-left: 4px solid var(--success-color);
+            padding: 14px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+        .lesson strong { color: #166534; }
+
+        /* Symptom header */
+        .symptom {
+            color: var(--text-muted);
+            font-style: italic;
+            margin: 4px 0 12px;
+        }
+
+        /* Checklist */
+        .checklist {
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin: 20px 0;
+        }
+        .checklist h3 { margin-top: 0; color: var(--secondary-color); }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 2px solid var(--primary-color);
+            color: var(--text-muted);
+        }
+
+        hr { border: none; border-top: 1px solid var(--border-color); margin: 40px 0; }
+
+        @media (max-width: 700px) {
+            .container { padding: 24px 20px; }
+            h1 { font-size: 1.6em; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>Troubleshooting Playbook</h1>
+    <p class="subtitle">Quick diagnostic guides for common issues. Check here before diving into code.</p>
+    <p class="related-docs"><strong>Related docs:</strong> <a href="BLE_PROTOCOL.html">BLE Protocol</a> &middot; <a href="DATA_FLOW.html">Data Flow</a> &middot; <a href="DEVICE_DISPLAY.html">Device Display</a></p>
+
+    <div class="toc">
+        <h3>Table of Contents</h3>
+        <ol>
+            <li><a href="#connection-issues">Connection Issues</a></li>
+            <li><a href="#sync-issues">Sync Issues</a></li>
+            <li><a href="#count-mismatch">Count Mismatch Issues</a></li>
+            <li><a href="#notification-issues">Notification Issues</a></li>
+            <li><a href="#daily-reset">Daily Reset Issues</a></li>
+            <li><a href="#device-state">Device State Issues</a></li>
+            <li><a href="#performance">Performance Issues</a></li>
+            <li><a href="#diagnostic-tools">Diagnostic Tools</a></li>
+            <li><a href="#app-sync-pitfalls">App-Side Sync Pitfalls</a></li>
+        </ol>
+    </div>
+
+    <!-- ===== Section 1: Connection Issues ===== -->
+    <h2 id="connection-issues">1. Connection Issues</h2>
+
+    <h3>1.1 "Can't find device"</h3>
+    <p class="symptom">Device doesn't appear in scan results</p>
+
+    <p><strong>Diagnostic Steps:</strong></p>
+    <ol>
+        <li>Is device powered on? Check for LED/display activity</li>
+        <li>Is device already connected to another phone? (BLE is 1:1)</li>
+        <li>Is Bluetooth enabled on phone?</li>
+        <li>Is location permission granted? (Required for BLE on Android)</li>
+    </ol>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Device in low power mode</td><td>Press any button to wake it</td></tr>
+            <tr><td>Already connected elsewhere</td><td>Disconnect from other phone first</td></tr>
+            <tr><td>Device name filter wrong</td><td>Should be <code>"Traxelos"</code></td></tr>
+            <tr><td>Android location permission</td><td>Request <code>ACCESS_FINE_LOCATION</code></td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>1.2 "GATT 133 Error" (Android)</h3>
+    <p class="symptom">Connection fails with error code 133</p>
+
+    <p><strong>Root Cause:</strong> Android BLE stack race condition when scan overlaps connect</p>
+
+    <p><strong>Solution:</strong></p>
+    <pre><code>await stopScan();
+await Future.delayed(Duration(seconds: 2));  // Critical!
+await connect(device);</code></pre>
+
+    <p><strong>If still failing:</strong></p>
+    <ul>
+        <li>Clear Bluetooth cache: Settings &rarr; Apps &rarr; Bluetooth &rarr; Clear Cache</li>
+        <li>Toggle Bluetooth off/on</li>
+        <li>Restart phone (last resort)</li>
+    </ul>
+
+    <hr>
+
+    <h3>1.3 "Connection drops immediately"</h3>
+    <p class="symptom">Connects then disconnects within seconds</p>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Weak signal</td><td>Move closer to device</td></tr>
+            <tr><td>MTU negotiation failed</td><td>Fallback to 180 MTU</td></tr>
+            <tr><td>Missing characteristics</td><td>Check firmware version compatibility</td></tr>
+            <tr><td>Phone BLE stack busy</td><td>Wait and retry</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>1.4 "Missing characteristics"</h3>
+    <p class="symptom">Service discovery succeeds but can't find expected characteristics</p>
+
+    <p><strong>Verify these UUIDs:</strong></p>
+    <ul>
+        <li>Service: <code>12345678-1234-1234-1234-123456789000</code></li>
+        <li>CHAR_READ: <code>...001</code></li>
+        <li>CHAR_NOTIFY: <code>...002</code></li>
+        <li>CHAR_SET_ITEMS: <code>...008</code></li>
+        <li>CHAR_WRITE: <code>...010</code></li>
+    </ul>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Firmware outdated</td><td>Update device firmware</td></tr>
+            <tr><td>Partial discovery</td><td>Retry service discovery</td></tr>
+            <tr><td>UUID mismatch</td><td>Check <code>bluetooth_constants.dart</code></td></tr>
+        </tbody>
+    </table>
+
+    <!-- ===== Section 2: Sync Issues ===== -->
+    <h2 id="sync-issues">2. Sync Issues</h2>
+
+    <h3>2.1 "Handshake returns 'conflict'"</h3>
+    <p class="symptom">Device shows "SEE APP", buttons disabled</p>
+
+    <div class="note">
+        <strong>This is expected behavior</strong> when the device was used with a different phone, the app was reinstalled, or Firestore sync_seq differs from device sync_seq.
+    </div>
+
+    <p><strong>Resolution Flow:</strong></p>
+    <ol>
+        <li>App receives <code>{"status":"conflict","device_seq":N}</code></li>
+        <li>App shows conflict dialog to user</li>
+        <li>User confirms override</li>
+        <li>App sends: <code>override_start</code> &rarr; <code>override_chunk(s)</code> &rarr; <code>override_end</code></li>
+        <li>Device responds: <code>{"status":"override_complete"}</code></li>
+        <li>Device shows "SYNCED", buttons re-enabled</li>
+    </ol>
+
+    <p><strong>If override fails:</strong></p>
+    <ul>
+        <li>Check <code>override_end</code> response for <code>"missing_chunks"</code> error</li>
+        <li>Verify all chunks were sent with correct indices</li>
+        <li>Check BLE connection didn't drop mid-transfer</li>
+    </ul>
+
+    <hr>
+
+    <h3>2.2 "Handshake returns 'wrong_account'"</h3>
+    <p class="symptom">Device paired to different user</p>
+
+    <p><strong>Root Cause:</strong> Device's <code>paired_uid</code> doesn't match app's Firebase UID</p>
+
+    <p><strong>Resolution:</strong></p>
+    <ul>
+        <li>This device belongs to another account</li>
+        <li>User must factory reset the device to re-pair</li>
+        <li>Or log into the correct account</li>
+    </ul>
+
+    <hr>
+
+    <h3>2.3 "Handshake returns 'uninitialized'"</h3>
+    <p class="symptom">New device or after factory reset</p>
+
+    <div class="note">
+        <strong>This is expected</strong> for brand new devices or after factory reset.
+    </div>
+
+    <p><strong>Resolution Flow:</strong></p>
+    <ol>
+        <li>App receives <code>{"status":"uninitialized"}</code></li>
+        <li>App shows setup dialog</li>
+        <li>User confirms setup</li>
+        <li>App sends: <code>override_start</code> (with UID) &rarr; <code>override_chunk(s)</code> &rarr; <code>override_end</code></li>
+        <li>Device stores UID, becomes paired</li>
+    </ol>
+
+    <hr>
+
+    <h3>2.4 "sync_complete not acknowledged"</h3>
+    <p class="symptom">App sends <code>sync_complete</code> but doesn't receive <code>{"status":"seq_updated"}</code></p>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Connection dropped</td><td>Reconnect and re-sync</td></tr>
+            <tr><td>Notification missed</td><td>Check message buffer for pending data</td></tr>
+            <tr><td>Command malformed</td><td>Verify JSON format and newline terminator</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ===== Section 3: Count Mismatch ===== -->
+    <h2 id="count-mismatch">3. Count Mismatch Issues</h2>
+
+    <h3>3.1 "App count differs from device count"</h3>
+    <p class="symptom">UI shows different count than device display</p>
+
+    <div class="note">
+        <strong>Key Principle:</strong> Device is source of truth during normal sync.
+    </div>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>App using stale local state</td><td>Refresh from <code>prefs</code> notification</td></tr>
+            <tr><td>Firestore not updated</td><td>Check Firestore write succeeded</td></tr>
+            <tr><td>Race condition</td><td>Wait for full sync before showing counts</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>3.2 "set_items didn't update counts"</h3>
+    <p class="symptom">Sent new counts via <code>set_items</code>, device still shows old counts</p>
+
+    <div class="warning">
+        <strong>This is by design!</strong> <code>set_items</code> preserves device counts for existing items.
+    </div>
+
+    <p><strong>How set_items works:</strong></p>
+    <pre><code>For existing items (deviceItemId found in NVS):
+  PRESERVE: count, todaycount, lastResetTime, resetNumber
+  UPDATE: name, category, increment, reminder, reminder_value
+
+For new items (deviceItemId not found):
+  USE all values from JSON</code></pre>
+
+    <p><strong>If you need to override counts:</strong> Use the <code>override_chunk</code> protocol instead.</p>
+
+    <hr>
+
+    <h3>3.3 "Counts lost after disconnect"</h3>
+    <p class="symptom">Increments made on device disappeared</p>
+
+    <p><strong>Root Cause:</strong> NVS writes are batched every 10 increments</p>
+
+    <ul>
+        <li>Increments 1&ndash;9: Stored in RAM only</li>
+        <li>Increment 10: Flushed to NVS</li>
+        <li>On disconnect: Pending RAM data flushed to NVS</li>
+    </ul>
+
+    <p><strong>Potential data loss:</strong> If power is cut suddenly, up to 9 increments may be lost.</p>
+    <p><strong>Mitigation:</strong> The 5-minute periodic flush reduces this window.</p>
+
+    <!-- ===== Section 4: Notification Issues ===== -->
+    <h2 id="notification-issues">4. Notification Issues</h2>
+
+    <h3>4.1 "Not receiving notifications"</h3>
+    <p class="symptom">Device buttons work but app doesn't update</p>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Not subscribed</td><td>Call <code>setNotifyValue(true)</code> on CHAR_NOTIFY</td></tr>
+            <tr><td>Callback not set</td><td>Register listener before subscribing</td></tr>
+            <tr><td>Connection dropped</td><td>Reconnect and resubscribe</td></tr>
+            <tr><td>Buffer overflow</td><td>Check message reassembly logic</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>4.2 "Notifications are garbled/incomplete"</h3>
+    <p class="symptom">JSON parse errors, partial messages</p>
+
+    <p><strong>Root Cause:</strong> Large messages are chunked (~180 bytes each)</p>
+
+    <p><strong>Reassembly Logic:</strong></p>
+    <pre><code>// Accumulate chunks until newline
+buffer += String.fromCharCodes(data);
+if (buffer.contains('\n')) {
+  final message = buffer.substring(0, buffer.indexOf('\n'));
+  buffer = buffer.substring(buffer.indexOf('\n') + 1);
+  // Parse message as JSON
+}</code></pre>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Not accumulating chunks</td><td>Implement buffer</td></tr>
+            <tr><td>Missing newline check</td><td>Wait for <code>\n</code> before parsing</td></tr>
+            <tr><td>Buffer not cleared</td><td>Clear after extracting message</td></tr>
+            <tr><td>Timeout (5s) on device</td><td>Send chunks faster</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>4.3 "Receiving event but not item_delta (or vice versa)"</h3>
+    <p class="symptom">Only one notification type received per button press</p>
+
+    <table>
+        <thead><tr><th>Action</th><th><code>event</code> sent?</th><th><code>item_delta</code> sent?</th></tr></thead>
+        <tbody>
+            <tr><td>Increment button</td><td style="text-align:center">&check;</td><td style="text-align:center">&check;</td></tr>
+            <tr><td>Reset button</td><td style="text-align:center">&check;</td><td style="text-align:center">&check;</td></tr>
+            <tr><td>Switch button</td><td style="text-align:center">&check;</td><td style="text-align:center">&cross;</td></tr>
+            <tr><td>set_selected command</td><td style="text-align:center">&cross;</td><td style="text-align:center">&check;</td></tr>
+        </tbody>
+    </table>
+
+    <p><strong>If missing one:</strong></p>
+    <ul>
+        <li>Check they're being sent 50ms apart (device adds delay)</li>
+        <li>Check message buffer isn't dropping messages</li>
+        <li>Check notification listener handles multiple rapid notifications</li>
+    </ul>
+
+    <!-- ===== Section 5: Daily Reset Issues ===== -->
+    <h2 id="daily-reset">5. Daily Reset Issues</h2>
+
+    <h3>5.1 "todaycount not resetting at midnight"</h3>
+    <p class="symptom">Daily progress doesn't reset</p>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Timezone not set</td><td>Send <code>set_time</code> after every connect</td></tr>
+            <tr><td>Wrong timezone offset</td><td>Check <code>offset</code> calculation (minutes from UTC)</td></tr>
+            <tr><td>Device clock drifted</td><td>Send <code>set_time</code> to resync</td></tr>
+            <tr><td>Crossed midnight while disconnected</td><td>Device checks every 60s, should self-correct</td></tr>
+        </tbody>
+    </table>
+
+    <p><strong>Timezone offset examples:</strong></p>
+    <table>
+        <thead><tr><th>Timezone</th><th>Offset (minutes)</th></tr></thead>
+        <tbody>
+            <tr><td>UTC</td><td>0</td></tr>
+            <tr><td>EST (UTC-5)</td><td>-300</td></tr>
+            <tr><td>PST (UTC-8)</td><td>-480</td></tr>
+            <tr><td>IST (UTC+5:30)</td><td>330</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>5.2 "todaycount reset at wrong time"</h3>
+    <p class="symptom">Reset happens at wrong hour</p>
+
+    <p><strong>Root Cause:</strong> Timezone offset incorrect</p>
+
+    <p><strong>Fix:</strong></p>
+    <pre><code>final offset = DateTime.now().timeZoneOffset.inMinutes;
+// Send this with set_time command</code></pre>
+
+    <hr>
+
+    <h3>5.3 "timezone offset always reads as 0"</h3>
+    <p class="symptom">Daily reset always happens at UTC midnight regardless of timezone sent by app</p>
+
+    <p><strong>Root Cause:</strong> NVS key mismatch &mdash; <code>set_time</code> handler wrote the offset to <code>"tz_offset"</code> but <code>updateLocalTime()</code> read from <code>"timezone_offset"</code>. The read always returned the default (0).</p>
+
+    <p><strong>Fix:</strong> Changed <code>updateLocalTime()</code> to read from <code>"tz_offset"</code> to match the write key.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When using NVS key-value storage, grep for the key string across the entire firmware to ensure reads and writes use the same key. A typo in either location silently returns the default value with no error.
+    </div>
+
+    <hr>
+
+    <h3>5.4 "todaycount resets to 0 after power cycle"</h3>
+    <p class="symptom">Today's count shows 0 after turning the device off and on, even though it's the same day</p>
+
+    <p><strong>Root Cause:</strong> On boot, the RTC may have lost power and defaults to compile time. The daily reset check (<code>resetTodayCountsIfNeeded()</code>) compared the stale RTC date against <code>last_reset_date</code> in NVS, saw a mismatch, and reset all <code>todaycount</code> values to 0 before the app could send <code>set_time</code>.</p>
+
+    <p><strong>Fix:</strong> Deferred the daily reset check from <code>setup()</code> &mdash; it now only runs after <code>set_time</code> is received from the app, when the RTC has a valid time.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Never run date-dependent logic on boot before the clock source is validated. If the RTC is battery-backed but may lose power, treat its time as untrusted until the app confirms it.
+    </div>
+
+    <!-- ===== Section 6: Device State Issues ===== -->
+    <h2 id="device-state">6. Device State Issues</h2>
+
+    <h3>6.1 "Device stuck showing 'SEE APP'"</h3>
+    <p class="symptom">Device in conflict state, buttons don't work</p>
+
+    <p><strong>Resolution:</strong></p>
+    <ol>
+        <li>Complete the override protocol in app</li>
+        <li>OR disconnect (device will exit conflict state on disconnect)</li>
+        <li>Reconnect to retry sync</li>
+    </ol>
+
+    <hr>
+
+    <h3>6.2 "Device stuck showing 'AWAITING SETUP'"</h3>
+    <p class="symptom">Device unpaired, waiting for initial setup</p>
+
+    <p><strong>Resolution:</strong> Complete the override protocol with UID. <code>override_start</code> stores the UID, pairing the device.</p>
+
+    <hr>
+
+    <h3>6.3 "Device not responding to commands"</h3>
+    <p class="symptom">Commands sent but no response/action</p>
+
+    <p><strong>Check:</strong></p>
+    <ol>
+        <li>Is device in conflict state? (buttons disabled)</li>
+        <li>Is command sent to correct characteristic?
+            <ul>
+                <li>Commands &rarr; CHAR_WRITE (<code>...010</code>)</li>
+                <li>Item array &rarr; CHAR_SET_ITEMS (<code>...008</code>)</li>
+            </ul>
+        </li>
+        <li>Does command end with <code>\n</code> (newline)?</li>
+        <li>Is JSON valid?</li>
+    </ol>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Wrong characteristic</td><td>Route to correct UUID</td></tr>
+            <tr><td>Missing newline</td><td>Append <code>\n</code> to command</td></tr>
+            <tr><td>Invalid JSON</td><td>Validate before sending</td></tr>
+            <tr><td>Conflict state</td><td>Complete override or disconnect</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ===== Section 7: Performance Issues ===== -->
+    <h2 id="performance">7. Performance Issues</h2>
+
+    <h3>7.1 "Sync is slow"</h3>
+    <p class="symptom">Initial sync takes long time</p>
+
+    <table>
+        <thead><tr><th>Factor</th><th>Impact</th><th>Optimization</th></tr></thead>
+        <tbody>
+            <tr><td>MTU size</td><td>Higher = fewer chunks</td><td>Request 512 MTU</td></tr>
+            <tr><td>Item count</td><td>More items = more data</td><td>Paginate if &gt;50 items</td></tr>
+            <tr><td>Log count</td><td>More logs = more pages</td><td>Clear logs after sync</td></tr>
+            <tr><td>Connection priority</td><td>Higher = faster</td><td>Set HIGH priority</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>7.2 "Chunked transfer failing"</h3>
+    <p class="symptom">Large payloads (set_items, override) fail</p>
+
+    <p><strong>Limits:</strong></p>
+    <table>
+        <thead><tr><th>Buffer</th><th>Max Size</th></tr></thead>
+        <tbody>
+            <tr><td>CHAR_SET_ITEMS</td><td>32KB</td></tr>
+            <tr><td>CHAR_WRITE</td><td>8KB</td></tr>
+            <tr><td>Single chunk</td><td>MTU - 3 bytes</td></tr>
+        </tbody>
+    </table>
+
+    <table>
+        <thead><tr><th>Cause</th><th>Solution</th></tr></thead>
+        <tbody>
+            <tr><td>Payload too large</td><td>Reduce item count or split</td></tr>
+            <tr><td>Chunks too fast</td><td>Ensure 20ms delay between</td></tr>
+            <tr><td>Timeout (5s)</td><td>Complete transfer faster</td></tr>
+            <tr><td>BLE congestion</td><td>Increase chunk delay</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ===== Section 8: Diagnostic Tools ===== -->
+    <h2 id="diagnostic-tools">8. Diagnostic Tools</h2>
+
+    <h3>8.1 App-side Logging</h3>
+    <pre><code>// Log raw received bytes
+notifyStream.listen((data) {
+  debugPrint('BLE RX (${data.length} bytes): ${String.fromCharCodes(data)}');
+});
+
+// Log parsed messages
+debugPrint('BLE MSG: ${message.type} - ${jsonEncode(message.data)}');
+
+// Log commands sent
+debugPrint('BLE TX: $command');</code></pre>
+
+    <h3>8.2 Device-side Logging</h3>
+    <p>Connect serial monitor at 115200 baud. Firmware logs:</p>
+    <ul>
+        <li>All BLE events</li>
+        <li>Command parsing</li>
+        <li>NVS operations</li>
+        <li>State transitions</li>
+    </ul>
+
+    <h3>8.3 Useful Debug Commands</h3>
+    <p><strong>Check device state:</strong></p>
+    <pre><code>{"cmd": "prepare_read", "type": "prefs", "page": 0}</code></pre>
+
+    <p><strong>Force daily reset (testing):</strong></p>
+    <pre><code>{"cmd": "force_reset_today"}</code></pre>
+
+    <h3>8.4 Quick Health Check Sequence</h3>
+    <ol>
+        <li>Connect</li>
+        <li>Send <code>handshake</code> &rarr; expect status response</li>
+        <li>If <code>in_sync</code>: expect <code>prefs</code> and <code>logs</code> automatically</li>
+        <li>Send <code>set_time</code> &rarr; silent success</li>
+        <li>Send <code>set_selected</code> with valid ID &rarr; expect <code>item_delta</code></li>
+    </ol>
+    <p>If all 5 work, BLE communication is healthy.</p>
+
+    <!-- ===== Section 9: App-Side Sync Pitfalls ===== -->
+    <h2 id="app-sync-pitfalls">9. App-Side Sync Pitfalls</h2>
+
+    <div class="note">
+        <strong>Note:</strong> Patterns that have caused bugs in the sync layer. Check here when items aren't syncing correctly.
+    </div>
+
+    <h3>9.1 "Newly created item not sent to device"</h3>
+    <p class="symptom">Item exists in Firestore but device doesn't have it</p>
+
+    <p><strong>Root Cause:</strong> Firestore stream hasn't emitted the new item when the sync triggers.</p>
+
+    <p><strong>Pattern:</strong> <code>createItem</code> writes to Firestore &rarr; <code>context.pop()</code> navigates back &rarr; <code>buildWhen</code> fires with <em>stale</em> items list &rarr; sync sends old list without new item &rarr; Firestore stream emits later but sync already happened.</p>
+
+    <p><strong>Fix Applied:</strong> <code>ItemFormPage</code> returns the created item via <code>context.pop(createdItem)</code>. <code>items_list_page</code> passes it to <code>_syncDeviceWithSelectedCategory(includeItem: createdItem)</code>.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Any operation that modifies Firestore and triggers a sync must explicitly pass the changed data. Don't rely on the Firestore stream being up-to-date immediately.
+    </div>
+
+    <hr>
+
+    <h3>9.2 "Sync debounce swallows changes"</h3>
+    <p class="symptom">Item config changed but device never updates</p>
+
+    <p><strong>Root Cause:</strong> Debounce logic updated the signature even when skipping the sync.</p>
+
+    <p><strong>Fix Applied:</strong> Only update <code>_lastSyncedSignature</code> after a successful sync, never during debounce.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Debounce should defer work, not discard it. Never mark state as "done" when you skipped the work.
+    </div>
+
+    <hr>
+
+    <h3>9.3 "Override selects wrong item"</h3>
+    <p class="symptom">After conflict override, device shows different item than app</p>
+
+    <p><strong>Selection resolution chain:</strong></p>
+    <ol>
+        <li><code>event.currentSelectedItemId</code> (from <code>AppUiState.activeItemId</code> &mdash; user's last swipe)</li>
+        <li><code>state.selectedItemId</code> (BluetoothBloc &mdash; from last device prefs notification)</li>
+        <li><code>user.lastSelectedDeviceItemId</code> (Firestore &mdash; from last sync)</li>
+        <li>First item in category (fallback)</li>
+    </ol>
+
+    <p><strong>Fix Applied:</strong> All conflict dialog paths now pass <code>AppUiState.activeItemId</code>.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When multiple state sources exist for the same concept, always trace which one is used. Add debug logging at the resolution point.
+    </div>
+
+    <hr>
+
+    <h3>9.4 "Multiple items with deviceItemId=0"</h3>
+    <p class="symptom">Device logs show multiple items sharing the same ID</p>
+
+    <p><strong>Root Cause:</strong> Items with <code>null</code> deviceItemId default to <code>0</code>:</p>
+    <pre><code>'id': item.deviceItemId ?? 0  // null becomes 0</code></pre>
+
+    <p><strong>Fix Applied:</strong> Migration (<code>ensureDeviceItemIds</code>) runs on startup. All model update paths now preserve <code>deviceItemId</code>.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Any nullable field used as an ID must have a migration path. Default values (like <code>?? 0</code>) silently mask the problem. When adding a field, grep for ALL <code>ItemModel(</code> constructors.
+    </div>
+
+    <hr>
+
+    <h3>9.5 "Override changes the selected item"</h3>
+    <p class="symptom">After reconnect + override, both app and device show a different selected item than before disconnect</p>
+
+    <p><strong>Root Cause:</strong> Two independent state sources track "selected item": <code>AppUiState.activeItemId</code> (SharedPreferences) and <code>BluetoothState.selectedItemId</code> (BLoC). When the device changes selection via button press, only the BLoC updates. On reconnect &rarr; conflict &rarr; override, the dialog reads the stale AppUiState value.</p>
+
+    <p><strong>Fix Applied:</strong> Added a <code>BlocListener</code> that syncs <code>AppUiState.activeItemId</code> whenever <code>BluetoothState.selectedItemId</code> changes.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When two state sources track the same concept, always keep them in sync. One should be the source of truth and the other should mirror it.
+    </div>
+
+    <hr>
+
+    <h3>9.6 "Device has items from wrong category after reset/sync"</h3>
+    <p class="symptom">After reset, pressing S on device cycles through items from multiple categories</p>
+
+    <p><strong>Root Cause:</strong> The code path that sends items after the operation bypasses the category filter.</p>
+
+    <p><strong>Fix Applied:</strong> Extracted shared <code>syncItemsToDevice()</code> helper in <code>device_sync_helper.dart</code>. All callers now use this single function, which always filters by the selected item's category.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Every path that sends items to the device must filter by the selected item's category. Always use <code>syncItemsToDevice()</code> &mdash; never call <code>SendItemsToDevice</code> directly with unfiltered items.
+    </div>
+
+    <hr>
+
+    <h3>9.7 "Device stuck on old category after drag across categories"</h3>
+    <p class="symptom">After Start New Cycle, dragging the selected item to a different category doesn't update the device</p>
+
+    <p><strong>Root Cause:</strong> <code>buildWhen</code> sync tracking (<code>_lastSyncedSignature</code>) was null after an <code>ItemsLoading</code> &rarr; <code>ItemsLoaded</code> transition. The sync block only runs for <code>ItemsLoaded &rarr; ItemsLoaded</code>.</p>
+
+    <p><strong>Fix Applied:</strong> Removed the INIT special case from <code>buildWhen</code>. When <code>_lastSyncedSignature</code> is null, the normal comparison triggers a sync.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Any state tracked inside <code>buildWhen</code> that only updates during <code>ItemsLoaded &rarr; ItemsLoaded</code> transitions will become stale after <code>ItemsLoading</code> interruptions. Handle null/uninitialized as "needs sync", not "skip sync".
+    </div>
+
+    <hr>
+
+    <h3>9.8 "Missing fields in manually constructed ItemModel"</h3>
+    <p class="symptom">Items lose <code>deviceItemId</code> after certain operations, causing all items to show as <code>id:0</code> on device</p>
+
+    <p><strong>Root Cause:</strong> Manual <code>ItemModel(...)</code> constructors forget to include all 18+ fields.</p>
+
+    <p><strong>Fix Applied:</strong> <code>resetAllItems</code> now uses <code>ItemModel.fromFirestore(doc).copyWith(count: 0, ...)</code> instead of manual construction.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Never manually construct <code>ItemModel</code> from raw Firestore data when <code>ItemModel.fromFirestore(doc)</code> already does it correctly. Use <code>fromFirestore</code> + <code>copyWith</code>.
+    </div>
+
+    <hr>
+
+    <h3>9.9 "Unnecessary device sync after navigating back from another page"</h3>
+    <p class="symptom">After navigating to another page and returning, the device receives a full item list even though nothing changed</p>
+
+    <p><strong>Root Cause:</strong> Navigating away triggers <code>ItemsLoading</code> (stream re-subscribe), which resets <code>_lastSyncedSignature</code> to null. On return, <code>buildWhen</code> sees <code>signatureChanged = true</code> and syncs unconditionally.</p>
+
+    <p><strong>Fix Applied:</strong> Split <code>buildWhen</code> into two branches:</p>
+    <ul>
+        <li><code>ItemsLoaded &rarr; ItemsLoaded</code>: call <code>_checkDeviceSync()</code> (compare signature, debounce, sync if changed)</li>
+        <li><code>non-ItemsLoaded &rarr; ItemsLoaded</code> with null signature: call <code>_initSyncTracking()</code> (set baseline <em>without</em> syncing)</li>
+    </ul>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When tracking state is used to detect changes, every transition that resets it must re-initialize it <em>without</em> treating the reset as a change. Pattern: <strong>initialize tracking on state recovery, sync on state change</strong>.
+    </div>
+
+    <hr>
+
+    <h3>9.10 "Device not updated after category deletion" / "Empty item list after deleting viewed category"</h3>
+    <p class="symptom">After deleting a category, the device still shows old items. Or the UI shows an empty list.</p>
+
+    <p><strong>Root Cause (device):</strong> Category deletion happens on <code>manage_categories_page</code> (Profile tab). The items list page is disposed on tab switch, so <code>buildWhen</code> can't detect the change.</p>
+
+    <p><strong>Root Cause (UI):</strong> The dropdown resets visually but the BLoC's <code>selectedCategoryId</code> still holds the deleted category's ID.</p>
+
+    <p><strong>Fix Applied:</strong></p>
+    <ul>
+        <li><strong>Device:</strong> <code>manage_categories_page</code> now calls <code>_syncDeviceAfterCategoryDeletion()</code> immediately after dispatch</li>
+        <li><strong>UI:</strong> <code>_buildCategoryDropdown</code> fires <code>FilterByCategoryEvent(null)</code> via <code>addPostFrameCallback</code> when selected category no longer exists</li>
+    </ul>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When the items list page can be disposed during an operation, don't rely on <code>buildWhen</code> to detect changes. Sync from the page where the operation happens. Visual-only resets must be accompanied by state resets.
+    </div>
+
+    <hr>
+
+    <!-- Debugging Checklist -->
+    <h3>9.11 Debugging Checklist: App &rarr; Device Sync</h3>
+
+    <div class="checklist">
+        <h3>When items aren't syncing correctly, check in this order:</h3>
+        <ol>
+            <li><strong>Does the item have <code>device_item_id</code> in Firestore?</strong> (null = not synced)</li>
+            <li><strong>Is the item in the selected item's category?</strong> (only same-category items sync)</li>
+            <li><strong>Is the sync going through <code>syncItemsToDevice()</code>?</strong> (direct <code>SendItemsToDevice</code> bypasses category filter)</li>
+            <li><strong>Was the sync debounced?</strong> (check <code>_lastSyncTime</code> &mdash; 500ms window; category changes bypass debounce)</li>
+            <li><strong>Is <code>_lastSyncedSignature</code> null?</strong> (happens after any <code>ItemsLoading</code> state &mdash; should trigger sync, not skip it)</li>
+            <li><strong>Is the Firestore stream up-to-date?</strong> (check <code>current.items</code> in <code>buildWhen</code>)</li>
+            <li><strong>Which <code>selectedItemId</code> source is being used?</strong> (check debug logs for resolution chain)</li>
+            <li><strong>Was <code>_lastSyncedSignature</code> updated without syncing?</strong> (debounce bug pattern)</li>
+            <li><strong>Was tracking updated after an explicit sync?</strong> (explicit sync + stream sync = duplicate)</li>
+        </ol>
+    </div>
+
+    <hr>
+
+    <h3>9.12 "Stream errors crash categories watcher"</h3>
+    <p class="symptom">Categories stop updating after a transient Firestore error</p>
+
+    <p><strong>Root Cause:</strong> <code>watchCategories()</code> used <code>.handleError()</code> + <code>throw error</code>, which terminates the stream. Unlike <code>watchItems()</code> which used <code>.onErrorResume()</code> to wrap errors in <code>Left(ServerFailure(...))</code> and keep the stream alive.</p>
+
+    <p><strong>Fix Applied:</strong> Changed <code>watchCategories()</code> to use <code>.onErrorResume()</code> matching the items pattern.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Repository stream methods should always use <code>onErrorResume</code> (not <code>handleError</code> + rethrow) to convert exceptions into <code>Left</code> values. Rethrowing terminates the stream permanently.
+    </div>
+
+    <hr>
+
+    <h3>9.13 "Email empty on Edit Profile after Google sign-in"</h3>
+    <p class="symptom">Edit Profile page shows empty email field even though user signed in with Google</p>
+
+    <p><strong>Root Cause:</strong> <code>getProfile()</code> merges Firebase Auth data into the Firestore profile using <code>copyWith()</code>, but only merged <code>displayName</code> and <code>photoUrl</code> &mdash; not <code>email</code>.</p>
+
+    <p><strong>Fix Applied:</strong> Added <code>email: user.email ?? firestoreProfile.email</code> to the <code>copyWith()</code> call.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When merging data from two sources (Firebase Auth + Firestore), ensure all fields are included in the merge. Missing a field silently returns the empty/default value.
+    </div>
+
+    <hr>
+
+    <h3>9.14 "Sticky header shows wrong category when first category is empty"</h3>
+    <p class="symptom">In the "All Categories" view, scrolling up replaces the first (empty) category's header with the second category's name</p>
+
+    <p><strong>Root Cause:</strong> <code>_calculateStickyCategory()</code> only iterated over <code>filteredItems</code> (actual items), completely ignoring empty category labels. The actual list includes empty categories as label entries, but the offset calculation didn't account for their height.</p>
+
+    <p><strong>Fix Applied:</strong> Rewrote <code>_calculateStickyCategory()</code> to iterate through all categories from <code>_cachedCategoryOrder</code> including empty ones, properly accounting for empty category label heights.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When calculating scroll-based positions for a list, the calculation must match the actual list structure exactly &mdash; including non-data entries like empty section headers.
+    </div>
+
+    <hr>
+
+    <h3>9.15 "Wrong account / sync conflict dialog shows twice during onboarding"</h3>
+    <p class="symptom">During onboarding device pairing, the dialog appears twice, stacked on top of each other</p>
+
+    <p><strong>Root Cause:</strong> Two independent listeners were both showing the same dialog. <code>main.dart</code> has global <code>BlocListener</code>s for <code>hasWrongAccount</code>, <code>hasConflict</code>, and <code>needsSetup</code>. <code>onboarding_step_device.dart</code> had its own duplicate listeners. During onboarding, both widgets are in the tree, so both fired.</p>
+
+    <p><strong>Fix Applied:</strong> Removed the duplicate dialog handling from <code>onboarding_step_device.dart</code>. The global listeners in <code>main.dart</code> already handle these for all pages.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When <code>main.dart</code> has global <code>BlocListener</code>s for a state flag, don't add page-level listeners for the same flag. Check <code>main.dart</code> first before adding dialog-showing listeners to individual pages.
+    </div>
+
+    <hr>
+
+    <h3>9.16 "Device wiped but account deletion failed (requires-recent-login)"</h3>
+    <p class="symptom">Email/password user tries to delete account, device gets factory reset, but <code>user.delete()</code> fails with <code>requires-recent-login</code></p>
+
+    <p><strong>Root Cause:</strong> Device cleanup (<code>_cleanupDevice</code>) ran <em>before</em> <code>user.delete()</code>. For email/password users, Firebase can require re-authentication. If re-auth fails, the account isn't deleted &mdash; but the device is already wiped.</p>
+
+    <p><strong>Fix Applied:</strong> Moved <code>_cleanupDevice</code> to <em>after</em> <code>user.delete()</code> succeeds, in the <code>BlocConsumer</code> listener that handles the <code>AccountDeleted</code> state. <code>AuthStateNotifier.updateNotifyOnAuthChange(false)</code> suppresses one auth state notification to prevent premature redirect.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Never perform destructive side effects (device wipe, data deletion) before the operation they depend on has confirmed success. If the operation can fail, the side effects become unrecoverable.
+    </div>
+
+    <hr>
+
+    <h3>9.17 "Previous cycle shows 'Now' as end time after 'Start a new cycle'"</h3>
+    <p class="symptom">After "Start a new cycle", the previous cycle shows the date range ending with "Now" instead of the actual reset timestamp</p>
+
+    <p><strong>Root Cause:</strong> Stale events data due to a timing gap between the items stream update and events reload. The items stream fires and <code>_resetNumber</code> updates immediately, but events require a manual <code>LoadEvents</code> dispatch. Before events reload, the previous cycle's <code>IntervalData</code> still has <code>endTime: null</code> because the reset event isn't in the stale events.</p>
+
+    <p><strong>Fix Applied:</strong> In <code>_updateIntervalsFromEvents</code>, when <code>_resetNumber &gt; maxEventResetNumber</code> (reset detected but events stale), also patch the previous cycle's <code>endTime</code> using <code>_lastResetTime</code>.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When one data source updates faster than another, derived state can be inconsistent. Defensively patch derived state using the data you already have, rather than waiting for all sources to sync.
+    </div>
+
+    <hr>
+
+    <h3>9.18 "Reset events missing from CSV export"</h3>
+    <p class="symptom">After "Start a new cycle", the reset event doesn't appear in the exported CSV</p>
+
+    <p><strong>Root Cause:</strong> Firestore field name mismatch in <code>resetAllItems()</code> at <code>item_remote_datasource_impl.dart</code>. The reset event batch write used camelCase field names (<code>'eventName'</code>, <code>'currentCount'</code>) while <code>EventLogModel.fromFirestore()</code> expects snake_case (<code>'event_name'</code>, <code>'currentcount'</code>). Result: reset events deserialize with <code>eventName: ''</code> (empty string) and <code>currentCount: 0</code>.</p>
+
+    <p><strong>Fix Applied:</strong> Changed the batch write to use <code>'event_name': 'reset'</code> / <code>'currentcount': 0</code>, matching the conventions used by <code>EventLogModel.toFirestore()</code>.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Firestore field names must match exactly between write and read. When writing raw Firestore maps (bypassing the model's <code>toFirestore()</code>), always check the model's <code>fromFirestore()</code> for the expected field names.
+    </div>
+
+    <div class="note">
+        <strong>Note:</strong> Existing reset events already in Firestore with the wrong field names will still not appear. They would need a Firestore migration or manual fix.
+    </div>
+
+    <!-- Quick Reference -->
+    <h2>Quick Reference: Error &rarr; Solution</h2>
+
+    <table>
+        <thead><tr><th>Error/Symptom</th><th>First Thing to Check</th></tr></thead>
+        <tbody>
+            <tr><td>Can't find device</td><td>Is it powered on? Already connected elsewhere?</td></tr>
+            <tr><td>GATT 133</td><td>Stop scan, wait 2s, then connect</td></tr>
+            <tr><td>Conflict status</td><td>Expected &mdash; complete override protocol</td></tr>
+            <tr><td>Wrong account</td><td>Factory reset device or use correct account</td></tr>
+            <tr><td>Counts don't match</td><td>Device is source of truth &mdash; use prefs response</td></tr>
+            <tr><td>set_items didn't update</td><td>By design &mdash; use override for count changes</td></tr>
+            <tr><td>No notifications</td><td>Check NOTIFY subscription</td></tr>
+            <tr><td>Garbled JSON</td><td>Check chunk reassembly and newline delimiter</td></tr>
+            <tr><td>Daily reset wrong time</td><td>Check timezone offset</td></tr>
+            <tr><td>Device not responding</td><td>Check conflict state and command format</td></tr>
+            <tr><td>New item not on device</td><td>Firestore stream timing &mdash; check includeItem path</td></tr>
+            <tr><td>Override selects wrong item</td><td>Check AppUiState vs BluetoothState selectedItemId sync</td></tr>
+            <tr><td>Wrong category after drag</td><td>Check <code>_lastSyncedSignature</code> null after <code>ItemsLoading</code></td></tr>
+            <tr><td>Wrong category after reset</td><td>Ensure sync goes through <code>syncItemsToDevice()</code></td></tr>
+            <tr><td>Items missing deviceItemId</td><td>Use <code>fromFirestore</code> + <code>copyWith</code></td></tr>
+            <tr><td>Multiple items with id=0</td><td>Check device_item_id in Firestore (null?)</td></tr>
+            <tr><td>Unnecessary sync after navigation</td><td><code>_lastSyncedSignature</code> null &mdash; needs <code>_initSyncTracking</code></td></tr>
+            <tr><td>Device stale after category deletion</td><td>Sync from <code>manage_categories_page</code></td></tr>
+            <tr><td>Empty list after deleting viewed category</td><td>Reset BLoC filter with <code>FilterByCategoryEvent(null)</code></td></tr>
+            <tr><td>Duplicate device sync</td><td>Explicit sync missing tracking update</td></tr>
+            <tr><td>Sync silently lost</td><td>Check debounce signature update logic</td></tr>
+            <tr><td>S button crosses categories</td><td>Check if sync path filters by selected category</td></tr>
+            <tr><td>Categories stop updating</td><td>Stream killed by rethrow &mdash; use <code>onErrorResume</code> not <code>handleError</code></td></tr>
+            <tr><td>Email empty after Google sign-in</td><td><code>getProfile()</code> missing email in <code>copyWith()</code> merge</td></tr>
+            <tr><td>Sticky header wrong category</td><td><code>_calculateStickyCategory</code> ignores empty categories &mdash; must match list layout</td></tr>
+            <tr><td>Dialog shows twice</td><td>Guard <code>BlocConsumer.listener</code> with <code>listenWhen</code> or tracking boolean</td></tr>
+            <tr><td>Device wiped but account not deleted</td><td>Cleanup must run AFTER <code>user.delete()</code> &mdash; see ADR-004</td></tr>
+            <tr><td>Previous cycle shows "Now" after reset</td><td>Stale events &mdash; <code>_updateIntervalsFromEvents</code> patches endTime from <code>_lastResetTime</code></td></tr>
+            <tr><td>Reset events missing from export</td><td>Field name mismatch &mdash; <code>'eventName'</code> vs <code>'event_name'</code> in <code>resetAllItems()</code> batch write</td></tr>
+        </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p><strong>Traxelos One Troubleshooting Playbook</strong></p>
+    </div>
+
+</div>
+</body>
+</html>
