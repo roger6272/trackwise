@@ -4,8 +4,6 @@ import 'package:equatable/equatable.dart';
 enum ExportAggregationLevel {
   raw,
   daily,
-  weekly,
-  monthly,
 }
 
 /// Data scope for CSV export.
@@ -37,9 +35,12 @@ class CSVExportConfig extends Equatable {
 
   /// Generate filename for the CSV export.
   String get filename {
+    final level = aggregationLevel.name;
+    if (dataScope == ExportDataScope.latestCycle) {
+      return 'tally_export_latest_cycle_$level.csv';
+    }
     final start = _formatDate(startDate);
     final end = _formatDate(endDate);
-    final level = aggregationLevel.name;
     return 'tally_export_${start}_to_${end}_$level.csv';
   }
 

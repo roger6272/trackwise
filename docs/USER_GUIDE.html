@@ -721,9 +721,9 @@
             <li>Tap <span class="ui">Export My Data</span></li>
             <li>Configure your export:
                 <ul>
-                    <li><strong>Date Range</strong> &mdash; Select start and end dates (default: last 30 days)</li>
-                    <li><strong>Aggregation</strong> &mdash; Raw, Daily, Weekly, or Monthly (default: Daily)</li>
                     <li><strong>Data Scope</strong> &mdash; Total (all data) or Latest Cycle only</li>
+                    <li><strong>Date Range</strong> &mdash; Select start and end dates (only shown when &ldquo;Total&rdquo; is selected)</li>
+                    <li><strong>Aggregation</strong> &mdash; Raw or Daily (default: Daily)</li>
                     <li><strong>Items</strong> &mdash; Tap to open a searchable picker and select which items to include (all selected by default)</li>
                 </ul>
             </li>
@@ -739,8 +739,6 @@
         <tbody>
             <tr><td><strong>Raw</strong></td><td>Every single count event</td></tr>
             <tr><td><strong>Daily</strong></td><td>Totals for each day</td></tr>
-            <tr><td><strong>Weekly</strong></td><td>Totals for each week</td></tr>
-            <tr><td><strong>Monthly</strong></td><td>Totals for each month</td></tr>
         </tbody>
     </table>
 
@@ -748,7 +746,7 @@
     <p>Your CSV file includes:</p>
     <ul>
         <li>Item names and categories</li>
-        <li>Date column &mdash; labeled <strong>&ldquo;Date&rdquo;</strong> for daily, <strong>&ldquo;Period Start&rdquo;</strong> for weekly/monthly, or <strong>&ldquo;Timestamp&rdquo;</strong> for raw</li>
+        <li>Date column &mdash; labeled <strong>&ldquo;Date&rdquo;</strong> for daily or <strong>&ldquo;Timestamp&rdquo;</strong> for raw</li>
         <li>Event type and count values</li>
         <li><strong>Cycle number and cycle note</strong> (raw export only) &mdash; if you&rsquo;ve added notes to your cycles, they appear alongside each event</li>
     </ul>

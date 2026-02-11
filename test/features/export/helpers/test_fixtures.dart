@@ -78,79 +78,6 @@ final testEventsWithSpecialChars = [
   ),
 ];
 
-/// Events spanning multiple weeks for weekly aggregation tests.
-final testEventsMultipleWeeks = [
-  // Week 1: Jan 8-14 (starts Monday Jan 8)
-  EventLog(
-    id: 'e1',
-    createdTime: DateTime(2024, 1, 8, 10, 0),
-    itemId: 'item_1',
-    eventName: 'Coffee',
-    increment: 2,
-    currentCount: 2,
-    userId: 'user_1',
-  ),
-  EventLog(
-    id: 'e2',
-    createdTime: DateTime(2024, 1, 10, 10, 0),
-    itemId: 'item_1',
-    eventName: 'Coffee',
-    increment: 3,
-    currentCount: 5,
-    userId: 'user_1',
-  ),
-  // Week 2: Jan 15-21 (starts Monday Jan 15)
-  EventLog(
-    id: 'e3',
-    createdTime: DateTime(2024, 1, 15, 10, 0),
-    itemId: 'item_1',
-    eventName: 'Coffee',
-    increment: 4,
-    currentCount: 9,
-    userId: 'user_1',
-  ),
-  EventLog(
-    id: 'e4',
-    createdTime: DateTime(2024, 1, 18, 10, 0),
-    itemId: 'item_1',
-    eventName: 'Coffee',
-    increment: 1,
-    currentCount: 10,
-    userId: 'user_1',
-  ),
-];
-
-/// Events spanning multiple months for monthly aggregation tests.
-final testEventsMultipleMonths = [
-  EventLog(
-    id: 'e1',
-    createdTime: DateTime(2024, 1, 15, 10, 0),
-    itemId: 'item_1',
-    eventName: 'Coffee',
-    increment: 5,
-    currentCount: 5,
-    userId: 'user_1',
-  ),
-  EventLog(
-    id: 'e2',
-    createdTime: DateTime(2024, 1, 20, 10, 0),
-    itemId: 'item_1',
-    eventName: 'Coffee',
-    increment: 3,
-    currentCount: 8,
-    userId: 'user_1',
-  ),
-  EventLog(
-    id: 'e3',
-    createdTime: DateTime(2024, 2, 5, 10, 0),
-    itemId: 'item_1',
-    eventName: 'Coffee',
-    increment: 7,
-    currentCount: 15,
-    userId: 'user_1',
-  ),
-];
-
 /// Default CSV export config for testing.
 final testCSVConfig = CSVExportConfig(
   startDate: testStartDate,
@@ -162,18 +89,6 @@ final testCSVConfigRaw = CSVExportConfig(
   startDate: testStartDate,
   endDate: testEndDate,
   aggregationLevel: ExportAggregationLevel.raw,
-);
-
-final testCSVConfigWeekly = CSVExportConfig(
-  startDate: DateTime(2024, 1, 1),
-  endDate: DateTime(2024, 1, 31),
-  aggregationLevel: ExportAggregationLevel.weekly,
-);
-
-final testCSVConfigMonthly = CSVExportConfig(
-  startDate: DateTime(2024, 1, 1),
-  endDate: DateTime(2024, 2, 28),
-  aggregationLevel: ExportAggregationLevel.monthly,
 );
 
 /// Default SendEmailParams for testing.

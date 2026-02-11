@@ -121,10 +121,6 @@ class _ExportPageState extends State<ExportPage> {
         return 'Raw';
       case ExportAggregationLevel.daily:
         return 'Daily';
-      case ExportAggregationLevel.weekly:
-        return 'Weekly';
-      case ExportAggregationLevel.monthly:
-        return 'Monthly';
     }
   }
 
@@ -196,86 +192,6 @@ class _ExportPageState extends State<ExportPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Date Range Section
-                          _buildSectionHeader(
-                            context: context,
-                            icon: Icons.date_range_rounded,
-                            title: 'Date Range',
-                          ),
-                          const SizedBox(height: 12.0),
-                          _buildDateRangeSelector(context),
-                          const SizedBox(height: 8.0),
-                          Center(
-                            child: Text(
-                              '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontFamily: 'Inter',
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.0,
-                              ),
-                            ),
-                          ),
-
-                          _buildSectionDivider(context),
-
-                          // Aggregation Level Section
-                          _buildSectionHeader(
-                            context: context,
-                            icon: Icons.layers_rounded,
-                            title: 'Aggregation Level',
-                          ),
-                          const SizedBox(height: 12.0),
-                          SizedBox(
-                            width: double.infinity,
-                            child: SegmentedButton<ExportAggregationLevel>(
-                              segments: ExportAggregationLevel.values.map((level) {
-                                return ButtonSegment<ExportAggregationLevel>(
-                                  value: level,
-                                  label: Text(_getAggregationLabel(level)),
-                                );
-                              }).toList(),
-                              selected: {_aggregationLevel},
-                              onSelectionChanged: (selected) {
-                                setState(() => _aggregationLevel = selected.first);
-                              },
-                              showSelectedIcon: false,
-                              style: ButtonStyle(
-                                backgroundColor: WidgetStateProperty.resolveWith((states) {
-                                  if (states.contains(WidgetState.selected)) {
-                                    return AppColors.primaryAdaptive(Theme.of(context).brightness);
-                                  }
-                                  return _inputBackground(context);
-                                }),
-                                foregroundColor: WidgetStateProperty.resolveWith((states) {
-                                  if (states.contains(WidgetState.selected)) {
-                                    return Colors.white;
-                                  }
-                                  return _inputText(context);
-                                }),
-                                textStyle: const WidgetStatePropertyAll(
-                                  TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 13.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8.0),
-                          Text(
-                            _getAggregationDescription(_aggregationLevel),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontFamily: 'Inter',
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              letterSpacing: 0.0,
-                            ),
-                          ),
-
-                          _buildSectionDivider(context),
-
                           // Data Scope Section
                           _buildSectionHeader(
                             context: context,
@@ -328,6 +244,88 @@ class _ExportPageState extends State<ExportPage> {
                           const SizedBox(height: 8.0),
                           Text(
                             _getDataScopeDescription(_dataScope),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontFamily: 'Inter',
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              letterSpacing: 0.0,
+                            ),
+                          ),
+
+                          // Date Range Section — only shown when Total is selected
+                          if (_dataScope == ExportDataScope.total) ...[
+                            _buildSectionDivider(context),
+
+                            _buildSectionHeader(
+                              context: context,
+                              icon: Icons.date_range_rounded,
+                              title: 'Date Range',
+                            ),
+                            const SizedBox(height: 12.0),
+                            _buildDateRangeSelector(context),
+                            const SizedBox(height: 8.0),
+                            Center(
+                              child: Text(
+                                '$_dateRangeDays ${_dateRangeDays == 1 ? 'day' : 'days'} selected',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'Inter',
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.0,
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          _buildSectionDivider(context),
+
+                          // Aggregation Level Section
+                          _buildSectionHeader(
+                            context: context,
+                            icon: Icons.layers_rounded,
+                            title: 'Aggregation Level',
+                          ),
+                          const SizedBox(height: 12.0),
+                          SizedBox(
+                            width: double.infinity,
+                            child: SegmentedButton<ExportAggregationLevel>(
+                              segments: ExportAggregationLevel.values.map((level) {
+                                return ButtonSegment<ExportAggregationLevel>(
+                                  value: level,
+                                  label: Text(_getAggregationLabel(level)),
+                                );
+                              }).toList(),
+                              selected: {_aggregationLevel},
+                              onSelectionChanged: (selected) {
+                                setState(() => _aggregationLevel = selected.first);
+                              },
+                              showSelectedIcon: false,
+                              style: ButtonStyle(
+                                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                                  if (states.contains(WidgetState.selected)) {
+                                    return AppColors.primaryAdaptive(Theme.of(context).brightness);
+                                  }
+                                  return _inputBackground(context);
+                                }),
+                                foregroundColor: WidgetStateProperty.resolveWith((states) {
+                                  if (states.contains(WidgetState.selected)) {
+                                    return Colors.white;
+                                  }
+                                  return _inputText(context);
+                                }),
+                                textStyle: const WidgetStatePropertyAll(
+                                  TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13.0,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8.0),
+                          Text(
+                            _getAggregationDescription(_aggregationLevel),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontFamily: 'Inter',
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -551,18 +549,26 @@ class _ExportPageState extends State<ExportPage> {
             ],
           ),
           const SizedBox(height: 16.0),
-          _buildPreviewRow(
-            context: context,
-            icon: Icons.calendar_today_rounded,
-            label: '${_formatDateShort(_startDate)} → ${_formatDateShort(_endDate)}',
-            subtitle: '$_dateRangeDays days',
-          ),
+          if (_dataScope == ExportDataScope.total)
+            _buildPreviewRow(
+              context: context,
+              icon: Icons.calendar_today_rounded,
+              label: '${_formatDateShort(_startDate)} → ${_formatDateShort(_endDate)}',
+              subtitle: '$_dateRangeDays days',
+            )
+          else
+            _buildPreviewRow(
+              context: context,
+              icon: Icons.refresh_rounded,
+              label: 'Latest Cycle',
+              subtitle: null,
+            ),
           const SizedBox(height: 10.0),
           _buildPreviewRow(
             context: context,
             icon: Icons.layers_rounded,
             label: '${_getAggregationLabel(_aggregationLevel)} aggregation',
-            subtitle: _getDataScopeLabel(_dataScope),
+            subtitle: null,
           ),
           const SizedBox(height: 10.0),
           _buildPreviewRow(
@@ -894,10 +900,6 @@ class _ExportPageState extends State<ExportPage> {
         return 'Export each individual event with timestamp.';
       case ExportAggregationLevel.daily:
         return 'Group events by day with totals.';
-      case ExportAggregationLevel.weekly:
-        return 'Group events by week with totals.';
-      case ExportAggregationLevel.monthly:
-        return 'Group events by month with totals.';
     }
   }
 
@@ -961,9 +963,10 @@ class _ExportPageState extends State<ExportPage> {
     }
     if (_selectedItemIds.isEmpty) return;
 
+    final isLatestCycle = _dataScope == ExportDataScope.latestCycle;
     blocContext.read<ExportBloc>().add(ExportCSV(
-      startDate: _startDate,
-      endDate: _endDate,
+      startDate: isLatestCycle ? DateTime(2020) : _startDate,
+      endDate: isLatestCycle ? DateTime.now() : _endDate,
       aggregationLevel: _aggregationLevel,
       dataScope: _dataScope,
       email: emailController.text.trim(),

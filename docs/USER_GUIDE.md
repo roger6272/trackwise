@@ -447,9 +447,9 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 1. Go to **Account tab**
 2. Tap **"Export My Data"**
 3. Configure your export:
-   - **Date Range** - Select start and end dates (default: last 30 days)
-   - **Aggregation** - Raw, Daily, Weekly, or Monthly (default: Daily)
    - **Data Scope** - Total (all data) or Latest Cycle only
+   - **Date Range** - Select start and end dates (only shown when "Total" is selected)
+   - **Aggregation** - Raw or Daily (default: Daily)
    - **Items** - Tap to open a searchable picker and select which items to include (all selected by default)
 4. Enter your **email address**
 5. Review the **Export Preview** card to confirm your settings
@@ -461,14 +461,12 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 |-------|--------------|
 | **Raw** | Every single count event |
 | **Daily** | Totals for each day |
-| **Weekly** | Totals for each week |
-| **Monthly** | Totals for each month |
 
 ### What's in the Export?
 
 Your CSV file includes:
 - Item names and categories
-- Date column — labeled **"Date"** for daily, **"Period Start"** for weekly/monthly, or **"Timestamp"** for raw
+- Date column — labeled **"Date"** for daily or **"Timestamp"** for raw
 - Event type and count values
 - **Cycle number and cycle note** (raw export only) — if you've added notes to your cycles, they appear alongside each event
 

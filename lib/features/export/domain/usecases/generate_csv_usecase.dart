@@ -129,7 +129,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       return itemNameMap[itemId] ?? 'Unknown Item';
     }
 
-    // Header row - use Timestamp for raw, Date for daily, Period Start for weekly/monthly
+    // Header row - use Timestamp for raw, Date for daily
     // Helper to get cycle note for an item's reset number
     String getCycleNote(String itemId, int resetNumber) {
       final notes = itemCycleNotesMap[itemId];
@@ -139,10 +139,8 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
     if (aggregationLevel == ExportAggregationLevel.raw) {
       buffer.writeln('Item Name,Category,Event Type,Cycle,Cycle Note,Timestamp,Event Count');
-    } else if (aggregationLevel == ExportAggregationLevel.daily) {
-      buffer.writeln('Item Name,Category,Event Type,Date,Event Count');
     } else {
-      buffer.writeln('Item Name,Category,Event Type,Period Start,Event Count');
+      buffer.writeln('Item Name,Category,Event Type,Date,Event Count');
     }
 
     if (events.isEmpty) {
@@ -223,13 +221,6 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
         return date;
       case ExportAggregationLevel.daily:
         return DateTime(date.year, date.month, date.day);
-      case ExportAggregationLevel.weekly:
-        // Start of week (Monday) - use Duration for proper date arithmetic
-        final daysToSubtract = date.weekday - 1;
-        final weekStart = date.subtract(Duration(days: daysToSubtract));
-        return DateTime(weekStart.year, weekStart.month, weekStart.day);
-      case ExportAggregationLevel.monthly:
-        return DateTime(date.year, date.month);
     }
   }
 

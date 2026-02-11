@@ -5,6 +5,7 @@ import 'package:traxelos/core/error/exceptions.dart';
 import 'package:traxelos/core/error/failures.dart';
 import 'package:traxelos/core/usecases/usecase.dart';
 import 'package:traxelos/features/export/data/datasources/firestore_mail_datasource.dart';
+import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
 import 'package:traxelos/features/export/domain/entities/send_email_params.dart';
 import 'package:traxelos/features/export/domain/usecases/generate_csv_usecase.dart';
 
@@ -59,6 +60,9 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
 
   /// Generate email subject based on export parameters.
   String _generateSubject(SendEmailParams params) {
+    if (params.dataScope == ExportDataScope.latestCycle) {
+      return 'Traxelos Export: Latest Cycle';
+    }
     final startStr = _formatDate(params.startDate);
     final endStr = _formatDate(params.endDate);
     return 'Traxelos Export: $startStr to $endStr';
@@ -66,15 +70,16 @@ class SendEmailWithCSVUseCase implements UseCase<void, SendEmailParams> {
 
   /// Generate email body based on export parameters.
   String _generateBody(SendEmailParams params) {
-    final startStr = _formatDate(params.startDate);
-    final endStr = _formatDate(params.endDate);
     final aggregation = params.aggregationLevel.name;
+    final dateRange = params.dataScope == ExportDataScope.latestCycle
+        ? 'Latest cycle'
+        : '${_formatDate(params.startDate)} to ${_formatDate(params.endDate)}';
 
     return '''
 Your Traxelos data export is attached.
 
 Export Details:
-- Date Range: $startStr to $endStr
+- Date Range: $dateRange
 - Aggregation: ${_capitalizeFirst(aggregation)}
 ${params.itemIds != null ? '- Items: ${params.itemIds!.length} items selected' : '- Items: All items'}
 

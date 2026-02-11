@@ -141,66 +141,6 @@ void main() {
       });
     });
 
-    group('weekly aggregation', () {
-      test('should aggregate events by week', () async {
-        // Arrange
-        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
-            .thenAnswer((_) async => Right(testEventsMultipleWeeks));
-        setupItemAndCategoryMocks();
-
-        // Act
-        final result = await useCase(testCSVConfigWeekly);
-
-        // Assert
-        expect(result.isRight(), true);
-        result.fold(
-          (failure) => fail('Should not fail'),
-          (csv) {
-            final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Category,Event Type,Period Start,Event Count');
-            // Week 1: 2+3=5
-            // Week 2: 4+1=5
-            expect(lines.length, 3); // Header + 2 weeks
-
-            // Check Week 1 (starts Monday Jan 8): 2+3=5
-            expect(lines.any((l) => l.contains('Coffee') && l.contains('2024-01-08') && l.contains('5')), true);
-            // Check Week 2 (starts Monday Jan 15): 4+1=5
-            expect(lines.any((l) => l.contains('Coffee') && l.contains('2024-01-15') && l.contains('5')), true);
-          },
-        );
-      });
-    });
-
-    group('monthly aggregation', () {
-      test('should aggregate events by month', () async {
-        // Arrange
-        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
-            .thenAnswer((_) async => Right(testEventsMultipleMonths));
-        setupItemAndCategoryMocks();
-
-        // Act
-        final result = await useCase(testCSVConfigMonthly);
-
-        // Assert
-        expect(result.isRight(), true);
-        result.fold(
-          (failure) => fail('Should not fail'),
-          (csv) {
-            final lines = csv.trim().split('\n');
-            expect(lines[0], 'Item Name,Category,Event Type,Period Start,Event Count');
-            // January: 5+3=8
-            // February: 7
-            expect(lines.length, 3); // Header + 2 months
-
-            // Check January: 5+3=8
-            expect(lines.any((l) => l.contains('Coffee') && l.contains('2024-01-01') && l.contains('8')), true);
-            // Check February: 7
-            expect(lines.any((l) => l.contains('Coffee') && l.contains('2024-02-01') && l.contains('7')), true);
-          },
-        );
-      });
-    });
-
     group('special characters', () {
       test('should escape commas in item names', () async {
         // Arrange
@@ -387,24 +327,15 @@ void main() {
       expect(config.filename, 'tally_export_2024-01-01_to_2024-01-31_daily.csv');
     });
 
-    test('should generate filename with weekly aggregation', () {
+    test('should generate filename for latest cycle', () {
       final config = CSVExportConfig(
-        startDate: DateTime(2024, 1, 1),
+        startDate: DateTime(2020),
         endDate: DateTime(2024, 1, 31),
-        aggregationLevel: ExportAggregationLevel.weekly,
+        aggregationLevel: ExportAggregationLevel.daily,
+        dataScope: ExportDataScope.latestCycle,
       );
 
-      expect(config.filename, 'tally_export_2024-01-01_to_2024-01-31_weekly.csv');
-    });
-
-    test('should generate filename with monthly aggregation', () {
-      final config = CSVExportConfig(
-        startDate: DateTime(2024, 1, 1),
-        endDate: DateTime(2024, 12, 31),
-        aggregationLevel: ExportAggregationLevel.monthly,
-      );
-
-      expect(config.filename, 'tally_export_2024-01-01_to_2024-12-31_monthly.csv');
+      expect(config.filename, 'tally_export_latest_cycle_daily.csv');
     });
   });
 }

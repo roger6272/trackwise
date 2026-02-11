@@ -158,6 +158,13 @@ void main() {
       expect(find.text('Aggregation Level'), findsOneWidget);
     });
 
+    testWidgets('displays data scope section', (tester) async {
+      await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Data Scope'), findsOneWidget);
+    });
+
     testWidgets('displays items section', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
