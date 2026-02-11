@@ -76,7 +76,7 @@ Your Traxelos data export is attached.
 Export Details:
 - Date Range: $startStr to $endStr
 - Aggregation: ${_capitalizeFirst(aggregation)}
-${params.itemId != null ? '- Item: Filtered by specific item' : '- Items: All items'}
+${params.itemIds != null ? '- Items: ${params.itemIds!.length} items selected' : '- Items: All items'}
 
 Thank you for using Traxelos!
 ''';

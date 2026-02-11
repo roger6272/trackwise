@@ -184,10 +184,17 @@ final testSendEmailParams = SendEmailParams(
   aggregationLevel: ExportAggregationLevel.daily,
 );
 
-final testSendEmailParamsWithItem = SendEmailParams(
+final testSendEmailParamsWithItems = SendEmailParams(
   email: testEmail,
   startDate: testStartDate,
   endDate: testEndDate,
   aggregationLevel: ExportAggregationLevel.daily,
-  itemId: testItemId,
+  itemIds: [testItemId],
+);
+
+final testCSVConfigWithItems = CSVExportConfig(
+  startDate: testStartDate,
+  endDate: testEndDate,
+  aggregationLevel: ExportAggregationLevel.daily,
+  itemIds: [testItemId],
 );

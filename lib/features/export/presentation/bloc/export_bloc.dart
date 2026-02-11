@@ -40,7 +40,7 @@ class ExportBloc extends Bloc<ExportEvent, ExportState> {
         endDate: event.endDate,
         aggregationLevel: event.aggregationLevel,
         dataScope: event.dataScope,
-        itemId: event.itemId,
+        itemIds: event.itemIds,
       ),
     );
 

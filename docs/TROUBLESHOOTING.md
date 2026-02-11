@@ -808,6 +808,20 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 
 ---
 
+### 9.18 "Reset events missing from CSV export"
+
+**Symptoms:** After "Start a new cycle", the reset event doesn't appear in the exported CSV. Raw export shows no row with event type "reset".
+
+**Root Cause:** Firestore field name mismatch in `resetAllItems()` at `item_remote_datasource_impl.dart:708`. The reset event batch write used camelCase field names (`'eventName'`, `'currentCount'`) while `EventLogModel.fromFirestore()` expects snake_case (`'event_name'`, `'currentcount'`). Result: reset events deserialize with `eventName: ''` (empty string) and `currentCount: 0` — they exist in Firestore but are invisible/blank in exports.
+
+**Fix Applied:** Changed the batch write from `'eventName': 'reset'` / `'currentCount': 0` to `'event_name': 'reset'` / `'currentcount': 0`, matching the conventions used by `EventLogModel.toFirestore()`.
+
+**Key Lesson:** Firestore field names must match exactly between write and read. The codebase uses snake_case in Firestore (`event_name`, `currentcount`, `reset_number`, `user_id`). When writing raw Firestore maps (bypassing the model's `toFirestore()`), always check the model's `fromFirestore()` for the expected field names. A mismatch silently falls through to the default value (`?? ''`).
+
+**Note:** Existing reset events already in Firestore with the wrong field names will still not appear. They would need a Firestore migration or manual fix.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -840,3 +854,4 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 | Sticky header wrong category | `_calculateStickyCategory` ignores empty categories — must match list layout |
 | Device wiped but account not deleted | Cleanup must run AFTER `user.delete()` — see ADR-004 |
 | Previous cycle shows "Now" after reset | Stale events — `_updateIntervalsFromEvents` patches endTime from `_lastResetTime` |
+| Reset events missing from export | Field name mismatch — `'eventName'` vs `'event_name'` in `resetAllItems()` batch write |

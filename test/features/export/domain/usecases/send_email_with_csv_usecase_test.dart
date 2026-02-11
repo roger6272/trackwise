@@ -162,12 +162,12 @@ void main() {
           )).thenAnswer((_) async {});
 
       // Act
-      await useCase(testSendEmailParamsWithItem);
+      await useCase(testSendEmailParamsWithItems);
 
       // Assert
       verify(() => mockGenerateCSV(any(
             that: isA<CSVExportConfig>()
-                .having((c) => c.itemId, 'itemId', testItemId)
+                .having((c) => c.itemIds, 'itemIds', [testItemId])
                 .having((c) => c.aggregationLevel, 'aggregationLevel',
                     ExportAggregationLevel.daily),
           ))).called(1);
@@ -181,13 +181,13 @@ void main() {
       expect(config.startDate, testStartDate);
       expect(config.endDate, testEndDate);
       expect(config.aggregationLevel, ExportAggregationLevel.daily);
-      expect(config.itemId, isNull);
+      expect(config.itemIds, isNull);
     });
 
-    test('should convert to CSVExportConfig with itemId', () {
-      final config = testSendEmailParamsWithItem.toCSVExportConfig();
+    test('should convert to CSVExportConfig with itemIds', () {
+      final config = testSendEmailParamsWithItems.toCSVExportConfig();
 
-      expect(config.itemId, testItemId);
+      expect(config.itemIds, [testItemId]);
     });
   });
 }

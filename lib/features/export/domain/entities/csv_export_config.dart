@@ -22,18 +22,18 @@ class CSVExportConfig extends Equatable {
   final DateTime endDate;
   final ExportAggregationLevel aggregationLevel;
   final ExportDataScope dataScope;
-  final String? itemId; // Optional: export for specific item only
+  final List<String>? itemIds; // Optional: export for specific items only
 
   const CSVExportConfig({
     required this.startDate,
     required this.endDate,
     this.aggregationLevel = ExportAggregationLevel.daily,
     this.dataScope = ExportDataScope.total,
-    this.itemId,
+    this.itemIds,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, dataScope, itemId];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, dataScope, itemIds];
 
   /// Generate filename for the CSV export.
   String get filename {

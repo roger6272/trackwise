@@ -5,6 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../categories/domain/entities/category.dart';
+import '../../../categories/domain/repositories/category_repository.dart';
+import '../../../items/domain/entities/item.dart';
+import '../../../items/domain/repositories/item_repository.dart';
 import '../../domain/entities/csv_export_config.dart';
 import '../bloc/export_bloc.dart';
 import '../bloc/export_event.dart';
@@ -32,6 +38,11 @@ class _ExportPageState extends State<ExportPage> {
   ExportAggregationLevel _aggregationLevel = ExportAggregationLevel.daily;
   ExportDataScope _dataScope = ExportDataScope.total;
 
+  List<Item> _items = [];
+  List<Category> _categories = [];
+  Set<String> _selectedItemIds = {};
+  bool _itemsLoading = true;
+
   // Theme-aware color getters
   Color _cardBackground(BuildContext context) =>
       AppColors.secondaryBackground(Theme.of(context).brightness);
@@ -44,6 +55,8 @@ class _ExportPageState extends State<ExportPage> {
 
   int get _dateRangeDays => _endDate.difference(_startDate).inDays + 1;
 
+  bool get _allSelected => _selectedItemIds.length == _items.length;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +64,25 @@ class _ExportPageState extends State<ExportPage> {
     emailFocusNode = FocusNode();
     // Update preview card when email changes
     emailController.addListener(_onEmailChanged);
+    _loadItems();
+  }
+
+  Future<void> _loadItems() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! Authenticated) return;
+
+    final userId = authState.user.id;
+    final itemsResult = await sl<ItemRepository>().getItems(userId);
+    final categoriesResult = await sl<CategoryRepository>().getCategories(userId);
+
+    if (!mounted) return;
+
+    setState(() {
+      itemsResult.fold((_) {}, (items) => _items = items);
+      categoriesResult.fold((_) {}, (categories) => _categories = categories);
+      _selectedItemIds = _items.map((i) => i.id).toSet();
+      _itemsLoading = false;
+    });
   }
 
   void _onEmailChanged() {
@@ -305,8 +337,14 @@ class _ExportPageState extends State<ExportPage> {
 
                           _buildSectionDivider(context),
 
-                          // Export Preview Card
-                          _buildPreviewCard(context),
+                          // Items Section
+                          _buildSectionHeader(
+                            context: context,
+                            icon: Icons.inventory_2_rounded,
+                            title: 'Items',
+                          ),
+                          const SizedBox(height: 12.0),
+                          _buildItemSelector(context),
 
                           _buildSectionDivider(context),
 
@@ -387,6 +425,12 @@ class _ExportPageState extends State<ExportPage> {
                               letterSpacing: 0.0,
                             ),
                           ),
+
+                          _buildSectionDivider(context),
+
+                          // Export Preview Card
+                          _buildPreviewCard(context),
+
                           const SizedBox(height: 32.0),
 
                           // Export Button
@@ -395,7 +439,9 @@ class _ExportPageState extends State<ExportPage> {
                               width: double.infinity,
                               height: 56.0,
                               child: ElevatedButton.icon(
-                                onPressed: isLoading ? null : () => _handleExport(blocContext),
+                                onPressed: isLoading || _selectedItemIds.isEmpty
+                                    ? null
+                                    : () => _handleExport(blocContext),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
                                   foregroundColor: Colors.white,
@@ -518,6 +564,13 @@ class _ExportPageState extends State<ExportPage> {
             label: '${_getAggregationLabel(_aggregationLevel)} aggregation',
             subtitle: _getDataScopeLabel(_dataScope),
           ),
+          const SizedBox(height: 10.0),
+          _buildPreviewRow(
+            context: context,
+            icon: Icons.inventory_2_rounded,
+            label: _allSelected ? 'All items' : '${_selectedItemIds.length} of ${_items.length} items',
+            subtitle: null,
+          ),
           if (hasEmail) ...[
             const SizedBox(height: 10.0),
             _buildPreviewRow(
@@ -581,6 +634,99 @@ class _ExportPageState extends State<ExportPage> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Item selector — dropdown-style field that opens a searchable bottom sheet
+  Widget _buildItemSelector(BuildContext context) {
+    if (_itemsLoading) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: CircularProgressIndicator(),
+      ));
+    }
+
+    if (_items.isEmpty) {
+      return Text(
+        'No items found.',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontFamily: 'Inter',
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          letterSpacing: 0.0,
+        ),
+      );
+    }
+
+    final label = _allSelected
+        ? 'All items'
+        : '${_selectedItemIds.length} of ${_items.length} items';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showItemPickerSheet(context),
+        borderRadius: BorderRadius.circular(12.0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+          decoration: BoxDecoration(
+            color: _cardBackground(context),
+            borderRadius: BorderRadius.circular(12.0),
+            border: Border.all(
+              color: _inputBackground(context),
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.checklist_rounded,
+                size: 20.0,
+                color: _inputHint(context),
+              ),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16.0,
+                    letterSpacing: 0.0,
+                    color: _inputText(context),
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_drop_down_rounded,
+                color: _inputHint(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showItemPickerSheet(BuildContext context) {
+    // Build category name lookup
+    final Map<String, String> categoryNames = {
+      for (final cat in _categories) cat.id: cat.name,
+    };
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _ItemPickerSheet(
+        items: _items,
+        categoryNames: categoryNames,
+        selectedIds: _selectedItemIds,
+        cardBackground: _cardBackground(context),
+        inputBackground: _inputBackground(context),
+        inputText: _inputText(context),
+        inputHint: _inputHint(context),
+        brightness: Theme.of(context).brightness,
+        onChanged: (ids) => setState(() => _selectedItemIds = ids),
+      ),
     );
   }
 
@@ -813,6 +959,7 @@ class _ExportPageState extends State<ExportPage> {
     if (!formKey.currentState!.validate()) {
       return;
     }
+    if (_selectedItemIds.isEmpty) return;
 
     blocContext.read<ExportBloc>().add(ExportCSV(
       startDate: _startDate,
@@ -820,6 +967,234 @@ class _ExportPageState extends State<ExportPage> {
       aggregationLevel: _aggregationLevel,
       dataScope: _dataScope,
       email: emailController.text.trim(),
+      itemIds: _allSelected ? null : _selectedItemIds.toList(),
     ));
+  }
+}
+
+/// Bottom sheet with search and multi-select checkboxes for item picking.
+class _ItemPickerSheet extends StatefulWidget {
+  final List<Item> items;
+  final Map<String, String> categoryNames;
+  final Set<String> selectedIds;
+  final Color cardBackground;
+  final Color inputBackground;
+  final Color inputText;
+  final Color inputHint;
+  final Brightness brightness;
+  final ValueChanged<Set<String>> onChanged;
+
+  const _ItemPickerSheet({
+    required this.items,
+    required this.categoryNames,
+    required this.selectedIds,
+    required this.cardBackground,
+    required this.inputBackground,
+    required this.inputText,
+    required this.inputHint,
+    required this.brightness,
+    required this.onChanged,
+  });
+
+  @override
+  State<_ItemPickerSheet> createState() => _ItemPickerSheetState();
+}
+
+class _ItemPickerSheetState extends State<_ItemPickerSheet> {
+  late Set<String> _selected;
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set.of(widget.selectedIds);
+  }
+
+  bool get _allSelected => _selected.length == widget.items.length;
+
+  List<Item> get _filteredItems {
+    if (_search.isEmpty) return widget.items;
+    final query = _search.toLowerCase();
+    return widget.items.where((i) => i.name.toLowerCase().contains(query)).toList();
+  }
+
+  String _categoryLabel(Item item) {
+    if (item.categoryId == null || item.categoryId!.isEmpty) return 'Uncategorized';
+    return widget.categoryNames[item.categoryId!] ?? 'Uncategorized';
+  }
+
+  void _toggle(String id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+      } else {
+        _selected.add(id);
+      }
+    });
+    widget.onChanged(_selected);
+  }
+
+  void _toggleAll() {
+    setState(() {
+      if (_allSelected) {
+        _selected.clear();
+      } else {
+        _selected = widget.items.map((i) => i.id).toSet();
+      }
+    });
+    widget.onChanged(_selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredItems;
+    final primaryColor = AppColors.primaryAdaptive(widget.brightness);
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
+      decoration: BoxDecoration(
+        color: widget.cardBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Padding(
+            padding: const EdgeInsets.only(top: 12.0, bottom: 4.0),
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: widget.inputBackground,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Header row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 8.0, 8.0, 0.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Select Items',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontFamily: 'Inter Tight',
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.0,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _toggleAll,
+                  child: Text(
+                    _allSelected ? 'Deselect All' : 'Select All',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.0,
+                      color: primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Search field
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              autofocus: false,
+              onChanged: (v) => setState(() => _search = v),
+              decoration: InputDecoration(
+                hintText: 'Search items...',
+                hintStyle: TextStyle(
+                  fontFamily: 'Inter',
+                  color: widget.inputHint,
+                  fontSize: 14.0,
+                  letterSpacing: 0.0,
+                ),
+                prefixIcon: Icon(Icons.search_rounded, size: 20.0, color: widget.inputHint),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: widget.inputBackground),
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: primaryColor, width: 1.5),
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                filled: true,
+                fillColor: widget.inputBackground.withAlpha(77),
+              ),
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14.0,
+                letterSpacing: 0.0,
+                color: widget.inputText,
+              ),
+            ),
+          ),
+          // Item list
+          Flexible(
+            child: filtered.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      'No items match your search.',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14.0,
+                        color: widget.inputHint,
+                        letterSpacing: 0.0,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final item = filtered[index];
+                      final selected = _selected.contains(item.id);
+                      return ListTile(
+                        dense: true,
+                        visualDensity: VisualDensity.compact,
+                        leading: Checkbox(
+                          value: selected,
+                          onChanged: (_) => _toggle(item.id),
+                          activeColor: primaryColor,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        title: Text(
+                          item.name,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14.0,
+                            letterSpacing: 0.0,
+                            color: widget.inputText,
+                          ),
+                        ),
+                        subtitle: Text(
+                          _categoryLabel(item),
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12.0,
+                            color: widget.inputHint,
+                            letterSpacing: 0.0,
+                          ),
+                        ),
+                        onTap: () => _toggle(item.id),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }

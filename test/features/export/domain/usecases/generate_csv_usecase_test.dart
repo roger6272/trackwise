@@ -281,24 +281,76 @@ void main() {
     });
 
     group('item filtering', () {
-      test('should use getEventsByItem when itemId is provided', () async {
+      test('should always use getEventsByDateRange and filter by itemIds', () async {
+        // Arrange
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(testEventsForCSV));
+        setupItemAndCategoryMocks();
+
+        // Act
+        final result = await useCase(testCSVConfigWithItems);
+
+        // Assert
+        verify(() => mockEventRepository.getEventsByDateRange(any(), any())).called(1);
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            // Only item_1 (Coffee) events should be included, not item_2 (Tea)
+            expect(lines.any((l) => l.contains('Tea')), false);
+            expect(lines.any((l) => l.contains('Coffee')), true);
+          },
+        );
+      });
+
+      test('should return all items when itemIds is null', () async {
+        // Arrange
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
+            .thenAnswer((_) async => Right(testEventsForCSV));
+        setupItemAndCategoryMocks();
+
+        // Act
+        final result = await useCase(testCSVConfig);
+
+        // Assert
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            // Both Coffee and Tea should be included
+            expect(lines.any((l) => l.contains('Coffee')), true);
+            expect(lines.any((l) => l.contains('Tea')), true);
+          },
+        );
+      });
+
+      test('should filter multiple itemIds', () async {
         // Arrange
         final config = CSVExportConfig(
           startDate: testStartDate,
           endDate: testEndDate,
           aggregationLevel: ExportAggregationLevel.daily,
-          itemId: testItemId,
+          itemIds: ['item_1', 'item_2'],
         );
-        when(() => mockEventRepository.getEventsByItem(any()))
+        when(() => mockEventRepository.getEventsByDateRange(any(), any()))
             .thenAnswer((_) async => Right(testEventsForCSV));
         setupItemAndCategoryMocks();
 
         // Act
-        await useCase(config);
+        final result = await useCase(config);
 
         // Assert
-        verify(() => mockEventRepository.getEventsByItem(testItemId)).called(1);
-        verifyNever(() => mockEventRepository.getEventsByDateRange(any(), any()));
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should not fail'),
+          (csv) {
+            final lines = csv.trim().split('\n');
+            expect(lines.any((l) => l.contains('Coffee')), true);
+            expect(lines.any((l) => l.contains('Tea')), true);
+          },
+        );
       });
     });
 

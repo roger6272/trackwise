@@ -22,16 +22,10 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
   @override
   Future<Either<Failure, String>> call(CSVExportConfig params) async {
     // Get events from repository
-    final Either<Failure, List<EventLog>> eventsResult;
-
-    if (params.itemId != null) {
-      eventsResult = await repository.getEventsByItem(params.itemId!);
-    } else {
-      eventsResult = await repository.getEventsByDateRange(
-        params.startDate,
-        params.endDate,
-      );
-    }
+    final eventsResult = await repository.getEventsByDateRange(
+      params.startDate,
+      params.endDate,
+    );
 
     if (eventsResult.isLeft()) {
       return Left(eventsResult.fold((l) => l, (_) => throw Exception()));
@@ -39,13 +33,9 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
     final events = eventsResult.getOrElse(() => []);
 
-    // Filter events by date range if we fetched by item
-    var filteredEvents = params.itemId != null
-        ? events
-            .where((e) =>
-                !e.createdTime.isBefore(params.startDate) &&
-                !e.createdTime.isAfter(params.endDate))
-            .toList()
+    // Filter by selected items if specified
+    var filteredEvents = (params.itemIds != null && params.itemIds!.isNotEmpty)
+        ? events.where((e) => params.itemIds!.contains(e.itemId)).toList()
         : events;
 
     // Filter by data scope

@@ -705,9 +705,9 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         batch.set(eventRef, {
           'created_time': Timestamp.fromDate(now),
           'item': itemDocRef,  // DocumentReference, not string - must match EventLog query
-          'eventName': 'reset',
+          'event_name': 'reset',
           'increment': 0,
-          'currentCount': 0,
+          'currentcount': 0,
           'reset_number': currentResetNumber,  // snake_case to match EventLogModel.fromFirestore
           'user_id': itemUserId,
         });

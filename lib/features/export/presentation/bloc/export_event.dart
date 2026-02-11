@@ -20,7 +20,7 @@ class ExportCSV extends ExportEvent {
   final ExportAggregationLevel aggregationLevel;
   final ExportDataScope dataScope;
   final String email;
-  final String? itemId;
+  final List<String>? itemIds;
 
   const ExportCSV({
     required this.startDate,
@@ -28,11 +28,11 @@ class ExportCSV extends ExportEvent {
     required this.aggregationLevel,
     this.dataScope = ExportDataScope.total,
     required this.email,
-    this.itemId,
+    this.itemIds,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, dataScope, email, itemId];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, dataScope, email, itemIds];
 }
 
 /// Event to reset the export state.
