@@ -70,8 +70,10 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
 - View trends and patterns over time
 
 ### 7. Data Export
-- Export to CSV with customizable date range and aggregation
-- Share via email or save locally
+- Export to CSV via email with three aggregation modes:
+  - **Raw** — every individual event with full timestamp
+  - **By Day** — button presses per day (resets and initial counts not included)
+  - **By Cycle** — total button presses per reset cycle (initial counts not included)
 
 ### 8. Cloud Backup
 - All data stored in Firebase Firestore
