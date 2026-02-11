@@ -469,6 +469,7 @@ Your CSV file includes:
 - Item names and categories
 - Date column — labeled **"Date"** for daily, **"Period Start"** for weekly/monthly, or **"Timestamp"** for raw
 - Event type and count values
+- **Cycle number and cycle note** (raw export only) — if you've added notes to your cycles, they appear alongside each event
 
 ---
 
