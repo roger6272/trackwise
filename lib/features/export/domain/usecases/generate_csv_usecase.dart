@@ -64,7 +64,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     }
 
     if (filteredEvents.isEmpty) {
-      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}, {}));
+      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}, {}, {}));
     }
 
     // Get userId from first event to fetch items and categories
@@ -83,12 +83,16 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     final itemsResult = await itemRepository.getItems(userId);
     final Map<String, String?> itemCategoryMap = {};
     final Map<String, String> itemNameMap = {};
+    final Map<String, Map<String, String>> itemCycleNotesMap = {};
     itemsResult.fold(
       (_) {},
       (items) {
         for (final item in items) {
           itemCategoryMap[item.id] = item.categoryId;
           itemNameMap[item.id] = item.name;
+          if (item.cycleNotes.isNotEmpty) {
+            itemCycleNotesMap[item.id] = item.cycleNotes;
+          }
         }
       },
     );
@@ -108,7 +112,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       },
     );
 
-    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap);
+    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap, itemCycleNotesMap);
     return Right(csv);
   }
 
@@ -119,6 +123,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     Map<String, String?> itemCategoryMap,
     Map<String, String> categoryNameMap,
     Map<String, String> itemNameMap,
+    Map<String, Map<String, String>> itemCycleNotesMap,
   ) {
     final buffer = StringBuffer();
 
@@ -135,8 +140,15 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     }
 
     // Header row - use Timestamp for raw, Date for daily, Period Start for weekly/monthly
+    // Helper to get cycle note for an item's reset number
+    String getCycleNote(String itemId, int resetNumber) {
+      final notes = itemCycleNotesMap[itemId];
+      if (notes == null) return '';
+      return notes[resetNumber.toString()] ?? '';
+    }
+
     if (aggregationLevel == ExportAggregationLevel.raw) {
-      buffer.writeln('Item Name,Category,Event Type,Cycle,Timestamp,Event Count');
+      buffer.writeln('Item Name,Category,Event Type,Cycle,Cycle Note,Timestamp,Event Count');
     } else if (aggregationLevel == ExportAggregationLevel.daily) {
       buffer.writeln('Item Name,Category,Event Type,Date,Event Count');
     } else {
@@ -152,8 +164,9 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       for (final event in events) {
         final itemName = getItemName(event.itemId);
         final category = getCategoryName(event.itemId);
+        final cycleNote = getCycleNote(event.itemId, event.resetNumber);
         buffer.writeln(
-          '${_escapeCSV(itemName)},${_escapeCSV(category)},${_escapeCSV(event.eventName)},${event.resetNumber},${_formatDateTime(event.createdTime)},${event.increment}',
+          '${_escapeCSV(itemName)},${_escapeCSV(category)},${_escapeCSV(event.eventName)},${event.resetNumber},${_escapeCSV(cycleNote)},${_formatDateTime(event.createdTime)},${event.increment}',
         );
       }
     } else {
