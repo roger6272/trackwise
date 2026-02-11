@@ -199,47 +199,35 @@ class _ExportPageState extends State<ExportPage> {
                             title: 'Data Scope',
                           ),
                           const SizedBox(height: 12.0),
-                          SizedBox(
-                            width: double.infinity,
-                            child: SegmentedButton<ExportDataScope>(
-                              segments: const [
-                                ButtonSegment<ExportDataScope>(
-                                  value: ExportDataScope.total,
-                                  label: Text('Total'),
+                          Wrap(
+                            spacing: 8.0,
+                            children: ExportDataScope.values.map((scope) {
+                              final selected = _dataScope == scope;
+                              return ChoiceChip(
+                                label: Text(_getDataScopeLabel(scope)),
+                                selected: selected,
+                                onSelected: (_) => setState(() => _dataScope = scope),
+                                selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
+                                backgroundColor: _inputBackground(context),
+                                labelStyle: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13.0,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.0,
+                                  color: selected ? Colors.white : _inputText(context),
                                 ),
-                                ButtonSegment<ExportDataScope>(
-                                  value: ExportDataScope.latestCycle,
-                                  label: Text('Latest Cycle'),
-                                ),
-                              ],
-                              selected: {_dataScope},
-                              onSelectionChanged: (selected) {
-                                setState(() => _dataScope = selected.first);
-                              },
-                              showSelectedIcon: false,
-                              style: ButtonStyle(
-                                backgroundColor: WidgetStateProperty.resolveWith((states) {
-                                  if (states.contains(WidgetState.selected)) {
-                                    return AppColors.primaryAdaptive(Theme.of(context).brightness);
-                                  }
-                                  return _inputBackground(context);
-                                }),
-                                foregroundColor: WidgetStateProperty.resolveWith((states) {
-                                  if (states.contains(WidgetState.selected)) {
-                                    return Colors.white;
-                                  }
-                                  return _inputText(context);
-                                }),
-                                textStyle: const WidgetStatePropertyAll(
-                                  TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 13.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w500,
+                                showCheckmark: false,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20.0),
+                                  side: BorderSide(
+                                    color: selected
+                                        ? AppColors.primaryAdaptive(Theme.of(context).brightness)
+                                        : _inputBackground(context),
                                   ),
                                 ),
-                              ),
-                            ),
+                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                              );
+                            }).toList(),
                           ),
                           const SizedBox(height: 8.0),
                           Text(
@@ -285,43 +273,35 @@ class _ExportPageState extends State<ExportPage> {
                             title: 'Aggregation Level',
                           ),
                           const SizedBox(height: 12.0),
-                          SizedBox(
-                            width: double.infinity,
-                            child: SegmentedButton<ExportAggregationLevel>(
-                              segments: ExportAggregationLevel.values.map((level) {
-                                return ButtonSegment<ExportAggregationLevel>(
-                                  value: level,
-                                  label: Text(_getAggregationLabel(level)),
-                                );
-                              }).toList(),
-                              selected: {_aggregationLevel},
-                              onSelectionChanged: (selected) {
-                                setState(() => _aggregationLevel = selected.first);
-                              },
-                              showSelectedIcon: false,
-                              style: ButtonStyle(
-                                backgroundColor: WidgetStateProperty.resolveWith((states) {
-                                  if (states.contains(WidgetState.selected)) {
-                                    return AppColors.primaryAdaptive(Theme.of(context).brightness);
-                                  }
-                                  return _inputBackground(context);
-                                }),
-                                foregroundColor: WidgetStateProperty.resolveWith((states) {
-                                  if (states.contains(WidgetState.selected)) {
-                                    return Colors.white;
-                                  }
-                                  return _inputText(context);
-                                }),
-                                textStyle: const WidgetStatePropertyAll(
-                                  TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 13.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w500,
+                          Wrap(
+                            spacing: 8.0,
+                            children: ExportAggregationLevel.values.map((level) {
+                              final selected = _aggregationLevel == level;
+                              return ChoiceChip(
+                                label: Text(_getAggregationLabel(level)),
+                                selected: selected,
+                                onSelected: (_) => setState(() => _aggregationLevel = level),
+                                selectedColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
+                                backgroundColor: _inputBackground(context),
+                                labelStyle: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13.0,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.0,
+                                  color: selected ? Colors.white : _inputText(context),
+                                ),
+                                showCheckmark: false,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20.0),
+                                  side: BorderSide(
+                                    color: selected
+                                        ? AppColors.primaryAdaptive(Theme.of(context).brightness)
+                                        : _inputBackground(context),
                                   ),
                                 ),
-                              ),
-                            ),
+                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                              );
+                            }).toList(),
                           ),
                           const SizedBox(height: 8.0),
                           Text(
