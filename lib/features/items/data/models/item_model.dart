@@ -27,6 +27,8 @@ class ItemModel extends Item {
     super.categoryId,
     super.categoryOrder,
     super.deviceItemId,
+    super.cycleNames,
+    super.cycleNotes,
   });
 
   /// Creates an ItemModel from a Firestore DocumentSnapshot.
@@ -80,6 +82,12 @@ class ItemModel extends Item {
       categoryId: data['category_id'] as String?,
       categoryOrder: data['category_order'] as int? ?? 0,
       deviceItemId: data['device_item_id'] as int?,
+      cycleNames: (data['cycle_names'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, v.toString())) ??
+          const {},
+      cycleNotes: (data['cycle_notes'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, v.toString())) ??
+          const {},
     );
   }
 
@@ -127,6 +135,8 @@ class ItemModel extends Item {
       'initial_count': this.initialCount,
       'reset_number': this.resetNumber,
       'category_order': this.categoryOrder,
+      'cycle_names': this.cycleNames,
+      'cycle_notes': this.cycleNotes,
     };
     if (this.lastResetTime != null) {
       map['lastResetTime'] = this.lastResetTime!.millisecondsSinceEpoch;
@@ -202,6 +212,8 @@ class ItemModel extends Item {
     bool clearCategoryId = false,
     int? categoryOrder,
     int? deviceItemId,
+    Map<String, String>? cycleNames,
+    Map<String, String>? cycleNotes,
   }) {
     return ItemModel(
       id: id ?? this.id,
@@ -222,6 +234,8 @@ class ItemModel extends Item {
       categoryId: clearCategoryId ? null : (categoryId ?? this.categoryId),
       categoryOrder: categoryOrder ?? this.categoryOrder,
       deviceItemId: deviceItemId ?? this.deviceItemId,
+      cycleNames: cycleNames ?? this.cycleNames,
+      cycleNotes: cycleNotes ?? this.cycleNotes,
     );
   }
 

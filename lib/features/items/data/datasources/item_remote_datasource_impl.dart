@@ -237,6 +237,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
         deviceItemId: deviceItemId, // Assigned deviceItemId for BLE
+        cycleNames: item.cycleNames,
+        cycleNotes: item.cycleNotes,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -278,6 +280,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
         deviceItemId: item.deviceItemId, // Preserve deviceItemId
+        cycleNames: item.cycleNames,
+        cycleNotes: item.cycleNotes,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -339,6 +343,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         categoryOrder: item.categoryOrder,
         deviceItemId: item.deviceItemId,
         resetNumber: item.resetNumber,
+        cycleNames: item.cycleNames,
+        cycleNotes: item.cycleNotes,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -724,6 +730,40 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       throw ServerException('Failed to reset all items: ${e.message}');
     } catch (e) {
       throw ServerException('Unexpected error resetting all items: $e');
+    }
+  }
+
+  @override
+  Future<void> updateCycleNames(
+    String itemId,
+    Map<String, String> cycleNames,
+  ) async {
+    try {
+      await firestore.collection('Item').doc(itemId).update({
+        'cycle_names': cycleNames,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to update cycle names: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error updating cycle names: $e');
+    }
+  }
+
+  @override
+  Future<void> updateCycleNotes(
+    String itemId,
+    Map<String, String> cycleNotes,
+  ) async {
+    try {
+      await firestore.collection('Item').doc(itemId).update({
+        'cycle_notes': cycleNotes,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to update cycle notes: ${e.message}');
+    } catch (e) {
+      throw ServerException('Unexpected error updating cycle notes: $e');
     }
   }
 

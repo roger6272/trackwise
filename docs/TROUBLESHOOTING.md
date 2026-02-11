@@ -790,6 +790,22 @@ When items aren't syncing correctly, check in this order:
 
 **See also:** [ADR-004](decisions/ADR-004-device-cleanup-after-account-deletion.md) for the full design rationale.
 
+### 9.17 "Previous cycle shows 'Now' as end time after 'Start a new cycle'"
+
+**Symptoms:** After using "Start a new cycle" from the profile page, navigating to an item's detail page and switching to the previous cycle shows the date range ending with "Now" instead of the actual reset timestamp. The BLE "r" button does NOT have this issue.
+
+**Root Cause:** Stale events data due to a timing gap between the items stream update and events reload. The flow:
+1. `resetAllItems` commits a Firestore batch (item update + reset event creation)
+2. The items stream fires → `_resetNumber` updates immediately via `didUpdateWidget`
+3. Events are NOT automatically reloaded — they require a manual `LoadEvents` dispatch (posted to the next frame via `_needsDataReload`)
+4. Before events reload, `_updateIntervalsFromEvents` creates a virtual interval for the new cycle, but the previous cycle's `IntervalData` still has `endTime: null` because the reset event isn't in the stale events
+
+The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers `LoadEvents` after sync completes, ensuring fresh events.
+
+**Fix Applied:** In `_updateIntervalsFromEvents`, when `_resetNumber > maxEventResetNumber` (reset detected but events stale), also patch the previous cycle's `endTime` using `_lastResetTime` (which IS already updated from the items stream). This ensures correct display even before events reload.
+
+**Key Lesson:** When one data source updates faster than another (items stream vs events one-shot query), derived state (intervals) can be inconsistent. Defensively patch derived state using the data you already have, rather than waiting for all sources to sync. This is especially important when the UI reads from computed state that merges multiple async data sources.
+
 ---
 
 ## Quick Reference: Error → Solution
@@ -823,3 +839,4 @@ When items aren't syncing correctly, check in this order:
 | Email empty after Google sign-in | `getProfile()` missing email in `copyWith()` merge |
 | Sticky header wrong category | `_calculateStickyCategory` ignores empty categories — must match list layout |
 | Device wiped but account not deleted | Cleanup must run AFTER `user.delete()` — see ADR-004 |
+| Previous cycle shows "Now" after reset | Stale events — `_updateIntervalsFromEvents` patches endTime from `_lastResetTime` |

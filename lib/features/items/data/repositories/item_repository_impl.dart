@@ -101,6 +101,8 @@ class ItemRepositoryImpl implements ItemRepository {
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
         deviceItemId: item.deviceItemId, // Will be assigned by datasource
+        cycleNames: item.cycleNames,
+        cycleNotes: item.cycleNotes,
       );
       final created = await remoteDataSource.createItem(itemModel);
 
@@ -151,6 +153,8 @@ class ItemRepositoryImpl implements ItemRepository {
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
         deviceItemId: item.deviceItemId,
+        cycleNames: item.cycleNames,
+        cycleNotes: item.cycleNotes,
       );
       final updated = await remoteDataSource.updateItem(itemModel);
       return Right(updated);
@@ -245,6 +249,8 @@ class ItemRepositoryImpl implements ItemRepository {
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
         deviceItemId: item.deviceItemId,
+        cycleNames: item.cycleNames,
+        cycleNotes: item.cycleNotes,
       )).toList();
       await remoteDataSource.reorderItems(itemModels);
       return const Right(null);
@@ -274,6 +280,8 @@ class ItemRepositoryImpl implements ItemRepository {
         categoryId: item.categoryId,
         categoryOrder: item.categoryOrder,
         deviceItemId: item.deviceItemId,
+        cycleNames: item.cycleNames,
+        cycleNotes: item.cycleNotes,
       )).toList();
       await remoteDataSource.reorderItemsInCategory(itemModels);
       return const Right(null);
@@ -330,6 +338,32 @@ class ItemRepositoryImpl implements ItemRepository {
       final models = await remoteDataSource.resetAllItems(userId);
       final items = models.map((model) => model.toEntity()).toList();
       return Right(items);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateCycleNames(
+    String itemId,
+    Map<String, String> cycleNames,
+  ) async {
+    try {
+      await remoteDataSource.updateCycleNames(itemId, cycleNames);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateCycleNotes(
+    String itemId,
+    Map<String, String> cycleNotes,
+  ) async {
+    try {
+      await remoteDataSource.updateCycleNotes(itemId, cycleNotes);
+      return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     }

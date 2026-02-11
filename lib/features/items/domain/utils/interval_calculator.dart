@@ -119,7 +119,6 @@ class IntervalCalculator {
     // Process each interval (limited to maxIntervals)
     for (int i = 0; i < sortedIntervalNumbers.length && i < maxIntervals; i++) {
       final intervalNumber = sortedIntervalNumbers[i];
-      final isCurrent = i == 0;
 
       // Determine start time:
       // - For interval 0: use 'created' event time, or earliest event
@@ -151,8 +150,9 @@ class IntervalCalculator {
         }
       }
 
-      // End time: reset event in this interval (null if current)
-      final intervalEnd = isCurrent ? null : resetTimeByInterval[intervalNumber];
+      // End time: use reset event timestamp if it exists (cycle is closed),
+      // null if no reset event (cycle is still active/current).
+      final intervalEnd = resetTimeByInterval[intervalNumber];
 
       if (intervalStart != null) {
         results.add(IntervalData(
