@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traxelos One Product Overview</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --table-header: #f1f5f9;
+            --accent-bg: #eff6ff;
+            --accent-border: #bfdbfe;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 48px 56px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.2em;
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1em;
+            margin-bottom: 32px;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            font-size: 1.5em;
+            margin-top: 56px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        h3 {
+            color: var(--text-color);
+            font-size: 1.15em;
+            margin-top: 28px;
+        }
+
+        h4 {
+            color: var(--text-muted);
+            font-size: 1em;
+            margin-top: 20px;
+        }
+
+        /* Table of Contents */
+        .toc {
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            border-radius: 8px;
+            padding: 24px 32px;
+            margin: 24px 0 40px;
+        }
+        .toc h3 { margin-top: 0; color: var(--secondary-color); }
+        .toc ol { margin: 0; padding-left: 20px; }
+        .toc li { margin: 6px 0; }
+        .toc a { color: var(--primary-color); text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.95em;
+        }
+        th, td {
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background: var(--table-header);
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        tr:hover td { background: #fafbfc; }
+
+        /* Lists */
+        ul, ol { padding-left: 24px; }
+        li { margin: 4px 0; }
+
+        /* Callout / Note */
+        .note {
+            background: var(--accent-bg);
+            border-left: 4px solid var(--primary-color);
+            padding: 14px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+            font-size: 0.95em;
+        }
+        .note strong { color: var(--secondary-color); }
+
+        /* Comparison cards */
+        .comparison {
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin: 16px 0;
+        }
+        .comparison h4 { margin-top: 0; color: var(--secondary-color); }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 2px solid var(--primary-color);
+            color: var(--text-muted);
+        }
+        .footer .tagline {
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 1.1em;
+            margin-top: 8px;
+        }
+
+        hr { border: none; border-top: 1px solid var(--border-color); margin: 40px 0; }
+
+        @media (max-width: 700px) {
+            .container { padding: 24px 20px; }
+            h1 { font-size: 1.6em; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>Traxelos One Product Overview</h1>
+
+    <div class="toc">
+        <h3>Contents</h3>
+        <ol>
+            <li><a href="#what-is-traxelos">What is Traxelos One?</a></li>
+            <li><a href="#the-problem">The Problem</a></li>
+            <li><a href="#the-solution">The Solution</a></li>
+            <li><a href="#key-features">Key Features</a></li>
+            <li><a href="#differentiators">Unique Differentiators</a></li>
+            <li><a href="#use-cases">Use Cases</a></li>
+        </ol>
+    </div>
+
+    <!-- Section 1 -->
+    <h2 id="what-is-traxelos">What is Traxelos One?</h2>
+
+    <p>Traxelos One is a <strong>physical counter device with companion mobile app</strong> that enables hands-free tracking of habits, inventory, or any countable activity. Unlike app-only solutions, Traxelos One combines a dedicated ESP32-based hardware counter with a feature-rich Flutter app, allowing users to track with a physical button press while maintaining full analytics and cloud synchronization.</p>
+
+    <!-- Section 2 -->
+    <h2 id="the-problem">The Problem</h2>
+
+    <p>Traditional counting and habit tracking solutions have significant limitations:</p>
+    <ul>
+        <li><strong>App-only solutions</strong> require pulling out your phone, unlocking it, and navigating to the app for each count &mdash; creating friction that leads to missed tracking</li>
+        <li><strong>Mechanical tally counters</strong> are simple but offer no data persistence, analytics, or synchronization</li>
+        <li><strong>Smart devices</strong> often lack the specialized features needed for serious counting workflows (goals, reminders, categories, export)</li>
+    </ul>
+
+    <!-- Section 3 -->
+    <h2 id="the-solution">The Solution</h2>
+
+    <p>Traxelos One bridges the gap between physical simplicity and digital intelligence:</p>
+
+    <table>
+        <thead><tr><th>Physical Device</th><th>Mobile App</th></tr></thead>
+        <tbody>
+            <tr><td>Instant button-press counting</td><td>Full data management</td></tr>
+            <tr><td>Haptic feedback on goals and reminders</td><td>Analytics and charts</td></tr>
+            <tr><td>Works without phone nearby</td><td>Cloud sync and backup</td></tr>
+            <tr><td>Daily auto-reset at midnight</td><td>CSV data export</td></tr>
+            <tr><td>Remembers counts through power loss</td><td>Goal tracking and reminders</td></tr>
+        </tbody>
+    </table>
+
+    <!-- Section 4 -->
+    <h2 id="key-features">Key Features</h2>
+
+    <h3>1. Hardware Counter Device</h3>
+    <ul>
+        <li><strong>ESP32-based</strong> BLE peripheral with button input</li>
+        <li><strong>Real-Time Clock (DS3231)</strong> for accurate timestamps and daily resets</li>
+        <li><strong>Vibration motor</strong> for haptic feedback on goals and reminders</li>
+        <li><strong>Persistent storage</strong> &mdash; counts survive power loss</li>
+        <li><strong>Multi-item support</strong> &mdash; switch between items directly on device</li>
+    </ul>
+
+    <h3>2. Multi-Item Tracking</h3>
+    <ul>
+        <li>Track up to 100 items (habits, inventory, activities)</li>
+        <li>Each item maintains:
+            <ul>
+                <li><strong>Cumulative count</strong> (total across all time)</li>
+                <li><strong>Today count</strong> (auto-resets at midnight)</li>
+                <li><strong>Reset history</strong> with timestamps</li>
+                <li><strong>Custom increment value</strong> (1&ndash;1000 per press)</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>3. Smart Reminders</h3>
+    <ul>
+        <li><strong>Goal reached</strong> &mdash; triple vibration when hitting your goal count</li>
+        <li><strong>Target reminders</strong> &mdash; vibrate when reaching a reminder target</li>
+        <li><strong>Interval reminders</strong> &mdash; vibrate every N increments</li>
+        <li>Haptic feedback keeps you aware without looking at your phone</li>
+    </ul>
+
+    <h3>4. Organization with Categories</h3>
+    <ul>
+        <li>Group items into categories (e.g., "Fitness", "Work", "Health")</li>
+        <li>Filter and view items by category</li>
+        <li>Drag-to-reorder for custom sorting</li>
+    </ul>
+
+    <h3>5. Real-Time BLE Synchronization</h3>
+    <ul>
+        <li>Instant sync between device and app</li>
+        <li>Auto-reconnect on unexpected disconnection during active session</li>
+        <li>Time synchronization ensures accurate timestamps</li>
+        <li>Works offline &mdash; syncs when reconnected</li>
+    </ul>
+
+    <h3>6. Analytics and Charts</h3>
+    <ul>
+        <li>Bar charts with multiple aggregation levels (Hourly / Daily / Weekly / Monthly)</li>
+        <li>Statistics: period totals, percent change vs prior period</li>
+        <li>View trends and patterns over time</li>
+    </ul>
+
+    <h3>7. Data Export</h3>
+    <ul>
+        <li>Export to CSV via email with three aggregation modes:
+            <ul>
+                <li><strong>Raw</strong> &mdash; every individual event with full timestamp</li>
+                <li><strong>By Day</strong> &mdash; button presses per day (resets and initial counts not included)</li>
+                <li><strong>By Cycle</strong> &mdash; total button presses per reset cycle (initial counts not included)</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>8. Cloud Backup</h3>
+    <ul>
+        <li>All data stored in Firebase Firestore</li>
+        <li>Multi-device access with same account</li>
+        <li>90-day soft delete recovery period</li>
+    </ul>
+
+    <!-- Section 5 -->
+    <h2 id="differentiators">Unique Differentiators</h2>
+
+    <div class="comparison">
+        <h4>vs. App-Only Solutions (Streaks, Habitica, etc.)</h4>
+        <ul>
+            <li><strong>Lower friction</strong> &mdash; single button press vs unlock/navigate/tap</li>
+            <li><strong>Hands-free counting</strong> &mdash; don't need your phone</li>
+            <li><strong>Haptic feedback</strong> &mdash; physical confirmation</li>
+            <li><strong>Physical satisfaction</strong> &mdash; tactile experience</li>
+        </ul>
+    </div>
+
+    <div class="comparison">
+        <h4>vs. Mechanical Tally Counters</h4>
+        <ul>
+            <li><strong>Data persistence</strong> and analytics</li>
+            <li><strong>Multiple items</strong> on one device</li>
+            <li><strong>Cloud sync</strong> and backup</li>
+            <li><strong>Smart reminders</strong> and goals</li>
+        </ul>
+    </div>
+
+    <div class="comparison">
+        <h4>vs. Smart Buttons (Flic, etc.)</h4>
+        <ul>
+            <li><strong>Purpose-built</strong> for counting workflows</li>
+            <li><strong>Built-in analytics</strong> app</li>
+            <li><strong>On-device item switching</strong></li>
+            <li><strong>Daily reset logic</strong> built in</li>
+        </ul>
+    </div>
+
+    <!-- Section 6 -->
+    <h2 id="use-cases">Use Cases</h2>
+
+    <table>
+        <thead><tr><th>Category</th><th>Examples</th></tr></thead>
+        <tbody>
+            <tr><td><strong>Habit Tracking</strong></td><td>Water intake, exercise reps, meditation sessions</td></tr>
+            <tr><td><strong>Inventory Management</strong></td><td>Stock counts, audit tallying, shipment tracking</td></tr>
+            <tr><td><strong>Professional Counting</strong></td><td>Lab samples, event attendance, QC checks</td></tr>
+            <tr><td><strong>Personal Productivity</strong></td><td>Pomodoro sessions, task completion</td></tr>
+        </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p><strong>One button. Instant count. Full insights.</strong></p>
+        <p class="tagline">Traxelos One solves the friction problem in habit and inventory tracking by combining the simplicity of a physical button with the intelligence of a modern app.</p>
+    </div>
+
+</div>
+</body>
+</html>
