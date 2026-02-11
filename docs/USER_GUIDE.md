@@ -369,11 +369,12 @@ Reminders make your physical device vibrate to keep you on track — no need to 
 
 Tap any item to see detailed analytics (the page title shows the item name):
 
-- **Current Count** - Your total and today's count
-- **Goal Progress** - Visual progress ring (if goal set)
-- **Charts** - Visual trends over time
-- **Statistics** - Period total, percent change vs prior period
-- **Reset History** - All your tracking periods (cycles)
+- **Count Card** - Large count with goal progress ring, date info, and config stats (Per Press, Reminder)
+- **Cycle Note** - Optional text note for each cycle (tap to edit, 250 character limit)
+- **Activity** - Charts showing visual trends over time
+- **Cycle History** - Table of all your tracking periods with counts and durations
+
+When viewing a historical cycle, the count card shows that cycle's total and date range. Config stats (Per Press, Reminder) appear grayed out since they only apply to the current cycle.
 
 ### Understanding Reset Cycles
 
@@ -384,18 +385,32 @@ Every time you reset an item's count, a new **cycle** begins. This lets you trac
 - Cycle 2: Week 2 counts
 - Current Cycle: This week's counts
 
+You can **name your cycles** and **add notes** to remember what each period was about (e.g., "Training block A" or "Started new routine").
+
 ### Filtering by Reset Cycle
 
-Use the **"Filter by Reset Cycle"** dropdown to view specific periods:
+Tap the **cycle selector chip** at the top of the item detail page to open a bottom sheet where you can:
+
+- **Select a cycle** to view its data
+- **Rename cycles** by tapping the edit icon next to any cycle name
+- **See All Time** summary across all cycles
 
 | Option | What It Shows |
 |--------|---------------|
 | **All Time** | Complete history across all cycles |
 | **Current Cycle** | Only counts since your last reset |
-| **Previous Cycle** | The cycle before current |
-| **Cycle #** | A specific numbered cycle |
+| **Previous cycles** | A specific named or numbered cycle |
 
-The charts and statistics update based on your selected cycle.
+The charts, statistics, and cycle note update based on your selected cycle.
+
+### Cycle Notes
+
+Each cycle can have an optional text note (up to 250 characters). Use notes to record context like why you started a new cycle or what changed.
+
+- Tap the **"Add a note..."** area below the count card to start writing
+- Tap **Done** or tap outside the text field to save
+- Notes are saved per-cycle and hidden when viewing All Time
+- Notes sync with your account and persist across devices
 
 ### Understanding the Charts
 
