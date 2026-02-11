@@ -448,8 +448,8 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 2. Tap **"Export My Data"**
 3. Choose an **Aggregation Level**:
    - **Raw** — every single count event
-   - **By Day** — totals per item per day
-   - **By Cycle** — totals per item per reset cycle
+   - **By Day** — button presses per item per day (resets and initial counts not included)
+   - **By Cycle** — total button presses per item per reset cycle (initial counts not included)
 4. Configure additional options:
    - *Raw / By Day:* Select a **Date Range** (start and end dates)
    - *By Cycle:* Choose **All Cycles** or **Latest Cycle Only**
@@ -463,8 +463,8 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 | Level | What You Get | Extra Options |
 |-------|--------------|---------------|
 | **Raw** | Every single count event with full timestamp | Date range picker |
-| **By Day** | Totals for each item per day (reset/created events excluded) | Date range picker |
-| **By Cycle** | Totals for each item per reset cycle | All Cycles / Latest Cycle toggle |
+| **By Day** | Button presses per item per day (resets and initial counts not included) | Date range picker |
+| **By Cycle** | Total button presses per item per reset cycle (initial counts not included) | All Cycles / Latest Cycle toggle |
 
 ### What's in the Export?
 
