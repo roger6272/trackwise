@@ -10,6 +10,8 @@ Give an AI agent with codebase access this prompt:
 Read docs/UX_SPEC_TEMPLATE.md, then follow its instructions to generate a complete UX spec for the app. Output a single markdown document.
 ```
 
+**File naming:** Save the output as `docs/UX_SPEC_YYYY-MM-DD.md` using the generation date (e.g., `UX_SPEC_2026-02-11.md`).
+
 ---
 
 ## Generation Instructions
