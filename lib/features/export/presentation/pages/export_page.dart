@@ -658,9 +658,15 @@ class _ExportPageState extends State<ExportPage> {
       );
     }
 
-    final label = _allSelected
-        ? 'All items'
-        : '${_selectedItemIds.length} of ${_items.length} items';
+    final String label;
+    if (_allSelected) {
+      label = 'All items';
+    } else if (_selectedItemIds.length == 1) {
+      final name = _items.where((i) => i.id == _selectedItemIds.first).firstOrNull?.name;
+      label = name ?? '1 item';
+    } else {
+      label = '${_selectedItemIds.length} of ${_items.length} items';
+    }
 
     return Material(
       color: Colors.transparent,
