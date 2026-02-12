@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -648,6 +649,22 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               ),
               centerTitle: true,
               elevation: 0.0,
+              actions: [
+                Semantics(
+                  label: 'Export this item',
+                  child: IconButton(
+                    tooltip: 'Export',
+                    icon: Icon(
+                      Icons.file_download_outlined,
+                      color: primaryText,
+                    ),
+                    onPressed: () => context.push(
+                      '/profile/export',
+                      extra: {widget.itemId},
+                    ),
+                  ),
+                ),
+              ],
             ),
             body: SafeArea(
               top: true,

@@ -131,7 +131,7 @@ void main() {
     return MaterialApp(
       home: BlocProvider<AuthBloc>.value(
         value: mockAuthBloc,
-        child: const ExportPage(),
+        child: ExportPage(),
       ),
     );
   }

@@ -17,7 +17,9 @@ import '../bloc/export_event.dart';
 import '../bloc/export_state.dart';
 
 class ExportPage extends StatefulWidget {
-  const ExportPage({super.key});
+  ExportPage({super.key, this.preselectedItemIds});
+
+  final Set<String>? preselectedItemIds;
 
   static String routeName = 'ExportPage';
   static String routePath = '/export';
@@ -80,7 +82,7 @@ class _ExportPageState extends State<ExportPage> {
     setState(() {
       itemsResult.fold((_) {}, (items) => _items = items);
       categoriesResult.fold((_) {}, (categories) => _categories = categories);
-      _selectedItemIds = _items.map((i) => i.id).toSet();
+      _selectedItemIds = widget.preselectedItemIds ?? _items.map((i) => i.id).toSet();
       _itemsLoading = false;
     });
   }

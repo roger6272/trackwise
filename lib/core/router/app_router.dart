@@ -201,7 +201,10 @@ class AppRouter {
                 GoRoute(
                   name: ExportPage.routeName,
                   path: 'export',
-                  builder: (context, state) => const ExportPage(),
+                  builder: (context, state) {
+                    final preselectedItemIds = state.extra as Set<String>?;
+                    return ExportPage(preselectedItemIds: preselectedItemIds);
+                  },
                 ),
                 GoRoute(
                   name: DeletedItemsPage.routeName,
