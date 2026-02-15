@@ -105,6 +105,9 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
                         ConnectToDevice(device.deviceInstanceId),
                       );
                 },
+                onDisconnect: () => context
+                    .read<BluetoothBloc>()
+                    .add(const DisconnectFromDevice()),
               );
             },
           );
@@ -342,6 +345,7 @@ class _DeviceListTile extends StatelessWidget {
   final VoidCallback onRename;
   final VoidCallback onUnpair;
   final VoidCallback onConnect;
+  final VoidCallback onDisconnect;
 
   const _DeviceListTile({
     required this.device,
@@ -350,6 +354,7 @@ class _DeviceListTile extends StatelessWidget {
     required this.onRename,
     required this.onUnpair,
     required this.onConnect,
+    required this.onDisconnect,
   });
 
   @override
@@ -443,6 +448,8 @@ class _DeviceListTile extends StatelessWidget {
           onSelected: (value) {
             if (value == 'connect') {
               onConnect();
+            } else if (value == 'disconnect') {
+              onDisconnect();
             } else if (value == 'rename') {
               onRename();
             } else if (value == 'unpair') {
@@ -460,6 +467,20 @@ class _DeviceListTile extends StatelessWidget {
                     Text(
                       'Connect',
                       style: TextStyle(color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            if (isConnected)
+              PopupMenuItem(
+                value: 'disconnect',
+                child: Row(
+                  children: [
+                    Icon(Icons.bluetooth_disabled, size: 20, color: AppColors.error),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Disconnect',
+                      style: TextStyle(color: AppColors.error),
                     ),
                   ],
                 ),

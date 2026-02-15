@@ -511,6 +511,7 @@ On this page you can:
 - See all paired devices and their pairing date
 - Identify the currently connected device (green indicator)
 - **Connect to a device** - Tap the device tile, or use the three-dot menu > Connect (no scan needed)
+- **Disconnect a device** - Tap the three-dot menu > Disconnect (only shown for connected device)
 - **Rename a device** - Tap the three-dot menu > Rename
 - **Unpair a device** - Tap the three-dot menu > Unpair
 
