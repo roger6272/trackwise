@@ -102,21 +102,23 @@ See [Connecting Your Device](#3-connecting-your-device) below.
 
 6. **You're connected!**
    - The app returns to the home screen
-   - Check the Bluetooth tab to verify — it will show "Connected"
+   - The Bluetooth icon in the bottom navigation turns **green** to indicate an active connection
 
 ### Reconnecting
 
-If your device disconnects unexpectedly during a session, the app will automatically try to reconnect. If it doesn't reconnect:
+If your device disconnects unexpectedly, the app will automatically try to reconnect with increasing intervals. You'll see:
+- **"Device disconnected. Reconnecting..."** notification when the connection drops
+- **"Reconnected to device"** notification when it reconnects successfully
 
-1. Go to the **Bluetooth tab**
-2. Tap **"Find Device"**
-3. Select your device from the list
+If auto-reconnect doesn't work:
+1. Go to **Account > Paired Devices** and tap your device to reconnect (no scan needed)
+2. Or go to **Bluetooth > Find Device** and select your device from the scan list
 
 ### Disconnecting
 
 To manually disconnect:
-1. Go to the **Bluetooth tab**
-2. Tap **"Disconnect"**
+1. Go to **Account > Paired Devices** and tap the three-dot menu > **Disconnect**
+2. Or go to the **Bluetooth tab** and tap **"Disconnect"**
 
 ---
 
@@ -628,9 +630,11 @@ The device switches automatically - no action needed!
 3. Close other Bluetooth-heavy apps
 4. On Android: Disable battery optimization for Traxelos One
 
+*The app will automatically try to reconnect. Watch for the "Reconnecting..." notification and the bottom nav Bluetooth icon (green = connected).*
+
 ### "My counts aren't syncing"
 
-1. Check connection status in the Bluetooth tab
+1. Check the bottom nav Bluetooth icon — green means connected
 2. Disconnect and reconnect your device to trigger a fresh sync
 3. Pull-to-refresh on the Items page
 

@@ -87,7 +87,19 @@ await connect(device);
 
 ---
 
-### 1.4 "Missing characteristics"
+### 1.4 "Device shows as Unknown Device"
+
+**Symptoms:** Connected device displays "Unknown Device" instead of its name in the Bluetooth page.
+
+**Root Cause:** Connection happened without a prior BLE scan (auto-reconnect or connecting from Paired Devices page). The device wasn't in the `discoveredDevices` list, so the fallback name was used.
+
+**Fix Applied:** The bloc now checks `pairedDevices` for the user-assigned name before falling back to a generic name. This covers auto-reconnect and Paired Devices page connections.
+
+**Key Lesson:** Any connection path that skips scanning (direct connect by MAC address) won't have scan result data. Always check alternative name sources (paired devices, cached names) before using a fallback.
+
+---
+
+### 1.5 "Missing characteristics"
 
 **Symptoms:** Service discovery succeeds but can't find expected characteristics
 
@@ -827,6 +839,7 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 | Error/Symptom | First Thing to Check |
 |---------------|---------------------|
 | Can't find device | Is it powered on? Already connected elsewhere? |
+| Unknown Device name | Connecting without scan - check paired devices lookup |
 | GATT 133 | Stop scan, wait 2s, then connect |
 | Conflict status | Expected - complete override protocol |
 | Wrong account | Factory reset device or use correct account |
