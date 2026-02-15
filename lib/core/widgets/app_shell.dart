@@ -173,7 +173,24 @@ class _BluetoothNavIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<BluetoothBloc, BluetoothState>(
+      buildWhen: (prev, curr) =>
+          prev.isConnected != curr.isConnected ||
+          prev.isConnecting != curr.isConnecting,
       builder: (context, state) {
+        final IconData icon;
+        final Color color;
+
+        if (state.isConnected) {
+          icon = Icons.bluetooth_connected;
+          color = isSelected ? selectedColor : AppColors.success;
+        } else if (state.isConnecting) {
+          icon = Icons.bluetooth_searching;
+          color = isSelected ? selectedColor : unselectedColor;
+        } else {
+          icon = Icons.bluetooth;
+          color = isSelected ? selectedColor : unselectedColor;
+        }
+
         return Semantics(
           label: label,
           button: true,
@@ -184,8 +201,8 @@ class _BluetoothNavIcon extends StatelessWidget {
             highlightColor: Colors.transparent,
             onTap: onTap,
             child: Icon(
-              Icons.bluetooth_connected,
-              color: isSelected ? selectedColor : unselectedColor,
+              icon,
+              color: color,
               size: 35.0,
             ),
           ),
