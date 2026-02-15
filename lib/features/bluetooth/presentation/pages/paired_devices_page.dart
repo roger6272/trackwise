@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_util.dart';
 import '../../domain/entities/paired_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
@@ -26,6 +27,9 @@ class PairedDevicesPage extends StatefulWidget {
 }
 
 class _PairedDevicesPageState extends State<PairedDevicesPage> {
+  /// Whether a connect was initiated from this page.
+  bool _connectingFromHere = false;
+
   @override
   void initState() {
     super.initState();
@@ -57,7 +61,20 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
         ),
         centerTitle: true,
       ),
-      body: BlocBuilder<BluetoothBloc, BluetoothState>(
+      body: BlocConsumer<BluetoothBloc, BluetoothState>(
+        listener: (context, state) {
+          if (_connectingFromHere) {
+            if (state.isConnected) {
+              _connectingFromHere = false;
+              showSuccessSnackBar(context, 'Connected to device');
+              context.pop();
+            } else if (state.status == BluetoothStatus.error &&
+                state.errorMessage != null) {
+              _connectingFromHere = false;
+              showErrorSnackBar(context, state.errorMessage!);
+            }
+          }
+        },
         builder: (context, state) {
           final devices = state.pairedDevices;
 
@@ -82,9 +99,12 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
                 isConnecting: isConnecting,
                 onRename: () => _showRenameDialog(context, device),
                 onUnpair: () => _showUnpairDialog(context, device),
-                onConnect: () => context.read<BluetoothBloc>().add(
-                      ConnectToDevice(device.deviceInstanceId),
-                    ),
+                onConnect: () {
+                  _connectingFromHere = true;
+                  context.read<BluetoothBloc>().add(
+                        ConnectToDevice(device.deviceInstanceId),
+                      );
+                },
               );
             },
           );
