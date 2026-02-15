@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -183,12 +184,12 @@ class AppRouter {
                   path: 'search',
                   builder: (context, state) => const BluetoothSearchPage(),
                 ),
-                // Temporary test route - remove after Task #18
-                GoRoute(
-                  name: 'BluetoothTestPage',
-                  path: 'test',
-                  builder: (context, state) => const BluetoothTestPage(),
-                ),
+                if (kDebugMode)
+                  GoRoute(
+                    name: 'BluetoothTestPage',
+                    path: 'test',
+                    builder: (context, state) => const BluetoothTestPage(),
+                  ),
               ],
             ),
 
