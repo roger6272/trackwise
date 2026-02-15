@@ -510,6 +510,7 @@ View and manage all devices paired to your account:
 On this page you can:
 - See all paired devices and their pairing date
 - Identify the currently connected device (green indicator)
+- **Connect to a device** - Tap the device tile, or use the three-dot menu > Connect (no scan needed)
 - **Rename a device** - Tap the three-dot menu > Rename
 - **Unpair a device** - Tap the three-dot menu > Unpair
 
@@ -711,7 +712,7 @@ Time syncs automatically when your device connects via Bluetooth. If the time se
 | Paired Devices | Account > Paired Devices |
 | Export | Account > Export My Data |
 | Restore deleted | Account > Recently Deleted (requires device) |
-| Connect device | Bluetooth > Find Device |
+| Connect device | Bluetooth > Find Device, or Account > Paired Devices > tap device |
 | Sync time | Automatic on device connect |
 
 ---
