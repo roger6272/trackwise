@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
+import '../../domain/entities/paired_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
@@ -89,8 +90,20 @@ class _BluetoothPageState extends State<BluetoothPage> {
   }
 
   void _showConflictDialog(BuildContext context) {
+    final btState = context.read<BluetoothBloc>().state;
+    final instanceId = btState.connectedDeviceInstanceId;
+    final pairedDevice = instanceId != null
+        ? btState.pairedDevices.cast<PairedDevice?>().firstWhere(
+              (d) => d!.deviceInstanceId == instanceId,
+              orElse: () => null,
+            )
+        : null;
+    final deviceName = pairedDevice?.deviceName ?? btState.connectedDevice?.name;
+
     SyncConflictDialog.show(
       context: context,
+      deviceName: deviceName,
+      deviceId: instanceId,
       onConfirm: () {
         final appUiState = context.read<AppUiState>();
         context.read<BluetoothBloc>().add(ConfirmSyncOverride(

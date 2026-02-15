@@ -17,10 +17,18 @@ class SyncConflictDialog extends StatelessWidget {
   /// Called when user cancels (should disconnect BLE)
   final VoidCallback onCancel;
 
+  /// Optional user-friendly device name (e.g. "Office Counter")
+  final String? deviceName;
+
+  /// Optional device instance ID (UUID)
+  final String? deviceId;
+
   const SyncConflictDialog({
     super.key,
     required this.onConfirm,
     required this.onCancel,
+    this.deviceName,
+    this.deviceId,
   });
 
   /// Shows the sync conflict dialog.
@@ -30,6 +38,8 @@ class SyncConflictDialog extends StatelessWidget {
     required BuildContext context,
     required VoidCallback onConfirm,
     required VoidCallback onCancel,
+    String? deviceName,
+    String? deviceId,
   }) {
     return showDialog<bool>(
       context: context,
@@ -37,6 +47,8 @@ class SyncConflictDialog extends StatelessWidget {
       builder: (context) => SyncConflictDialog(
         onConfirm: onConfirm,
         onCancel: onCancel,
+        deviceName: deviceName,
+        deviceId: deviceId,
       ),
     );
   }
@@ -65,12 +77,25 @@ class SyncConflictDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'This device needs to be updated to match your app.',
+            deviceName != null
+                ? 'Your device "$deviceName" needs to be updated to match your app.'
+                : 'This device needs to be updated to match your app.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: primaryText,
               fontSize: 15.0,
             ),
           ),
+          if (deviceId != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'ID: $deviceId',
+              style: TextStyle(
+                color: secondaryText.withValues(alpha: 0.6),
+                fontSize: 11.0,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Text(
             'Any counts on this device since your last sync will be replaced.',

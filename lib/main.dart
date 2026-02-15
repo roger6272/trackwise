@@ -13,6 +13,7 @@ import 'core/state/app_ui_state.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
+import 'features/bluetooth/domain/entities/paired_device.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -234,8 +235,20 @@ class _MyAppState extends State<MyApp> {
     // Use the router's navigator context for the dialog
     final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
     if (navigatorContext != null) {
+      final btState = context.read<BluetoothBloc>().state;
+      final instanceId = btState.connectedDeviceInstanceId;
+      final pairedDevice = instanceId != null
+          ? btState.pairedDevices.cast<PairedDevice?>().firstWhere(
+                (d) => d!.deviceInstanceId == instanceId,
+                orElse: () => null,
+              )
+          : null;
+      final deviceName = pairedDevice?.deviceName ?? btState.connectedDevice?.name;
+
       SyncConflictDialog.show(
         context: navigatorContext,
+        deviceName: deviceName,
+        deviceId: instanceId,
         onConfirm: () {
           // Pass the currently selected item from AppUiState
           final appUiState = context.read<AppUiState>();
