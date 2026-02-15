@@ -11,6 +11,7 @@ import '../../../../core/utils/logger.dart';
 import '../../../auth/domain/repositories/user_repository.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
+import '../../domain/entities/paired_device.dart';
 import '../../domain/entities/ble_message.dart';
 import '../../domain/usecases/check_bluetooth_enabled_usecase.dart';
 import '../../domain/usecases/clear_device_logs_usecase.dart';
@@ -508,14 +509,21 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       // Reset reconnect attempts on successful connection
       _reconnectAttempts = 0;
 
-      // Find device in discovered list or create from ID
+      // Find device in discovered list, paired devices, or create from ID
       final device = state.discoveredDevices.firstWhere(
         (d) => d.id == event.deviceId,
-        orElse: () => BleDevice(
-          id: event.deviceId!,
-          name: 'Unknown Device',
-          rssi: 0,
-        ),
+        orElse: () {
+          // Check paired devices for a friendly name
+          final paired = state.pairedDevices.cast<PairedDevice?>().firstWhere(
+            (d) => d!.deviceInstanceId == event.deviceId,
+            orElse: () => null,
+          );
+          return BleDevice(
+            id: event.deviceId!,
+            name: paired?.deviceName ?? 'Traxelos Device',
+            rssi: 0,
+          );
+        },
       );
 
       emit(state.copyWith(
