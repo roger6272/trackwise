@@ -102,9 +102,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
   String? _lastSyncedCategoryId;
   DateTime? _lastSyncTime;
 
-  // Whether the "Connect Your Device" card has been dismissed
-  bool _connectCardDismissed = false;
-
   // Key to force category dropdown rebuild after returning from Manage Categories
   int _categoryDropdownKey = 0;
 
@@ -1739,99 +1736,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
   }
 
   Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText, bool isConnected) {
-    final brightness = Theme.of(context).brightness;
-    final bluetoothState = context.watch<BluetoothBloc>().state;
-    final showConnectCard = bluetoothState.pairedDevices.isEmpty &&
-        !isConnected &&
-        !_connectCardDismissed;
-
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // "Connect Your Device" card for users with no paired devices
-          if (showConnectCard) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Semantics(
-                label: 'Connect your device card',
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.bluetooth,
-                            color: AppColors.primaryAdaptive(brightness),
-                            size: 28,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Connect Your Device',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: primaryText,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Pair your Traxelos One to start counting',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: secondaryText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Semantics(
-                            label: 'Dismiss connect device card',
-                            child: IconButton(
-                              icon: Icon(Icons.close, color: secondaryText, size: 20),
-                              onPressed: () => setState(() => _connectCardDismissed = true),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: () => context.pushNamed('BluetoothSearchPage'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Connect Now',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32.0),
-          ],
           Icon(
             Icons.inbox_outlined,
             size: 72.0,
@@ -1866,7 +1774,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             icon: const Icon(Icons.add_rounded),
             label: const Text('Create Item'),
           ),
-          if (!isConnected && !showConnectCard) ...[
+          if (!isConnected) ...[
             const SizedBox(height: 8.0),
             Text(
               'Connect device to create items',
