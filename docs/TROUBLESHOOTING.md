@@ -133,8 +133,8 @@ await connect(device);
 
 **Resolution Flow:**
 1. App receives `{"status":"conflict","device_seq":N}`
-2. App shows conflict dialog to user
-3. User confirms override
+2. App shows conflict dialog to user (includes device name and ID for multi-device identification)
+3. User confirms override ("Sync Now") or cancels (disconnects)
 4. App sends: `override_start` → `override_chunk(s)` → `override_end`
 5. Device responds: `{"status":"override_complete"}`
 6. Device shows "SYNCED", buttons re-enabled

@@ -375,6 +375,7 @@ Tap any item to see detailed analytics (the page title shows the item name):
 - **Cycle Note** - Optional text note for each cycle (tap to edit, 250 character limit)
 - **Activity** - Charts showing visual trends over time
 - **Cycle History** - Table of all your tracking periods with counts and durations
+- **Export shortcut** - Tap the export icon in the top right to jump directly to the Export page with this item pre-selected
 
 When viewing a historical cycle, the count card shows that cycle's total and date range. Config stats (Per Press, Reminder) appear grayed out since they only apply to the current cycle.
 
@@ -681,7 +682,7 @@ Time syncs automatically when your device connects via Bluetooth. If the time se
 | Tab | Icon | What It Does |
 |-----|------|--------------|
 | **Home** | House | View and manage all items |
-| **Bluetooth** | Bluetooth | Connect and manage your device |
+| **Bluetooth** | Bluetooth (green when connected, default when not) | Connect and manage your device |
 | **Account** | Person | Account, settings, export, support |
 
 ### Device Buttons — Arduino IDE (Serial Monitor)
@@ -715,7 +716,7 @@ Time syncs automatically when your device connects via Bluetooth. If the time se
 | Reorder | Long press & drag |
 | Categories | Account > Manage Categories |
 | Paired Devices | Account > Paired Devices |
-| Export | Account > Export My Data |
+| Export | Account > Export My Data, or Item Detail > Export icon |
 | Restore deleted | Account > Recently Deleted (requires device) |
 | Connect device | Bluetooth > Find Device, or Account > Paired Devices > tap device |
 | Sync time | Automatic on device connect |

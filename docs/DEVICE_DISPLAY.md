@@ -189,7 +189,19 @@ When holding with the right hand:
 
 ---
 
-### 6. Factory Reset
+### 6. Awaiting Setup
+
+**When:** Device is uninitialized (brand new or after factory reset) and a BLE connection is established.
+
+**Display:** Shows "AWAITING" then "SETUP" in sequence on the display.
+
+This is a **persistent display state** — it remains on screen until the app completes the setup flow (override protocol with UID). The device sends `{"status":"uninitialized"}` in the handshake, and the app shows a setup dialog. Once the user confirms, the app pairs the device and transitions it to [Main Item View](#2-main-item-view).
+
+**Note:** Unlike transient notifications (which auto-dismiss after 3 seconds), this state persists because the device cannot function until setup is complete.
+
+---
+
+### 7. Factory Reset
 
 **When:** Both A and B held for 7 seconds.
 
@@ -221,16 +233,25 @@ When holding with the right hand:
                     │  Welcome /  │
                     │  Pairing    │
                     └──┬───────┬──┘
-              BLE pair │       │ 5min inact.
-                       ▼       ▼
-    ┌───────────────────────┐  ┌──────────┐
-    │    Main Item View     │  │  Sleep   │
-    │                       │◄─│  Mode    │ (A/B press = wake)
-    └──┬──────┬─────────┬───┘  └──────────┘
-       │      │         │            ▲
-A hold │  B   │   5min  │            │
-  3s   │press │  inact. │            │
-       │      │         └────────────┘
+              BLE conn │       │ 5min inact.
+           (paired)    │       ▼
+                       │  ┌──────────┐
+                       │  │  Sleep   │
+                       │  │  Mode    │ (A/B press = wake)
+                       │  └──────────┘
+              BLE conn │       ▲
+          (unpaired)   │       │
+                       │       │ 5min inact.
+                ┌──────┴──┐    │
+                │         ▼    │
+    ┌───────────────────────┐  │
+    │    Main Item View     │──┘
+    │                       │◄─── (from Sleep: A/B press)
+    └──┬──────┬─────────────┘
+       │      │
+A hold │  B   │
+  3s   │press │
+       │      │
        ▼      ▼
 ┌──────────┐  ┌─────────────────┐
 │   Info    │  │   Item Menu     │
@@ -245,6 +266,14 @@ A hold │  B   │   5min  │            │
        └──────┬───────┘
               ▼
        Back to Main Item View
+
+  BLE conn (uninitialized)
+              │
+              ▼
+       ┌─────────────┐
+       │  Awaiting   │──── App completes setup ──► Main Item View
+       │  Setup      │
+       └─────────────┘
 
   A+B hold 7s (from any state)     Unpair command
               │                     (from any state)
