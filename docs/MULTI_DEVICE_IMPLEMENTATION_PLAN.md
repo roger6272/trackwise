@@ -1,13 +1,16 @@
 # Multi-Device Enablement - Implementation Plan
 
+> **Status:** Implemented. This document was the original design spec. For current protocol details, see [BLE_PROTOCOL.md](BLE_PROTOCOL.md). For current UI details, see [UX_SPEC_2026-02-15.md](UX_SPEC_2026-02-15.md).
+
 ## Overview
 
-Enable users to pair multiple physical Trackwise devices to a single account, with proper synchronization and conflict resolution when switching between devices.
+Enable users to pair multiple physical Traxelos devices to a single account, with proper synchronization and conflict resolution when switching between devices.
 
 **Key Principles:**
 - One active BLE connection at a time
 - Same device reconnects (sync_seq matches) → Device is Source of Truth
 - Different device connects (sync_seq mismatch) → App is Source of Truth
+- New/factory-reset device (uninitialized) → App is Source of Truth
 - Firebase `uid` used as account identifier
 - `sync_seq` comparison alone determines conflict (simple!)
 
@@ -27,16 +30,17 @@ Enable users to pair multiple physical Trackwise devices to a single account, wi
 ## Conflict Detection Logic
 
 ```
-Connect to device
-     ↓
-Compare: device.sync_seq vs app.sync_seq
-     ↓
-┌────┴────┐
-↓         ↓
-Match     Mismatch
-↓         ↓
-Device    App is SOT
-is SOT    (override device)
+Connect to device → Handshake
+         ↓
+    Check device state
+         ↓
+┌────────┼────────┬──────────────┐
+↓        ↓        ↓              ↓
+No UID   Wrong    sync_seq       sync_seq
+(new)    UID      matches        mismatch
+↓        ↓        ↓              ↓
+Setup    Error    Device is      App is SOT
+Dialog   Dialog   SOT (normal)   (override)
 ```
 
 **Why this works:**
@@ -44,6 +48,7 @@ is SOT    (override device)
 - Only the last-synced device has the current `sync_seq`
 - All other devices have older values
 - No need to track `last_synced_device_id`
+- Uninitialized devices (no UID) always get overridden from app
 
 ---
 
@@ -68,22 +73,14 @@ Files to update:
 "sync_seq_no"         // int32: Last sync sequence number
 ```
 
-### 1.2 Device Instance ID Generation
+### 1.2 Device Instance ID
+
+The device instance ID is the device's BLE MAC address (e.g., `"AA:BB:CC:DD:EE:FF"`), obtained from `BLEDevice::getAddress()`. This is hardware-native and requires no generation logic. The MAC address is normalized to uppercase in the app.
 
 ```cpp
-void generateDeviceInstanceId() {
-  // Generate UUID or random string
-  String uuid = generateUUID();  // e.g., "a1b2c3d4-e5f6-..."
-  nvs_set_string("device_instance_id", uuid);
-}
-
 void setup() {
-  String deviceInstanceId = nvs_get_string("device_instance_id");
-
-  if (deviceInstanceId.isEmpty()) {
-    // First boot ever - generate ID
-    generateDeviceInstanceId();
-  }
+  // Device instance ID is the BLE MAC address — no generation needed
+  String deviceInstanceId = BLEDevice::getAddress().toString();
 }
 ```
 
@@ -114,40 +111,57 @@ The handshake is the FIRST message after BLE connection. It performs both:
 // App sends: { "cmd": "handshake", "uid": "xxx", "sync_seq": 42 }
 void handleHandshake(String uid, int appSyncSeq) {
   String pairedUid = nvs_get_string("paired_uid");
-  String deviceInstanceId = nvs_get_string("device_instance_id");
+  String deviceInstanceId = BLEDevice::getAddress().toString();
 
-  // Step 1: Account lock check
-  if (!pairedUid.isEmpty() && pairedUid != uid) {
+  // All responses include version fields for compatibility checking
+  // "protocol_version": 2, "firmware_version": "1.5.0"
+
+  // Step 1: Uninitialized check (new or factory-reset device)
+  if (pairedUid.isEmpty()) {
+    sendResponse({
+      "status": "uninitialized",
+      "device_instance_id": deviceInstanceId,
+      "protocol_version": PROTOCOL_VERSION,
+      "firmware_version": FIRMWARE_VERSION
+    });
+    displayMessage("AWAITING SETUP");
+    return;
+    // UID is stored later when override_start is received
+  }
+
+  // Step 2: Account lock check
+  if (pairedUid != uid) {
     // Different account - reject
     sendResponse({
       "status": "wrong_account",
-      "device_instance_id": deviceInstanceId
+      "device_instance_id": deviceInstanceId,
+      "protocol_version": PROTOCOL_VERSION,
+      "firmware_version": FIRMWARE_VERSION
     });
     displayMessage("PAIRED TO");
     displayMessage("OTHER ACCOUNT");
     return;
   }
 
-  if (pairedUid.isEmpty()) {
-    // First pairing - store uid
-    nvs_set_string("paired_uid", uid);
-  }
-
-  // Step 2: Sync sequence check
-  int deviceSyncSeq = nvs_get_int("sync_seq_no", 0);  // 0 = never synced (matches new user)
+  // Step 3: Sync sequence check
+  int deviceSyncSeq = nvs_get_int("sync_seq_no", 0);
 
   if (appSyncSeq == deviceSyncSeq) {
     // In sync - device is SOT, proceed with normal sync
     sendResponse({
       "status": "in_sync",
-      "device_instance_id": deviceInstanceId
+      "device_instance_id": deviceInstanceId,
+      "protocol_version": PROTOCOL_VERSION,
+      "firmware_version": FIRMWARE_VERSION
     });
   } else {
     // Out of sync - app is SOT, wait for override
     sendResponse({
       "status": "conflict",
       "device_seq": deviceSyncSeq,
-      "device_instance_id": deviceInstanceId
+      "device_instance_id": deviceInstanceId,
+      "protocol_version": PROTOCOL_VERSION,
+      "firmware_version": FIRMWARE_VERSION
     });
     enterConflictState();
   }
@@ -250,15 +264,19 @@ All BLE commands should have a 10-second timeout. On timeout:
 
 ### 1.10 BLE Protocol Messages
 
+> **Source of truth:** See [BLE_PROTOCOL.md](BLE_PROTOCOL.md) Section 4 for full protocol specification.
+
+All handshake responses include `protocol_version` (int) and `firmware_version` (string) for version compatibility. Device instance ID is the BLE MAC address.
+
 | Direction | Message | Purpose |
 |-----------|---------|---------|
 | App → Device | `{"cmd":"handshake","uid":"xxx","sync_seq":42}` | Start sync handshake |
-| Device → App | `{"status":"in_sync","device_instance_id":"uuid"}` | Proceed with normal sync |
-| Device → App | `{"status":"conflict","device_seq":40,"device_instance_id":"uuid"}` | Conflict detected, wait for override |
-| Device → App | `{"status":"wrong_account","device_instance_id":"uuid"}` | Device paired to different account |
-| App → Device | `{"cmd":"request_prefs"}` | Request prefs (existing, after `in_sync`) |
-| Device → App | Prefs chunks (existing protocol) | Device sends items + selected_id |
-| App → Device | `{"cmd":"override_start","sync_seq":43,"total_chunks":N}` | Begin override (chunked) |
+| Device → App | `{"status":"in_sync","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":2,"firmware_version":"1.5.0"}` | Proceed with normal sync |
+| Device → App | `{"status":"conflict","device_seq":40,"device_instance_id":"...","protocol_version":2,"firmware_version":"..."}` | Conflict detected, wait for override |
+| Device → App | `{"status":"uninitialized","device_instance_id":"...","protocol_version":2,"firmware_version":"..."}` | New/reset device, needs setup |
+| Device → App | `{"status":"wrong_account","device_instance_id":"...","protocol_version":2,"firmware_version":"..."}` | Device paired to different account |
+| Device → App | Prefs + logs notifications (automatic after `in_sync`) | Device sends items, selected_id, and logs |
+| App → Device | `{"cmd":"override_start","uid":"xxx","sync_seq":43,"total_chunks":N}` | Begin override (chunked) |
 | App → Device | `{"cmd":"override_chunk","index":0,"items":[...]}` | Send items chunk |
 | App → Device | `{"cmd":"override_end","selected_id":2}` | Complete override |
 | Device → App | `{"status":"override_complete"}` | Confirm override done |
@@ -266,14 +284,14 @@ All BLE commands should have a 10-second timeout. On timeout:
 | App → Device | `{"cmd":"sync_complete","sync_seq":43}` | After normal sync, update device seq |
 | Device → App | `{"status":"seq_updated"}` | Confirm sync_seq stored |
 
-**Normal Sync Flow:**
+**Normal Sync Flow (in_sync):**
 1. App sends `handshake` → Device responds `in_sync`
-2. App sends `request_prefs` → Device sends prefs (existing protocol)
-3. App sends `sync_complete` → Device responds `seq_updated`
+2. Device automatically sends prefs + logs via NOTIFY
+3. App processes data, sends `sync_complete` → Device responds `seq_updated`
 
-**Override Flow:**
-1. App sends `handshake` → Device responds `conflict`
-2. User confirms in app
+**Override Flow (conflict or uninitialized):**
+1. App sends `handshake` → Device responds `conflict` or `uninitialized`
+2. User confirms in app (conflict dialog or setup dialog)
 3. App sends `override_start` → `override_chunk`(s) → `override_end`
 4. Device responds `override_complete`
 
@@ -402,17 +420,21 @@ class PairedDevice {
 
 ```dart
 // lib/features/bluetooth/domain/entities/sync_state.dart
-enum SyncStatus { inSync, conflict, wrongAccount }
+enum SyncStatus { inSync, conflict, wrongAccount, uninitialized }
 
 class HandshakeResult {
   final SyncStatus status;
   final String deviceInstanceId;
-  final int? deviceSyncSeq;  // Only present if conflict
+  final int? deviceSyncSeq;      // Only present if conflict
+  final int? protocolVersion;     // For compatibility checking
+  final String? firmwareVersion;  // For compatibility checking
 
   const HandshakeResult({
     required this.status,
     required this.deviceInstanceId,
     this.deviceSyncSeq,
+    this.protocolVersion,
+    this.firmwareVersion,
   });
 }
 ```
@@ -442,12 +464,22 @@ Future<Either<Failure, SyncResult>> performSync() async {
   // Step 3: Check for wrong account FIRST (before adding to paired_devices)
   if (handshake.status == SyncStatus.wrongAccount) {
     // Device is paired to different account - can't sync, don't add to our list
+    // UI shows WrongAccountDialog with recovery instructions
     return Left(WrongAccountFailure(
-      'This device is paired to another account. Factory reset required.',
+      'This device is paired to another account.',
     ));
   }
 
-  // Step 4: Add to paired devices if new (only after confirming it's our device)
+  // Step 4: Handle uninitialized device (new or factory-reset)
+  if (handshake.status == SyncStatus.uninitialized) {
+    // UI shows DeviceSetupDialog: "New Device Detected"
+    // User confirms → performOverride() which also stores UID on device
+    return Left(DeviceSetupRequired(
+      deviceInstanceId: handshake.deviceInstanceId,
+    ));
+  }
+
+  // Step 5: Add to paired devices if new (only after confirming it's our device)
   final isNewDevice = !user.pairedDevices.any(
     (d) => d.deviceInstanceId == handshake.deviceInstanceId
   );
@@ -460,16 +492,17 @@ Future<Either<Failure, SyncResult>> performSync() async {
     // Add to paired devices list
     await userRepository.addPairedDevice(PairedDevice(
       deviceInstanceId: handshake.deviceInstanceId,
-      deviceName: 'Trackwise Device',  // Default name
+      deviceName: 'Traxelos One',  // Default name
       pairedAt: DateTime.now(),
     ));
   }
 
-  // Step 5: Handle sync based on status
+  // Step 6: Handle sync based on status
   if (handshake.status == SyncStatus.inSync) {
     return _performNormalSync(appSyncSeq);
   } else {
     // Return conflict for UI to handle
+    // UI shows SyncConflictDialog with device name and ID
     return Left(SyncConflictFailure(
       deviceSyncSeq: handshake.deviceSyncSeq,
       appSyncSeq: appSyncSeq,
@@ -609,149 +642,72 @@ Future<Either<Failure, SyncResult>> performOverride() async {
 - User confirms again, override restarts
 - Idempotent - no data corruption
 
-### 3.5 Conflict Dialog
+### 3.5 Conflict Dialog (SyncConflictDialog)
 
-```dart
-class SyncConflictDialog extends StatelessWidget {
-  final VoidCallback onConfirm;
-  final VoidCallback onCancel;
+Shows device context (name and ID) so users know which device needs syncing.
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Sync Required'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'This device needs to be updated to match your app.',
-          ),
-          SizedBox(height: 12),
-          Text(
-            'Any counts on this device since your last sync will be replaced.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            onCancel();  // Disconnect BLE
-          },
-          child: Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.pop(context);
-            onConfirm();  // Perform override
-          },
-          child: Text('Sync Now'),
-        ),
-      ],
-    );
-  }
-}
-```
+- Title: "Sync Required"
+- Body: "Your device '[name]' needs to be updated to match your app." with device ID in monospace
+- Warning: "Any counts on this device since your last sync will be replaced."
+- Actions: "Cancel" (disconnects), "Sync Now" (triggers override)
+- Non-dismissible (barrierDismissible: false)
+
+### 3.5b Device Setup Dialog (DeviceSetupDialog)
+
+Shown when an uninitialized device is detected (new or factory-reset). This was not in the original plan but fills a necessary gap for the `uninitialized` handshake status.
+
+- Title: "New Device Detected"
+- Body: "This will pair the device to your account. Your items will sync automatically."
+- Actions: "Cancel" (disconnects), "Set Up" (triggers override, which also stores UID on device via `override_start`)
+- Non-dismissible
+
+### 3.5c Wrong Account Dialog (WrongAccountDialog)
+
+Shown when device is locked to a different user account.
+
+- Title: "Wrong Account"
+- Body: "This device is paired to a different account." with recovery instructions (sign in with original account or factory reset)
+- Actions: "OK" (dismisses and disconnects)
+- Non-dismissible
 
 ### 3.6 Cancel = Disconnect
 
-```dart
-void handleConflictCancel() {
-  // Disconnect from device
-  bluetoothRepository.disconnect();
-
-  // Show message
-  showSnackBar('Disconnected. Connect again to sync.');
-}
-```
+All three dialogs disconnect on cancel. The device exits its pending state (conflict/setup) on disconnect.
 
 ### 3.7 Paired Devices Page
 
-```dart
-class PairedDevicesPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Paired Devices')),
-      body: BlocBuilder<BluetoothBloc, BluetoothState>(
-        builder: (context, state) {
-          final devices = state.pairedDevices;
+**Layout:**
+- App bar: "Paired Devices" title with back button
+- List of paired devices with connection status indicators (green highlight, spinner, device ID)
+- Empty state: icon with "No devices paired yet" message
 
-          if (devices.isEmpty) {
-            return Center(
-              child: Text('No devices paired'),
-            );
-          }
+**Device Tile Visual States:**
+- Connected: Green left border, green background tint, "Connected" subtitle
+- Connecting: Spinner replacing Bluetooth icon, "Connecting..." subtitle
+- Disconnected: Default appearance, "Paired [relative date]" subtitle
+- All states show device instance ID in monospace
 
-          return ListView.builder(
-            itemCount: devices.length,
-            itemBuilder: (context, index) {
-              final device = devices[index];
-              final isConnected = state.connectedDeviceInstanceId == device.deviceInstanceId;
+**Popup Menu Options (per device):**
 
-              return ListTile(
-                leading: Icon(
-                  Icons.watch,
-                  color: isConnected ? Colors.green : Colors.grey,
-                ),
-                title: Text(device.deviceName),
-                subtitle: Text(
-                  isConnected ? 'Connected' : 'Paired ${_formatDate(device.pairedAt)}',
-                ),
-                trailing: PopupMenuButton(
-                  itemBuilder: (context) => [
-                    PopupMenuItem(value: 'rename', child: Text('Rename')),
-                    PopupMenuItem(value: 'unpair', child: Text('Unpair')),
-                  ],
-                  onSelected: (value) => _handleAction(context, device, value),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
+| Option | Condition | Action |
+|--------|-----------|--------|
+| "Connect" | Disconnected and not connecting | Initiates BLE connection using `deviceInstanceId` as MAC address |
+| "Disconnect" | Connected | Disconnects from device |
+| "Rename" | Always | Opens rename dialog (max 32 chars) |
+| "Unpair" | Always | Opens unpair confirmation with factory reset instructions |
 
-  void _handleAction(BuildContext context, PairedDevice device, String action) {
-    if (action == 'rename') {
-      _showRenameDialog(context, device);
-    } else if (action == 'unpair') {
-      _showUnpairDialog(context, device);
-    }
-  }
+**Tap-to-connect:** Tapping a disconnected device tile initiates connection directly (same as "Connect" menu option).
 
-  void _showUnpairDialog(BuildContext context, PairedDevice device) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Unpair Device'),
-        content: Text(
-          'To complete unpairing, factory reset the device.\n\n'
-          'On device: Hold B button for 10 seconds.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<BluetoothBloc>().add(
-                RemovePairedDevice(device.deviceInstanceId),
-              );
-            },
-            child: Text('Remove from List'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
+**Feedback:**
+- Connection success: SnackBar "[Device name] connected" and auto-navigates back
+- Connection error: SnackBar with error message
+
+**Dialogs:**
+
+| Dialog | Content | Actions |
+|--------|---------|---------|
+| Rename Device | Text field with current name, max 32 characters | "Cancel", "Save" |
+| Unpair Device | Warning about factory reset instructions ("Hold A+B for 7 seconds") | "Cancel", "Remove from List" |
 
 ---
 
@@ -776,6 +732,9 @@ Future<HandshakeResult> sendHandshake({
     case 'wrong_account':
       status = SyncStatus.wrongAccount;
       break;
+    case 'uninitialized':
+      status = SyncStatus.uninitialized;
+      break;
     default:  // 'conflict'
       status = SyncStatus.conflict;
   }
@@ -784,6 +743,8 @@ Future<HandshakeResult> sendHandshake({
     status: status,
     deviceInstanceId: response['device_instance_id'],
     deviceSyncSeq: response['device_seq'],
+    protocolVersion: response['protocol_version'],
+    firmwareVersion: response['firmware_version'],
   );
 }
 
@@ -799,9 +760,10 @@ Future<OverrideResult> sendOverrideChunked({
     chunks.add(items.sublist(i, min(i + chunkSize, items.length)));
   }
 
-  // Send override_start
+  // Send override_start (uid included for uninitialized devices to store pairing)
   await sendCommand({
     'cmd': 'override_start',
+    'uid': uid,
     'sync_seq': syncSeq,
     'total_chunks': chunks.length,
   });
@@ -848,13 +810,13 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 1 | Fresh device pairs to account | Device stores uid, generates instance_id, sync_seq=1 after sync |
+| 1 | Fresh device pairs to account | `uninitialized` → setup dialog → override stores uid, sync_seq=1 |
 | 2 | Same device reconnects | sync_seq matches → device is SOT → normal sync |
-| 3 | Different device connects | sync_seq mismatch → conflict dialog |
+| 3 | Different device connects | sync_seq mismatch → conflict dialog with device name/ID |
 | 4 | Confirm override | App data pushed to device (chunked), sync_seq increments |
 | 5 | Cancel conflict dialog | BLE disconnects, device returns to normal |
-| 6 | Factory reset device | New instance_id generated, enters pairing mode |
-| 7 | Re-pair after factory reset | Appears as new device in paired_devices list |
+| 6 | Factory reset device | Re-uses BLE MAC as instance_id, enters uninitialized state |
+| 7 | Re-pair after factory reset | `uninitialized` → setup dialog → override as new device |
 | 8 | Reach 10 device limit | Error shown, pairing rejected |
 | 9 | Unpair from app | Removed from list, device still paired until factory reset |
 | 10 | BLE disconnect during normal sync | Partial data discarded, reconnect restarts sync cleanly |
@@ -862,10 +824,12 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 | 12 | sync_complete not acknowledged | Retry or fail gracefully, don't update Firestore |
 | 13 | Try to create item while disconnected | UI prevents item creation (disabled or error message) |
 | 14 | Try to sync >100 items | Error shown before sync attempt |
-| 15 | Connect to device paired to different account | `wrong_account` response, error message shown, BLE disconnects |
+| 15 | Connect to device paired to different account | `wrong_account` → dialog with recovery instructions, BLE disconnects |
 | 16 | Override when app has 0 items | Device clears all items successfully, sync_seq increments |
 | 17 | Try to sync without internet | Error: "Internet connection required to sync." |
 | 18 | Firestore update fails after device ack | Retry up to 3 times, then show error prompting user to retry |
+| 19 | Connect from Paired Devices page | Tap device tile or "Connect" menu → connects using BLE MAC address |
+| 20 | Connect to different device while one is connected | Auto-disconnects current device, connects to new one |
 
 ---
 
@@ -915,12 +879,15 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 1. App checks internet connectivity (required for Firestore)
 2. App fetches FRESH sync_seq from Firestore (not cached - supports multi-instance)
 3. App sends handshake with uid + sync_seq
-4. Device compares sync_seq (defaults to 0 if never synced)
-5. Match → normal sync (device → app), then sync_complete with acknowledgment
-6. Mismatch → conflict → user confirms → override (app → device, chunked)
-7. Either way, sync_seq increments and both sides store it
-8. Firestore only updated AFTER device acknowledgment (with retry on failure)
-9. All BLE commands have 10-second timeout
+4. Device responds with one of four statuses:
+   - `in_sync` → normal sync (device → app), then sync_complete with acknowledgment
+   - `conflict` → user confirms via SyncConflictDialog → override (app → device, chunked)
+   - `uninitialized` → user confirms via DeviceSetupDialog → override (pairs + syncs)
+   - `wrong_account` → WrongAccountDialog → disconnect
+5. Either way, sync_seq increments and both sides store it
+6. Firestore only updated AFTER device acknowledgment (with retry on failure)
+7. All BLE commands have 10-second timeout
+8. All handshake responses include `protocol_version` and `firmware_version` for compatibility
 
 **Key constraints:**
 - Sync requires internet connection (for Firestore access)
@@ -928,3 +895,5 @@ Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
 - Maximum 100 items per account (device slot limit)
 - Maximum 10 paired devices per account
 - Override uses chunked messages for BLE MTU compatibility
+- Device instance ID is BLE MAC address (not generated UUID)
+- Users can connect to paired devices directly from Paired Devices page
