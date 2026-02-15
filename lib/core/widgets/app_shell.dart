@@ -5,10 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_util.dart';
 
 /// Shell widget providing bottom navigation for the main app.
 /// Styled to match FlutterFlow NavigationBarWidget design.
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   final Widget child;
 
   const AppShell({
@@ -17,10 +18,43 @@ class AppShell extends StatelessWidget {
   });
 
   @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  /// Tracks whether we're waiting for an auto-reconnect to succeed.
+  bool _awaitingReconnect = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: const _BottomNavBar(),
+    return MultiBlocListener(
+      listeners: [
+        // Detect unexpected disconnect (manual goes through disconnecting first)
+        BlocListener<BluetoothBloc, BluetoothState>(
+          listenWhen: (prev, curr) =>
+              prev.status == BluetoothStatus.connected &&
+              curr.status == BluetoothStatus.ready,
+          listener: (context, state) {
+            _awaitingReconnect = true;
+            showInfoSnackBar(context, 'Device disconnected. Reconnecting...');
+          },
+        ),
+        // Detect successful auto-reconnect
+        BlocListener<BluetoothBloc, BluetoothState>(
+          listenWhen: (prev, curr) =>
+              !prev.isConnected && curr.isConnected,
+          listener: (context, state) {
+            if (_awaitingReconnect) {
+              _awaitingReconnect = false;
+              showSuccessSnackBar(context, 'Reconnected to device');
+            }
+          },
+        ),
+      ],
+      child: Scaffold(
+        body: widget.child,
+        bottomNavigationBar: const _BottomNavBar(),
+      ),
     );
   }
 }
