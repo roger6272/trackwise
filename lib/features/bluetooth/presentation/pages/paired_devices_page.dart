@@ -73,11 +73,18 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
               final isConnected =
                   state.connectedDeviceInstanceId == device.deviceInstanceId;
 
+              final isConnecting =
+                  state.connectingDeviceId == device.deviceInstanceId;
+
               return _DeviceListTile(
                 device: device,
                 isConnected: isConnected,
+                isConnecting: isConnecting,
                 onRename: () => _showRenameDialog(context, device),
                 onUnpair: () => _showUnpairDialog(context, device),
+                onConnect: () => context.read<BluetoothBloc>().add(
+                      ConnectToDevice(device.deviceInstanceId),
+                    ),
               );
             },
           );
@@ -311,14 +318,18 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
 class _DeviceListTile extends StatelessWidget {
   final PairedDevice device;
   final bool isConnected;
+  final bool isConnecting;
   final VoidCallback onRename;
   final VoidCallback onUnpair;
+  final VoidCallback onConnect;
 
   const _DeviceListTile({
     required this.device,
     required this.isConnected,
+    this.isConnecting = false,
     required this.onRename,
     required this.onUnpair,
+    required this.onConnect,
   });
 
   @override
@@ -344,6 +355,7 @@ class _DeviceListTile extends StatelessWidget {
           horizontal: 16.0,
           vertical: 8.0,
         ),
+        onTap: (!isConnected && !isConnecting) ? onConnect : null,
         leading: Container(
           width: 48,
           height: 48,
@@ -353,11 +365,22 @@ class _DeviceListTile extends StatelessWidget {
                 : secondaryText.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            Icons.watch,
-            color: isConnected ? AppColors.success : secondaryText,
-            size: 28,
-          ),
+          child: isConnecting
+              ? Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                )
+              : Icon(
+                  Icons.watch,
+                  color: isConnected ? AppColors.success : secondaryText,
+                  size: 28,
+                ),
         ),
         title: Text(
           device.deviceName,
@@ -370,9 +393,17 @@ class _DeviceListTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isConnected ? 'Connected' : 'Paired ${_formatDate(device.pairedAt)}',
+              isConnecting
+                  ? 'Connecting...'
+                  : isConnected
+                      ? 'Connected'
+                      : 'Paired ${_formatDate(device.pairedAt)}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isConnected ? AppColors.success : secondaryText,
+                color: isConnecting
+                    ? AppColors.primary
+                    : isConnected
+                        ? AppColors.success
+                        : secondaryText,
                 fontSize: 13.0,
               ),
             ),
@@ -390,13 +421,29 @@ class _DeviceListTile extends StatelessWidget {
         trailing: PopupMenuButton<String>(
           icon: Icon(Icons.more_vert, color: secondaryText),
           onSelected: (value) {
-            if (value == 'rename') {
+            if (value == 'connect') {
+              onConnect();
+            } else if (value == 'rename') {
               onRename();
             } else if (value == 'unpair') {
               onUnpair();
             }
           },
           itemBuilder: (context) => [
+            if (!isConnected && !isConnecting)
+              PopupMenuItem(
+                value: 'connect',
+                child: Row(
+                  children: [
+                    Icon(Icons.bluetooth_connected, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Connect',
+                      style: TextStyle(color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
             PopupMenuItem(
               value: 'rename',
               child: Row(
