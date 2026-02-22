@@ -100,6 +100,13 @@ class GetCumulativeChartDataUseCase
               .toList();
         }
 
+        // Filter by reset number to ensure only events from the selected cycle
+        if (params.resetNumber != null && params.resetNumber! >= 0) {
+          filteredEvents = filteredEvents
+              .where((e) => e.resetNumber == params.resetNumber)
+              .toList();
+        }
+
         final cumulative = _calculateCumulative(filteredEvents, params.aggregationLevel);
         return Right(ChartData(
           dataPoints: cumulative,

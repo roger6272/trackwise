@@ -44,6 +44,9 @@ class LoadBarChart extends ChartsEvent {
   /// Initial count is only included in charts for the first cycle.
   final bool isFirstCycle;
 
+  /// Optional reset number to filter events by cycle.
+  final int? resetNumber;
+
   const LoadBarChart({
     required this.startDate,
     required this.endDate,
@@ -52,10 +55,11 @@ class LoadBarChart extends ChartsEvent {
     this.sinceResetTime,
     this.untilResetTime,
     this.isFirstCycle = true,
+    this.resetNumber,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle, resetNumber];
 }
 
 /// Event to load cumulative chart data.
@@ -89,6 +93,9 @@ class LoadCumulativeChart extends ChartsEvent {
   /// Initial count is only included in charts for the first cycle.
   final bool isFirstCycle;
 
+  /// Optional reset number to filter events by cycle.
+  final int? resetNumber;
+
   const LoadCumulativeChart({
     required this.startDate,
     required this.endDate,
@@ -97,10 +104,11 @@ class LoadCumulativeChart extends ChartsEvent {
     this.sinceResetTime,
     this.untilResetTime,
     this.isFirstCycle = true,
+    this.resetNumber,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle, resetNumber];
 }
 
 /// Event to change the date range.

@@ -166,7 +166,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
     // Create blocs
     _eventsBloc = sl<EventsBloc>()..add(LoadEvents(itemId: widget.itemId));
-    _chartsBloc = sl<ChartsBloc>()..add(_createChartEvent());
+    _chartsBloc = sl<ChartsBloc>();
 
     // Note: We intentionally don't subscribe to real-time item updates here
     // to save power. The initial values are passed via widget parameters.
@@ -989,6 +989,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         sinceResetTime: sinceResetTime,
         untilResetTime: untilResetTime,
         isFirstCycle: _isFirstCycle,
+        resetNumber: _selectedInterval,
       );
     } else {
       return LoadBarChart(
@@ -999,6 +1000,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         sinceResetTime: sinceResetTime,
         untilResetTime: untilResetTime,
         isFirstCycle: _isFirstCycle,
+        resetNumber: _selectedInterval,
       );
     }
   }

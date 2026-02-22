@@ -31,6 +31,10 @@ class GetChartDataParams extends Equatable {
   /// Initial count is only included in charts for the first cycle.
   final bool isFirstCycle;
 
+  /// Optional reset number to filter events by cycle.
+  /// When null or negative, no cycle filtering is applied (All Time view).
+  final int? resetNumber;
+
   const GetChartDataParams({
     required this.startDate,
     required this.endDate,
@@ -39,10 +43,11 @@ class GetChartDataParams extends Equatable {
     this.sinceResetTime,
     this.untilResetTime,
     this.isFirstCycle = true,
+    this.resetNumber,
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, itemId, sinceResetTime, untilResetTime, isFirstCycle, resetNumber];
 }
 
 /// Use case for generating aggregated chart data from events.
@@ -126,6 +131,13 @@ class GetChartDataUseCase extends UseCase<ChartData, GetChartDataParams> {
         if (params.untilResetTime != null) {
           filteredEvents = filteredEvents
               .where((e) => e.createdTime.isBefore(params.untilResetTime!))
+              .toList();
+        }
+
+        // Filter by reset number to ensure only events from the selected cycle
+        if (params.resetNumber != null && params.resetNumber! >= 0) {
+          filteredEvents = filteredEvents
+              .where((e) => e.resetNumber == params.resetNumber)
               .toList();
         }
 
