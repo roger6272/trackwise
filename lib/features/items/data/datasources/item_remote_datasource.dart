@@ -130,7 +130,7 @@ abstract class ItemRemoteDataSource {
   /// Fetches all soft-deleted items for a user from Firestore.
   ///
   /// Queries the Item collection filtered by user_id where deletedAt is not null.
-  /// These items are within the 90-day retention period.
+  /// These items are within the 30-day retention period.
   ///
   /// Returns a list of ItemModel objects.
   ///

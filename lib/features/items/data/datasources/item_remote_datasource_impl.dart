@@ -305,7 +305,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   Future<void> deleteItem(String itemId) async {
     try {
       // Soft delete: set deletedAt timestamp instead of actually deleting
-      // Item and EventLogs will be permanently deleted after 90 days by Cloud Function
+      // Item and EventLogs will be permanently deleted after 30 days by Cloud Function
       await firestore.collection('Item').doc(itemId).update({
         'deletedAt': DateTime.now().millisecondsSinceEpoch,
       });

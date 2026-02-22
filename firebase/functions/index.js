@@ -9,11 +9,11 @@ exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
 });
 
 /**
- * Scheduled function to permanently delete soft-deleted items after 90 days.
+ * Scheduled function to permanently delete soft-deleted items after 30 days.
  * Runs daily at 2:00 AM UTC.
  *
  * Deletes:
- * 1. Items where deletedAt is older than 90 days
+ * 1. Items where deletedAt is older than 30 days
  * 2. All EventLogs associated with those items
  */
 exports.cleanupSoftDeletedItems = functions.pubsub
@@ -22,15 +22,15 @@ exports.cleanupSoftDeletedItems = functions.pubsub
   .onRun(async (context) => {
     const firestore = admin.firestore();
     const now = Date.now();
-    const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000); // 90 days in milliseconds
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
 
-    console.log(`Starting cleanup of items soft-deleted before ${new Date(ninetyDaysAgo).toISOString()}`);
+    console.log(`Starting cleanup of items soft-deleted before ${new Date(thirtyDaysAgo).toISOString()}`);
 
     try {
-      // Query items where deletedAt exists and is older than 90 days
+      // Query items where deletedAt exists and is older than 30 days
       const itemsSnapshot = await firestore
         .collection("Item")
-        .where("deletedAt", "<", ninetyDaysAgo)
+        .where("deletedAt", "<", thirtyDaysAgo)
         .get();
 
       if (itemsSnapshot.empty) {

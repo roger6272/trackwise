@@ -78,7 +78,7 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
 ### 8. Cloud Backup
 - All data stored in Firebase Firestore
 - Multi-device access with same account
-- 90-day soft delete recovery period
+- 30-day soft delete recovery period
 
 ---
 

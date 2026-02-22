@@ -122,7 +122,7 @@ abstract class ItemRepository {
 
   /// Fetches all soft-deleted items for a user.
   ///
-  /// Returns items where deletedAt is not null (within 90-day retention).
+  /// Returns items where deletedAt is not null (within 30-day retention).
   ///
   /// Returns:
   /// - Right(List<Item>): List of soft-deleted items

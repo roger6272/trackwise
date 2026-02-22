@@ -174,7 +174,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       ),
       (
         question: 'What happens to deleted items?',
-        answer: 'Deleted items are moved to "Recently Deleted" where they stay for 90 days. You can restore them anytime before they are permanently removed.',
+        answer: 'Deleted items are moved to "Recently Deleted" where they stay for 30 days. You can restore them anytime before they are permanently removed.',
       ),
       (
         question: 'How do I reorder my items?',

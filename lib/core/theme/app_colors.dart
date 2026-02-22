@@ -95,7 +95,6 @@ class AppColors {
   // ==================== Slidable Action Colors ====================
 
   static const Color actionActivate = Color(0xFF3C38B5);
-  static const Color actionMoveToTop = Color(0xFF0891B2);
   static const Color actionDelete = Color(0xFFD11F43);
   static const Color actionDisabled = Color(0xFF565656);
 

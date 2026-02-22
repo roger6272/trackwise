@@ -160,16 +160,15 @@ You can track up to **100 items**.
 2. Tap the **delete icon** (trash)
 3. Confirm deletion
 
-**Don't worry!** Deleted items go to "Recently Deleted" for 90 days. You can restore them anytime (device connection required).
+**Don't worry!** Deleted items go to "Recently Deleted" for 30 days. You can restore them anytime (device connection required).
 
 ### Swipe Actions
 
-Swiping left on any item reveals four actions:
+Swiping left on any item reveals three actions:
 
 | Icon | Action | Description |
 |------|--------|-------------|
 | **Pin** | Activate | Set as the active item on your physical device |
-| **Arrow up** | Move to Top | Move item to the top of its category |
 | **Pencil** | Edit | Open the item edit form |
 | **Trash** | Delete | Delete the item (with confirmation) |
 
@@ -549,7 +548,7 @@ Reset all your counts to start fresh:
 3. Find the item you want back
 4. Tap **"Restore"** (device connection required)
 
-Items stay in Recently Deleted for 90 days before permanent deletion.
+Items stay in Recently Deleted for 30 days before permanent deletion.
 
 *Note: Restored items are placed in "Uncategorized" regardless of their original category. You can reassign them to a category by editing the item after restoring.*
 

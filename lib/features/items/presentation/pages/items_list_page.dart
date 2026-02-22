@@ -1470,7 +1470,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
       child: Slidable(
           endActionPane: ActionPane(
             motion: const ScrollMotion(),
-            extentRatio: 0.65,
+            extentRatio: 0.5,
             children: [
             // Activate (pin) action
             SlidableAction(
@@ -1518,52 +1518,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                     item.id,
                     item.deviceItemId ?? 0,
                   ));
-                } else {
-                  await _showConnectDeviceDialog(context);
-                }
-                Slidable.of(slidableContext)?.close();
-              },
-            ),
-            // Move to Top action
-            SlidableAction(
-              backgroundColor: isConnected ? AppColors.actionMoveToTop : AppColors.actionDisabled,
-              icon: Icons.vertical_align_top_rounded,
-              autoClose: false,
-              onPressed: (slidableContext) async {
-                HapticFeedback.lightImpact();
-                _dismissActivationHintIfShowing();
-                if (isConnected) {
-                  final itemsBloc = context.read<ItemsBloc>();
-                  final itemsState = itemsBloc.state;
-                  if (itemsState is ItemsLoaded) {
-                    // Get item's category and find its position within that category
-                    final itemCategoryId = item.categoryId ?? '';
-                    final categoryItems = itemsState.items
-                        .where((i) => (i.categoryId ?? '') == itemCategoryId)
-                        .toList()
-                      ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-                    final categoryIndex = categoryItems.indexWhere((i) => i.id == item.id);
-
-                    if (categoryIndex > 0) {
-                      // Move item to top of its category using cross-category move event
-                      // This works for both "All" view and category view without filter switching
-                      itemsBloc.add(MoveItemToCategoryEvent(
-                        itemId: item.id,
-                        targetCategoryId: itemCategoryId.isEmpty ? null : itemCategoryId,
-                        insertPosition: 0,
-                        sourceCategoryId: itemCategoryId.isEmpty ? null : itemCategoryId,
-                      ));
-                    }
-                  }
-                  // Clear search to show item at top
-                  if (_searchQuery.isNotEmpty) {
-                    _searchDebounceTimer?.cancel();
-                    setState(() {
-                      _searchController.clear();
-                      _searchQuery = '';
-                      _isSearching = false;
-                    });
-                  }
                 } else {
                   await _showConnectDeviceDialog(context);
                 }

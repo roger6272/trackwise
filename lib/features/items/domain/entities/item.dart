@@ -63,7 +63,7 @@ class Item extends Equatable {
 
   /// Timestamp when item was soft-deleted, null if active.
   /// Items with non-null deletedAt are hidden from normal queries
-  /// and permanently deleted after 90 days.
+  /// and permanently deleted after 30 days.
   final DateTime? deletedAt;
 
   /// Display order for sorting items in the list (0-indexed).

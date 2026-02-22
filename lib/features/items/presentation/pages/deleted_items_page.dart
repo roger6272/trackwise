@@ -183,7 +183,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
             ),
             const SizedBox(height: 8.0),
             Text(
-              'Items you delete will appear here for 90 days before being permanently removed.',
+              'Items you delete will appear here for 30 days before being permanently removed.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: secondaryText,
@@ -226,7 +226,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$count item${count == 1 ? '' : 's'} will be permanently deleted after 90 days',
+            '$count item${count == 1 ? '' : 's'} will be permanently deleted after 30 days',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: secondaryText,
             ),
@@ -379,9 +379,9 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
   }
 
   int _getDaysRemaining(DateTime? deletedAt) {
-    if (deletedAt == null) return 90;
+    if (deletedAt == null) return 30;
     final now = DateTime.now();
-    final deleteDate = deletedAt.add(const Duration(days: 90));
+    final deleteDate = deletedAt.add(const Duration(days: 30));
     final remaining = deleteDate.difference(now).inDays;
     return remaining > 0 ? remaining : 0;
   }
