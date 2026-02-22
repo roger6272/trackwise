@@ -593,7 +593,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
-    final alternate = AppColors.alternate(brightness);
     final primary = AppColors.primaryAdaptive(brightness);
 
     return MultiBlocProvider(
@@ -846,7 +845,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               // Chart Card
                               Container(
                                 decoration: BoxDecoration(
-                                  color: alternate,
+                                  color: AppColors.secondaryBackground(brightness),
                                   borderRadius: BorderRadius.circular(12.0),
                                   border: Border.all(
                                     color: primaryText.withValues(alpha: 0.06),

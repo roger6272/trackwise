@@ -92,7 +92,7 @@ class _CycleNoteCardState extends State<CycleNoteCard> {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
-    final alternate = AppColors.alternate(brightness);
+    final secondaryBg = AppColors.secondaryBackground(brightness);
     final textTheme = Theme.of(context).textTheme;
 
     return GestureDetector(
@@ -100,7 +100,7 @@ class _CycleNoteCardState extends State<CycleNoteCard> {
       child: Container(
         padding: const EdgeInsets.all(14.0),
         decoration: BoxDecoration(
-          color: alternate,
+          color: secondaryBg,
           borderRadius: BorderRadius.circular(12.0),
           border: Border.all(
             color: primaryText.withValues(alpha: 0.06),
