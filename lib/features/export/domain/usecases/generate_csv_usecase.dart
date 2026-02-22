@@ -145,8 +145,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     // Helper to get cycle name for an item's reset number
     String getCycleName(String itemId, int resetNumber) {
       final names = itemCycleNamesMap[itemId];
-      if (names == null) return '';
-      return names[resetNumber.toString()] ?? '';
+      return names?[resetNumber.toString()] ?? '(Cycle ${resetNumber + 1})';
     }
 
     // Header row
