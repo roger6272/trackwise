@@ -156,7 +156,7 @@ The offline device doesn't care about categories — it's locked to one item by 
 ```
 ┌─────────────────────────────────────────────────────┐
 │ ┌──┐                                                │
-│ │🔵│  Push-ups                    [ping/lock icon]  │
+│ │🔵│  Push-ups                              > 150   │
 │ │  │  Category: Exercise                            │
 │ │  │  ── Office Counter ──                          │
 │ └──┘                                                │
@@ -164,32 +164,38 @@ The offline device doesn't care about categories — it's locked to one item by 
 └─────────────────────────────────────────────────────┘
 ```
 
+The bar shows device color tint and device name. Ping/unlock actions remain **left-swipe actions** (not visible on the bar).
+
 | Element | Unclaimed | Claimed (device online) | Claimed (device offline) |
 |---------|-----------|------------------------|-------------------------|
 | **Bar background** | Default | Device color tint (subtle) | Grayed-out device color |
 | **Device name** | — | Small text: device name | Small text: device name + "disconnected" |
-| **Edit icon** | Normal | Normal | **Locked** (tap shows "reconnect device to edit") |
-| **Ping icon** | Ping (dropdown on tap) | Filled ping (device color, non-interactive) | Filled ping (grayed, non-interactive) |
-| **Left swipe** | Normal actions | Shows **unlock icon** + normal actions | Shows **unlock icon** (break-glass) |
 | **Tappable** | Yes (opens detail) | Yes (opens detail) | Yes (opens detail) |
 
 **Note:** All items — claimed or not — appear in the app's item list page. On the **physical device**, items claimed by other devices are skipped when the user loops through items (see Section 5.1).
 
-#### Ping Icon Behavior
+#### Left-Swipe Actions
 
-| Condition | Tap behavior |
-|-----------|-------------|
+| Item State | Swipe Actions |
+|------------|--------------|
+| Unclaimed | Activate (ping/dropdown), Edit, Delete |
+| Claimed (device online) | Unlock, Edit, Delete |
+| Claimed (device offline) | Unlock (break-glass), ~~Edit~~ (locked), ~~Delete~~ (locked) |
+
+#### Activate (Ping) Behavior
+
+| Condition | Behavior |
+|-----------|---------|
 | 1 device connected, item unclaimed | Claim immediately (no dropdown) |
 | 2+ devices connected, item unclaimed | Show dropdown of connected devices → select to claim. Selecting a device auto-releases that device's previous item. |
-| Item already claimed (any device) | No action (use unlock swipe to release first) |
+| Item already claimed | Activate action not shown (replaced by Unlock) |
 
-#### Unlock Action (Left Swipe)
+#### Unlock Action
 
-| Scenario | Unlock available? | Dialog message |
-|----------|------------------|----------------|
-| Claimed (device online) | Yes | "Release [Item] from [Device]?" |
-| Claimed (device offline) | Yes (break-glass) | "Release [Item] from [Device]? Unsynced counts will be discarded when it reconnects." |
-| Unclaimed | No | — |
+| Scenario | Dialog message |
+|----------|----------------|
+| Claimed (device online) | "Release [Item] from [Device]?" |
+| Claimed (device offline) | "Release [Item] from [Device]? Unsynced counts will be discarded when it reconnects." |
 
 ### 4.2 Item Detail Page
 
@@ -228,9 +234,11 @@ Colors must be distinguishable in both light and dark mode.
 
 When a user navigates items on the physical device (button press to cycle) while **online**:
 
-- Items claimed by **other connected devices** are **skipped**.
-- The device only stops on items that are: unclaimed, or claimed by itself.
+- Device checks `cl_<i>` flag for each item during loop.
+- Items with `cl_<i> = 1` are **skipped silently** — no `item_delta` notification sent for skipped items.
+- Device only stops on items where `cl_<i> = 0` (unclaimed or claimed by self).
 - Selecting a new item = claiming it, auto-releasing the previous.
+- If **all items** have `cl_<i> = 1`, device has nothing to select — shows "no item selected" (same as having zero items).
 
 ### 5.2 Claim Flag per Item
 
@@ -275,7 +283,7 @@ When a user selects an item on the device (while connected):
 2. App receives it and checks claim status in Firestore:
    - **Unclaimed** → App writes claim to Firestore (and releases previous item), allows selection.
    - **Claimed by this device** → Already owned, proceed.
-   - **Claimed by another device** → Should not happen (item was skipped via `cl_<i>` flag), but if it does: app sends `set_selected` to skip to next available item.
+   - **Claimed by another device** → Near-zero probability since `cl_<i>` flags are refreshed on every sync. Only possible if flags became stale between syncs. If it happens: app sends `set_selected` to redirect to next available item.
 
 ---
 
@@ -478,7 +486,7 @@ Device A reconnects after being force-released
 | User edits a claimed item (device online) | Allowed. Device receives changes immediately. |
 | User edits a claimed item (device offline) | **Blocked.** Edit icon is locked. Must reconnect the device first. |
 | Two devices try to claim same item simultaneously | Firestore transaction ensures only one succeeds. Loser's app sends `set_selected` to skip. |
-| Device factory reset while holding claim | Claim orphaned in Firestore. App detects stale claim (device no longer in paired list) and auto-releases. |
+| Device factory reset while holding claim | Claim orphaned in Firestore. User unpairs the old device entry from paired devices page → claims auto-released. Or user break-glass releases the item directly. |
 | User unpairs device from paired devices page | All claims by that device are released automatically. |
 | Offline device reconnects, item was moved to different category | Device receives updated category info via `set_items`. No data conflict. |
 | Only 1 device connected but 2+ paired | Single-device behavior. No claim UI, no colors. |
@@ -500,9 +508,14 @@ Device A reconnects after being force-released
 
 ### 11.3 Protocol Version
 
-- Bump protocol version to **v3** for Exclusive Leasing support.
-- App checks `protocol_version` in handshake response to determine if device supports leasing.
-- If device is v2: fall back to current sync_seq conflict model.
+Bump protocol version to **v3** for Exclusive Leasing support. App branching logic after handshake:
+
+| Device Version | App Behavior |
+|----------------|-------------|
+| **v3+** | Include `claimed` field in `set_items`/`override_chunk`. Enable claim-aware UI (device colors, unlock swipe, dropdown). Device respects `cl_<i>` flags and fixed-task constraint. |
+| **v2** | Omit `claimed` field. Fall back to sync_seq conflict model. No multi-device claim UI for this device. |
+
+A user can have a mix of v2 and v3 devices. Each device is handled according to its own protocol version.
 
 ---
 
