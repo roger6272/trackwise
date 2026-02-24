@@ -233,10 +233,22 @@ class _ManageCategoriesContent extends StatelessWidget {
     );
   }
 
+  List<String> _getExistingNames(BuildContext context, {String? excludeId}) {
+    final state = context.read<CategoriesBloc>().state;
+    if (state is CategoriesLoaded) {
+      return state.categories
+          .where((c) => c.id != excludeId)
+          .map((c) => c.name)
+          .toList();
+    }
+    return [];
+  }
+
   void _showCreateDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (dialogContext) => CategoryFormDialog(
+        existingNames: _getExistingNames(context),
         onSave: (name) {
           context.read<CategoriesBloc>().add(
                 CreateCategoryEvent(name: name, userId: userId),
@@ -251,6 +263,7 @@ class _ManageCategoriesContent extends StatelessWidget {
       context: context,
       builder: (dialogContext) => CategoryFormDialog(
         category: category,
+        existingNames: _getExistingNames(context, excludeId: category.id),
         onSave: (name) {
           context.read<CategoriesBloc>().add(
                 UpdateCategoryEvent(category.copyWith(name: name)),

@@ -9,10 +9,14 @@ class CategoryFormDialog extends StatefulWidget {
   final Category? category;
   final void Function(String name) onSave;
 
+  /// Existing category names for duplicate checking.
+  final List<String> existingNames;
+
   const CategoryFormDialog({
     super.key,
     this.category,
     required this.onSave,
+    this.existingNames = const [],
   });
 
   @override
@@ -83,6 +87,13 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Category name is required';
+            }
+            final trimmed = value.trim().toLowerCase();
+            final isDuplicate = widget.existingNames.any(
+              (name) => name.toLowerCase() == trimmed,
+            );
+            if (isDuplicate) {
+              return 'A category with this name already exists';
             }
             return null;
           },
