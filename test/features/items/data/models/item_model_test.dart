@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -329,6 +330,109 @@ void main() {
         // Assert - empty map is always written
         expect(result.containsKey('cycle_notes'), isTrue);
         expect(result['cycle_notes'], isEmpty);
+      });
+    });
+
+    group('claimedBy and claimedAt', () {
+      test('toFirestore should include claimed_by and claimed_at when set', () {
+        // Arrange
+        final claimTime = DateTime(2026, 2, 20, 14, 30);
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+          claimedBy: 'device_abc',
+          claimedAt: claimTime,
+        );
+
+        // Act
+        final result = model.toFirestore();
+
+        // Assert
+        expect(result['claimed_by'], 'device_abc');
+        expect(result['claimed_at'], isA<Timestamp>());
+        expect(
+          (result['claimed_at'] as Timestamp).toDate(),
+          claimTime,
+        );
+      });
+
+      test('toFirestore should omit claimed_by and claimed_at when null', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+        );
+
+        // Act
+        final result = model.toFirestore();
+
+        // Assert
+        expect(result.containsKey('claimed_by'), isFalse);
+        expect(result.containsKey('claimed_at'), isFalse);
+      });
+
+      test('copyWith should support clearClaimedBy sentinel', () {
+        // Arrange
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+          claimedBy: 'device_abc',
+          claimedAt: DateTime(2026, 2, 20),
+        );
+
+        // Act
+        final result = model.copyWith(clearClaimedBy: true);
+
+        // Assert
+        expect(result.claimedBy, isNull);
+        expect(result.claimedAt, isNull);
+      });
+
+      test('copyWith should preserve claimedBy when not clearing', () {
+        // Arrange
+        final claimTime = DateTime(2026, 2, 20);
+        final model = ItemModel(
+          id: 'test',
+          name: 'Test',
+          count: 0,
+          todayCount: 0,
+          incrementBy: 1,
+          reminder: ReminderType.none,
+          reminderValue: 0,
+          lastUpdated: testDateTime,
+          userId: 'user',
+          claimedBy: 'device_abc',
+          claimedAt: claimTime,
+        );
+
+        // Act
+        final result = model.copyWith(name: 'Other');
+
+        // Assert
+        expect(result.name, 'Other');
+        expect(result.claimedBy, 'device_abc');
+        expect(result.claimedAt, claimTime);
       });
     });
   });
