@@ -102,6 +102,13 @@ class Item extends Equatable {
   /// Empty map means no notes on any cycle.
   final Map<String, String> cycleNotes;
 
+  /// Device instance ID that has claimed this item for exclusive use.
+  /// Null means the item is unclaimed and available to any device.
+  final String? claimedBy;
+
+  /// Timestamp when the item was claimed. Null when unclaimed.
+  final DateTime? claimedAt;
+
   const Item({
     required this.id,
     required this.name,
@@ -123,6 +130,8 @@ class Item extends Equatable {
     this.deviceItemId,
     this.cycleNames = const {},
     this.cycleNotes = const {},
+    this.claimedBy,
+    this.claimedAt,
   });
 
   /// Creates a copy of this item with the given fields replaced.
@@ -152,6 +161,9 @@ class Item extends Equatable {
     int? deviceItemId,
     Map<String, String>? cycleNames,
     Map<String, String>? cycleNotes,
+    String? claimedBy,
+    bool clearClaimedBy = false,
+    DateTime? claimedAt,
   }) {
     return Item(
       id: id ?? this.id,
@@ -174,6 +186,8 @@ class Item extends Equatable {
       deviceItemId: deviceItemId ?? this.deviceItemId,
       cycleNames: cycleNames ?? this.cycleNames,
       cycleNotes: cycleNotes ?? this.cycleNotes,
+      claimedBy: clearClaimedBy ? null : (claimedBy ?? this.claimedBy),
+      claimedAt: clearClaimedBy ? null : (claimedAt ?? this.claimedAt),
     );
   }
 
@@ -199,6 +213,8 @@ class Item extends Equatable {
         deviceItemId,
         cycleNames,
         cycleNotes,
+        claimedBy,
+        claimedAt,
       ];
 
   @override
@@ -208,6 +224,7 @@ class Item extends Equatable {
         'lastResetTime: $lastResetTime, resetNumber: $resetNumber, lastUpdated: $lastUpdated, '
         'userId: $userId, deletedAt: $deletedAt, order: $order, initialCount: $initialCount, '
         'goal: $goal, categoryId: $categoryId, categoryOrder: $categoryOrder, '
-        'deviceItemId: $deviceItemId, cycleNames: $cycleNames, cycleNotes: $cycleNotes)';
+        'deviceItemId: $deviceItemId, cycleNames: $cycleNames, cycleNotes: $cycleNotes, '
+        'claimedBy: $claimedBy, claimedAt: $claimedAt)';
   }
 }
