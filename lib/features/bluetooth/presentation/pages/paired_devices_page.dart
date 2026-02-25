@@ -105,9 +105,12 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
                         ConnectToDevice(device.deviceInstanceId),
                       );
                 },
-                onDisconnect: () => context
-                    .read<BluetoothBloc>()
-                    .add(const DisconnectFromDevice()),
+                onDisconnect: () {
+                  final btBloc = context.read<BluetoothBloc>();
+                  btBloc.add(DisconnectFromDevice(
+                    deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+                  ));
+                },
               );
             },
           );

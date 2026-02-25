@@ -390,7 +390,7 @@ void main() {
         status: BluetoothStatus.ready,
         connectedDevices: tConnectedDevices,
       ),
-      act: (bloc) => bloc.add(const DisconnectFromDevice()),
+      act: (bloc) => bloc.add(const DisconnectFromDevice(deviceInstanceId: 'device-1')),
       expect: () => [
         const BluetoothState(status: BluetoothStatus.ready),
       ],
@@ -407,7 +407,7 @@ void main() {
         status: BluetoothStatus.ready,
         connectedDevices: tConnectedDevices,
       ),
-      act: (bloc) => bloc.add(const DisconnectFromDevice()),
+      act: (bloc) => bloc.add(const DisconnectFromDevice(deviceInstanceId: 'device-1')),
       expect: () => [
         isA<BluetoothState>().having(
           (s) => s.status,
@@ -440,7 +440,7 @@ void main() {
           hasMore: true,
           receivedAt: DateTime.now(),
         );
-        bloc.add(MessageReceived(message));
+        bloc.add(MessageReceived(message, deviceInstanceId: 'device-1'));
       },
       expect: () => [
         isA<BluetoothState>().having(
@@ -461,9 +461,9 @@ void main() {
           hasMore: true,
           receivedAt: DateTime.now(),
         );
-        bloc.add(MessageReceived(message));
+        bloc.add(MessageReceived(message, deviceInstanceId: 'unknown-device'));
       },
-      // When no device is connected, deviceInstanceId is null so no state update
+      // When deviceInstanceId doesn't match any connected device, no state update
       expect: () => [],
     );
   });

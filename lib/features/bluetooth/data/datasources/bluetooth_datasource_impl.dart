@@ -160,11 +160,6 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       );
     }
 
-    // Disconnect from any existing connection
-    if (_connections.isNotEmpty) {
-      await disconnect(_connections.keys.first);
-    }
-
     final device = BluetoothDevice.fromId(deviceId);
 
     // Retry connection with exponential backoff for GATT 133 errors

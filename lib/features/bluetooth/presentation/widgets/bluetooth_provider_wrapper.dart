@@ -276,9 +276,12 @@ extension BluetoothBlocContextExtension on BuildContext {
   }
 
   /// Disconnects from the currently connected device.
-  /// Note: deviceId is kept for API compatibility but not used.
   void disconnectFromBluetoothDevice(String deviceId) {
-    bluetoothBloc.add(const DisconnectFromDevice());
+    bluetoothBloc.add(DisconnectFromDevice(
+      deviceInstanceId: deviceId.isNotEmpty
+          ? deviceId
+          : bluetoothBloc.state.connectedDeviceInstanceId ?? '',
+    ));
   }
 
   /// Gets current Bluetooth connection status.

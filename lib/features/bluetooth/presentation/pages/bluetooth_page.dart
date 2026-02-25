@@ -106,14 +106,19 @@ class _BluetoothPageState extends State<BluetoothPage> {
       deviceId: instanceId,
       onConfirm: () {
         final appUiState = context.read<AppUiState>();
-        context.read<BluetoothBloc>().add(ConfirmSyncOverride(
+        final btBloc = context.read<BluetoothBloc>();
+        btBloc.add(ConfirmSyncOverride(
           currentSelectedItemId: appUiState.activeItemId.isNotEmpty
               ? appUiState.activeItemId
               : null,
+          deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
         ));
       },
       onCancel: () {
-        context.read<BluetoothBloc>().add(const CancelSyncConflict());
+        final btBloc = context.read<BluetoothBloc>();
+        btBloc.add(CancelSyncConflict(
+          deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+        ));
         showInfoSnackBar(context, 'Disconnected. Connect again to sync.');
       },
     );
@@ -123,7 +128,10 @@ class _BluetoothPageState extends State<BluetoothPage> {
     if (state.isConnected) {
       return OutlinedButton.icon(
         onPressed: () {
-          context.read<BluetoothBloc>().add(const DisconnectFromDevice());
+          final btBloc = context.read<BluetoothBloc>();
+          btBloc.add(DisconnectFromDevice(
+            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+          ));
         },
         icon: const Icon(Icons.bluetooth_disabled),
         label: const Text('Disconnect'),

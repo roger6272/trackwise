@@ -671,7 +671,9 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.pop(dialogContext);
               // Disconnect from device if connected (don't clear data, just disconnect)
               if (bluetoothBloc.state.isConnected) {
-                bluetoothBloc.add(const DisconnectFromDevice());
+                bluetoothBloc.add(DisconnectFromDevice(
+                  deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
+                ));
                 await Future.delayed(const Duration(milliseconds: 200));
               }
               authBloc.add(const SignOutEvent());
@@ -968,7 +970,9 @@ class _ProfilePageState extends State<ProfilePage> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Disconnect
-      bluetoothBloc.add(const DisconnectFromDevice());
+      bluetoothBloc.add(DisconnectFromDevice(
+        deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
+      ));
       await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       // Ignore errors during cleanup - account deletion should proceed

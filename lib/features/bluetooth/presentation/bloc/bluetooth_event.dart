@@ -4,6 +4,7 @@ import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/ble_message.dart';
 import '../../domain/usecases/request_device_data_usecase.dart';
+import '../../domain/usecases/sync_usecase.dart';
 
 /// Base class for all Bluetooth BLoC events.
 abstract class BluetoothEvent extends Equatable {
@@ -73,21 +74,26 @@ class ConnectToDevice extends BluetoothEvent {
 
 /// Disconnect from a connected BLE device.
 class DisconnectFromDevice extends BluetoothEvent {
-  const DisconnectFromDevice();
+  final String deviceInstanceId;
+
+  const DisconnectFromDevice({required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }
 
 /// Internal event when connection state changes.
 class ConnectionStateChanged extends BluetoothEvent {
   final bool isConnected;
-  final String? deviceId;
+  final String deviceInstanceId;
 
   const ConnectionStateChanged({
     required this.isConnected,
-    this.deviceId,
+    required this.deviceInstanceId,
   });
 
   @override
-  List<Object?> get props => [isConnected, deviceId];
+  List<Object?> get props => [isConnected, deviceInstanceId];
 }
 
 // ========== Data Events ==========
@@ -95,14 +101,19 @@ class ConnectionStateChanged extends BluetoothEvent {
 /// Send item list to the connected ESP32 device.
 class SendItemsToDevice extends BluetoothEvent {
   final List<Item> items;
+  final String deviceInstanceId;
 
   /// Map of categoryId -> categoryName for resolving category names.
   final Map<String, String> categoryNames;
 
-  const SendItemsToDevice(this.items, {this.categoryNames = const {}});
+  const SendItemsToDevice(
+    this.items, {
+    required this.deviceInstanceId,
+    this.categoryNames = const {},
+  });
 
   @override
-  List<Object?> get props => [items, categoryNames];
+  List<Object?> get props => [items, deviceInstanceId, categoryNames];
 }
 
 /// Send selected item change to the ESP32 device.
@@ -113,10 +124,12 @@ class SendSelectedItem extends BluetoothEvent {
   /// Device-side ID (0-99) for BLE communication
   final int deviceItemId;
 
-  const SendSelectedItem(this.itemId, this.deviceItemId);
+  final String deviceInstanceId;
+
+  const SendSelectedItem(this.itemId, this.deviceItemId, {required this.deviceInstanceId});
 
   @override
-  List<Object?> get props => [itemId, deviceItemId];
+  List<Object?> get props => [itemId, deviceItemId, deviceInstanceId];
 }
 
 /// Send time sync to the ESP32 device.
@@ -154,11 +167,12 @@ class UnpairDevice extends BluetoothEvent {
 /// Internal event when a message is received from ESP32.
 class MessageReceived extends BluetoothEvent {
   final BleMessage message;
+  final String deviceInstanceId;
 
-  const MessageReceived(this.message);
+  const MessageReceived(this.message, {required this.deviceInstanceId});
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, deviceInstanceId];
 }
 
 // ========== Scan Result Events ==========
@@ -173,15 +187,16 @@ class ScanResultsUpdated extends BluetoothEvent {
   List<Object?> get props => [devices];
 }
 
-/// Internal event to update selected item ID from device prefs.
+/// Internal event to update selected item ID from device prefs during initial sync.
 /// Used during initial sync when device reports its currently selected item.
 class UpdateSelectedItemFromDevice extends BluetoothEvent {
   final String itemId;
+  final String deviceInstanceId;
 
-  const UpdateSelectedItemFromDevice(this.itemId);
+  const UpdateSelectedItemFromDevice(this.itemId, {required this.deviceInstanceId});
 
   @override
-  List<Object?> get props => [itemId];
+  List<Object?> get props => [itemId, deviceInstanceId];
 }
 
 // ========== Paired Device Events ==========
@@ -232,12 +247,12 @@ class RemovePairedDevice extends BluetoothEvent {
 class SyncConflictDetected extends BluetoothEvent {
   final int? deviceSyncSeq;
   final int appSyncSeq;
-  final String? deviceInstanceId;
+  final String deviceInstanceId;
 
   const SyncConflictDetected({
     this.deviceSyncSeq,
     required this.appSyncSeq,
-    this.deviceInstanceId,
+    required this.deviceInstanceId,
   });
 
   @override
@@ -251,16 +266,26 @@ class ConfirmSyncOverride extends BluetoothEvent {
   /// Takes precedence over BluetoothState.selectedItemId.
   final String? currentSelectedItemId;
 
-  const ConfirmSyncOverride({this.currentSelectedItemId});
+  final String deviceInstanceId;
+
+  const ConfirmSyncOverride({
+    this.currentSelectedItemId,
+    required this.deviceInstanceId,
+  });
 
   @override
-  List<Object?> get props => [currentSelectedItemId];
+  List<Object?> get props => [currentSelectedItemId, deviceInstanceId];
 }
 
 /// User cancelled conflict dialog.
 /// Disconnects from device.
 class CancelSyncConflict extends BluetoothEvent {
-  const CancelSyncConflict();
+  final String deviceInstanceId;
+
+  const CancelSyncConflict({required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }
 
 /// Clear conflict state after it's been handled.
@@ -288,16 +313,26 @@ class ConfirmDeviceSetup extends BluetoothEvent {
   /// Takes precedence over BluetoothState.selectedItemId.
   final String? currentSelectedItemId;
 
-  const ConfirmDeviceSetup({this.currentSelectedItemId});
+  final String deviceInstanceId;
+
+  const ConfirmDeviceSetup({
+    this.currentSelectedItemId,
+    required this.deviceInstanceId,
+  });
 
   @override
-  List<Object?> get props => [currentSelectedItemId];
+  List<Object?> get props => [currentSelectedItemId, deviceInstanceId];
 }
 
 /// User cancelled device setup dialog.
 /// Disconnects from device (device stays empty/unpaired).
 class CancelDeviceSetup extends BluetoothEvent {
-  const CancelDeviceSetup();
+  final String deviceInstanceId;
+
+  const CancelDeviceSetup({required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }
 
 /// Clear setup state after it's been handled.
@@ -308,9 +343,9 @@ class ClearSetupState extends BluetoothEvent {
 /// Internal event when sync completes successfully.
 /// Sets the connected device instance ID and triggers paired devices reload.
 class SyncCompleted extends BluetoothEvent {
-  final String? deviceInstanceId;
+  final String deviceInstanceId;
 
-  const SyncCompleted({this.deviceInstanceId});
+  const SyncCompleted({required this.deviceInstanceId});
 
   @override
   List<Object?> get props => [deviceInstanceId];
@@ -328,4 +363,17 @@ class WrongAccountDetected extends BluetoothEvent {
 /// Disconnects from device.
 class DismissWrongAccount extends BluetoothEvent {
   const DismissWrongAccount();
+}
+
+// ========== Handshake Events ==========
+
+/// Internal event when handshake completes (success, conflict, setup, or wrongAccount).
+class HandshakeCompleted extends BluetoothEvent {
+  final String deviceInstanceId;
+  final SyncResult result;
+
+  const HandshakeCompleted({required this.deviceInstanceId, required this.result});
+
+  @override
+  List<Object?> get props => [deviceInstanceId, result];
 }

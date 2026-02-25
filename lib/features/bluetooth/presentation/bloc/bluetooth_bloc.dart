@@ -171,6 +171,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Wrong account events
     on<WrongAccountDetected>(_onWrongAccountDetected);
     on<DismissWrongAccount>(_onDismissWrongAccount);
+    // Handshake completed event (stub for Task 10)
+    on<HandshakeCompleted>(_onHandshakeCompleted);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -428,7 +430,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           final isConnected = connectionState == BleConnectionState.connected;
           add(ConnectionStateChanged(
             isConnected: isConnected,
-            deviceId: event.deviceId,
+            deviceInstanceId: event.deviceId,
           ));
         },
       );
@@ -486,8 +488,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     _reconnectTimer = null;
     _reconnectAttempts = 0;
 
-    final deviceId = state.connectedDevice?.id ?? state.connectingDeviceId;
-    if (deviceId == null) return;
+    final deviceId = event.deviceInstanceId.isNotEmpty
+        ? event.deviceInstanceId
+        : state.connectedDevice?.id ?? state.connectingDeviceId;
+    if (deviceId == null || deviceId.isEmpty) return;
 
     // Don't await these - they can hang if the stream is mid-emission
     _messageSubscription?.cancel();
@@ -523,15 +527,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
       // Find device in discovered list, paired devices, or create from ID
       final device = state.discoveredDevices.firstWhere(
-        (d) => d.id == event.deviceId,
+        (d) => d.id == event.deviceInstanceId,
         orElse: () {
           // Check paired devices for a friendly name
           final paired = state.pairedDevices.cast<PairedDevice?>().firstWhere(
-            (d) => d!.deviceInstanceId == event.deviceId,
+            (d) => d!.deviceInstanceId == event.deviceInstanceId,
             orElse: () => null,
           );
           return BleDevice(
-            id: event.deviceId!,
+            id: event.deviceInstanceId,
             name: paired?.deviceName ?? 'Traxelos Device',
             rssi: 0,
           );
@@ -542,7 +546,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         status: BluetoothStatus.ready,
         connectedDevices: {
           ...state.connectedDevices,
-          event.deviceId!: DeviceConnectionState(
+          event.deviceInstanceId: DeviceConnectionState(
             device: device,
             syncStatus: DeviceSyncStatus.handshaking,
           ),
@@ -551,16 +555,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       ));
 
       // Start listening to messages
-      _subscribeToMessages(event.deviceId!);
+      _subscribeToMessages(event.deviceInstanceId);
 
       // Perform initial sync
       _performInitialSync();
     } else {
       // Disconnected
-      final deviceId = event.deviceId;
+      final deviceId = event.deviceInstanceId;
       emit(state.copyWith(
         status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
-        connectedDevices: deviceId != null ? _removeDevice(deviceId) : const {},
+        connectedDevices: _removeDevice(deviceId),
         clearConnectingDeviceId: true,
       ));
 
@@ -581,14 +585,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     }
   }
 
-  void _subscribeToMessages(String deviceId) {
+  void _subscribeToMessages(String deviceInstanceId) {
     _messageSubscription?.cancel();
     _messageSubscription = _watchMessages
-        .call(WatchDeviceMessagesParams(deviceId))
+        .call(WatchDeviceMessagesParams(deviceInstanceId))
         .listen((either) {
       either.fold(
         (failure) {}, // Ignore errors in message stream
-        (message) => add(MessageReceived(message)),
+        (message) => add(MessageReceived(message, deviceInstanceId: deviceInstanceId)),
       );
     });
   }
@@ -625,7 +629,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           add(SyncConflictDetected(
             appSyncSeq: failure.appSyncSeq,
             deviceSyncSeq: failure.deviceSyncSeq,
-            deviceInstanceId: failure.deviceInstanceId,
+            deviceInstanceId: failure.deviceInstanceId ?? state.connectedDeviceInstanceId ?? '',
           ));
         } else if (failure is DeviceUninitializedFailure) {
           // Device needs setup (factory reset or new device)
@@ -643,7 +647,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         }
       },
       (result) {
-        final macAddress = state.connectedDevice!.id;
+        final macAddress = state.connectedDevice?.id ?? state.connectedDeviceInstanceId ?? '';
         AppLogger.debug('Sync completed successfully, deviceInstanceId=$macAddress');
         // Use event to update state (emit not available outside event handlers)
         add(SyncCompleted(deviceInstanceId: macAddress));
@@ -838,7 +842,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     final message = event.message;
-    final deviceInstanceId = state.connectedDeviceInstanceId;
+    final deviceInstanceId = event.deviceInstanceId;
 
     // Update device state: clear isSyncing when prefs arrive, update hasMoreLogs
     if (deviceInstanceId != null) {
@@ -911,8 +915,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     UpdateSelectedItemFromDevice event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceId = state.connectedDeviceInstanceId;
-    if (deviceId != null) {
+    final deviceId = event.deviceInstanceId;
+    if (deviceId.isNotEmpty) {
       emit(state.copyWith(
         connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(selectedItemId: event.itemId)),
       ));
@@ -1014,9 +1018,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SyncConflictDetected event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceInstanceId = event.deviceInstanceId ?? state.connectedDeviceInstanceId;
+    final deviceInstanceId = event.deviceInstanceId;
     AppLogger.debug('BluetoothBloc: Setting conflict, deviceInstanceId=$deviceInstanceId');
-    if (deviceInstanceId == null) return;
+    if (deviceInstanceId.isEmpty) return;
 
     // If we have a device in the map, update its status
     // If not yet in map (handshake just completed), add it
@@ -1110,7 +1114,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         AppLogger.debug('Override completed successfully');
 
         // Trigger sync completed to reload paired devices (use MAC address as device ID)
-        add(SyncCompleted(deviceInstanceId: state.connectedDevice!.id));
+        add(SyncCompleted(deviceInstanceId: state.connectedDevice?.id ?? state.connectedDeviceInstanceId ?? ''));
       },
     );
   }
@@ -1163,8 +1167,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SyncCompleted event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceInstanceId = event.deviceInstanceId ?? state.connectedDeviceInstanceId;
-    if (deviceInstanceId != null) {
+    final deviceInstanceId = event.deviceInstanceId;
+    if (deviceInstanceId.isNotEmpty) {
       emit(state.copyWith(
         connectedDevices: _updateDevice(deviceInstanceId, (d) => d.copyWith(
           syncStatus: DeviceSyncStatus.synced,
@@ -1267,7 +1271,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         AppLogger.debug('Device setup completed successfully');
 
         // Trigger sync completed to reload paired devices (use MAC address as device ID)
-        add(SyncCompleted(deviceInstanceId: state.connectedDevice!.id));
+        add(SyncCompleted(deviceInstanceId: state.connectedDevice?.id ?? state.connectedDeviceInstanceId ?? ''));
       },
     );
   }
@@ -1339,6 +1343,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         connectedDevices: const {},
       ));
     }
+  }
+
+  // ========== Handshake Handler ==========
+
+  /// Stub handler for HandshakeCompleted — will be implemented in Task 10.
+  Future<void> _onHandshakeCompleted(
+    HandshakeCompleted event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    // Will be implemented in Task 10
   }
 
   // ========== Cleanup ==========

@@ -20,7 +20,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(const CheckBluetoothPermissions());
     registerFallbackValue(const RequestBluetoothPermissions());
-    registerFallbackValue(const DisconnectFromDevice());
+    registerFallbackValue(const DisconnectFromDevice(deviceInstanceId: ''));
   });
 
   setUp(() {
@@ -238,7 +238,7 @@ void main() {
       await tester.tap(find.text('Disconnect'));
       await tester.pump();
 
-      verify(() => mockBluetoothBloc.add(const DisconnectFromDevice())).called(1);
+      verify(() => mockBluetoothBloc.add(any(that: isA<DisconnectFromDevice>()))).called(1);
     });
   });
 }

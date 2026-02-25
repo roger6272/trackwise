@@ -1500,8 +1500,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
                     // Sort by categoryOrder for consistent device ordering
                     categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
-                    context.read<BluetoothBloc>().add(SendItemsToDevice(
+                    final btBloc = context.read<BluetoothBloc>();
+                    btBloc.add(SendItemsToDevice(
                       categoryItems,
+                      deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
                       categoryNames: _cachedCategoryNames,
                     ));
 
@@ -1514,9 +1516,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
                     _lastSyncTime = DateTime.now();
                   }
                   // Then send selected item to device
-                  context.read<BluetoothBloc>().add(SendSelectedItem(
+                  final btBloc2 = context.read<BluetoothBloc>();
+                  btBloc2.add(SendSelectedItem(
                     item.id,
                     item.deviceItemId ?? 0,
+                    deviceInstanceId: btBloc2.state.connectedDeviceInstanceId ?? '',
                   ));
                 } else {
                   await _showConnectDeviceDialog(context);
@@ -2029,15 +2033,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
     if (signatureChanged || categoryChanged) {
       if (!recentlySynced) {
         _lastSyncTime = now;
-        context.read<BluetoothBloc>().add(SendItemsToDevice(
+        final btBloc = context.read<BluetoothBloc>();
+        btBloc.add(SendItemsToDevice(
           currentCategoryItems,
+          deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
           categoryNames: _cachedCategoryNames,
         ));
         Future.delayed(const Duration(milliseconds: 100), () {
           if (!mounted) return;
-          context.read<BluetoothBloc>().add(SendSelectedItem(
+          final btBloc2 = context.read<BluetoothBloc>();
+          btBloc2.add(SendSelectedItem(
             selectedId,
             selectedItem.deviceItemId ?? 0,
+            deviceInstanceId: btBloc2.state.connectedDeviceInstanceId ?? '',
           ));
         });
       }

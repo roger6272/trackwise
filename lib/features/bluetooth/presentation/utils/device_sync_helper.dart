@@ -16,7 +16,10 @@ void syncItemsToDevice({
   String? excludeItemId,
   Item? includeItem,
   String? fallbackCategoryId,
+  String? deviceInstanceId,
 }) {
+  final resolvedDeviceInstanceId =
+      deviceInstanceId ?? bluetoothBloc.state.connectedDeviceInstanceId ?? '';
   // Find the selected item and its category
   String? selectedCategoryId;
   Item? selectedItem;
@@ -71,6 +74,7 @@ void syncItemsToDevice({
 
   bluetoothBloc.add(SendItemsToDevice(
     categoryItems,
+    deviceInstanceId: resolvedDeviceInstanceId,
     categoryNames: categoryNames,
   ));
 
@@ -80,6 +84,10 @@ void syncItemsToDevice({
         (deviceSelectedId == 'none' || selectedItem == null)
             ? -1
             : selectedItem.deviceItemId ?? 0;
-    bluetoothBloc.add(SendSelectedItem(deviceSelectedId, deviceItemId));
+    bluetoothBloc.add(SendSelectedItem(
+      deviceSelectedId,
+      deviceItemId,
+      deviceInstanceId: resolvedDeviceInstanceId,
+    ));
   }
 }

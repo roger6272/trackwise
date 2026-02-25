@@ -204,7 +204,10 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
       ),
     ];
 
-    _bloc.add(SendItemsToDevice(testItems));
+    _bloc.add(SendItemsToDevice(
+      testItems,
+      deviceInstanceId: _bloc.state.connectedDeviceInstanceId ?? '',
+    ));
 
     await Future.delayed(const Duration(seconds: 1));
     _updateTest('send_items', true); // Assume success if no error
@@ -294,7 +297,9 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
 
   Future<void> _testDisconnect() async {
     _log('Disconnecting...');
-    _bloc.add(const DisconnectFromDevice());
+    _bloc.add(DisconnectFromDevice(
+      deviceInstanceId: _bloc.state.connectedDeviceInstanceId ?? '',
+    ));
 
     await Future.delayed(const Duration(seconds: 2));
 

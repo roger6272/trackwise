@@ -252,14 +252,19 @@ class _MyAppState extends State<MyApp> {
         onConfirm: () {
           // Pass the currently selected item from AppUiState
           final appUiState = context.read<AppUiState>();
-          context.read<BluetoothBloc>().add(ConfirmSyncOverride(
+          final btBloc = context.read<BluetoothBloc>();
+          btBloc.add(ConfirmSyncOverride(
             currentSelectedItemId: appUiState.activeItemId.isNotEmpty
                 ? appUiState.activeItemId
                 : null,
+            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
           ));
         },
         onCancel: () {
-          context.read<BluetoothBloc>().add(const CancelSyncConflict());
+          final btBloc = context.read<BluetoothBloc>();
+          btBloc.add(CancelSyncConflict(
+            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+          ));
         },
       );
     }
@@ -274,14 +279,19 @@ class _MyAppState extends State<MyApp> {
         onConfirm: () {
           // Pass the currently selected item from AppUiState
           final appUiState = context.read<AppUiState>();
-          context.read<BluetoothBloc>().add(ConfirmDeviceSetup(
+          final btBloc = context.read<BluetoothBloc>();
+          btBloc.add(ConfirmDeviceSetup(
             currentSelectedItemId: appUiState.activeItemId.isNotEmpty
                 ? appUiState.activeItemId
                 : null,
+            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
           ));
         },
         onCancel: () {
-          context.read<BluetoothBloc>().add(const CancelDeviceSetup());
+          final btBloc = context.read<BluetoothBloc>();
+          btBloc.add(CancelDeviceSetup(
+            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+          ));
         },
       );
     }
