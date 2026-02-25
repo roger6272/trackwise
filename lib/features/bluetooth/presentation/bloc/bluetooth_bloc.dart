@@ -68,25 +68,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
   // Stream subscriptions
   StreamSubscription<dynamic>? _scanSubscription;
-  StreamSubscription<dynamic>? _connectionSubscription;
-  StreamSubscription<dynamic>? _messageSubscription;
+  final Map<String, StreamSubscription<dynamic>> _connectionSubscriptions = {};
+  final Map<String, StreamSubscription<dynamic>> _messageSubscriptions = {};
   StreamSubscription<bool>? _bluetoothStateSubscription;
 
-  // Auto-reconnect tracking
-  bool _isManualDisconnect = false;
-  String? _lastConnectedDeviceId;
-  Timer? _reconnectTimer;
-  bool _wasBluetoothOff = false;
-  int _reconnectAttempts = 0;
+  // Auto-reconnect tracking (per-device)
+  final Set<String> _manualDisconnects = {};
+  final Set<String> _devicesToReconnect = {};
+  final Map<String, Timer> _reconnectTimers = {};
+  bool _wasBluetoothOff = false; // Keep global — adapter state is global
+  final Map<String, int> _reconnectAttempts = {};
 
   /// Maximum reconnect delay in seconds (caps exponential growth)
   static const int _maxReconnectDelaySeconds = 60;
 
   /// Calculate reconnect delay with exponential backoff.
   /// Starts at 2 seconds, doubles each attempt, caps at 60 seconds.
-  Duration _getReconnectDelay() {
+  Duration _getReconnectDelay(String deviceInstanceId) {
     // 2^attempts * 2 seconds: 2s, 4s, 8s, 16s, 32s, 60s (capped)
-    final delaySeconds = (1 << _reconnectAttempts) * 2;
+    final attempts = _reconnectAttempts[deviceInstanceId] ?? 0;
+    final delaySeconds = (1 << attempts) * 2;
     final cappedDelay =
         delaySeconds > _maxReconnectDelaySeconds ? _maxReconnectDelaySeconds : delaySeconds;
     return Duration(seconds: cappedDelay);
@@ -204,21 +205,23 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         status: BluetoothStatus.ready,
       ));
 
-      // Auto-reconnect if Bluetooth was off and we have a device to reconnect to
-      if (_wasBluetoothOff &&
-          !_isManualDisconnect &&
-          _lastConnectedDeviceId != null) {
-        _reconnectTimer?.cancel();
-        final delay = _getReconnectDelay();
-        AppLogger.debug('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
-        _reconnectTimer = Timer(delay, () {
-          if (!_isManualDisconnect &&
-              state.status == BluetoothStatus.ready &&
-              !isClosed) {
-            _reconnectAttempts++;
-            add(ConnectToDevice(_lastConnectedDeviceId!));
+      // Auto-reconnect for all non-manually-disconnected devices when BT comes back on
+      if (_wasBluetoothOff) {
+        for (final deviceId in _devicesToReconnect.toList()) {
+          if (!_manualDisconnects.contains(deviceId)) {
+            _reconnectTimers[deviceId]?.cancel();
+            final delay = _getReconnectDelay(deviceId);
+            AppLogger.debug('🔄 Auto-reconnect for $deviceId scheduled in ${delay.inSeconds}s (BT re-enabled)');
+            _reconnectTimers[deviceId] = Timer(delay, () {
+              if (!_manualDisconnects.contains(deviceId) &&
+                  state.status == BluetoothStatus.ready &&
+                  !isClosed) {
+                _reconnectAttempts[deviceId] = (_reconnectAttempts[deviceId] ?? 0) + 1;
+                add(ConnectToDevice(deviceId));
+              }
+            });
           }
-        });
+        }
       }
       _wasBluetoothOff = false;
     }
@@ -379,9 +382,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ConnectToDevice event,
     Emitter<BluetoothState> emit,
   ) async {
-    // Cancel any pending reconnect
-    _reconnectTimer?.cancel();
-    _reconnectTimer = null;
+    // Cancel any pending reconnect for this device
+    _reconnectTimers[event.deviceId]?.cancel();
+    _reconnectTimers.remove(event.deviceId);
 
     // Stop scanning if active and wait for it to complete
     if (state.isScanning) {
@@ -410,8 +413,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       return;
     }
 
-    _isManualDisconnect = false;
-    _lastConnectedDeviceId = event.deviceId;
+    _manualDisconnects.remove(event.deviceId);
 
     emit(state.copyWith(
       status: BluetoothStatus.connecting,
@@ -420,8 +422,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ));
 
     // Set up connection state watcher
-    _connectionSubscription?.cancel();
-    _connectionSubscription = _watchConnectionState
+    _connectionSubscriptions[event.deviceId]?.cancel();
+    _connectionSubscriptions[event.deviceId] = _watchConnectionState
         .call(WatchConnectionStateParams(event.deviceId))
         .listen((either) {
       either.fold(
@@ -481,24 +483,25 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     DisconnectFromDevice event,
     Emitter<BluetoothState> emit,
   ) async {
-    _isManualDisconnect = true;
-
-    // Cancel any pending reconnect and reset attempts
-    _reconnectTimer?.cancel();
-    _reconnectTimer = null;
-    _reconnectAttempts = 0;
-
     final deviceId = event.deviceInstanceId.isNotEmpty
         ? event.deviceInstanceId
         : state.connectedDevice?.id ?? state.connectingDeviceId;
     if (deviceId == null || deviceId.isEmpty) return;
 
-    // Don't await these - they can hang if the stream is mid-emission
-    _messageSubscription?.cancel();
-    _messageSubscription = null;
+    _manualDisconnects.add(deviceId);
+    _devicesToReconnect.remove(deviceId);
 
-    _connectionSubscription?.cancel();
-    _connectionSubscription = null;
+    // Cancel any pending reconnect and reset attempts
+    _reconnectTimers[deviceId]?.cancel();
+    _reconnectTimers.remove(deviceId);
+    _reconnectAttempts.remove(deviceId);
+
+    // Don't await these - they can hang if the stream is mid-emission
+    _messageSubscriptions[deviceId]?.cancel();
+    _messageSubscriptions.remove(deviceId);
+
+    _connectionSubscriptions[deviceId]?.cancel();
+    _connectionSubscriptions.remove(deviceId);
 
     final result = await _disconnectDevice.call(
       DisconnectDeviceParams(deviceId),
@@ -523,7 +526,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) {
     if (event.isConnected) {
       // Reset reconnect attempts on successful connection
-      _reconnectAttempts = 0;
+      _reconnectAttempts.remove(event.deviceInstanceId);
+      _devicesToReconnect.remove(event.deviceInstanceId);
 
       // Find device in discovered list, paired devices, or create from ID
       final device = state.discoveredDevices.firstWhere(
@@ -569,16 +573,18 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       ));
 
       // Auto-reconnect if not manual disconnect (with exponential backoff)
-      if (!_isManualDisconnect && _lastConnectedDeviceId != null) {
-        _reconnectTimer?.cancel();
-        final delay = _getReconnectDelay();
-        AppLogger.debug('🔄 Auto-reconnect scheduled in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})');
-        _reconnectTimer = Timer(delay, () {
-          if (!_isManualDisconnect &&
+      final disconnectedId = event.deviceInstanceId;
+      if (!_manualDisconnects.contains(disconnectedId)) {
+        _devicesToReconnect.add(disconnectedId);
+        _reconnectTimers[disconnectedId]?.cancel();
+        final delay = _getReconnectDelay(disconnectedId);
+        AppLogger.debug('🔄 Auto-reconnect for $disconnectedId scheduled in ${delay.inSeconds}s (attempt ${(_reconnectAttempts[disconnectedId] ?? 0) + 1})');
+        _reconnectTimers[disconnectedId] = Timer(delay, () {
+          if (!_manualDisconnects.contains(disconnectedId) &&
               state.status == BluetoothStatus.ready &&
               !isClosed) {
-            _reconnectAttempts++;
-            add(ConnectToDevice(_lastConnectedDeviceId!));
+            _reconnectAttempts[disconnectedId] = (_reconnectAttempts[disconnectedId] ?? 0) + 1;
+            add(ConnectToDevice(disconnectedId));
           }
         });
       }
@@ -586,8 +592,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   }
 
   void _subscribeToMessages(String deviceInstanceId) {
-    _messageSubscription?.cancel();
-    _messageSubscription = _watchMessages
+    _messageSubscriptions[deviceInstanceId]?.cancel();
+    _messageSubscriptions[deviceInstanceId] = _watchMessages
         .call(WatchDeviceMessagesParams(deviceInstanceId))
         .listen((either) {
       either.fold(
@@ -973,10 +979,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Disconnect first if this is the connected device
     if (isConnectedDevice && state.connectedDevice != null) {
       AppLogger.debug('Disconnecting from device being unpaired');
-      _isManualDisconnect = true;
-      _reconnectTimer?.cancel();
-      _reconnectTimer = null;
-      _reconnectAttempts = 0;
+      final connectedId = state.connectedDeviceInstanceId ?? event.deviceInstanceId;
+      _manualDisconnects.add(connectedId);
+      _devicesToReconnect.remove(connectedId);
+      _reconnectTimers[connectedId]?.cancel();
+      _reconnectTimers.remove(connectedId);
+      _reconnectAttempts.remove(connectedId);
 
       await _bluetoothRepository.disconnect(state.connectedDevice!.id);
     }
@@ -1132,7 +1140,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Disconnect from device
     final deviceId = state.connectedDevice?.id;
     if (deviceId != null) {
-      _isManualDisconnect = true;
+      final connectedInstId = state.connectedDeviceInstanceId ?? deviceId;
+      _manualDisconnects.add(connectedInstId);
+      _devicesToReconnect.remove(connectedInstId);
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
@@ -1280,7 +1290,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Disconnect from device (device stays empty/unpaired)
     final deviceId = state.connectedDevice?.id;
     if (deviceId != null) {
-      _isManualDisconnect = true;
+      final connectedInstId = state.connectedDeviceInstanceId ?? deviceId;
+      _manualDisconnects.add(connectedInstId);
+      _devicesToReconnect.remove(connectedInstId);
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
@@ -1332,7 +1344,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Disconnect from device
     final deviceId = state.connectedDevice?.id;
     if (deviceId != null) {
-      _isManualDisconnect = true;
+      final connectedInstId = state.connectedDeviceInstanceId ?? deviceId;
+      _manualDisconnects.add(connectedInstId);
+      _devicesToReconnect.remove(connectedInstId);
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
@@ -1369,10 +1383,19 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
   @override
   Future<void> close() async {
-    _reconnectTimer?.cancel();
+    for (final timer in _reconnectTimers.values) {
+      timer.cancel();
+    }
+    _reconnectTimers.clear();
     await _scanSubscription?.cancel();
-    await _connectionSubscription?.cancel();
-    await _messageSubscription?.cancel();
+    for (final sub in _connectionSubscriptions.values) {
+      await sub.cancel();
+    }
+    _connectionSubscriptions.clear();
+    for (final sub in _messageSubscriptions.values) {
+      await sub.cancel();
+    }
+    _messageSubscriptions.clear();
     await _bluetoothStateSubscription?.cancel();
     return super.close();
   }
