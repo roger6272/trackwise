@@ -26,6 +26,15 @@ void main() {
       expect(copy.pairedAt, testDevice.pairedAt);
     });
 
+    test('should default color to 0', () {
+      expect(testDevice.color, 0);
+    });
+
+    test('copyWith should update color', () {
+      final copy = testDevice.copyWith(color: 3);
+      expect(copy.color, 3);
+    });
+
     test('should be equal when all fields match', () {
       final sameDevice = PairedDevice(
         deviceInstanceId: 'device-123-uuid',
@@ -75,6 +84,27 @@ void main() {
         expect(device.pairedAt, testDateTime);
       });
 
+      test('should parse color field', () {
+        final data = {
+          'device_instance_id': 'device-456',
+          'device_name': 'Work Device',
+          'paired_at': Timestamp.fromDate(testDateTime),
+          'color': 5,
+        };
+        final device = PairedDevice.fromFirestore(data);
+        expect(device.color, 5);
+      });
+
+      test('should default color to 0 when missing', () {
+        final data = {
+          'device_instance_id': 'device-456',
+          'device_name': 'Work Device',
+          'paired_at': Timestamp.fromDate(testDateTime),
+        };
+        final device = PairedDevice.fromFirestore(data);
+        expect(device.color, 0);
+      });
+
       test('should use default values for missing fields', () {
         final data = <String, dynamic>{};
 
@@ -110,6 +140,7 @@ void main() {
           (map['paired_at'] as Timestamp).toDate(),
           testDateTime,
         );
+        expect(map['color'], 0);
       });
     });
 
