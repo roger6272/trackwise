@@ -450,6 +450,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
         allItems: allItems,
         deviceSelectedId: deviceSelectedId,
         categoryNames: categoryNames,
+        deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
       );
     } catch (e) {
       // Silently handle sync errors - device sync is best-effort

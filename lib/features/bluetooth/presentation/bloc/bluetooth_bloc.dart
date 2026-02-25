@@ -9,6 +9,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../auth/domain/repositories/user_repository.dart';
+import '../../../items/domain/repositories/item_repository.dart';
 import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_device.dart';
 import '../../domain/entities/paired_device.dart';
@@ -65,6 +66,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final PerformOverrideUseCase _performOverride;
   final UserRepository _userRepository;
   final BluetoothRepository _bluetoothRepository;
+  final ItemRepository _itemRepository;
 
   // Stream subscriptions
   StreamSubscription<dynamic>? _scanSubscription;
@@ -131,6 +133,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._performOverride,
     this._userRepository,
     this._bluetoothRepository,
+    this._itemRepository,
   ) : super(const BluetoothState()) {
     // Register event handlers
     on<CheckBluetoothPermissions>(_onCheckPermissions);
@@ -1384,20 +1387,53 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
   // ========== Claim Handlers ==========
 
-  /// Stub handler for ClaimItem — will be implemented in Task 13.
   Future<void> _onClaimItem(
     ClaimItem event,
     Emitter<BluetoothState> emit,
   ) async {
-    // Will be implemented in Task 13
+    final deviceState = state.connectedDevices[event.deviceInstanceId];
+    if (deviceState == null) return;
+
+    // Release previous claim if device had a different item selected
+    final previousItemId = deviceState.selectedItemId;
+    if (previousItemId != null && previousItemId != event.itemId) {
+      final releaseResult = await _itemRepository.releaseItem(previousItemId);
+      releaseResult.fold(
+        (failure) => AppLogger.debug('Failed to release previous claim: ${failure.message}'),
+        (_) => AppLogger.debug('Released previous claim on $previousItemId'),
+      );
+    }
+
+    // Claim the new item
+    final result = await _itemRepository.claimItem(event.itemId, event.deviceInstanceId);
+
+    result.fold(
+      (failure) {
+        // Claim conflict — log the failure
+        // Corrective push will happen when items are next synced
+        AppLogger.debug('Claim failed for ${event.itemId}: ${failure.message}');
+      },
+      (_) {
+        // Claim succeeded — update selectedItemId in device state
+        emit(state.copyWith(
+          connectedDevices: _updateDevice(event.deviceInstanceId, (d) =>
+            d.copyWith(selectedItemId: event.itemId)),
+        ));
+
+        AppLogger.debug('Claimed item ${event.itemId} for device ${event.deviceInstanceId}');
+      },
+    );
   }
 
-  /// Stub handler for ReleaseItem — will be implemented in Task 13.
   Future<void> _onReleaseItem(
     ReleaseItem event,
     Emitter<BluetoothState> emit,
   ) async {
-    // Will be implemented in Task 13
+    final result = await _itemRepository.releaseItem(event.itemId);
+    result.fold(
+      (failure) => AppLogger.debug('Failed to release item ${event.itemId}: ${failure.message}'),
+      (_) => AppLogger.debug('Released claim on item ${event.itemId}'),
+    );
   }
 
   // ========== Cleanup ==========

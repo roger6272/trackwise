@@ -69,6 +69,11 @@ void syncItemsToDevice({
     }
   }
 
+  // Filter by claim state — device sees only unclaimed items + its own claims
+  categoryItems = categoryItems.where((item) =>
+    item.claimedBy == null || item.claimedBy == resolvedDeviceInstanceId
+  ).toList();
+
   // Sort by categoryOrder to match app's order
   categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 

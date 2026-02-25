@@ -2074,6 +2074,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
       excludeItemId: excludeItemId,
       includeItem: includeItem,
       fallbackCategoryId: fallbackCategoryId,
+      deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
     );
   }
 

@@ -382,6 +382,28 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i810.UpdateCategoryUseCase(gh<_i531.CategoryRepository>()));
     gh.lazySingleton<_i789.WatchCategoriesUseCase>(
         () => _i789.WatchCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i531.BluetoothBloc>(() => _i531.BluetoothBloc(
+          gh<_i1033.ScanDevicesUseCase>(),
+          gh<_i177.StopScanUseCase>(),
+          gh<_i597.ConnectDeviceUseCase>(),
+          gh<_i368.DisconnectDeviceUseCase>(),
+          gh<_i778.WatchConnectionStateUseCase>(),
+          gh<_i471.WatchDeviceMessagesUseCase>(),
+          gh<_i906.SendItemsToDeviceUseCase>(),
+          gh<_i594.SendSelectedItemUseCase>(),
+          gh<_i1041.SendTimeSyncUseCase>(),
+          gh<_i902.RequestDeviceDataUseCase>(),
+          gh<_i973.ClearDeviceLogsUseCase>(),
+          gh<_i895.UnpairDeviceUseCase>(),
+          gh<_i896.CheckBluetoothEnabledUseCase>(),
+          gh<_i937.RequestBluetoothPermissionsUseCase>(),
+          gh<_i1008.SyncDeviceDataUseCase>(),
+          gh<_i62.PerformSyncUseCase>(),
+          gh<_i62.PerformOverrideUseCase>(),
+          gh<_i721.UserRepository>(),
+          gh<_i649.BluetoothRepository>(),
+          gh<_i452.ItemRepository>(),
+        ));
     gh.factory<_i943.ProfileBloc>(() => _i943.ProfileBloc(
           getProfile: gh<_i740.GetProfileUseCase>(),
           updateProfile: gh<_i759.UpdateProfileUseCase>(),
@@ -407,27 +429,6 @@ extension GetItInjectableX on _i174.GetIt {
               mailDataSource: gh<_i242.FirestoreMailDataSource>(),
               generateCSV: gh<_i804.GenerateCSVUseCase>(),
             ));
-    gh.lazySingleton<_i531.BluetoothBloc>(() => _i531.BluetoothBloc(
-          gh<_i1033.ScanDevicesUseCase>(),
-          gh<_i177.StopScanUseCase>(),
-          gh<_i597.ConnectDeviceUseCase>(),
-          gh<_i368.DisconnectDeviceUseCase>(),
-          gh<_i778.WatchConnectionStateUseCase>(),
-          gh<_i471.WatchDeviceMessagesUseCase>(),
-          gh<_i906.SendItemsToDeviceUseCase>(),
-          gh<_i594.SendSelectedItemUseCase>(),
-          gh<_i1041.SendTimeSyncUseCase>(),
-          gh<_i902.RequestDeviceDataUseCase>(),
-          gh<_i973.ClearDeviceLogsUseCase>(),
-          gh<_i895.UnpairDeviceUseCase>(),
-          gh<_i896.CheckBluetoothEnabledUseCase>(),
-          gh<_i937.RequestBluetoothPermissionsUseCase>(),
-          gh<_i1008.SyncDeviceDataUseCase>(),
-          gh<_i62.PerformSyncUseCase>(),
-          gh<_i62.PerformOverrideUseCase>(),
-          gh<_i721.UserRepository>(),
-          gh<_i649.BluetoothRepository>(),
-        ));
     gh.factory<_i977.AuthBloc>(() => _i977.AuthBloc(
           signInWithEmail: gh<_i27.SignInWithEmailUseCase>(),
           signInWithGoogle: gh<_i683.SignInWithGoogleUseCase>(),

@@ -918,6 +918,7 @@ class _ProfilePageState extends State<ProfilePage> {
           allItems: resetItems!,
           deviceSelectedId: bluetoothBloc.state.selectedItemId,
           categoryNames: categoryNames,
+          deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
         );
       }
 

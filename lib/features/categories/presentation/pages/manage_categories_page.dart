@@ -360,6 +360,7 @@ class _ManageCategoriesContent extends StatelessWidget {
         allItems: allItems,
         deviceSelectedId: deviceSelectedId,
         categoryNames: categoryNames,
+        deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
       );
     } catch (_) {
       // Device sync is best-effort
