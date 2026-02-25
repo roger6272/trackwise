@@ -13,7 +13,7 @@
 | Datasource refactor | DeviceConnection objects in a coordinator map | Clean per-device lifecycle; connect creates, disconnect disposes |
 | BLoC architecture | Single BluetoothBloc with per-device state | Avoids dynamic BLoC creation; claims are cross-device by nature |
 | Claim ownership | BluetoothBloc owns claim logic | Already orchestrates sync/push; avoids circular cross-BLoC deps |
-| "Online" definition | Connected + handshake complete (`SyncStatus.synced`) | Safest — device is fully synced before allowing edits |
+| "Online" definition | Connected + handshake complete (`DeviceSyncStatus.synced`) | Safest — device is fully synced before allowing edits |
 | Claim transaction | Firestore read-then-write transaction | Deterministic winner/loser on race; ~10ms overhead |
 
 ---
@@ -83,17 +83,19 @@ State splits into **global fields** (adapter-level) and **per-device fields** (n
 ```dart
 class DeviceConnectionState {
   final BleDevice device;
-  final SyncStatus syncStatus;
+  final DeviceSyncStatus syncStatus;
   final String? selectedItemId;
   final bool isOverriding;
   final bool hasMoreLogs;
   final int? conflictAppSyncSeq;
   final int? conflictDeviceSyncSeq;
 
-  bool get isOnline => syncStatus == SyncStatus.synced;
+  bool get isOnline => syncStatus == DeviceSyncStatus.synced;
 }
 
-enum SyncStatus { handshaking, syncing, synced, conflict, setup, wrongAccount }
+/// Named DeviceSyncStatus to avoid collision with existing SyncStatus enum
+/// (which has: inSync, conflict, wrongAccount, uninitialized — used for handshake results).
+enum DeviceSyncStatus { handshaking, syncing, synced, conflict, setup, wrongAccount }
 ```
 
 ### BluetoothState
@@ -120,6 +122,24 @@ class BluetoothState {
 ```
 
 Removed singular fields: `connectedDevice`, `connectedDeviceInstanceId`, `hasConflict`, `conflictDeviceInstanceId`, `needsSetup`, `setupDeviceInstanceId`, `selectedItemId`, `isSyncing`, `isOverriding`, `hasWrongAccount`.
+
+### Claim-Aware Predicates
+
+Phase 3 (UI) needs these predicates from Phase 2 to gate edit/delete actions:
+
+```dart
+/// Can this item be edited or deleted?
+/// Unclaimed items are always editable.
+/// Claimed items are editable only if the claiming device is online.
+bool isItemEditable(Item item, Map<String, DeviceConnectionState> connectedDevices) {
+  if (item.claimedBy == null) return true;
+  final device = connectedDevices[item.claimedBy!];
+  if (device == null) return false; // claiming device not connected = offline = locked
+  return device.isOnline;
+}
+```
+
+This enforces the parent spec rules (Section 3.1/3.2): online-claimed items are fully editable, offline-claimed items block edit page entry and deletion.
 
 `BluetoothStatus` no longer includes `connected`/`disconnecting` — those are per-device via `SyncStatus`. Existing code that checks `state.status == BluetoothStatus.connected` must migrate to `state.isConnected`.
 
@@ -247,6 +267,10 @@ After `ClaimItem` succeeds:
     - Send set_selected to redirect, or id: -1 if list empty
 ```
 
+### sync_seq Not Updated on Claim Pushes
+
+Claim-triggered `set_items` pushes do **not** send `sync_complete` and do **not** update `sync_seq`. Only the handshake-initiated sync flow updates `sync_seq` (via `sync_complete` / `override_end`). This is by design — the next handshake reconciles any discrepancies.
+
 ### Post-Handshake Push
 
 After a device completes handshake (in-sync case):
@@ -282,7 +306,7 @@ class SyncDeviceDataParams {
 }
 ```
 
-All 4 EventLog creation sites add `deviceInstanceId` from params.
+Both EventLog creation sites (`_syncEventMessage`, `_syncLogsMessage`) add `deviceInstanceId` from params.
 
 ### Switch Event → Claim Dispatch
 
@@ -355,7 +379,7 @@ Ordered sub-phases, each independently testable:
 ### Phase 2b: BLoC State Refactor (no behavior change)
 
 - Replace singular state fields with `connectedDevices` map
-- Add `DeviceConnectionState` and `SyncStatus`
+- Add `DeviceConnectionState` and `DeviceSyncStatus`
 - Update all UI code that reads `state.connectedDevice` to use map
 - Add convenience getters (`isConnected`, `getDevice()`)
 - Map has 0 or 1 entry — single-device behavior preserved
@@ -386,17 +410,15 @@ Ordered sub-phases, each independently testable:
 | `bluetooth_datasource_impl.dart` | 2a | Extract DeviceConnection, coordinator map |
 | `bluetooth_datasource.dart` (abstract) | 2a | connectionState stream emits (deviceId, state) tuples |
 | `bluetooth_repository_impl.dart` | 2a | Route to DeviceConnection by deviceId |
-| `bluetooth_state.dart` | 2b | DeviceConnectionState, connectedDevices map, SyncStatus enum |
+| `bluetooth_state.dart` | 2b | DeviceConnectionState, connectedDevices map, DeviceSyncStatus enum, isItemEditable predicate |
 | `bluetooth_bloc.dart` | 2b-2d | Per-device state management, fire-and-forget handshake, claim handlers, per-device reconnect |
 | `bluetooth_event.dart` | 2c-2d | Add deviceInstanceId to events, new ClaimItem/ReleaseItem/HandshakeCompleted |
 | `device_sync_helper.dart` | 2d | Add deviceInstanceId param, claim filtering |
-| `sync_device_data_usecase.dart` | 2d | Accept deviceInstanceId in params, pass to EventLog creation |
-| `sync_device_data_params.dart` | 2d | Add deviceInstanceId field |
+| `sync_device_data_usecase.dart` | 2d | Accept deviceInstanceId in params (SyncDeviceDataParams is nested in this file), pass to EventLog creation |
 | `items_list_page.dart` | 2b, 2d | Read from connectedDevices map, pass deviceInstanceId to sync helper |
 | `deleted_items_page.dart` | 2d | Pass deviceInstanceId to sync helper |
 | `profile_page.dart` | 2d | Pass deviceInstanceId to sync helper |
 | `manage_categories_page.dart` | 2d | Pass deviceInstanceId to sync helper |
-| `perform_sync_usecase.dart` | 2a | Use DeviceConnection |
-| `perform_override_usecase.dart` | 2a, 2d | Use DeviceConnection, apply claim filtering |
+| `sync_usecase.dart` | 2a, 2d | Contains both PerformSyncUseCase and PerformOverrideUseCase. Use DeviceConnection, apply claim filtering in override. |
 | `event_log_model.dart` | Phase 1 (prerequisite) | device_instance_id serialization |
 | `item.dart` / `item_model.dart` | Phase 1 (prerequisite) | claimedBy/claimedAt fields |
