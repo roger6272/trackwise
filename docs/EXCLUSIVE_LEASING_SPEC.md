@@ -26,7 +26,7 @@ Exclusive Leasing is a multi-device model where a device **claims exactly one it
 | Condition | Behavior |
 |-----------|----------|
 | 0 devices connected | App-only mode (no activate interaction) |
-| 1 device connected | **Same as today.** Swipe to activate = select/claim. No dropdown, no device colors on item bars. |
+| 1 device connected | **Same as today.** Swipe to activate = select/claim. Claim is written to Firestore (`claimed_by`), but no dropdown, no device colors on item bars. |
 | 2+ devices connected | Multi-device mode. Activate shows dropdown. Item bars show device colors and names. |
 
 ---
@@ -235,7 +235,15 @@ Colors must be distinguishable in both light and dark mode.
 
 ### 5.1 App-Side Item Filtering
 
-The app **only sends unclaimed items** (and items claimed by the receiving device) via `set_items` or override. Items claimed by other devices are never sent to the device. This means:
+The app **only sends unclaimed items** (and items claimed by the receiving device) via `set_items` or override. Items claimed by other devices are never sent to the device. The filtering logic:
+
+```dart
+filteredItems = allItems.where((item) =>
+  item.claimedBy == null || item.claimedBy == deviceInstanceId
+).toList();
+```
+
+This means:
 
 - The device only has items it can actually use — no skip logic needed.
 - When a claim changes, the app pushes an updated `set_items` to affected devices. Only devices whose **selected category** contains the affected item need an update.
@@ -269,7 +277,7 @@ When a user selects an item on the device (while connected):
 2. App receives it and processes the claim:
    - **Unclaimed** → App writes claim to Firestore (releases previous item), pushes updated `set_items` to other affected devices.
    - **Claimed by this device** → Already owned, proceed.
-   - **Claimed by another device** → Near-zero probability since the device only has unclaimed items. Only possible if another device claimed the same item in the brief window since the last `set_items`. Firestore transaction rejects the claim; app pushes updated `set_items` (excluding the now-claimed item), then sends `set_selected` to redirect to the first item in the updated list. If the updated list is empty, no `set_selected` is needed — the device already shows "no item selected" after receiving the empty `set_items`. App should verify the redirect succeeded by waiting for the expected `item_delta` response.
+   - **Claimed by another device** → Near-zero probability since the device only has unclaimed items. Only possible if another device claimed the same item in the brief window since the last `set_items`. Firestore transaction rejects the claim; app pushes updated `set_items` (excluding the now-claimed item), then sends `set_selected` to redirect to the first item in the updated list. If the updated list is empty, send `set_selected` with `id: -1` to explicitly clear the device's selection (the device does not auto-clear on empty `set_items`). App should verify the redirect succeeded by waiting for the expected `item_delta` response.
 
 ---
 
@@ -287,7 +295,7 @@ The claiming mechanism is handled entirely by the app filtering which items are 
 
 When a claim changes (item claimed or released), the app pushes an updated `set_items` to other connected devices whose **selected category** contains the affected item. Devices in a different category are unaffected and receive no update.
 
-**Note:** `set_items` clears the device's event log buffer. Increment events are only buffered when disconnected, so they are safe. However, reset events are currently logged to the buffer unconditionally (even when connected) — a firmware bug. The app already receives resets as real-time BLE notifications, so the buffered copy is redundant. This should be fixed in firmware (add `isConnected` guard to reset event logging, same as increment events). With that fix, claim-triggered `set_items` pushes do not risk losing events.
+**Note:** `set_items` clears the device's event log buffer. Increment events are only buffered when disconnected (guarded by `isConnected`), so clearing is safe — no unsynced increments are lost. Reset events are logged unconditionally (no `isConnected` guard), which is correct: when disconnected, the buffer is the only way resets reach the app on reconnection; when connected, the redundant buffer copy is harmless since the app already received the real-time notification. Claim-triggered `set_items` pushes do not risk losing events.
 
 ### 6.3 Sync Sequence Compatibility
 
@@ -501,7 +509,7 @@ Claiming itself does **not** require a protocol version bump — the `set_items`
 - Firestore read/write for new fields
 - No UI changes yet
 
-### Phase 2: Multi-Device BLE & Claim Logic (App-side) — CRITICAL PATH
+### Phase 2: Multi-Device BLE & Claim Logic (App-side) — CRITICAL PATH *(blocked by Phase 1)*
 
 **This is the deepest architectural change.** The current BLE stack is single-connection:
 - `BluetoothDataSourceImpl` stores `BluetoothDevice? _connectedDevice` (singular)
@@ -521,7 +529,7 @@ Then add claim logic:
 - Auto-release on device unpair
 - `ItemsBloc`: expose claim state per item, handle `ClaimItem` and `ReleaseItem` events
 
-### Phase 3: UI — Item List
+### Phase 3: UI — Item List *(blocked by Phase 2)*
 
 - Device color tinting on item bars
 - Device name display on claimed items
@@ -530,21 +538,20 @@ Then add claim logic:
 - Unlock swipe action with confirmation dialogs (normal + break-glass)
 - Enable drag-and-drop reorder/category-move regardless of connection state (remove `isConnected` gate)
 
-### Phase 4: UI — Supporting Pages
+### Phase 4: UI — Supporting Pages *(blocked by Phase 2; can parallel Phase 3)*
 
 - Paired devices page: color picker
 - Break-glass reconnection dialog
 - CSV export: add optional "Device" column (map `deviceInstanceId` to device name)
 
-### Phase 5: Firmware
+### Phase 5: Firmware *(can parallel Phases 2-4)*
 
-- Fixed-task constraint: guard item switch on `isConnected` flag (already tracked in firmware), display two-line OLED message ("SWITCH DISABLED" / "SYNC TO APP") — applies to both serial command handler and item menu navigation
+- Fixed-task constraint: guard item switch on `isConnected` flag (already tracked in firmware), display two-line OLED message ("SWITCH DISABLED" / "SYNC TO APP"). Insert guard in the `cmd == 's'` handler, after the `total == 0` early-return check. Applies to both serial command handler and item menu navigation.
 - Device shows "no item selected" when it receives an empty item list or its claimed item is deleted
 - Implement production display rendering (current `displayMessage()` is a debug-only placeholder)
-- Fix reset event logging: add `isConnected` guard (same as increment events) so resets aren't buffered while connected
 - No payload format changes needed — claiming is handled entirely by app-side filtering
 
-### Phase 6: Integration & Testing
+### Phase 6: Integration & Testing *(blocked by Phases 3-5)*
 
 - End-to-end multi-device testing (2+ devices)
 - Single-device regression testing
