@@ -25,9 +25,9 @@ Exclusive Leasing is a multi-device model where a device **claims exactly one it
 
 | Condition | Behavior |
 |-----------|----------|
-| 0 devices connected | App-only mode (no ping icon interaction) |
-| 1 device connected | **Same as today.** Tap ping = select/claim. No dropdown, no device colors on item bars. |
-| 2+ devices connected | Multi-device mode. Ping shows dropdown. Item bars show device colors and names. |
+| 0 devices connected | App-only mode (no activate interaction) |
+| 1 device connected | **Same as today.** Swipe to activate = select/claim. No dropdown, no device colors on item bars. |
+| 2+ devices connected | Multi-device mode. Activate shows dropdown. Item bars show device colors and names. |
 
 ---
 
@@ -45,8 +45,8 @@ A device can only claim **one item at a time**. This mirrors the current "select
 
 | Action | Trigger | Result |
 |--------|---------|--------|
-| **Claim (single device)** | Tap ping icon on item list page | Item assigned to the only connected device. Previous item auto-released. |
-| **Claim (multi-device)** | Tap ping icon → select device from dropdown | Item assigned to selected device. That device's previous item auto-released. |
+| **Claim (single device)** | Left-swipe item → tap Activate action | Item assigned to the only connected device. Previous item auto-released. |
+| **Claim (multi-device)** | Left-swipe item → tap Activate → select device from dropdown | Item assigned to selected device. That device's previous item auto-released. |
 | **Claim (device-side loop)** | User loops through items on physical device | Each item selected = claimed. Previous auto-released. Device only has unclaimed items (claimed items are never sent to it). |
 | **Release (app)** | Left-swipe item → tap unlock icon → confirm | Claim removed, item available to all devices. |
 | **Release (break-glass)** | Same unlock flow, but device is offline/lost | Claim removed with warning about unsynced data. |
@@ -59,7 +59,7 @@ A device can only claim **one item at a time**. This mirrors the current "select
                     │ Unclaimed │ ◄──── device selects different item (auto-release)
                     └─────┬────┘ ◄──── user unlocks via swipe
                           │      ◄──── break-glass release
-              tap ping / select device / device-side select
+           swipe activate / select device / device-side select
                           │
                           ▼
                 ┌─────────────────┐
@@ -102,7 +102,7 @@ When a device is offline/lost and the user force-releases an item:
 3. Item becomes available to other devices immediately.
 4. When the original device reconnects:
    - Handshake detects it no longer owns the item.
-   - App offers: **"Sync to app"** (discard device counts, accept Firestore) or **"Don't sync"** (keep device counting offline independently, item stays released in Firestore).
+   - App offers: **"Sync to app"** (override device with Firestore data — device counts for the released item are discarded) or **"Don't sync"** (disconnect; device keeps counting offline independently, item stays released in Firestore).
 
 ---
 
@@ -136,7 +136,7 @@ When the device claiming an item is **disconnected**, the item has restricted ed
 | Enter item edit page | **No** | Edit icon locked; offline device can't receive changes |
 | Delete item | **No** | Offline device would keep counting a deleted item |
 | Reorder in list | **Yes** | Order is app-local, doesn't affect the device |
-| Move to different category | **Yes** | Offline device is locked to this item by ID regardless of category. On reconnect, updated category info syncs. |
+| Move to different category (drag-and-drop) | **Yes** | Done via drag-and-drop on the list page (no edit page needed). Offline device is locked to this item by ID regardless of category. On reconnect, updated category info syncs. |
 | Unlock/release (break-glass) | **Yes** | With warning about unsynced data |
 
 ### 3.3 Why Allow Category Move Even When Offline?
@@ -164,7 +164,7 @@ The offline device doesn't care about categories — it's locked to one item by 
 └─────────────────────────────────────────────────────┘
 ```
 
-The bar shows device color tint and device name. Ping/unlock actions remain **left-swipe actions** (not visible on the bar).
+The bar shows device color tint and device name. Activate/unlock actions remain **left-swipe actions** (not visible on the bar).
 
 | Element | Unclaimed | Claimed (device online) | Claimed (device offline) |
 |---------|-----------|------------------------|-------------------------|
@@ -178,11 +178,11 @@ The bar shows device color tint and device name. Ping/unlock actions remain **le
 
 | Item State | Swipe Actions |
 |------------|--------------|
-| Unclaimed | Activate (ping/dropdown), Edit, Delete |
+| Unclaimed | Activate (or dropdown in multi-device mode), Edit, Delete |
 | Claimed (device online) | Unlock, Edit, Delete |
 | Claimed (device offline) | Unlock (break-glass), ~~Edit~~ (locked), ~~Delete~~ (locked) |
 
-#### Activate (Ping) Behavior
+#### Activate Behavior
 
 | Condition | Behavior |
 |-----------|---------|
@@ -199,7 +199,7 @@ The bar shows device color tint and device name. Ping/unlock actions remain **le
 
 ### 4.2 Item Detail Page
 
-The item detail page is view-only (stats, chart, cycle notes). No special claim-aware changes needed here — it displays data regardless of claim state.
+The item detail page displays stats, charts, and cycle info. Cycle notes and cycle names are editable directly on this page, but these don't affect device state (they're app-only metadata). No special claim-aware changes needed here — it displays and allows cycle note/name editing regardless of claim state.
 
 ### 4.3 Paired Devices Page
 
@@ -254,20 +254,20 @@ When the device **reconnects**:
 
 When an item is deleted from the app while the claiming device is online:
 
-1. App sends updated item list via `set_items` (without the deleted item).
-2. Device receives the update and removes the item from NVS.
-3. Device shows **"no item selected"** — same as current behavior when no item is selected.
+1. App sends `delete_item` to the claiming device (same as current single-device behavior).
+2. Device removes the item from NVS and shows **"no item selected"**.
+3. App pushes updated `set_items` to other connected devices in the same category (the deleted item is simply absent from the filtered list).
 4. User can select a new item from the device or app.
 
 ### 5.4 Claiming from Device Side
 
 When a user selects an item on the device (while connected):
 
-1. Device sends `item_delta` notification for the new item.
+1. Device sends `event` notification with `event: "switch"` (includes the new item's `itemId`).
 2. App receives it and processes the claim:
    - **Unclaimed** → App writes claim to Firestore (releases previous item), pushes updated `set_items` to other affected devices.
    - **Claimed by this device** → Already owned, proceed.
-   - **Claimed by another device** → Near-zero probability since the device only has unclaimed items. Only possible if another device claimed the same item in the brief window since the last `set_items`. Firestore transaction rejects the claim; app sends `set_selected` to redirect to next available item.
+   - **Claimed by another device** → Near-zero probability since the device only has unclaimed items. Only possible if another device claimed the same item in the brief window since the last `set_items`. Firestore transaction rejects the claim; app pushes updated `set_items` (excluding the now-claimed item), then sends `set_selected` to redirect to next available item.
 
 ---
 
@@ -285,6 +285,8 @@ The claiming mechanism is handled entirely by the app filtering which items are 
 
 When a claim changes (item claimed or released), the app pushes an updated `set_items` to other connected devices whose **selected category** contains the affected item. Devices in a different category are unaffected and receive no update.
 
+**Note:** `set_items` clears the device's event log buffer. However, connected devices send events as real-time BLE notifications — they don't accumulate in the buffer. So claim-triggered `set_items` pushes do not risk losing events. This is the same behavior as the existing drag-and-drop reorder or category change flows.
+
 ### 6.3 Sync Sequence Compatibility
 
 The existing `sync_seq` mechanism is **retained** as a secondary safeguard:
@@ -292,6 +294,7 @@ The existing `sync_seq` mechanism is **retained** as a secondary safeguard:
 - Exclusive Leasing handles the common case (no conflicts by design).
 - `sync_seq` catches edge cases where Firestore state changed between handshake and sync.
 - If `sync_seq` mismatch is detected despite leasing, fall back to current override flow.
+- Claim-triggered `set_items` pushes do **not** update `sync_seq` — only `sync_complete`/`override_end` do. This is acceptable because the next handshake will reconcile any discrepancies.
 
 ---
 
@@ -341,7 +344,7 @@ Claim rules are enforced at the **app layer**, not Firestore rules. Firestore au
 | Component | Change |
 |-----------|--------|
 | **Item entity** | Add `claimedBy: String?`, `claimedAt: DateTime?` fields |
-| **Item model** | Add Firestore serialization for new fields (`claimed_by`, `claimed_at`). Note: 11+ manual `ItemModel(...)` constructors need updating across repo_impl, datasource_impl, and test fixtures. |
+| **Item model** | Add Firestore serialization for new fields (`claimed_by`, `claimed_at`). Note: ~21 manual `ItemModel(...)` constructor calls need updating across item_model.dart (3), repo_impl (4), datasource_impl (3), test_fixtures (2), and test files (9). |
 | **PairedDevice entity** | Add `color: int` field (0-9). Note: PairedDevice has inline `fromFirestore()`/`toFirestore()` — no separate model class. |
 | **EventLog entity** | Add `deviceInstanceId: String?` field |
 | **EventLog model** | Add Firestore serialization for `device_instance_id` |
@@ -365,7 +368,7 @@ Claim rules are enforced at the **app layer**, not Firestore rules. Firestore au
 
 | Component | Change |
 |-----------|--------|
-| **ItemTile** | Show device color tint, device name, claim-aware ping/edit icons, locked edit icon for offline-claimed items |
+| **ItemTile** | Show device color tint, device name, claim-aware swipe actions (activate/unlock/edit/delete), locked edit/delete for offline-claimed items |
 | **ItemDetailPage** | No claim-aware changes needed — already view-only (stats, chart, cycle notes) |
 | **PairedDevicesPage** | Color picker in device options |
 | **New: DeviceDropdown** | Popup for selecting device when claiming in multi-device mode |
@@ -399,7 +402,7 @@ App connects to Device B
   └── 5. UI updates
         ├── Item bars show device colors and names
         ├── Claimed items show claim state
-        └── Ping icons reflect claim state
+        └── Swipe actions reflect claim state (activate vs unlock)
 ```
 
 ### 9.3 Break-Glass Reconnection
@@ -438,10 +441,11 @@ Device A reconnects after being force-released
 | User deletes a claimed item (device offline) | **Blocked.** Must release (break-glass) or reconnect the device first. |
 | User edits a claimed item (device online) | Allowed. Device receives changes immediately. |
 | User edits a claimed item (device offline) | **Blocked.** Edit icon is locked. Must reconnect the device first. |
-| Two devices try to claim same item simultaneously | Firestore transaction ensures only one succeeds. Loser's app sends `set_selected` to skip. |
+| Two devices try to claim same item simultaneously | Firestore transaction ensures only one succeeds. Loser's device receives updated `set_items` (item removed), then `set_selected` to redirect. |
 | Device factory reset while holding claim | Claim orphaned in Firestore. User unpairs the old device entry from paired devices page → claims auto-released. Or user break-glass releases the item directly. |
 | User unpairs device from paired devices page | All claims by that device are released automatically. |
 | Offline device reconnects, item was moved to different category | Device receives updated category info via `set_items`. No data conflict. |
+| Device user tries to switch items while offline | Device displays "Item switch is disabled when offline. Please sync to the app." and stays on current item. |
 | Only 1 device connected but 2+ paired | Single-device behavior. No claim UI, no colors. |
 
 ---
@@ -456,8 +460,9 @@ Device A reconnects after being force-released
 
 ### 11.2 Firmware Compatibility
 
-No payload format changes are needed for claiming — the app handles all claim logic by filtering which items are sent. Firmware update is required only for:
-- **Fixed-task constraint:** Disable item switching when offline and display the offline message.
+No payload format changes are needed for claiming — the app handles all claim logic by filtering which items are sent. Firmware update is required for:
+- **Fixed-task constraint:** Disable item switching when offline and display the offline message (the `isConnected` flag already exists in firmware).
+- **Production display rendering:** Current display functions (`displayMessage()`, etc.) are debug-only placeholders. Real display driver implementation is needed for offline messages, "no item selected" state, etc.
 - **Protocol v3 handshake** (if other v3 changes exist beyond claiming).
 
 ### 11.3 Protocol Version
@@ -470,7 +475,7 @@ Claiming itself does **not** require a protocol version bump — the `set_items`
 
 ### Phase 1: Foundation (App-side)
 
-- Add `claimedBy`, `claimedAt` to Item entity/model (11+ constructors across repo_impl, datasource_impl, test fixtures)
+- Add `claimedBy`, `claimedAt` to Item entity/model (~21 constructor calls across item_model, repo_impl, datasource_impl, test fixtures, and test files)
 - Add `deviceInstanceId` to EventLog entity/model
 - Add `color` to PairedDevice entity (inline serialization, no separate model)
 - Firestore read/write for new fields
@@ -500,7 +505,7 @@ Then add claim logic:
 - Device color tinting on item bars
 - Device name display on claimed items
 - Locked edit icon for offline-claimed items
-- Ping icon dropdown for multi-device claiming
+- Activate swipe action with device dropdown for multi-device claiming
 - Unlock swipe action with confirmation dialogs (normal + break-glass)
 
 ### Phase 4: UI — Supporting Pages
@@ -510,8 +515,9 @@ Then add claim logic:
 
 ### Phase 5: Firmware
 
-- Fixed-task constraint: disable item switching when offline, display "Item switch is disabled when offline. Please sync to the app."
+- Fixed-task constraint: guard item switch on `isConnected` flag (already tracked in firmware), display "Item switch is disabled when offline. Please sync to the app." — applies to both serial command handler and item menu navigation
 - Device shows "no item selected" when it receives an empty item list or its claimed item is deleted
+- Implement production display rendering (current `displayMessage()` is a debug-only placeholder)
 - No payload format changes needed — claiming is handled entirely by app-side filtering
 
 ### Phase 6: Integration & Testing
