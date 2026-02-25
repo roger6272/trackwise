@@ -239,6 +239,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         deviceItemId: deviceItemId, // Assigned deviceItemId for BLE
         cycleNames: item.cycleNames,
         cycleNotes: item.cycleNotes,
+        claimedBy: item.claimedBy,
+        claimedAt: item.claimedAt,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -282,6 +284,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         deviceItemId: item.deviceItemId, // Preserve deviceItemId
         cycleNames: item.cycleNames,
         cycleNotes: item.cycleNotes,
+        claimedBy: item.claimedBy,
+        claimedAt: item.claimedAt,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
@@ -345,6 +349,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         resetNumber: item.resetNumber,
         cycleNames: item.cycleNames,
         cycleNotes: item.cycleNotes,
+        claimedBy: item.claimedBy,
+        claimedAt: item.claimedAt,
       );
 
       // FlutterFlow stores uid as DocumentReference, not String
