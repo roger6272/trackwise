@@ -102,7 +102,7 @@ When a device is offline/lost and the user force-releases an item:
 3. Item becomes available to other devices immediately.
 4. When the original device reconnects:
    - Handshake detects it no longer owns the item.
-   - App offers: **"Sync to app"** (override device with Firestore data — device counts for the released item are discarded) or **"Don't sync"** (disconnect; device keeps counting offline independently, item stays released in Firestore).
+   - App offers: **"Override Device"** (push Firestore data to device — device counts for the released item are discarded) or **"Don't Sync"** (disconnect; device keeps counting offline independently, item stays released in Firestore).
 
 ---
 
@@ -245,7 +245,7 @@ The app **only sends unclaimed items** (and items claimed by the receiving devic
 
 When the device is **offline** (not connected to app):
 
-- The device **cannot switch items**. When the user presses the cycle button, the device displays: **"Item switch is disabled when offline. Please sync to the app."**
+- The device **cannot switch items**. When the user presses the cycle button, the device displays a two-line message on the 128x64 OLED: **Line 1: "SWITCH DISABLED"**, **Line 2: "SYNC TO APP"**.
 - The device continues counting/resetting the currently selected item only.
 
 When the device **reconnects**:
@@ -309,9 +309,11 @@ Items are stored in a top-level `Item` collection (not nested under users), filt
 ```
 Item/{itemId}/
   ├── ... (existing fields: uid, item_name, count, etc.)
-  ├── claimed_by: "AA:BB:CC:DD:EE:FF"   // NEW: deviceInstanceId, null if unclaimed
-  └── claimed_at: Timestamp               // NEW: when claim was established
+  ├── claimed_by: "AA:BB:CC:DD:EE:FF"   // NEW: deviceInstanceId, null if unclaimed (field present, set to null — not absent)
+  └── claimed_at: Timestamp               // NEW: Firestore server timestamp, null when unclaimed
 ```
+
+**Clearing claims in Dart:** `copyWith(claimedBy: null)` can't distinguish "set to null" from "don't change". Follow the existing `clearCategoryId` sentinel pattern — add a `clearClaimedBy` flag to `Item.copyWith()`.
 
 ### 7.2 Paired Device — New Field
 
@@ -332,12 +334,12 @@ users/{uid}/
 
 ### 7.3 EventLog Document — New Field
 
-Event logs are stored in a top-level `EventLog` collection (not nested under users), filtered by a `user_id` field.
+Event logs are stored in a top-level `EventLog` collection (not nested under users), filtered by a `uid` DocumentReference field (same pattern as Item).
 
 ```
 EventLog/{eventId}/
-  ├── ... (existing fields: user_id, item_id, event_name, etc.)
-  └── device_instance_id: "AA:BB:CC:DD:EE:FF"  // NEW: which device generated this event
+  ├── ... (existing fields: uid, item_id, event_name, etc.)
+  └── device_instance_id: "AA:BB:CC:DD:EE:FF"  // NEW: which device generated this event (null for app-initiated events)
 ```
 
 Every event (increment, reset, created) should record which device generated it, for multi-device auditing.
@@ -358,10 +360,10 @@ Claim rules are enforced at the **app layer**, not Firestore rules. Firestore au
 
 | Component | Change |
 |-----------|--------|
-| **Item entity** | Add `claimedBy: String?`, `claimedAt: DateTime?` fields |
+| **Item entity** | Add `claimedBy: String?`, `claimedAt: DateTime?` fields. Add `clearClaimedBy` sentinel to `copyWith()` (same pattern as existing `clearCategoryId`). |
 | **Item model** | Add Firestore serialization for new fields (`claimed_by`, `claimed_at`). Note: ~21 manual `ItemModel(...)` constructor calls need updating across item_model.dart (3), repo_impl (4), datasource_impl (3), test_fixtures (2), and test files (9). |
 | **PairedDevice entity** | Add `color: int` field (0-9). Note: PairedDevice has inline `fromFirestore()`/`toFirestore()` — no separate model class. Stored as map entries in the `paired_devices` array on the user document. |
-| **EventLog entity** | Add `deviceInstanceId: String?` field |
+| **EventLog entity** | Add `deviceInstanceId: String?` field (null for app-initiated events like "created") |
 | **EventLog model** | Add Firestore serialization for `device_instance_id` |
 
 ### 8.2 BLoC Changes
@@ -461,7 +463,7 @@ Device A reconnects after being force-released
 | Device factory reset while holding claim | Claim orphaned in Firestore. User unpairs the old device entry from paired devices page → claims auto-released. Or user break-glass releases the item directly. |
 | User unpairs device from paired devices page | All claims by that device are released automatically. (New behavior — unpair flow must be extended to clear `claimed_by` on all items claimed by the removed device.) |
 | Offline device reconnects, item was moved to different category | Device receives updated category info via `set_items`. No data conflict. |
-| Device user tries to switch items while offline | Device displays "Item switch is disabled when offline. Please sync to the app." and stays on current item. |
+| Device user tries to switch items while offline | Device displays "SWITCH DISABLED" / "SYNC TO APP" on OLED and stays on current item. |
 | App restarts (killed/relaunched) | Claims persist in Firestore. All devices appear disconnected until they reconnect and re-handshake. Claims flip to "claimed (offline)" state until devices reconnect. |
 | Device connects but handshake returns conflict | Claiming is only available **after** handshake/sync completes successfully. During conflict resolution, the device cannot be used for claiming. |
 | Only 1 device connected but 2+ paired | Single-device behavior. No claim UI, no colors. |
@@ -536,7 +538,7 @@ Then add claim logic:
 
 ### Phase 5: Firmware
 
-- Fixed-task constraint: guard item switch on `isConnected` flag (already tracked in firmware), display "Item switch is disabled when offline. Please sync to the app." — applies to both serial command handler and item menu navigation
+- Fixed-task constraint: guard item switch on `isConnected` flag (already tracked in firmware), display two-line OLED message ("SWITCH DISABLED" / "SYNC TO APP") — applies to both serial command handler and item menu navigation
 - Device shows "no item selected" when it receives an empty item list or its claimed item is deleted
 - Implement production display rendering (current `displayMessage()` is a debug-only placeholder)
 - Fix reset event logging: add `isConnected` guard (same as increment events) so resets aren't buffered while connected
