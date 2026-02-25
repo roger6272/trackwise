@@ -103,6 +103,8 @@ class ItemRepositoryImpl implements ItemRepository {
         deviceItemId: item.deviceItemId, // Will be assigned by datasource
         cycleNames: item.cycleNames,
         cycleNotes: item.cycleNotes,
+        claimedBy: item.claimedBy,
+        claimedAt: item.claimedAt,
       );
       final created = await remoteDataSource.createItem(itemModel);
 
@@ -155,6 +157,8 @@ class ItemRepositoryImpl implements ItemRepository {
         deviceItemId: item.deviceItemId,
         cycleNames: item.cycleNames,
         cycleNotes: item.cycleNotes,
+        claimedBy: item.claimedBy,
+        claimedAt: item.claimedAt,
       );
       final updated = await remoteDataSource.updateItem(itemModel);
       return Right(updated);
@@ -251,6 +255,8 @@ class ItemRepositoryImpl implements ItemRepository {
         deviceItemId: item.deviceItemId,
         cycleNames: item.cycleNames,
         cycleNotes: item.cycleNotes,
+        claimedBy: item.claimedBy,
+        claimedAt: item.claimedAt,
       )).toList();
       await remoteDataSource.reorderItems(itemModels);
       return const Right(null);
@@ -282,6 +288,8 @@ class ItemRepositoryImpl implements ItemRepository {
         deviceItemId: item.deviceItemId,
         cycleNames: item.cycleNames,
         cycleNotes: item.cycleNotes,
+        claimedBy: item.claimedBy,
+        claimedAt: item.claimedAt,
       )).toList();
       await remoteDataSource.reorderItemsInCategory(itemModels);
       return const Right(null);
