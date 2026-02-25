@@ -180,7 +180,8 @@ The bar shows device color tint and device name. Activate/unlock actions remain 
 
 | Item State | Swipe Actions |
 |------------|--------------|
-| Unclaimed | Activate (or dropdown in multi-device mode), Edit, Delete |
+| Unclaimed (1+ devices connected) | Activate (or dropdown in multi-device mode), Edit, Delete |
+| Unclaimed (0 devices connected) | Edit, Delete (no Activate action) |
 | Claimed (device online) | Unlock, Edit, Delete |
 | Claimed (device offline) | Unlock (break-glass), ~~Edit~~ (locked), ~~Delete~~ (locked) |
 
@@ -303,26 +304,39 @@ The existing `sync_seq` mechanism is **retained** as a secondary safeguard:
 
 ### 7.1 Item Document — New Fields
 
+Items are stored in a top-level `Item` collection (not nested under users), filtered by a `uid` DocumentReference field.
+
 ```
-users/{uid}/items/{itemId}/
-  ├── ... (existing fields)
+Item/{itemId}/
+  ├── ... (existing fields: uid, item_name, count, etc.)
   ├── claimed_by: "AA:BB:CC:DD:EE:FF"   // NEW: deviceInstanceId, null if unclaimed
   └── claimed_at: Timestamp               // NEW: when claim was established
 ```
 
-### 7.2 Device Document — New Field
+### 7.2 Paired Device — New Field
+
+Paired devices are stored as an array of maps in the `paired_devices` field on the user document (not a subcollection).
 
 ```
-users/{uid}/devices/{deviceInstanceId}/
-  ├── ... (existing fields)
-  └── color: 0                            // NEW: color palette index (0-9)
+users/{uid}/
+  └── paired_devices: [
+        {
+          device_instance_id: "AA:BB:CC:DD:EE:FF",
+          device_name: "Office Counter",
+          paired_at: Timestamp,
+          color: 0                        // NEW: color palette index (0-9)
+        },
+        ...
+      ]
 ```
 
 ### 7.3 EventLog Document — New Field
 
+Event logs are stored in a top-level `EventLog` collection (not nested under users), filtered by a `user_id` field.
+
 ```
-users/{uid}/event_logs/{eventId}/
-  ├── ... (existing fields)
+EventLog/{eventId}/
+  ├── ... (existing fields: user_id, item_id, event_name, etc.)
   └── device_instance_id: "AA:BB:CC:DD:EE:FF"  // NEW: which device generated this event
 ```
 
@@ -346,7 +360,7 @@ Claim rules are enforced at the **app layer**, not Firestore rules. Firestore au
 |-----------|--------|
 | **Item entity** | Add `claimedBy: String?`, `claimedAt: DateTime?` fields |
 | **Item model** | Add Firestore serialization for new fields (`claimed_by`, `claimed_at`). Note: ~21 manual `ItemModel(...)` constructor calls need updating across item_model.dart (3), repo_impl (4), datasource_impl (3), test_fixtures (2), and test files (9). |
-| **PairedDevice entity** | Add `color: int` field (0-9). Note: PairedDevice has inline `fromFirestore()`/`toFirestore()` — no separate model class. |
+| **PairedDevice entity** | Add `color: int` field (0-9). Note: PairedDevice has inline `fromFirestore()`/`toFirestore()` — no separate model class. Stored as map entries in the `paired_devices` array on the user document. |
 | **EventLog entity** | Add `deviceInstanceId: String?` field |
 | **EventLog model** | Add Firestore serialization for `device_instance_id` |
 
@@ -374,6 +388,7 @@ Claim rules are enforced at the **app layer**, not Firestore rules. Firestore au
 | **PairedDevicesPage** | Color picker in device options |
 | **New: DeviceDropdown** | Popup for selecting device when claiming in multi-device mode |
 | **New: UnlockConfirmDialog** | Warning dialog for releasing items (normal + break-glass variants) |
+| **CSV Export** | Add optional "Device" column to export output using the new `deviceInstanceId` field on EventLog. Map device IDs to device names for readability. |
 
 ---
 
@@ -517,6 +532,7 @@ Then add claim logic:
 
 - Paired devices page: color picker
 - Break-glass reconnection dialog
+- CSV export: add optional "Device" column (map `deviceInstanceId` to device name)
 
 ### Phase 5: Firmware
 
