@@ -1384,6 +1384,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         ));
         // Reload paired devices to update UI
         add(const LoadPairedDevices());
+
+        // Claim the selected item if handshake returned one
+        if (result.selectedFirestoreId != null) {
+          add(ClaimItem(
+            itemId: result.selectedFirestoreId!,
+            deviceInstanceId: deviceId,
+          ));
+        }
     }
   }
 
