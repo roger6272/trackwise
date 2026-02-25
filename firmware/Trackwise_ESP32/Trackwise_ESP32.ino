@@ -366,6 +366,8 @@ void displayWelcomeScreen() {
 }
 
 // Display a message on device (placeholder for actual display)
+// TODO(Phase 5): Replace with production OLED rendering when hardware is ready.
+// See docs/plans/2026-02-24-phase5-firmware.md Tasks 1-2.
 void displayMessage(const char* msg) {
   DEBUG_LOG("📺 DISPLAY: %s\n", msg);
 }
@@ -2384,6 +2386,7 @@ void handleCommand(char cmd) {
   } else if (cmd == 's') {
     if (total == 0) {
       nvsEndSafe();
+      displayMessage("NO ITEMS\nSYNC TO APP");
       return;
     }
 

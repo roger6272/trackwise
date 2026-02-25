@@ -334,6 +334,47 @@ void main() {
     });
 
     group('claimedBy and claimedAt', () {
+      test('fromFirestore should parse claimed_by and claimed_at correctly', () {
+        // Arrange
+        final claimTime = DateTime(2026, 2, 20, 14, 30);
+        final map = {
+          'item_name': 'Coffee',
+          'uid': 'user_123',
+          'claimed_by': 'device_abc',
+          'claimed_at': Timestamp.fromDate(claimTime),
+        };
+
+        final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();
+        when(() => mockDoc.id).thenReturn('test_item_1');
+        when(() => mockDoc.data()).thenReturn(map);
+
+        // Act
+        final result = ItemModel.fromFirestore(mockDoc);
+
+        // Assert
+        expect(result.claimedBy, 'device_abc');
+        expect(result.claimedAt, claimTime);
+      });
+
+      test('fromFirestore should handle missing claimed_by and claimed_at', () {
+        // Arrange
+        final map = {
+          'item_name': 'Coffee',
+          'uid': 'user_123',
+        };
+
+        final mockDoc = MockDocumentSnapshot<Map<String, dynamic>>();
+        when(() => mockDoc.id).thenReturn('test_item_1');
+        when(() => mockDoc.data()).thenReturn(map);
+
+        // Act
+        final result = ItemModel.fromFirestore(mockDoc);
+
+        // Assert
+        expect(result.claimedBy, isNull);
+        expect(result.claimedAt, isNull);
+      });
+
       test('toFirestore should include claimed_by and claimed_at when set', () {
         // Arrange
         final claimTime = DateTime(2026, 2, 20, 14, 30);
