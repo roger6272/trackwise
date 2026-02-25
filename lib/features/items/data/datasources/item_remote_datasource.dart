@@ -245,4 +245,15 @@ abstract class ItemRemoteDataSource {
   ///
   /// Throws [ServerException] if the Firestore operations fail.
   Future<int> ensureDeviceItemIds(String userId);
+
+  /// Claims an item for exclusive use by a device.
+  /// Throws [ClaimConflictException] if already claimed by another device.
+  /// Throws [ServerException] on other failures.
+  Future<void> claimItem(String itemId, String deviceInstanceId);
+
+  /// Releases a claim on an item.
+  Future<void> releaseItem(String itemId);
+
+  /// Releases all claims by a specific device.
+  Future<void> releaseAllClaims(String deviceInstanceId, String userId);
 }

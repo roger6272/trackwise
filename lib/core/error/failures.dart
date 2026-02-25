@@ -70,3 +70,11 @@ class AuthFailure extends Failure {
 class ValidationFailure extends Failure {
   const ValidationFailure(String message) : super(message);
 }
+
+/// Claim conflict failure.
+///
+/// Examples:
+/// - Item already claimed by another device
+class ClaimConflictFailure extends Failure {
+  const ClaimConflictFailure(super.message);
+}

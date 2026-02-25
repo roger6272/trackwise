@@ -377,3 +377,26 @@ class HandshakeCompleted extends BluetoothEvent {
   @override
   List<Object?> get props => [deviceInstanceId, result];
 }
+
+// ========== Claim Events ==========
+
+/// Claim an item for exclusive use by a device.
+class ClaimItem extends BluetoothEvent {
+  final String itemId;
+  final String deviceInstanceId;
+
+  const ClaimItem({required this.itemId, required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [itemId, deviceInstanceId];
+}
+
+/// Release a claim on an item.
+class ReleaseItem extends BluetoothEvent {
+  final String itemId;
+
+  const ReleaseItem({required this.itemId});
+
+  @override
+  List<Object?> get props => [itemId];
+}

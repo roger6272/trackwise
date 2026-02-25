@@ -174,6 +174,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<DismissWrongAccount>(_onDismissWrongAccount);
     // Handshake completed event (stub for Task 10)
     on<HandshakeCompleted>(_onHandshakeCompleted);
+    // Claim events (stub handlers, implemented in Task 13)
+    on<ClaimItem>(_onClaimItem);
+    on<ReleaseItem>(_onReleaseItem);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -1377,6 +1380,24 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         // Reload paired devices to update UI
         add(const LoadPairedDevices());
     }
+  }
+
+  // ========== Claim Handlers ==========
+
+  /// Stub handler for ClaimItem — will be implemented in Task 13.
+  Future<void> _onClaimItem(
+    ClaimItem event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    // Will be implemented in Task 13
+  }
+
+  /// Stub handler for ReleaseItem — will be implemented in Task 13.
+  Future<void> _onReleaseItem(
+    ReleaseItem event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    // Will be implemented in Task 13
   }
 
   // ========== Cleanup ==========

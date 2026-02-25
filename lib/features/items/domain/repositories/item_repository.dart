@@ -263,4 +263,13 @@ abstract class ItemRepository {
   /// - Right(int): Number of items that were assigned new deviceItemIds
   /// - Left(ServerFailure): Firestore operations failed
   Future<Either<Failure, int>> ensureDeviceItemIds(String userId);
+
+  /// Claims an item for exclusive use by a device.
+  Future<Either<Failure, void>> claimItem(String itemId, String deviceInstanceId);
+
+  /// Releases a claim on an item.
+  Future<Either<Failure, void>> releaseItem(String itemId);
+
+  /// Releases all claims by a specific device.
+  Future<Either<Failure, void>> releaseAllClaims(String deviceInstanceId, String userId);
 }

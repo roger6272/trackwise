@@ -839,4 +839,67 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
       throw ServerException('Unexpected error ensuring device item IDs: $e');
     }
   }
+
+  @override
+  Future<void> claimItem(String itemId, String deviceInstanceId) async {
+    try {
+      await firestore.runTransaction((transaction) async {
+        final docRef = firestore.collection('Item').doc(itemId);
+        final snapshot = await transaction.get(docRef);
+        final data = snapshot.data();
+        if (data == null) throw ServerException('Item not found');
+
+        final currentClaim = data['claimed_by'] as String?;
+        if (currentClaim != null && currentClaim != deviceInstanceId) {
+          throw ClaimConflictException('Item already claimed by $currentClaim');
+        }
+
+        transaction.update(docRef, {
+          'claimed_by': deviceInstanceId,
+          'claimed_at': FieldValue.serverTimestamp(),
+        });
+      });
+    } on ClaimConflictException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to claim item: ${e.message}');
+    }
+  }
+
+  @override
+  Future<void> releaseItem(String itemId) async {
+    try {
+      await firestore.collection('Item').doc(itemId).update({
+        'claimed_by': FieldValue.delete(),
+        'claimed_at': FieldValue.delete(),
+      });
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to release item: ${e.message}');
+    }
+  }
+
+  @override
+  Future<void> releaseAllClaims(String deviceInstanceId, String userId) async {
+    try {
+      final userRef = firestore.collection('users').doc(userId);
+      final querySnapshot = await firestore
+          .collection('Item')
+          .where('uid', isEqualTo: userRef)
+          .where('claimed_by', isEqualTo: deviceInstanceId)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) return;
+
+      final batch = firestore.batch();
+      for (final doc in querySnapshot.docs) {
+        batch.update(doc.reference, {
+          'claimed_by': FieldValue.delete(),
+          'claimed_at': FieldValue.delete(),
+        });
+      }
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to release all claims: ${e.message}');
+    }
+  }
 }

@@ -353,4 +353,109 @@ void main() {
       expect((result as Left).value, isA<ServerFailure>());
     });
   });
+
+  group('claimItem', () {
+    const itemId = 'test_item_1';
+    const deviceInstanceId = 'device_abc';
+
+    test('should return Right(null) when data source succeeds', () async {
+      // Arrange
+      when(() => mockDataSource.claimItem(any(), any()))
+          .thenAnswer((_) async => Future.value());
+
+      // Act
+      final result = await repository.claimItem(itemId, deviceInstanceId);
+
+      // Assert
+      expect(result, const Right(null));
+      verify(() => mockDataSource.claimItem(itemId, deviceInstanceId)).called(1);
+    });
+
+    test('should return ClaimConflictFailure when data source throws ClaimConflictException', () async {
+      // Arrange
+      when(() => mockDataSource.claimItem(any(), any()))
+          .thenThrow(ClaimConflictException('Item already claimed by other_device'));
+
+      // Act
+      final result = await repository.claimItem(itemId, deviceInstanceId);
+
+      // Assert
+      expect(result, isA<Left>());
+      expect((result as Left).value, isA<ClaimConflictFailure>());
+    });
+
+    test('should return ServerFailure when data source throws ServerException', () async {
+      // Arrange
+      when(() => mockDataSource.claimItem(any(), any()))
+          .thenThrow(ServerException('Failed to claim item'));
+
+      // Act
+      final result = await repository.claimItem(itemId, deviceInstanceId);
+
+      // Assert
+      expect(result, isA<Left>());
+      expect((result as Left).value, isA<ServerFailure>());
+    });
+  });
+
+  group('releaseItem', () {
+    const itemId = 'test_item_1';
+
+    test('should return Right(null) when data source succeeds', () async {
+      // Arrange
+      when(() => mockDataSource.releaseItem(any()))
+          .thenAnswer((_) async => Future.value());
+
+      // Act
+      final result = await repository.releaseItem(itemId);
+
+      // Assert
+      expect(result, const Right(null));
+      verify(() => mockDataSource.releaseItem(itemId)).called(1);
+    });
+
+    test('should return ServerFailure when data source throws ServerException', () async {
+      // Arrange
+      when(() => mockDataSource.releaseItem(any()))
+          .thenThrow(ServerException('Failed to release item'));
+
+      // Act
+      final result = await repository.releaseItem(itemId);
+
+      // Assert
+      expect(result, isA<Left>());
+      expect((result as Left).value, isA<ServerFailure>());
+    });
+  });
+
+  group('releaseAllClaims', () {
+    const deviceInstanceId = 'device_abc';
+    const userId = 'user_123';
+
+    test('should return Right(null) when data source succeeds', () async {
+      // Arrange
+      when(() => mockDataSource.releaseAllClaims(any(), any()))
+          .thenAnswer((_) async => Future.value());
+
+      // Act
+      final result = await repository.releaseAllClaims(deviceInstanceId, userId);
+
+      // Assert
+      expect(result, const Right(null));
+      verify(() => mockDataSource.releaseAllClaims(deviceInstanceId, userId)).called(1);
+    });
+
+    test('should return ServerFailure when data source throws ServerException', () async {
+      // Arrange
+      when(() => mockDataSource.releaseAllClaims(any(), any()))
+          .thenThrow(ServerException('Failed to release all claims'));
+
+      // Act
+      final result = await repository.releaseAllClaims(deviceInstanceId, userId);
+
+      // Assert
+      expect(result, isA<Left>());
+      expect((result as Left).value, isA<ServerFailure>());
+    });
+  });
 }

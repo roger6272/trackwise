@@ -81,3 +81,16 @@ class AuthException implements Exception {
   @override
   String toString() => 'AuthException: $message';
 }
+
+/// Claim conflict exception.
+///
+/// Thrown when:
+/// - Attempting to claim an item already claimed by another device
+class ClaimConflictException implements Exception {
+  final String message;
+
+  ClaimConflictException(this.message);
+
+  @override
+  String toString() => 'ClaimConflictException: $message';
+}

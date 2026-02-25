@@ -386,4 +386,36 @@ class ItemRepositoryImpl implements ItemRepository {
       return Left(ServerFailure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> claimItem(String itemId, String deviceInstanceId) async {
+    try {
+      await remoteDataSource.claimItem(itemId, deviceInstanceId);
+      return const Right(null);
+    } on ClaimConflictException catch (e) {
+      return Left(ClaimConflictFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> releaseItem(String itemId) async {
+    try {
+      await remoteDataSource.releaseItem(itemId);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> releaseAllClaims(String deviceInstanceId, String userId) async {
+    try {
+      await remoteDataSource.releaseAllClaims(deviceInstanceId, userId);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
 }
