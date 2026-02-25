@@ -8,6 +8,7 @@ import '../../domain/entities/ble_message.dart';
 import '../../domain/entities/sync_state.dart';
 import '../models/ble_device_model.dart';
 import '../models/ble_message_model.dart';
+import 'device_connection.dart';
 import 'bluetooth_datasource.dart';
 
 /// Mock implementation of BluetoothDataSource for testing.
@@ -85,6 +86,9 @@ class MockBluetoothDataSource implements BluetoothDataSource {
 
   @override
   BleDeviceModel? get connectedDevice => _connectedDevice;
+
+  @override
+  DeviceConnection? getConnection(String deviceInstanceId) => null;
 
   // ========== Scanning ==========
 

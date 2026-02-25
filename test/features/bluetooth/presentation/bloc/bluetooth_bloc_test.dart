@@ -17,6 +17,7 @@ import 'package:traxelos/core/usecases/usecase.dart';
 import 'package:traxelos/features/bluetooth/domain/entities/ble_connection_state.dart';
 import 'package:traxelos/features/bluetooth/domain/entities/ble_device.dart';
 import 'package:traxelos/features/bluetooth/domain/entities/ble_message.dart';
+import 'package:traxelos/features/bluetooth/domain/repositories/bluetooth_repository.dart';
 import 'package:traxelos/features/bluetooth/domain/usecases/check_bluetooth_enabled_usecase.dart';
 import 'package:traxelos/features/bluetooth/domain/usecases/clear_device_logs_usecase.dart';
 import 'package:traxelos/features/bluetooth/domain/usecases/connect_device_usecase.dart';
@@ -29,11 +30,15 @@ import 'package:traxelos/features/bluetooth/domain/usecases/send_selected_item_u
 import 'package:traxelos/features/bluetooth/domain/usecases/send_time_sync_usecase.dart';
 import 'package:traxelos/features/bluetooth/domain/usecases/stop_scan_usecase.dart';
 import 'package:traxelos/features/bluetooth/domain/usecases/sync_device_data_usecase.dart';
+import 'package:traxelos/features/bluetooth/domain/usecases/sync_usecase.dart';
+import 'package:traxelos/features/bluetooth/domain/usecases/unpair_device_usecase.dart';
 import 'package:traxelos/features/bluetooth/domain/usecases/watch_connection_state_usecase.dart';
 import 'package:traxelos/features/bluetooth/domain/usecases/watch_device_messages_usecase.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/device_connection_state.dart';
+import 'package:traxelos/features/auth/domain/repositories/user_repository.dart';
 
 // Mocks
 class MockScanDevicesUseCase extends Mock implements ScanDevicesUseCase {}
@@ -58,11 +63,21 @@ class MockRequestDeviceDataUseCase extends Mock implements RequestDeviceDataUseC
 
 class MockClearDeviceLogsUseCase extends Mock implements ClearDeviceLogsUseCase {}
 
+class MockUnpairDeviceUseCase extends Mock implements UnpairDeviceUseCase {}
+
 class MockCheckBluetoothEnabledUseCase extends Mock implements CheckBluetoothEnabledUseCase {}
 
 class MockRequestBluetoothPermissionsUseCase extends Mock implements RequestBluetoothPermissionsUseCase {}
 
 class MockSyncDeviceDataUseCase extends Mock implements SyncDeviceDataUseCase {}
+
+class MockPerformSyncUseCase extends Mock implements PerformSyncUseCase {}
+
+class MockPerformOverrideUseCase extends Mock implements PerformOverrideUseCase {}
+
+class MockUserRepository extends Mock implements UserRepository {}
+
+class MockBluetoothRepository extends Mock implements BluetoothRepository {}
 
 void main() {
   late BluetoothBloc bloc;
@@ -77,9 +92,14 @@ void main() {
   late MockSendTimeSyncUseCase mockSendTimeSync;
   late MockRequestDeviceDataUseCase mockRequestData;
   late MockClearDeviceLogsUseCase mockClearLogs;
+  late MockUnpairDeviceUseCase mockUnpairDevice;
   late MockCheckBluetoothEnabledUseCase mockCheckBluetoothEnabled;
   late MockRequestBluetoothPermissionsUseCase mockRequestPermissions;
   late MockSyncDeviceDataUseCase mockSyncDeviceData;
+  late MockPerformSyncUseCase mockPerformSync;
+  late MockPerformOverrideUseCase mockPerformOverride;
+  late MockUserRepository mockUserRepository;
+  late MockBluetoothRepository mockBluetoothRepository;
 
   setUp(() {
     mockScanDevices = MockScanDevicesUseCase();
@@ -93,9 +113,14 @@ void main() {
     mockSendTimeSync = MockSendTimeSyncUseCase();
     mockRequestData = MockRequestDeviceDataUseCase();
     mockClearLogs = MockClearDeviceLogsUseCase();
+    mockUnpairDevice = MockUnpairDeviceUseCase();
     mockCheckBluetoothEnabled = MockCheckBluetoothEnabledUseCase();
     mockRequestPermissions = MockRequestBluetoothPermissionsUseCase();
     mockSyncDeviceData = MockSyncDeviceDataUseCase();
+    mockPerformSync = MockPerformSyncUseCase();
+    mockPerformOverride = MockPerformOverrideUseCase();
+    mockUserRepository = MockUserRepository();
+    mockBluetoothRepository = MockBluetoothRepository();
 
     bloc = BluetoothBloc(
       mockScanDevices,
@@ -109,9 +134,14 @@ void main() {
       mockSendTimeSync,
       mockRequestData,
       mockClearLogs,
+      mockUnpairDevice,
       mockCheckBluetoothEnabled,
       mockRequestPermissions,
       mockSyncDeviceData,
+      mockPerformSync,
+      mockPerformOverride,
+      mockUserRepository,
+      mockBluetoothRepository,
     );
   });
 
@@ -287,7 +317,7 @@ void main() {
     const tDeviceId = 'test-device-id';
 
     blocTest<BluetoothBloc, BluetoothState>(
-      'emits [connecting] and sets up connection stream when connect called',
+      'emits [connecting] and adds device to connectedDevices on connection',
       build: () {
         when(() => mockWatchConnectionState.call(any()))
             .thenAnswer((_) => Stream.value(const Right(BleConnectionState.connected)));
@@ -308,11 +338,11 @@ void main() {
           status: BluetoothStatus.connecting,
           connectingDeviceId: tDeviceId,
         ),
-        // Connected state emitted from connection stream
+        // Connected state: device added to connectedDevices map
         isA<BluetoothState>().having(
-          (s) => s.status,
-          'status',
-          BluetoothStatus.connected,
+          (s) => s.isConnected,
+          'isConnected',
+          true,
         ),
       ],
     );
@@ -342,49 +372,47 @@ void main() {
 
   group('DisconnectFromDevice', () {
     const tDevice = BleDevice(id: 'device-1', name: 'Test', rssi: -65);
+    final tConnectedDevices = {
+      'device-1': DeviceConnectionState(
+        device: tDevice,
+        syncStatus: DeviceSyncStatus.synced,
+      ),
+    };
 
     blocTest<BluetoothBloc, BluetoothState>(
-      'emits [disconnecting, ready] when disconnect succeeds',
+      'emits [ready with empty connectedDevices] when disconnect succeeds',
       build: () {
         when(() => mockDisconnectDevice.call(any()))
             .thenAnswer((_) async => const Right(null));
         return bloc;
       },
-      seed: () => const BluetoothState(
-        status: BluetoothStatus.connected,
-        connectedDevice: tDevice,
+      seed: () => BluetoothState(
+        status: BluetoothStatus.ready,
+        connectedDevices: tConnectedDevices,
       ),
       act: (bloc) => bloc.add(const DisconnectFromDevice()),
       expect: () => [
-        const BluetoothState(
-          status: BluetoothStatus.disconnecting,
-          connectedDevice: tDevice,
-        ),
         const BluetoothState(status: BluetoothStatus.ready),
       ],
     );
 
     blocTest<BluetoothBloc, BluetoothState>(
-      'emits [disconnecting, error] when disconnect fails',
+      'emits [error] when disconnect fails',
       build: () {
         when(() => mockDisconnectDevice.call(any()))
             .thenAnswer((_) async => const Left(BluetoothFailure('Disconnect failed')));
         return bloc;
       },
-      seed: () => const BluetoothState(
-        status: BluetoothStatus.connected,
-        connectedDevice: tDevice,
+      seed: () => BluetoothState(
+        status: BluetoothStatus.ready,
+        connectedDevices: tConnectedDevices,
       ),
       act: (bloc) => bloc.add(const DisconnectFromDevice()),
       expect: () => [
-        const BluetoothState(
-          status: BluetoothStatus.disconnecting,
-          connectedDevice: tDevice,
-        ),
-        const BluetoothState(
-          status: BluetoothStatus.error,
-          connectedDevice: tDevice,
-          errorMessage: 'Disconnect failed',
+        isA<BluetoothState>().having(
+          (s) => s.status,
+          'status',
+          BluetoothStatus.error,
         ),
       ],
     );
@@ -392,51 +420,19 @@ void main() {
 
   group('MessageReceived', () {
     blocTest<BluetoothBloc, BluetoothState>(
-      'emits state with lastMessage when message received',
+      'updates hasMoreLogs from logs message when device connected',
       build: () => bloc,
-      act: (bloc) {
-        final message = BleMessage(
-          type: BleMessageType.event,
-          data: {'event': 'increment', 'itemId': 'item-1'},
-          hasMore: false,
-          receivedAt: DateTime.now(),
+      seed: () {
+        const tDevice = BleDevice(id: 'device-1', name: 'Test', rssi: -65);
+        return BluetoothState(
+          connectedDevices: {
+            'device-1': DeviceConnectionState(
+              device: tDevice,
+              syncStatus: DeviceSyncStatus.synced,
+            ),
+          },
         );
-        bloc.add(MessageReceived(message));
       },
-      expect: () => [
-        isA<BluetoothState>().having(
-          (s) => s.lastMessage?.type,
-          'lastMessage.type',
-          BleMessageType.event,
-        ),
-      ],
-    );
-
-    blocTest<BluetoothBloc, BluetoothState>(
-      'updates selectedItemId from prefs message',
-      build: () => bloc,
-      act: (bloc) {
-        final message = BleMessage(
-          type: BleMessageType.prefs,
-          data: [],
-          selectedId: 'selected-item-123',
-          hasMore: false,
-          receivedAt: DateTime.now(),
-        );
-        bloc.add(MessageReceived(message));
-      },
-      expect: () => [
-        isA<BluetoothState>().having(
-          (s) => s.selectedItemId,
-          'selectedItemId',
-          'selected-item-123',
-        ),
-      ],
-    );
-
-    blocTest<BluetoothBloc, BluetoothState>(
-      'updates hasMoreLogs from logs message',
-      build: () => bloc,
       act: (bloc) {
         final message = BleMessage(
           type: BleMessageType.logs,
@@ -453,6 +449,22 @@ void main() {
           true,
         ),
       ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'does not emit when no device connected (message ignored)',
+      build: () => bloc,
+      act: (bloc) {
+        final message = BleMessage(
+          type: BleMessageType.logs,
+          data: [],
+          hasMore: true,
+          receivedAt: DateTime.now(),
+        );
+        bloc.add(MessageReceived(message));
+      },
+      // When no device is connected, deviceInstanceId is null so no state update
+      expect: () => [],
     );
   });
 
@@ -482,16 +494,21 @@ void main() {
       expect(state.isScanning, true);
     });
 
-    test('isConnected returns true when status is connected and device exists', () {
-      const state = BluetoothState(
-        status: BluetoothStatus.connected,
-        connectedDevice: BleDevice(id: '1', name: 'Test', rssi: -65),
+    test('isConnected returns true when connectedDevices is non-empty', () {
+      const tDevice = BleDevice(id: '1', name: 'Test', rssi: -65);
+      final state = BluetoothState(
+        connectedDevices: {
+          '1': DeviceConnectionState(
+            device: tDevice,
+            syncStatus: DeviceSyncStatus.synced,
+          ),
+        },
       );
       expect(state.isConnected, true);
     });
 
-    test('isConnected returns false when no device', () {
-      const state = BluetoothState(status: BluetoothStatus.connected);
+    test('isConnected returns false when connectedDevices is empty', () {
+      const state = BluetoothState();
       expect(state.isConnected, false);
     });
 

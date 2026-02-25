@@ -203,7 +203,7 @@ void main() {
     sl.registerFactory<ItemsBloc>(() => mockItemsBloc);
 
     when(() => mockBluetoothBloc.state).thenReturn(
-      const BluetoothState(status: BluetoothStatus.connected),
+      const BluetoothState(status: BluetoothStatus.ready),
     );
   });
 

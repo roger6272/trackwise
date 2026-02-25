@@ -33,6 +33,7 @@ import '../../domain/usecases/watch_device_messages_usecase.dart';
 import '../../domain/repositories/bluetooth_repository.dart';
 import 'bluetooth_event.dart';
 import 'bluetooth_state.dart';
+import 'device_connection_state.dart';
 
 /// BLoC for managing Bluetooth/BLE operations.
 ///
@@ -89,6 +90,24 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final cappedDelay =
         delaySeconds > _maxReconnectDelaySeconds ? _maxReconnectDelaySeconds : delaySeconds;
     return Duration(seconds: cappedDelay);
+  }
+
+  // ========== Helper Methods ==========
+
+  /// Returns an updated connectedDevices map with the given device modified.
+  /// Returns the current map unchanged if the device is not found.
+  Map<String, DeviceConnectionState> _updateDevice(
+    String deviceInstanceId,
+    DeviceConnectionState Function(DeviceConnectionState) update,
+  ) {
+    final current = state.connectedDevices[deviceInstanceId];
+    if (current == null) return state.connectedDevices;
+    return {...state.connectedDevices, deviceInstanceId: update(current)};
+  }
+
+  /// Returns an updated connectedDevices map with the given device removed.
+  Map<String, DeviceConnectionState> _removeDevice(String deviceInstanceId) {
+    return Map.of(state.connectedDevices)..remove(deviceInstanceId);
   }
 
   BluetoothBloc(
@@ -174,7 +193,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       emit(state.copyWith(
         bluetoothEnabled: false,
         status: BluetoothStatus.bluetoothDisabled,
-        clearConnectedDevice: true,
+        connectedDevices: const {},
       ));
     } else {
       // Bluetooth turned on
@@ -210,7 +229,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     // Don't change status if already connected
-    if (state.status != BluetoothStatus.connected) {
+    if (!state.isConnected) {
       emit(state.copyWith(status: BluetoothStatus.checkingPermissions));
     }
 
@@ -225,9 +244,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           // Only set to ready if not already connected
           emit(state.copyWith(
             permissionsGranted: true,
-            status: state.status == BluetoothStatus.connected
-                ? BluetoothStatus.connected
-                : BluetoothStatus.ready,
+            status: state.isConnected ? null : BluetoothStatus.ready,
           ));
           // Check if Bluetooth is enabled
           add(const CheckBluetoothEnabled());
@@ -285,9 +302,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           // Only set to ready if not already connected
           emit(state.copyWith(
             bluetoothEnabled: true,
-            status: state.status == BluetoothStatus.connected
-                ? BluetoothStatus.connected
-                : BluetoothStatus.ready,
+            status: state.isConnected ? null : BluetoothStatus.ready,
           ));
         } else {
           emit(state.copyWith(
@@ -474,8 +489,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceId = state.connectedDevice?.id ?? state.connectingDeviceId;
     if (deviceId == null) return;
 
-    emit(state.copyWith(status: BluetoothStatus.disconnecting));
-
     // Don't await these - they can hang if the stream is mid-emission
     _messageSubscription?.cancel();
     _messageSubscription = null;
@@ -494,9 +507,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       )),
       (_) => emit(state.copyWith(
         status: BluetoothStatus.ready,
-        clearConnectedDevice: true,
+        connectedDevices: const {},
         clearConnectingDeviceId: true,
-        clearConnectedDeviceInstanceId: true,
       )),
     );
   }
@@ -527,10 +539,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       );
 
       emit(state.copyWith(
-        status: BluetoothStatus.connected,
-        connectedDevice: device,
+        status: BluetoothStatus.ready,
+        connectedDevices: {
+          ...state.connectedDevices,
+          event.deviceId!: DeviceConnectionState(
+            device: device,
+            syncStatus: DeviceSyncStatus.handshaking,
+          ),
+        },
         clearConnectingDeviceId: true,
-        isSyncing: true,
       ));
 
       // Start listening to messages
@@ -540,12 +557,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       _performInitialSync();
     } else {
       // Disconnected
+      final deviceId = event.deviceId;
       emit(state.copyWith(
-        status: BluetoothStatus.ready,
-        clearConnectedDevice: true,
+        status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
+        connectedDevices: deviceId != null ? _removeDevice(deviceId) : const {},
         clearConnectingDeviceId: true,
-        clearConnectedDeviceInstanceId: true,
-        isSyncing: false,
       ));
 
       // Auto-reconnect if not manual disconnect (with exponential backoff)
@@ -704,7 +720,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     if (deviceId == null) return;
 
     // Optimistic update: update UI immediately before device responds
-    emit(state.copyWith(selectedItemId: event.itemId));
+    final deviceInstanceId = state.connectedDeviceInstanceId;
+    if (deviceInstanceId != null) {
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(
+          deviceInstanceId,
+          (d) => d.copyWith(selectedItemId: event.itemId),
+        ),
+      ));
+    }
 
     final result = await _sendSelectedItem.call(
       SendSelectedItemParams(
@@ -814,14 +838,20 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     final message = event.message;
+    final deviceInstanceId = state.connectedDeviceInstanceId;
 
-    // Initial state update (selectedItemId will be updated after sync)
-    // Clear isSyncing when prefs arrive (counts are about to update)
-    emit(state.copyWith(
-      lastMessage: message,
-      hasMoreLogs: message.hasMore,
-      isSyncing: message.type == BleMessageType.prefs ? false : null,
-    ));
+    // Update device state: clear isSyncing when prefs arrive, update hasMoreLogs
+    if (deviceInstanceId != null) {
+      final isSyncingUpdate = message.type == BleMessageType.prefs
+          ? DeviceSyncStatus.synced
+          : null;
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(deviceInstanceId, (d) => d.copyWith(
+          hasMoreLogs: message.hasMore,
+          syncStatus: isSyncingUpdate,
+        )),
+      ));
+    }
 
     // Sync device data to Firestore
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -839,11 +869,22 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           AppLogger.debug('Sync failed: ${failure.message}');
         },
         (syncResult) {
-          if (syncResult.selectedFirestoreId != null) {
-            emit(state.copyWith(selectedItemId: syncResult.selectedFirestoreId));
-          } else if (syncResult.clearSelection) {
-            // Device explicitly said no item selected - clear app's selection
-            emit(state.copyWith(clearSelectedItemId: true));
+          final currentDeviceId = state.connectedDeviceInstanceId;
+          if (currentDeviceId != null) {
+            if (syncResult.selectedFirestoreId != null) {
+              emit(state.copyWith(
+                connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(
+                  selectedItemId: syncResult.selectedFirestoreId,
+                )),
+              ));
+            } else if (syncResult.clearSelection) {
+              // Device explicitly said no item selected - clear app's selection
+              emit(state.copyWith(
+                connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(
+                  clearSelectedItemId: true,
+                )),
+              ));
+            }
           }
         },
       );
@@ -870,7 +911,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     UpdateSelectedItemFromDevice event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(selectedItemId: event.itemId));
+    final deviceId = state.connectedDeviceInstanceId;
+    if (deviceId != null) {
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(selectedItemId: event.itemId)),
+      ));
+    }
   }
 
   // ========== Paired Device Handlers ==========
@@ -952,8 +998,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           emit(state.copyWith(
             pairedDevices: updatedDevices,
             status: BluetoothStatus.ready,
-            clearConnectedDevice: true,
-            clearConnectedDeviceInstanceId: true,
+            connectedDevices: const {},
           ));
         } else {
           emit(state.copyWith(pairedDevices: updatedDevices));
@@ -969,16 +1014,30 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SyncConflictDetected event,
     Emitter<BluetoothState> emit,
   ) async {
-    AppLogger.debug('BluetoothBloc: Setting hasConflict=true, deviceInstanceId=${event.deviceInstanceId}');
-    emit(state.copyWith(
-      hasConflict: true,
-      conflictAppSyncSeq: event.appSyncSeq,
-      conflictDeviceSyncSeq: event.deviceSyncSeq,
-      conflictDeviceInstanceId: event.deviceInstanceId,
-      // Also set connectedDeviceInstanceId so paired devices page shows it as connected
-      connectedDeviceInstanceId: event.deviceInstanceId,
-      isSyncing: false,
-    ));
+    final deviceInstanceId = event.deviceInstanceId ?? state.connectedDeviceInstanceId;
+    AppLogger.debug('BluetoothBloc: Setting conflict, deviceInstanceId=$deviceInstanceId');
+    if (deviceInstanceId == null) return;
+
+    // If we have a device in the map, update its status
+    // If not yet in map (handshake just completed), add it
+    final existing = state.connectedDevices[deviceInstanceId];
+    final updated = existing != null
+        ? _updateDevice(deviceInstanceId, (d) => d.copyWith(
+            syncStatus: DeviceSyncStatus.conflict,
+            conflictAppSyncSeq: event.appSyncSeq,
+            conflictDeviceSyncSeq: event.deviceSyncSeq,
+          ))
+        : {
+            ...state.connectedDevices,
+            deviceInstanceId: DeviceConnectionState(
+              device: state.connectedDevice ?? BleDevice(id: deviceInstanceId, name: 'Traxelos Device', rssi: 0),
+              syncStatus: DeviceSyncStatus.conflict,
+              conflictAppSyncSeq: event.appSyncSeq,
+              conflictDeviceSyncSeq: event.deviceSyncSeq,
+            ),
+          };
+
+    emit(state.copyWith(connectedDevices: updated));
   }
 
   /// User confirmed override - perform the override sync.
@@ -989,20 +1048,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceId = state.connectedDevice?.id;
     if (deviceId == null) {
       emit(state.copyWith(
-        clearConflict: true,
         errorMessage: 'No device connected',
       ));
       return;
     }
 
-    // Save these BEFORE clearing conflict state
+    // Save these BEFORE updating state
     final deviceInstanceId = state.conflictDeviceInstanceId;
     final deviceName = state.connectedDevice?.name;
 
-    emit(state.copyWith(
-      isOverriding: true,
-      clearConflict: true,
-    ));
+    // Clear conflict and set isOverriding
+    final deviceInstId = state.connectedDeviceInstanceId;
+    if (deviceInstId != null) {
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(deviceInstId, (d) => d.copyWith(
+          isOverriding: true,
+          syncStatus: DeviceSyncStatus.syncing,
+          clearConflict: true,
+        )),
+      ));
+    }
 
     // Use event's selectedItemId if provided, otherwise fall back to state
     final selectedItemId = event.currentSelectedItemId ?? state.selectedItemId;
@@ -1021,16 +1086,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     result.fold(
       (failure) {
-        emit(state.copyWith(
-          isOverriding: false,
-          errorMessage: failure.message,
-        ));
+        final currentDeviceId = state.connectedDeviceInstanceId;
+        if (currentDeviceId != null) {
+          emit(state.copyWith(
+            connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(isOverriding: false)),
+            errorMessage: failure.message,
+          ));
+        } else {
+          emit(state.copyWith(errorMessage: failure.message));
+        }
       },
       (syncResult) {
-        emit(state.copyWith(
-          isOverriding: false,
-          selectedItemId: syncResult.selectedFirestoreId,
-        ));
+        final currentDeviceId = state.connectedDeviceInstanceId;
+        if (currentDeviceId != null) {
+          emit(state.copyWith(
+            connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(
+              isOverriding: false,
+              selectedItemId: syncResult.selectedFirestoreId,
+            )),
+          ));
+        }
 
         AppLogger.debug('Override completed successfully');
 
@@ -1045,7 +1120,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     CancelSyncConflict event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(clearConflict: true));
+    // Clear conflict state from all devices
+    final clearedDevices = Map.fromEntries(
+      state.connectedDevices.entries.map((e) => MapEntry(
+        e.key,
+        e.value.copyWith(syncStatus: DeviceSyncStatus.handshaking, clearConflict: true),
+      )),
+    );
+    emit(state.copyWith(connectedDevices: clearedDevices));
 
     // Disconnect from device
     final deviceId = state.connectedDevice?.id;
@@ -1054,8 +1136,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
-        clearConnectedDevice: true,
-        clearConnectedDeviceInstanceId: true,
+        connectedDevices: const {},
       ));
     }
   }
@@ -1065,7 +1146,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ClearConflictState event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(clearConflict: true));
+    // Clear conflict from all devices that have it
+    final clearedDevices = Map.fromEntries(
+      state.connectedDevices.entries.map((e) => MapEntry(
+        e.key,
+        e.value.syncStatus == DeviceSyncStatus.conflict
+            ? e.value.copyWith(syncStatus: DeviceSyncStatus.handshaking, clearConflict: true)
+            : e.value,
+      )),
+    );
+    emit(state.copyWith(connectedDevices: clearedDevices));
   }
 
   /// Handles successful sync completion.
@@ -1073,10 +1163,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SyncCompleted event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(
-      connectedDeviceInstanceId: event.deviceInstanceId,
-      isSyncing: false,
-    ));
+    final deviceInstanceId = event.deviceInstanceId ?? state.connectedDeviceInstanceId;
+    if (deviceInstanceId != null) {
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(deviceInstanceId, (d) => d.copyWith(
+          syncStatus: DeviceSyncStatus.synced,
+        )),
+      ));
+    }
     // Reload paired devices to update UI
     add(const LoadPairedDevices());
   }
@@ -1089,13 +1183,22 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     Emitter<BluetoothState> emit,
   ) async {
     AppLogger.debug('BluetoothBloc: Setting needsSetup=true, deviceInstanceId=${event.deviceInstanceId}');
-    emit(state.copyWith(
-      needsSetup: true,
-      setupDeviceInstanceId: event.deviceInstanceId,
-      // Also set connectedDeviceInstanceId so paired devices page shows it as connected
-      connectedDeviceInstanceId: event.deviceInstanceId,
-      isSyncing: false,
-    ));
+    final deviceInstanceId = event.deviceInstanceId;
+
+    // If we have a device in the map, update its status
+    // If not yet in map, add it
+    final existing = state.connectedDevices[deviceInstanceId];
+    final updated = existing != null
+        ? _updateDevice(deviceInstanceId, (d) => d.copyWith(syncStatus: DeviceSyncStatus.setup))
+        : {
+            ...state.connectedDevices,
+            deviceInstanceId: DeviceConnectionState(
+              device: state.connectedDevice ?? BleDevice(id: deviceInstanceId, name: 'Traxelos Device', rssi: 0),
+              syncStatus: DeviceSyncStatus.setup,
+            ),
+          };
+
+    emit(state.copyWith(connectedDevices: updated));
   }
 
   /// User confirmed device setup - perform override to transfer items.
@@ -1106,20 +1209,25 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceId = state.connectedDevice?.id;
     if (deviceId == null) {
       emit(state.copyWith(
-        clearSetup: true,
         errorMessage: 'No device connected',
       ));
       return;
     }
 
-    // Save these BEFORE clearing setup state
+    // Save these BEFORE updating state
     final deviceInstanceId = state.setupDeviceInstanceId;
     final deviceName = state.connectedDevice?.name;
 
-    emit(state.copyWith(
-      isOverriding: true,
-      clearSetup: true,
-    ));
+    // Clear setup and set isOverriding
+    final deviceInstId = state.connectedDeviceInstanceId;
+    if (deviceInstId != null) {
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(deviceInstId, (d) => d.copyWith(
+          isOverriding: true,
+          syncStatus: DeviceSyncStatus.syncing,
+        )),
+      ));
+    }
 
     // Use event's selectedItemId if provided, otherwise fall back to state
     final selectedItemId = event.currentSelectedItemId ?? state.selectedItemId;
@@ -1135,16 +1243,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     result.fold(
       (failure) {
-        emit(state.copyWith(
-          isOverriding: false,
-          errorMessage: failure.message,
-        ));
+        final currentDeviceId = state.connectedDeviceInstanceId;
+        if (currentDeviceId != null) {
+          emit(state.copyWith(
+            connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(isOverriding: false)),
+            errorMessage: failure.message,
+          ));
+        } else {
+          emit(state.copyWith(errorMessage: failure.message));
+        }
       },
       (syncResult) {
-        emit(state.copyWith(
-          isOverriding: false,
-          selectedItemId: syncResult.selectedFirestoreId,
-        ));
+        final currentDeviceId = state.connectedDeviceInstanceId;
+        if (currentDeviceId != null) {
+          emit(state.copyWith(
+            connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(
+              isOverriding: false,
+              selectedItemId: syncResult.selectedFirestoreId,
+            )),
+          ));
+        }
 
         AppLogger.debug('Device setup completed successfully');
 
@@ -1154,16 +1272,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
   }
 
-  /// User cancelled device setup dialog - disconnect from device.
+  /// User cancelled device setup dialog - disconnect from device (device stays empty/unpaired).
   Future<void> _onCancelDeviceSetup(
     CancelDeviceSetup event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(
-      clearSetup: true,
-      clearConnectedDeviceInstanceId: true,
-    ));
-
     // Disconnect from device (device stays empty/unpaired)
     final deviceId = state.connectedDevice?.id;
     if (deviceId != null) {
@@ -1171,7 +1284,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
-        clearConnectedDevice: true,
+        connectedDevices: const {},
       ));
     }
   }
@@ -1181,7 +1294,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ClearSetupState event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(clearSetup: true));
+    // Clear setup from all devices that have it
+    final clearedDevices = Map.fromEntries(
+      state.connectedDevices.entries.map((e) => MapEntry(
+        e.key,
+        e.value.syncStatus == DeviceSyncStatus.setup
+            ? e.value.copyWith(syncStatus: DeviceSyncStatus.handshaking)
+            : e.value,
+      )),
+    );
+    emit(state.copyWith(connectedDevices: clearedDevices));
   }
 
   // ========== Wrong Account Handlers ==========
@@ -1192,7 +1314,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     WrongAccountDetected event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(hasWrongAccount: true, isSyncing: false));
+    final deviceInstId = state.connectedDeviceInstanceId;
+    if (deviceInstId != null) {
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(deviceInstId, (d) => d.copyWith(
+          syncStatus: DeviceSyncStatus.wrongAccount,
+        )),
+      ));
+    }
   }
 
   /// User dismissed wrong account dialog - disconnect from device.
@@ -1200,8 +1329,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     DismissWrongAccount event,
     Emitter<BluetoothState> emit,
   ) async {
-    emit(state.copyWith(hasWrongAccount: false));
-
     // Disconnect from device
     final deviceId = state.connectedDevice?.id;
     if (deviceId != null) {
@@ -1209,8 +1336,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
-        clearConnectedDevice: true,
-        clearConnectedDeviceInstanceId: true,
+        connectedDevices: const {},
       ));
     }
   }

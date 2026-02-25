@@ -8,6 +8,7 @@ import 'package:traxelos/features/bluetooth/domain/entities/ble_device.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
+import 'package:traxelos/features/bluetooth/presentation/bloc/device_connection_state.dart';
 import 'package:traxelos/features/bluetooth/presentation/pages/bluetooth_page.dart';
 
 class MockBluetoothBloc extends MockBloc<BluetoothEvent, BluetoothState>
@@ -123,10 +124,15 @@ void main() {
 
       when(() => mockBluetoothBloc.state).thenReturn(
         BluetoothState(
-          status: BluetoothStatus.connected,
+          status: BluetoothStatus.ready,
           permissionsGranted: true,
           bluetoothEnabled: true,
-          connectedDevice: testDevice,
+          connectedDevices: {
+            'test_device_id': DeviceConnectionState(
+              device: testDevice,
+              syncStatus: DeviceSyncStatus.synced,
+            ),
+          },
         ),
       );
 
@@ -214,10 +220,15 @@ void main() {
 
       when(() => mockBluetoothBloc.state).thenReturn(
         BluetoothState(
-          status: BluetoothStatus.connected,
+          status: BluetoothStatus.ready,
           permissionsGranted: true,
           bluetoothEnabled: true,
-          connectedDevice: testDevice,
+          connectedDevices: {
+            'test_device_id': DeviceConnectionState(
+              device: testDevice,
+              syncStatus: DeviceSyncStatus.synced,
+            ),
+          },
         ),
       );
 

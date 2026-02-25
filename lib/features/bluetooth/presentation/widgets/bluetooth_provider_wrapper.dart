@@ -89,33 +89,46 @@ class BluetoothStateListener extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<BluetoothBloc, BluetoothState>(
-      listenWhen: (previous, current) => previous.status != current.status,
-      listener: (context, state) {
-        onStateChanged?.call(state);
-
-        switch (state.status) {
-          case BluetoothStatus.connected:
+    return MultiBlocListener(
+      listeners: [
+        // Fire onConnected exactly when isConnected transitions false -> true
+        BlocListener<BluetoothBloc, BluetoothState>(
+          listenWhen: (previous, current) =>
+              !previous.isConnected && current.isConnected,
+          listener: (context, state) {
+            onStateChanged?.call(state);
             onConnected?.call();
-            break;
-          case BluetoothStatus.ready:
-            if (context.read<BluetoothBloc>().state.connectedDevice != null) {
-              onDisconnected?.call();
+          },
+        ),
+        // Fire status-based callbacks
+        BlocListener<BluetoothBloc, BluetoothState>(
+          listenWhen: (previous, current) =>
+              previous.status != current.status ||
+              (previous.isConnected && !current.isConnected),
+          listener: (context, state) {
+            onStateChanged?.call(state);
+
+            switch (state.status) {
+              case BluetoothStatus.ready:
+                if (!state.isConnected) {
+                  onDisconnected?.call();
+                }
+                break;
+              case BluetoothStatus.error:
+                onError?.call(state.errorMessage ?? 'Unknown error');
+                break;
+              case BluetoothStatus.permissionsDenied:
+                onPermissionsDenied?.call();
+                break;
+              case BluetoothStatus.bluetoothDisabled:
+                onBluetoothDisabled?.call();
+                break;
+              default:
+                break;
             }
-            break;
-          case BluetoothStatus.error:
-            onError?.call(state.errorMessage ?? 'Unknown error');
-            break;
-          case BluetoothStatus.permissionsDenied:
-            onPermissionsDenied?.call();
-            break;
-          case BluetoothStatus.bluetoothDisabled:
-            onBluetoothDisabled?.call();
-            break;
-          default:
-            break;
-        }
-      },
+          },
+        ),
+      ],
       child: child,
     );
   }

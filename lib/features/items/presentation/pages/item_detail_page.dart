@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/logger.dart';
-import '../../../bluetooth/domain/entities/ble_message.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../charts/domain/entities/chart_data.dart';
@@ -221,11 +220,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   void _subscribeToBluetoothLogs() {
     try {
       final bluetoothBloc = sl<BluetoothBloc>();
+      bool _prevHasMoreLogs = bluetoothBloc.state.hasMoreLogs;
       _bluetoothSubscription = bluetoothBloc.stream.listen((state) {
-        final lastMessage = state.lastMessage;
-
-        // Reload events when logs sync completes (final page received)
-        if (lastMessage?.type == BleMessageType.logs && !state.hasMoreLogs) {
+        // Reload events when logs sync completes:
+        // hasMoreLogs transitions from true -> false while connected
+        if (_prevHasMoreLogs && !state.hasMoreLogs && state.isConnected) {
           // Delay to allow Firestore write to complete
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -236,6 +235,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             }
           });
         }
+        _prevHasMoreLogs = state.hasMoreLogs;
       });
     } catch (e) {
       AppLogger.debug('BluetoothBloc not available for log subscription: $e');

@@ -7,7 +7,6 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_device.dart';
-import '../../domain/entities/ble_message.dart';
 import '../../domain/usecases/request_device_data_usecase.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
@@ -71,14 +70,6 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
     final bloc = context.read<BluetoothBloc>();
     _stateSubscription = bloc.stream.listen((state) {
       _log('State changed: ${state.status.name}, connected: ${state.isConnected}');
-
-      if (state.lastMessage != null) {
-        _messagesReceived++;
-        _log('📨 NOTIFICATION: ${state.lastMessage!.type.name}');
-        if (_messagesReceived > 0) {
-          _updateTest('receive_messages', true);
-        }
-      }
 
       if (state.errorMessage != null) {
         _log('❌ Error: ${state.errorMessage}');
@@ -477,10 +468,6 @@ class _BluetoothTestViewState extends State<_BluetoothTestView> {
     IconData icon;
 
     switch (status) {
-      case BluetoothStatus.connected:
-        color = Colors.green;
-        icon = Icons.bluetooth_connected;
-        break;
       case BluetoothStatus.connecting:
       case BluetoothStatus.scanning:
         color = Colors.orange;
