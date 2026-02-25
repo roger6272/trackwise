@@ -659,6 +659,7 @@ void setSelectedItem(int selectedId) {
     currentDeviceItemId = -1;
     prefs.putInt("selected_index", 0);
     prefs.putChar("selected_did", -1);
+    displayMessage("NO ITEMS\nSYNC TO APP");
     DEBUG_PRINTLN("📌 No items - selecting nothing");
     return;
   }
@@ -2383,6 +2384,14 @@ void handleCommand(char cmd) {
   } else if (cmd == 's') {
     if (total == 0) {
       nvsEndSafe();
+      return;
+    }
+
+    // Fixed-task constraint: cannot switch items when offline
+    if (!isConnected) {
+      nvsEndSafe();
+      displayMessage("SWITCH DISABLED\nSYNC TO APP");
+      DEBUG_PRINTLN("⛔ Item switch blocked - device offline");
       return;
     }
 
