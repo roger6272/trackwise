@@ -283,7 +283,7 @@ For conflict/override case: apply claim filtering during the override itself (fi
 
 ### Call Site Migration
 
-All 5 existing call sites pass `deviceInstanceId`:
+All 4 existing call sites pass `deviceInstanceId`:
 - `items_list_page.dart` — item list changes
 - `deleted_items_page.dart` — item restore
 - `profile_page.dart` — profile reset
