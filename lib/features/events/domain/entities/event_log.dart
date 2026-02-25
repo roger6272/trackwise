@@ -36,6 +36,10 @@ class EventLog extends Equatable {
   /// Firebase UID of the user who owns this event
   final String userId;
 
+  /// Device instance ID that generated this event.
+  /// Null for app-initiated events (e.g., item creation from the app).
+  final String? deviceInstanceId;
+
   const EventLog({
     required this.id,
     required this.createdTime,
@@ -45,6 +49,7 @@ class EventLog extends Equatable {
     required this.currentCount,
     this.resetNumber = 0,
     required this.userId,
+    this.deviceInstanceId,
   });
 
   /// Creates a copy of this event log with the given fields replaced.
@@ -57,6 +62,7 @@ class EventLog extends Equatable {
     int? currentCount,
     int? resetNumber,
     String? userId,
+    String? deviceInstanceId,
   }) {
     return EventLog(
       id: id ?? this.id,
@@ -67,6 +73,7 @@ class EventLog extends Equatable {
       currentCount: currentCount ?? this.currentCount,
       resetNumber: resetNumber ?? this.resetNumber,
       userId: userId ?? this.userId,
+      deviceInstanceId: deviceInstanceId ?? this.deviceInstanceId,
     );
   }
 
@@ -80,12 +87,13 @@ class EventLog extends Equatable {
         currentCount,
         resetNumber,
         userId,
+        deviceInstanceId,
       ];
 
   @override
   String toString() {
     return 'EventLog(id: $id, createdTime: $createdTime, itemId: $itemId, '
         'eventName: $eventName, increment: $increment, currentCount: $currentCount, '
-        'resetNumber: $resetNumber, userId: $userId)';
+        'resetNumber: $resetNumber, userId: $userId, deviceInstanceId: $deviceInstanceId)';
   }
 }

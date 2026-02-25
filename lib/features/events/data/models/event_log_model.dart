@@ -26,6 +26,7 @@ class EventLogModel extends EventLog {
     required super.currentCount,
     super.resetNumber,
     required super.userId,
+    super.deviceInstanceId,
   });
 
   /// Creates an EventLogModel from a Firestore DocumentSnapshot.
@@ -78,6 +79,7 @@ class EventLogModel extends EventLog {
       currentCount: data['currentcount'] as int? ?? 0,
       resetNumber: data['reset_number'] as int? ?? 0,
       userId: userId,
+      deviceInstanceId: data['device_instance_id'] as String?,
     );
   }
 
@@ -94,6 +96,7 @@ class EventLogModel extends EventLog {
       currentCount: entity.currentCount,
       resetNumber: entity.resetNumber,
       userId: entity.userId,
+      deviceInstanceId: entity.deviceInstanceId,
     );
   }
 
@@ -120,6 +123,8 @@ class EventLogModel extends EventLog {
       'reset_number': resetNumber,
       'uid': firestore.doc('/users/$userId'),
       'id': id,
+      if (deviceInstanceId != null)
+        'device_instance_id': deviceInstanceId!,
     };
   }
 
