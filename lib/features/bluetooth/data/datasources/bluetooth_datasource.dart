@@ -5,6 +5,7 @@ import '../../domain/entities/ble_connection_state.dart';
 import '../../domain/entities/ble_message.dart';
 import '../../domain/entities/sync_state.dart';
 import '../models/ble_device_model.dart';
+import 'device_connection.dart';
 
 /// Abstract interface for Bluetooth Low Energy operations.
 ///
@@ -44,6 +45,9 @@ abstract class BluetoothDataSource {
 
   /// Gets the currently connected device, if any.
   BleDeviceModel? get connectedDevice;
+
+  /// Gets a DeviceConnection by its ID (null if not found).
+  DeviceConnection? getConnection(String deviceInstanceId);
 
   /// Watches the connection state of a device.
   ///

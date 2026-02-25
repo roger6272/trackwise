@@ -63,6 +63,9 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     return BleDeviceModel.fromBluetoothDevice(device);
   }
 
+  @override
+  DeviceConnection? getConnection(String deviceInstanceId) => _connections[deviceInstanceId];
+
   // ========== Scanning ==========
 
   @override
