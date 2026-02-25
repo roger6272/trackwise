@@ -27,10 +27,15 @@ class PairedDevice extends Equatable {
   /// When this device was first paired to the account.
   final DateTime pairedAt;
 
+  /// Color palette index (0-9) for distinguishing this device in multi-device UI.
+  /// Default 0 (blue). Assigned automatically on pairing, user-changeable in settings.
+  final int color;
+
   const PairedDevice({
     required this.deviceInstanceId,
     required this.deviceName,
     required this.pairedAt,
+    this.color = 0,
   });
 
   /// Creates a copy with the given fields replaced.
@@ -38,11 +43,13 @@ class PairedDevice extends Equatable {
     String? deviceInstanceId,
     String? deviceName,
     DateTime? pairedAt,
+    int? color,
   }) {
     return PairedDevice(
       deviceInstanceId: deviceInstanceId ?? this.deviceInstanceId,
       deviceName: deviceName ?? this.deviceName,
       pairedAt: pairedAt ?? this.pairedAt,
+      color: color ?? this.color,
     );
   }
 
@@ -52,6 +59,7 @@ class PairedDevice extends Equatable {
       deviceInstanceId: data['device_instance_id'] as String? ?? '',
       deviceName: data['device_name'] as String? ?? 'Traxelos One',
       pairedAt: _parseTimestamp(data['paired_at']),
+      color: data['color'] as int? ?? 0,
     );
   }
 
@@ -61,6 +69,7 @@ class PairedDevice extends Equatable {
       'device_instance_id': deviceInstanceId,
       'device_name': deviceName,
       'paired_at': Timestamp.fromDate(pairedAt),
+      'color': color,
     };
   }
 
@@ -81,11 +90,11 @@ class PairedDevice extends Equatable {
   }
 
   @override
-  List<Object?> get props => [deviceInstanceId, deviceName, pairedAt];
+  List<Object?> get props => [deviceInstanceId, deviceName, pairedAt, color];
 
   @override
   String toString() {
     return 'PairedDevice(deviceInstanceId: $deviceInstanceId, '
-        'deviceName: $deviceName, pairedAt: $pairedAt)';
+        'deviceName: $deviceName, pairedAt: $pairedAt, color: $color)';
   }
 }
