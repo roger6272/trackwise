@@ -29,6 +29,8 @@ class ItemModel extends Item {
     super.deviceItemId,
     super.cycleNames,
     super.cycleNotes,
+    super.claimedBy,
+    super.claimedAt,
   });
 
   /// Creates an ItemModel from a Firestore DocumentSnapshot.
@@ -88,6 +90,8 @@ class ItemModel extends Item {
       cycleNotes: (data['cycle_notes'] as Map<String, dynamic>?)
               ?.map((k, v) => MapEntry(k, v.toString())) ??
           const {},
+      claimedBy: data['claimed_by'] as String?,
+      claimedAt: _parseNullableDateTime(data['claimed_at']),
     );
   }
 
@@ -153,6 +157,12 @@ class ItemModel extends Item {
     if (this.deviceItemId != null) {
       map['device_item_id'] = this.deviceItemId!;
     }
+    if (this.claimedBy != null) {
+      map['claimed_by'] = this.claimedBy!;
+    }
+    if (this.claimedAt != null) {
+      map['claimed_at'] = Timestamp.fromDate(this.claimedAt!);
+    }
     return map;
   }
 
@@ -214,6 +224,9 @@ class ItemModel extends Item {
     int? deviceItemId,
     Map<String, String>? cycleNames,
     Map<String, String>? cycleNotes,
+    String? claimedBy,
+    bool clearClaimedBy = false,
+    DateTime? claimedAt,
   }) {
     return ItemModel(
       id: id ?? this.id,
@@ -236,6 +249,8 @@ class ItemModel extends Item {
       deviceItemId: deviceItemId ?? this.deviceItemId,
       cycleNames: cycleNames ?? this.cycleNames,
       cycleNotes: cycleNotes ?? this.cycleNotes,
+      claimedBy: clearClaimedBy ? null : (claimedBy ?? this.claimedBy),
+      claimedAt: clearClaimedBy ? null : (claimedAt ?? this.claimedAt),
     );
   }
 
