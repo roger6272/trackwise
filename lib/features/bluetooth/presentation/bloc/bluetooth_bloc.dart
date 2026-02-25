@@ -871,6 +871,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       final result = await _syncDeviceData.call(SyncDeviceDataParams(
         message: message,
         userId: userId,
+        deviceInstanceId: deviceInstanceId,
       ));
 
       // Update selectedItemId if sync returned a mapped Firestore ID
@@ -881,18 +882,19 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           AppLogger.debug('Sync failed: ${failure.message}');
         },
         (syncResult) {
-          final currentDeviceId = state.connectedDeviceInstanceId;
-          if (currentDeviceId != null) {
+          // Use the specific device ID from the message, falling back to first connected
+          final targetDeviceId = deviceInstanceId ?? state.connectedDeviceInstanceId;
+          if (targetDeviceId != null) {
             if (syncResult.selectedFirestoreId != null) {
-              emit(state.copyWith(
-                connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(
-                  selectedItemId: syncResult.selectedFirestoreId,
-                )),
+              // Dispatch ClaimItem to handle claim logic in Firestore
+              add(ClaimItem(
+                itemId: syncResult.selectedFirestoreId!,
+                deviceInstanceId: targetDeviceId,
               ));
             } else if (syncResult.clearSelection) {
               // Device explicitly said no item selected - clear app's selection
               emit(state.copyWith(
-                connectedDevices: _updateDevice(currentDeviceId, (d) => d.copyWith(
+                connectedDevices: _updateDevice(targetDeviceId, (d) => d.copyWith(
                   clearSelectedItemId: true,
                 )),
               ));

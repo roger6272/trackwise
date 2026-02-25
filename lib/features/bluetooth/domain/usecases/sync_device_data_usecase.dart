@@ -15,14 +15,16 @@ import '../entities/ble_message.dart';
 class SyncDeviceDataParams extends Equatable {
   final BleMessage message;
   final String userId;
+  final String? deviceInstanceId;
 
   const SyncDeviceDataParams({
     required this.message,
     required this.userId,
+    this.deviceInstanceId,
   });
 
   @override
-  List<Object> get props => [message, userId];
+  List<Object?> get props => [message, userId, deviceInstanceId];
 }
 
 /// Result of sync operation, optionally including the selected item's Firestore ID.
@@ -110,9 +112,9 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
       case BleMessageType.prefs:
         return _syncPrefsMessage(message, userId);
       case BleMessageType.event:
-        return _syncEventMessage(message, userId);
+        return _syncEventMessage(message, userId, params.deviceInstanceId);
       case BleMessageType.logs:
-        return _syncLogsMessage(message, userId);
+        return _syncLogsMessage(message, userId, params.deviceInstanceId);
       case BleMessageType.itemDelta:
         return _syncItemDeltaMessage(message, userId);
       case BleMessageType.error:
@@ -209,6 +211,7 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
   Future<Either<Failure, SyncDeviceDataResult>> _syncEventMessage(
     BleMessage message,
     String userId,
+    String? deviceInstanceId,
   ) async {
     final data = message.data;
     if (data == null) return const Right(SyncDeviceDataResult());
@@ -264,6 +267,7 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
         currentCount: count,
         resetNumber: resetNumber,
         userId: userId,
+        deviceInstanceId: deviceInstanceId,
       ));
     }
 
@@ -288,6 +292,7 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
   Future<Either<Failure, SyncDeviceDataResult>> _syncLogsMessage(
     BleMessage message,
     String userId,
+    String? deviceInstanceId,
   ) async {
     final data = message.data;
     if (data == null) return const Right(SyncDeviceDataResult());
@@ -334,6 +339,7 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
         currentCount: count,
         resetNumber: resetNumber,
         userId: userId,
+        deviceInstanceId: deviceInstanceId,
       ));
     }
 
