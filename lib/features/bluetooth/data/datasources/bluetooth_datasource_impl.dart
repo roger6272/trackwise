@@ -15,6 +15,7 @@ import '../../domain/entities/sync_state.dart';
 import '../models/ble_device_model.dart';
 import '../models/ble_message_model.dart';
 import 'bluetooth_datasource.dart';
+import 'device_connection.dart';
 
 /// Real implementation of BluetoothDataSource using flutter_blue_plus.
 ///
@@ -26,23 +27,18 @@ import 'bluetooth_datasource.dart';
 /// - Notification subscriptions
 @LazySingleton(as: BluetoothDataSource)
 class BluetoothDataSourceImpl implements BluetoothDataSource {
-  BluetoothDevice? _connectedDevice;
-  BleDeviceModel? _connectedDeviceModel;
+  // Per-device connection state (0 or 1 entries in current implementation)
+  final Map<String, DeviceConnection> _connections = {};
 
-  // Cached characteristics (cleared on disconnect, reused for performance)
-  BluetoothCharacteristic? _readChar;
-  BluetoothCharacteristic? _notifyChar;
-  BluetoothCharacteristic? _setItemsChar;
-  BluetoothCharacteristic? _writeChar;
-
-  // Negotiated MTU (payload size, excluding ATT overhead)
-  int _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
-
-  // Notification stream management
-  StreamSubscription<List<int>>? _notifySubscription;
+  // Global streams (shared across all connections)
   final _messageController = StreamController<BleMessage>.broadcast();
-  final _messageBuffer = StringBuffer();
-  Timer? _messageTimeoutTimer;
+  final _connectionStateController = StreamController<BleConnectionState>.broadcast();
+
+  /// Returns the active connection, throwing if none exists.
+  DeviceConnection get _activeConnection {
+    if (_connections.isEmpty) throw StateError('No active BLE connection');
+    return _connections.values.first;
+  }
 
   /// Timeout for incomplete message assembly (5 seconds)
   static const Duration _messageAssemblyTimeout = Duration(seconds: 5);
@@ -56,19 +52,16 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Number of items per chunk for override protocol
   static const int _overrideChunkSize = 10;
 
-  // Connection state tracking
-  StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
-  final _connectionStateController = StreamController<BleConnectionState>.broadcast();
-
-  // BLE write queue for serialization (prevents interleaved chunks)
-  final _writeQueue = <_WriteOperation>[];
-  bool _isProcessingWrite = false;
-
   @override
   bool get isScanning => FlutterBluePlus.isScanningNow;
 
   @override
-  BleDeviceModel? get connectedDevice => _connectedDeviceModel;
+  BleDeviceModel? get connectedDevice {
+    if (_connections.isEmpty) return null;
+    final device = _connections.values.first.device;
+    if (device == null) return null;
+    return BleDeviceModel.fromBluetoothDevice(device);
+  }
 
   // ========== Scanning ==========
 
@@ -165,8 +158,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     }
 
     // Disconnect from any existing connection
-    if (_connectedDevice != null) {
-      await disconnect(_connectedDevice!.remoteId.str);
+    if (_connections.isNotEmpty) {
+      await disconnect(_connections.keys.first);
     }
 
     final device = BluetoothDevice.fromId(deviceId);
@@ -174,8 +167,9 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Retry connection with exponential backoff for GATT 133 errors
     await _connectWithRetry(device, maxRetries: 3);
 
-    _connectedDevice = device;
-    _connectedDeviceModel = BleDeviceModel.fromBluetoothDevice(device);
+    // Create the DeviceConnection and store device + negotiated MTU
+    final conn = DeviceConnection(deviceInstanceId: deviceId);
+    conn.device = device;
 
     // Request high connection priority for faster data transfer
     // High priority: ~7.5ms connection interval (vs ~30ms default)
@@ -200,27 +194,29 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       // flutter_blue_plus enforces max write size as (MTU - 3), but also caps at 512
       // Use the more conservative value to avoid write failures
       final calculatedPayload = mtu - BluetoothConstants.attOverhead;
-      _negotiatedMtu = calculatedPayload > 509 ? 509 : calculatedPayload; // Cap at 509 (512-3)
-      AppLogger.debug('MTU negotiated: $mtu bytes (payload: $_negotiatedMtu bytes)');
+      conn.negotiatedMtu = calculatedPayload > 509 ? 509 : calculatedPayload; // Cap at 509 (512-3)
+      AppLogger.debug('MTU negotiated: $mtu bytes (payload: ${conn.negotiatedMtu} bytes)');
       AppLogger.debug('   - Default MTU: 23 bytes');
       AppLogger.debug('   - Requested: ${BluetoothConstants.requestedMtu} bytes');
-      AppLogger.debug('   - Negotiated: $mtu bytes, using payload: $_negotiatedMtu bytes');
+      AppLogger.debug('   - Negotiated: $mtu bytes, using payload: ${conn.negotiatedMtu} bytes');
     } catch (e) {
-      _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
-      AppLogger.debug('MTU negotiation failed, using default: $_negotiatedMtu bytes');
+      conn.negotiatedMtu = BluetoothConstants.defaultMtuLimit;
+      AppLogger.debug('MTU negotiation failed, using default: ${conn.negotiatedMtu} bytes');
       AppLogger.debug('   Error: $e');
     }
 
     // Set up connection state monitoring
-    _connectionSubscription?.cancel();
-    _connectionSubscription = device.connectionState.listen((state) {
+    conn.connectionSubscription = device.connectionState.listen((state) {
       // Only emit disconnected state here - connected state will be emitted
       // after service discovery completes to avoid race conditions
       if (state == BluetoothConnectionState.disconnected) {
         _connectionStateController.add(BleConnectionState.disconnected);
-        _clearConnectionState();
+        conn.clearConnectionState();
+        _connections.remove(deviceId);
       }
     });
+
+    _connections[deviceId] = conn;
 
     // NOTE: Do NOT emit connected state here!
     // The repository will call emitConnectedState() after discoverServices() completes
@@ -277,52 +273,18 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<void> disconnect(String deviceId) async {
+    final conn = _connections[deviceId];
+    if (conn == null) return;
+
     // Cancel connection listener first to prevent double cleanup
-    // (listener also calls _clearConnectionState on disconnect)
-    _connectionSubscription?.cancel();
-    _connectionSubscription = null;
+    // (listener also calls clearConnectionState on disconnect)
+    conn.connectionSubscription?.cancel();
+    conn.connectionSubscription = null;
 
     final device = BluetoothDevice.fromId(deviceId);
     await device.disconnect();
-    _clearConnectionState();
-  }
-
-  /// Clears all connection state including cached characteristics.
-  ///
-  /// Called on disconnect to ensure fresh discovery on next connection.
-  void _clearConnectionState() {
-    _connectedDevice = null;
-    _connectedDeviceModel = null;
-    _clearCharacteristicCache();
-    _negotiatedMtu = BluetoothConstants.defaultMtuLimit;
-    _notifySubscription?.cancel();
-    _notifySubscription = null;
-    _messageBuffer.clear();
-    _messageTimeoutTimer?.cancel();
-    _messageTimeoutTimer = null;
-  }
-
-  /// Clears the cached characteristics.
-  ///
-  /// This forces a fresh discoverServices() call on next operation,
-  /// which is necessary after reconnection to get valid characteristic handles.
-  void _clearCharacteristicCache() {
-    _readChar = null;
-    _notifyChar = null;
-    _setItemsChar = null;
-    _writeChar = null;
-    AppLogger.debug('BLE characteristic cache cleared');
-  }
-
-  BleConnectionState _mapConnectionState(BluetoothConnectionState state) {
-    switch (state) {
-      case BluetoothConnectionState.connected:
-        return BleConnectionState.connected;
-      case BluetoothConnectionState.disconnected:
-        return BleConnectionState.disconnected;
-      default:
-        return BleConnectionState.connecting;
-    }
+    conn.clearConnectionState();
+    _connections.remove(deviceId);
   }
 
   @override
@@ -345,8 +307,9 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// 400-1000ms each. Characteristics are cached after first discovery and
   /// reused for subsequent operations until disconnect.
   Future<void> _ensureCharacteristicsCached(BluetoothDevice device) async {
+    final conn = _activeConnection;
     // Return immediately if already cached
-    if (_writeChar != null && _readChar != null && _notifyChar != null && _setItemsChar != null) {
+    if (conn.writeChar != null && conn.readChar != null && conn.notifyChar != null && conn.setItemsChar != null) {
       AppLogger.debug('Using cached BLE characteristics (skipping discovery)');
       return;
     }
@@ -358,6 +321,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<void> discoverServices(BluetoothDevice device) async {
+    final conn = _activeConnection;
     final services = await device.discoverServices();
 
     // Search ALL services for our characteristics (like the old working code)
@@ -367,23 +331,23 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
         final uuid = char.uuid.toString().toLowerCase();
 
         if (uuid == BluetoothConstants.readCharacteristicUUID.toLowerCase()) {
-          _readChar = char;
+          conn.readChar = char;
         } else if (uuid == BluetoothConstants.notifyCharacteristicUUID.toLowerCase()) {
-          _notifyChar = char;
+          conn.notifyChar = char;
         } else if (uuid == BluetoothConstants.setItemsCharacteristicUUID.toLowerCase()) {
-          _setItemsChar = char;
+          conn.setItemsChar = char;
         } else if (uuid == BluetoothConstants.writeCharacteristicUUID.toLowerCase()) {
-          _writeChar = char;
+          conn.writeChar = char;
         }
       }
     }
 
     // Validate all required characteristics were found
     final missingChars = <String>[];
-    if (_readChar == null) missingChars.add('READ');
-    if (_notifyChar == null) missingChars.add('NOTIFY');
-    if (_setItemsChar == null) missingChars.add('SET_ITEMS');
-    if (_writeChar == null) missingChars.add('WRITE');
+    if (conn.readChar == null) missingChars.add('READ');
+    if (conn.notifyChar == null) missingChars.add('NOTIFY');
+    if (conn.setItemsChar == null) missingChars.add('SET_ITEMS');
+    if (conn.writeChar == null) missingChars.add('WRITE');
 
     if (missingChars.isNotEmpty) {
       final error = 'Missing required BLE characteristics: ${missingChars.join(', ')}. '
@@ -399,12 +363,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   }
 
   Future<void> _subscribeToNotifications() async {
-    if (_notifyChar == null) return;
+    final conn = _activeConnection;
+    if (conn.notifyChar == null) return;
 
-    await _notifyChar!.setNotifyValue(true);
+    await conn.notifyChar!.setNotifyValue(true);
 
-    _notifySubscription?.cancel();
-    _notifySubscription = _notifyChar!.lastValueStream.listen(
+    conn.notifySubscription?.cancel();
+    conn.notifySubscription = conn.notifyChar!.lastValueStream.listen(
       _handleNotificationData,
       onError: (error) {
         _messageController.addError(error);
@@ -415,22 +380,24 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   void _handleNotificationData(List<int> data) {
     if (data.isEmpty) return;
 
+    final conn = _activeConnection;
+
     // Decode bytes to string and add to buffer
     final chunk = utf8.decode(data, allowMalformed: true);
-    _messageBuffer.write(chunk);
+    conn.messageBuffer.write(chunk);
 
     // Check buffer size to prevent memory exhaustion
-    if (_messageBuffer.length > _maxBufferSize) {
-      AppLogger.debug('Message buffer overflow (${_messageBuffer.length} bytes) - clearing to prevent memory exhaustion');
-      _messageBuffer.clear();
-      _messageTimeoutTimer?.cancel();
-      _messageTimeoutTimer = null;
+    if (conn.messageBuffer.length > _maxBufferSize) {
+      AppLogger.debug('Message buffer overflow (${conn.messageBuffer.length} bytes) - clearing to prevent memory exhaustion');
+      conn.messageBuffer.clear();
+      conn.messageTimeoutTimer?.cancel();
+      conn.messageTimeoutTimer = null;
       return;
     }
 
     // Reset message assembly timeout timer
-    _messageTimeoutTimer?.cancel();
-    _messageTimeoutTimer = Timer(_messageAssemblyTimeout, _onMessageAssemblyTimeout);
+    conn.messageTimeoutTimer?.cancel();
+    conn.messageTimeoutTimer = Timer(_messageAssemblyTimeout, _onMessageAssemblyTimeout);
 
     // Check for complete messages (newline delimiter)
     _processMessageBuffer();
@@ -439,14 +406,16 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Called when message assembly times out (no newline received within timeout).
   /// Clears stale partial messages to prevent blocking subsequent messages.
   void _onMessageAssemblyTimeout() {
-    if (_messageBuffer.isNotEmpty) {
-      AppLogger.debug('Message assembly timeout - clearing stale buffer: ${_messageBuffer.toString().substring(0, _messageBuffer.length > 100 ? 100 : _messageBuffer.length)}...');
-      _messageBuffer.clear();
+    final conn = _activeConnection;
+    if (conn.messageBuffer.isNotEmpty) {
+      AppLogger.debug('Message assembly timeout - clearing stale buffer: ${conn.messageBuffer.toString().substring(0, conn.messageBuffer.length > 100 ? 100 : conn.messageBuffer.length)}...');
+      conn.messageBuffer.clear();
     }
   }
 
   void _processMessageBuffer() {
-    var content = _messageBuffer.toString();
+    final conn = _activeConnection;
+    var content = conn.messageBuffer.toString();
 
     while (content.contains('\n')) {
       final idx = content.indexOf('\n');
@@ -469,13 +438,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     }
 
     // Store remaining content back in buffer
-    _messageBuffer.clear();
-    _messageBuffer.write(content);
+    conn.messageBuffer.clear();
+    conn.messageBuffer.write(content);
 
     // Cancel timeout if buffer is empty (all messages processed)
     if (content.isEmpty) {
-      _messageTimeoutTimer?.cancel();
-      _messageTimeoutTimer = null;
+      conn.messageTimeoutTimer?.cancel();
+      conn.messageTimeoutTimer = null;
     }
   }
 
@@ -483,32 +452,35 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<void> writeItems(String deviceId, String jsonData) async {
-    if (_setItemsChar == null) {
+    final conn = _activeConnection;
+    if (conn.setItemsChar == null) {
       throw StateError('SET_ITEMS characteristic not found. Call discoverServices first.');
     }
     // Use queue to prevent interleaved chunks with other writes
-    await _enqueueWrite(() => _writeChunked(_setItemsChar!, jsonData));
+    await _enqueueWrite(() => _writeChunked(conn.setItemsChar!, jsonData));
   }
 
   @override
   Future<void> writeCommand(String deviceId, String jsonData) async {
-    if (_writeChar == null) {
+    final conn = _activeConnection;
+    if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
     // Use queue to prevent interleaved chunks with other writes
-    await _enqueueWrite(() => _writeChunked(_writeChar!, jsonData));
+    await _enqueueWrite(() => _writeChunked(conn.writeChar!, jsonData));
   }
 
   /// Writes a command without newline delimiter (for prepare_read commands).
   @override
   Future<void> writeCommandRaw(String jsonData) async {
-    if (_writeChar == null) {
+    final conn = _activeConnection;
+    if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
     // Use queue to prevent interleaved chunks with other writes
     await _enqueueWrite(() async {
       final bytes = utf8.encode(jsonData);
-      await _writeWithRetry(_writeChar!, bytes);
+      await _writeWithRetry(conn.writeChar!, bytes);
     });
   }
 
@@ -526,7 +498,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     final bytes = utf8.encode('$data\n');
 
     // Use negotiated MTU for optimal chunk size
-    final mtu = _negotiatedMtu;
+    final mtu = _activeConnection.negotiatedMtu;
     const chunkDelay = Duration(milliseconds: BluetoothConstants.chunkDelayMs);
 
     for (var i = 0; i < bytes.length; i += mtu) {
@@ -605,63 +577,68 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<String> readData(String deviceId) async {
-    if (_readChar == null) {
+    final conn = _activeConnection;
+    if (conn.readChar == null) {
       throw StateError('READ characteristic not found. Call discoverServices first.');
     }
 
-    final bytes = await _readWithRetry(_readChar!);
+    final bytes = await _readWithRetry(conn.readChar!);
     return utf8.decode(bytes, allowMalformed: true);
   }
 
   @override
   Future<String> rediscoverAndReadData(String deviceId) async {
-    if (_connectedDevice == null) {
+    final conn = _activeConnection;
+    final device = conn.device;
+    if (device == null) {
       throw StateError('Not connected to any device.');
     }
 
     // Use cached characteristics if available (avoids redundant discovery)
-    await _ensureCharacteristicsCached(_connectedDevice!);
+    await _ensureCharacteristicsCached(device);
 
-    if (_readChar == null) {
+    if (conn.readChar == null) {
       throw StateError('READ characteristic not found after discovery.');
     }
 
     // Read from the cached characteristic with retry
-    final bytes = await _readWithRetry(_readChar!);
+    final bytes = await _readWithRetry(conn.readChar!);
     final result = utf8.decode(bytes, allowMalformed: true);
     return result;
   }
 
   @override
   Future<String> prepareReadCycle(String command) async {
-    if (_connectedDevice == null) {
+    final conn = _activeConnection;
+    final device = conn.device;
+    if (device == null) {
       throw StateError('Not connected to any device.');
     }
 
     // Ensure characteristics are cached (only discovers if not already cached)
-    await _ensureCharacteristicsCached(_connectedDevice!);
+    await _ensureCharacteristicsCached(device);
 
-    if (_writeChar == null) {
+    if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found.');
     }
 
-    if (_readChar == null) {
+    if (conn.readChar == null) {
       throw StateError('READ characteristic not found.');
     }
 
     // STEP 1: Write command using cached write characteristic
-    await _writeChar!.write(utf8.encode(command), withoutResponse: false);
+    await conn.writeChar!.write(utf8.encode(command), withoutResponse: false);
 
     // Add delay to give ESP32 time to process command and update READ characteristic
     await Future.delayed(const Duration(milliseconds: BluetoothConstants.prepareReadDelayMs));
 
     // Verify device is still connected after delay
-    if (_connectedDevice == null) {
+    if (_connections.isEmpty) {
       throw StateError('Device disconnected during prepare_read cycle.');
     }
 
     // STEP 2: Read from cached read characteristic
-    final bytes = await _readWithRetry(_readChar!);
+    final bytes = await _readWithRetry(conn.readChar!);
     final result = utf8.decode(bytes, allowMalformed: true);
     return result;
   }
@@ -683,7 +660,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     required String uid,
     required int syncSeq,
   }) async {
-    if (_writeChar == null) {
+    final conn = _activeConnection;
+    if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
 
@@ -712,7 +690,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     required List<Item> items,
     Map<String, String> categoryNames = const {},
   }) async {
-    if (_writeChar == null) {
+    final conn = _activeConnection;
+    if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
 
@@ -739,7 +718,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
         'sync_seq': syncSeq,
         'total_chunks': totalChunks,
       });
-      await _enqueueWrite(() => _writeChunked(_writeChar!, startCommand));
+      await _enqueueWrite(() => _writeChunked(conn.writeChar!, startCommand));
       AppLogger.debug('Sent override_start');
 
       // Step 2: Send each chunk sequentially
@@ -750,7 +729,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
           'index': i,
           'items': chunks[i],
         });
-        await _enqueueWrite(() => _writeChunked(_writeChar!, chunkCommand));
+        await _enqueueWrite(() => _writeChunked(conn.writeChar!, chunkCommand));
         AppLogger.debug('Sent override_chunk $i/${chunks.length}');
       }
 
@@ -774,7 +753,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
-    if (_writeChar == null) {
+    final conn = _activeConnection;
+    if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
 
@@ -797,6 +777,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Uses the existing notification stream to receive the response.
   /// Throws [TimeoutException] if no response within [_syncCommandTimeout].
   Future<Map<String, dynamic>> _sendCommandAndWaitForResponse(String command) async {
+    final conn = _activeConnection;
+
     // Create a completer to wait for the response
     final completer = Completer<Map<String, dynamic>>();
     StreamSubscription<BleMessage>? subscription;
@@ -838,7 +820,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     );
 
     // Send the command
-    await _enqueueWrite(() => _writeChunked(_writeChar!, command));
+    await _enqueueWrite(() => _writeChunked(conn.writeChar!, command));
 
     // Wait for response
     return completer.future;
@@ -921,25 +903,29 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// Enqueues a write operation and processes it when ready.
   /// Ensures writes are serialized to prevent interleaved chunks.
   Future<void> _enqueueWrite(Future<void> Function() writeOperation) async {
+    final conn = _activeConnection;
     final completer = Completer<void>();
-    _writeQueue.add(_WriteOperation(writeOperation, completer));
+    conn.writeQueue.add(WriteOperation(
+      execute: writeOperation,
+      completer: completer,
+    ));
 
     // Start processing if not already running
-    if (!_isProcessingWrite) {
-      _processWriteQueue();
+    if (!conn.isProcessingWrite) {
+      _processWriteQueue(conn);
     }
 
     return completer.future;
   }
 
   /// Processes queued write operations sequentially.
-  Future<void> _processWriteQueue() async {
-    if (_isProcessingWrite || _writeQueue.isEmpty) return;
+  Future<void> _processWriteQueue(DeviceConnection conn) async {
+    if (conn.isProcessingWrite || conn.writeQueue.isEmpty) return;
 
-    _isProcessingWrite = true;
+    conn.isProcessingWrite = true;
 
-    while (_writeQueue.isNotEmpty) {
-      final operation = _writeQueue.removeAt(0);
+    while (conn.writeQueue.isNotEmpty) {
+      final operation = conn.writeQueue.removeAt(0);
       try {
         await operation.execute();
         operation.completer.complete();
@@ -948,37 +934,28 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       }
     }
 
-    _isProcessingWrite = false;
+    conn.isProcessingWrite = false;
   }
 
   // ========== Cleanup ==========
 
   @override
   Future<void> dispose() async {
-    _messageTimeoutTimer?.cancel();
-    await _notifySubscription?.cancel();
-    await _connectionSubscription?.cancel();
+    for (final conn in _connections.values) {
+      // Cancel pending write operations before disposing
+      for (final op in conn.writeQueue) {
+        op.completer.completeError(StateError('Datasource disposed'));
+      }
+      conn.writeQueue.clear();
+
+      if (conn.device != null) {
+        await conn.device!.disconnect();
+      }
+      await conn.dispose();
+    }
+    _connections.clear();
+
     await _messageController.close();
     await _connectionStateController.close();
-
-    // Clear pending write operations
-    for (final op in _writeQueue) {
-      op.completer.completeError(StateError('Datasource disposed'));
-    }
-    _writeQueue.clear();
-
-    if (_connectedDevice != null) {
-      await _connectedDevice!.disconnect();
-    }
-
-    _clearConnectionState();
   }
-}
-
-/// Represents a queued write operation.
-class _WriteOperation {
-  final Future<void> Function() execute;
-  final Completer<void> completer;
-
-  _WriteOperation(this.execute, this.completer);
 }

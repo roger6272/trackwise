@@ -69,13 +69,11 @@ class DeviceConnection {
 
 /// A queued write operation for BLE serialization.
 class WriteOperation {
-  final BluetoothCharacteristic characteristic;
-  final String data;
+  final Future<void> Function() execute;
   final Completer<void> completer;
 
   WriteOperation({
-    required this.characteristic,
-    required this.data,
+    required this.execute,
     required this.completer,
   });
 }
