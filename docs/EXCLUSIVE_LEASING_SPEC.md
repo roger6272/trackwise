@@ -47,7 +47,7 @@ A device can only claim **one item at a time**. This mirrors the current "select
 |--------|---------|--------|
 | **Claim (single device)** | Tap ping icon on item list page | Item assigned to the only connected device. Previous item auto-released. |
 | **Claim (multi-device)** | Tap ping icon → select device from dropdown | Item assigned to selected device. That device's previous item auto-released. |
-| **Claim (device-side loop)** | User loops through items on physical device | Each item selected = claimed. Previous auto-released. Items claimed by other devices are skipped. |
+| **Claim (device-side loop)** | User loops through items on physical device | Each item selected = claimed. Previous auto-released. Device only has unclaimed items (claimed items are never sent to it). |
 | **Release (app)** | Left-swipe item → tap unlock icon → confirm | Claim removed, item available to all devices. |
 | **Release (break-glass)** | Same unlock flow, but device is offline/lost | Claim removed with warning about unsynced data. |
 | **Release (auto)** | Device selects a different item | Previous item automatically released. |
@@ -172,7 +172,7 @@ The bar shows device color tint and device name. Ping/unlock actions remain **le
 | **Device name** | — | Small text: device name | Small text: device name + "disconnected" |
 | **Tappable** | Yes (opens detail) | Yes (opens detail) | Yes (opens detail) |
 
-**Note:** All items — claimed or not — appear in the app's item list page. On the **physical device**, items claimed by other devices are skipped when the user loops through items (see Section 5.1).
+**Note:** All items — claimed or not — appear in the app's item list page. On the **physical device**, the app only sends unclaimed items (and items claimed by the device itself), so the device never sees items claimed by other devices.
 
 #### Left-Swipe Actions
 
@@ -230,43 +230,27 @@ Colors must be distinguishable in both light and dark mode.
 
 ## 5. Device-Side Behavior
 
-### 5.1 Item Looping with Claims
+### 5.1 App-Side Item Filtering
 
-When a user navigates items on the physical device (button press to cycle) while **online**:
+The app **only sends unclaimed items** (and items claimed by the receiving device) via `set_items` or override. Items claimed by other devices are never sent to the device. This means:
 
-- Device checks `cl_<i>` flag for each item during loop.
-- Items with `cl_<i> = 1` are **skipped silently** — no `item_delta` notification sent for skipped items.
-- Device only stops on items where `cl_<i> = 0` (unclaimed or claimed by self).
-- Selecting a new item = claiming it, auto-releasing the previous.
-- If **all items** have `cl_<i> = 1`, device has nothing to select — shows "no item selected" (same as having zero items).
+- The device only has items it can actually use — no skip logic needed.
+- When a claim changes, the app pushes an updated `set_items` to affected devices. Only devices whose **selected category** contains the affected item need an update.
+- If all items in the category are claimed by other devices, the device receives an empty list and shows "no item selected."
 
-### 5.2 Claim Flag per Item
-
-Each item in device NVS gains a new field:
-
-| NVS Key | Type | Values | Description |
-|---------|------|--------|-------------|
-| `cl_<i>` | uint8 | 0 = unclaimed/self, 1 = claimed by other | Skip flag for item looping |
-
-- Set during sync via `set_items` or override chunks.
-- Device treats `cl_<i> = 1` items as "skip during navigation."
-- Device does NOT modify claimed-by-other items' counts.
-
-### 5.3 Fixed-Task Constraint (Offline)
+### 5.2 Fixed-Task Constraint (Offline)
 
 When the device is **offline** (not connected to app):
 
-- The device **cannot switch items**. Button press to cycle is disabled.
+- The device **cannot switch items**. When the user presses the cycle button, the device displays: **"Item switch is disabled when offline. Please sync to the app."**
 - The device continues counting/resetting the currently selected item only.
-- Display shows a lock indicator to signal "reconnect to switch."
 
 When the device **reconnects**:
 
-- App syncs latest claim state and category list.
+- App syncs latest item list (filtered by claims) and category info.
 - Item switching is re-enabled.
-- Device receives updated `cl_<i>` flags for all items.
 
-### 5.4 Claimed Item Deleted While Device Online
+### 5.3 Claimed Item Deleted While Device Online
 
 When an item is deleted from the app while the claiming device is online:
 
@@ -275,64 +259,33 @@ When an item is deleted from the app while the claiming device is online:
 3. Device shows **"no item selected"** — same as current behavior when no item is selected.
 4. User can select a new item from the device or app.
 
-### 5.5 Claiming from Device Side
+### 5.4 Claiming from Device Side
 
 When a user selects an item on the device (while connected):
 
 1. Device sends `item_delta` notification for the new item.
-2. App receives it and checks claim status in Firestore:
-   - **Unclaimed** → App writes claim to Firestore (and releases previous item), allows selection.
+2. App receives it and processes the claim:
+   - **Unclaimed** → App writes claim to Firestore (releases previous item), pushes updated `set_items` to other affected devices.
    - **Claimed by this device** → Already owned, proceed.
-   - **Claimed by another device** → Near-zero probability since `cl_<i>` flags are refreshed on every sync. Only possible if flags became stale between syncs. If it happens: app sends `set_selected` to redirect to next available item.
+   - **Claimed by another device** → Near-zero probability since the device only has unclaimed items. Only possible if another device claimed the same item in the brief window since the last `set_items`. Firestore transaction rejects the claim; app sends `set_selected` to redirect to next available item.
 
 ---
 
 ## 6. Protocol Changes
 
-### 6.1 Handshake Extension
+### 6.1 No Payload Format Changes
 
-**No change to handshake command** — the app already knows claim state from Firestore before connecting. Claim flags are communicated via `set_items`/override.
+The claiming mechanism is handled entirely by the app filtering which items are sent to each device. The `set_items` and `override_chunk` JSON formats are **unchanged** — no new fields needed.
 
-### 6.2 set_items Extension
+- **Handshake:** No changes. App knows claim state from Firestore before connecting.
+- **set_items:** App sends only unclaimed items (and items claimed by the receiving device). Same JSON format as today.
+- **override_chunk:** Same filtering applied. Same JSON format as today.
 
-Add claim flag to each item in the `set_items` payload:
+### 6.2 Claim-Triggered Updates
 
-```json
-[
-  {
-    "id": 0,
-    "name": "Push-ups",
-    "count": 150,
-    "claimed": 1,
-    ...
-  }
-]
-```
+When a claim changes (item claimed or released), the app pushes an updated `set_items` to other connected devices whose **selected category** contains the affected item. Devices in a different category are unaffected and receive no update.
 
-`claimed` values: `0` = unclaimed or claimed by this device, `1` = claimed by another device.
-
-Device uses this to populate `cl_<i>` NVS keys.
-
-### 6.3 Override Chunks Extension
-
-Same addition to `override_chunk` items:
-
-```json
-{
-  "cmd": "override_chunk",
-  "index": 0,
-  "items": [
-    {
-      "device_item_id": 5,
-      "name": "Push-ups",
-      "claimed": 0,
-      ...
-    }
-  ]
-}
-```
-
-### 6.4 Sync Sequence Compatibility
+### 6.3 Sync Sequence Compatibility
 
 The existing `sync_seq` mechanism is **retained** as a secondary safeguard:
 
@@ -405,7 +358,7 @@ Claim rules are enforced at the **app layer**, not Firestore rules. Firestore au
 
 | Component | Change |
 |-----------|--------|
-| **`syncItemsToDevice()`** | Must accept a `deviceInstanceId` parameter to compute the `claimed` flag per item relative to the receiving device (0 = unclaimed or self, 1 = claimed by another device). |
+| **`syncItemsToDevice()`** | Must accept a `deviceInstanceId` parameter and **filter out items claimed by other devices** before sending. Only unclaimed items and items claimed by the receiving device are included in the payload. |
 | **Event logging** | All events (increment, reset, created) must include `deviceInstanceId` to track which device generated the event. |
 
 ### 8.4 UI Components
@@ -438,10 +391,10 @@ App connects to Device B
   │     └── Which items are claimed by which devices
   │
   ├── 3. Sync data (existing in_sync or override flow)
-  │     └── Include `claimed` flag per item in set_items/override
+  │     └── Filter items: send only unclaimed + Device B's own claimed items
   │
-  ├── 4. Device receives items with claim flags
-  │     └── Stores cl_<i> per item, skips claimed-by-other during loop
+  ├── 4. Device receives only available items
+  │     └── No claim flags needed — claimed-by-other items are simply absent
   │
   └── 5. UI updates
         ├── Item bars show device colors and names
@@ -465,7 +418,7 @@ Device A reconnects after being force-released
   │     [Sync to App]  [Don't Sync]
   │
   ├── If Sync: Override flow → Firestore items pushed to device.
-  │     Device gets updated claim flags. Can now loop and claim a new item.
+  │     Device receives filtered item list (only available items). Can now select a new item.
   │
   └── If Don't Sync: Disconnect. Device keeps local counts offline.
         Item stays released in Firestore.
@@ -480,7 +433,7 @@ Device A reconnects after being force-released
 | Device selects new item while online | Previous item auto-released, new item claimed. Seamless. |
 | User assigns item to Device B via dropdown | Device B's previous item auto-released first, then new item claimed. |
 | Device disconnects mid-count | Claim persists. Item shows as "claimed (disconnected)". Device continues counting offline. |
-| All items claimed by other devices | Device has nothing to count. Display shows "No available items — release items from app." |
+| All items in category claimed by other devices | Device receives an empty item list. Display shows "no item selected." User must release items from app or switch categories. |
 | User deletes a claimed item (device online) | Item deleted. Device is notified and shows "no item selected." |
 | User deletes a claimed item (device offline) | **Blocked.** Must release (break-glass) or reconnect the device first. |
 | User edits a claimed item (device online) | Allowed. Device receives changes immediately. |
@@ -503,19 +456,13 @@ Device A reconnects after being force-released
 
 ### 11.2 Firmware Compatibility
 
-- Older firmware without `claimed` flag support: app sends items without the flag, device ignores unknown fields (existing JSON parsing behavior).
-- Firmware update required to: respect claim flags during item looping, enforce fixed-task constraint offline.
+No payload format changes are needed for claiming — the app handles all claim logic by filtering which items are sent. Firmware update is required only for:
+- **Fixed-task constraint:** Disable item switching when offline and display the offline message.
+- **Protocol v3 handshake** (if other v3 changes exist beyond claiming).
 
 ### 11.3 Protocol Version
 
-Bump protocol version to **v3** for Exclusive Leasing support. App branching logic after handshake:
-
-| Device Version | App Behavior |
-|----------------|-------------|
-| **v3+** | Include `claimed` field in `set_items`/`override_chunk`. Enable claim-aware UI (device colors, unlock swipe, dropdown). Device respects `cl_<i>` flags and fixed-task constraint. |
-| **v2** | Omit `claimed` field. Fall back to sync_seq conflict model. No multi-device claim UI for this device. |
-
-A user can have a mix of v2 and v3 devices. Each device is handled according to its own protocol version.
+Claiming itself does **not** require a protocol version bump — the `set_items`/`override_chunk` JSON format is unchanged. If v3 is needed for other reasons, claiming works transparently on any protocol version since it's handled entirely app-side.
 
 ---
 
@@ -540,13 +487,12 @@ Must refactor to:
 - Datasource: `Map<String, BluetoothDevice> _connectedDevices`
 - State: `Map<String, BleDevice> connectedDevices`
 - Run handshake and sync per-device
-- `syncItemsToDevice()` must accept `deviceInstanceId` to compute `claimed` flag relative to the receiving device
+- `syncItemsToDevice()` must accept `deviceInstanceId` and **filter out items claimed by other devices** before sending
 - All event logging must include `deviceInstanceId`
 
 Then add claim logic:
 - Claim/release Firestore operations (with transactions for atomicity)
 - Auto-release on new claim (one-item-per-device enforcement)
-- Stale claim detection and auto-release (device no longer paired)
 - Auto-release on device unpair
 
 ### Phase 3: UI — Item List
@@ -562,20 +508,16 @@ Then add claim logic:
 - Paired devices page: color picker
 - Break-glass reconnection dialog
 
-### Phase 5: Protocol & Firmware
+### Phase 5: Firmware
 
-- Add `claimed` flag to `set_items` and `override_chunk` payloads
-- `cl_<i>` NVS flag per item on device
-- Skip claimed items during device-side looping
-- Fixed-task constraint (disable item switching when offline)
-- Protocol v3 handshake
-- Device shows "no item selected" when claimed item is deleted
+- Fixed-task constraint: disable item switching when offline, display "Item switch is disabled when offline. Please sync to the app."
+- Device shows "no item selected" when it receives an empty item list or its claimed item is deleted
+- No payload format changes needed — claiming is handled entirely by app-side filtering
 
 ### Phase 6: Integration & Testing
 
 - End-to-end multi-device testing (2+ devices)
 - Single-device regression testing
 - Edge case scenarios from Section 10
-- Protocol v2 backward compatibility testing
 - Offline/reconnection scenarios
 - Verify `deviceInstanceId` is recorded on all events
