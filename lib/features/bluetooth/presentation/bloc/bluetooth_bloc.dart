@@ -558,7 +558,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       _subscribeToMessages(event.deviceInstanceId);
 
       // Perform initial sync
-      _performInitialSync();
+      _performInitialSync(event.deviceInstanceId);
     } else {
       // Disconnected
       final deviceId = event.deviceInstanceId;
@@ -597,15 +597,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     });
   }
 
-  Future<void> _performInitialSync() async {
-    final deviceId = state.connectedDevice?.id;
-    if (deviceId == null) return;
-
+  Future<void> _performInitialSync(String deviceInstanceId) async {
     // Small delay to let BLE connection stabilize
     await Future.delayed(const Duration(milliseconds: BluetoothConstants.connectionStabilizeDelayMs));
 
     // Send time sync first and await it
-    final timeSyncResult = await _sendTimeSync.call(SendTimeSyncParams(deviceId));
+    final timeSyncResult = await _sendTimeSync.call(SendTimeSyncParams(deviceInstanceId));
     timeSyncResult.fold(
       (failure) { AppLogger.debug('Time sync failed: ${failure.message}'); },
       (_) { AppLogger.debug('Initial sync: time sync sent'); },
@@ -618,7 +615,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     AppLogger.debug('Initial sync: starting handshake flow');
 
     final syncResult = await _performSync.call(
-      PerformSyncParams(deviceId: deviceId),
+      PerformSyncParams(deviceId: deviceInstanceId),
     );
 
     syncResult.fold(
@@ -629,7 +626,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           add(SyncConflictDetected(
             appSyncSeq: failure.appSyncSeq,
             deviceSyncSeq: failure.deviceSyncSeq,
-            deviceInstanceId: failure.deviceInstanceId ?? state.connectedDeviceInstanceId ?? '',
+            deviceInstanceId: failure.deviceInstanceId ?? deviceInstanceId,
           ));
         } else if (failure is DeviceUninitializedFailure) {
           // Device needs setup (factory reset or new device)
@@ -641,16 +638,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         } else if (failure is NoInternetFailure) {
           AppLogger.debug('No internet - falling back to old sync flow');
           // Fall back to old sync flow when offline
-          _performLegacySync(deviceId);
+          _performLegacySync(deviceInstanceId);
         } else {
           AppLogger.debug('Sync failed: ${failure.message}');
         }
       },
       (result) {
-        final macAddress = state.connectedDevice?.id ?? state.connectedDeviceInstanceId ?? '';
-        AppLogger.debug('Sync completed successfully, deviceInstanceId=$macAddress');
+        AppLogger.debug('Sync completed successfully, deviceInstanceId=$deviceInstanceId');
         // Use event to update state (emit not available outside event handlers)
-        add(SyncCompleted(deviceInstanceId: macAddress));
+        add(HandshakeCompleted(deviceInstanceId: deviceInstanceId, result: result));
       },
     );
   }
@@ -1347,12 +1343,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
   // ========== Handshake Handler ==========
 
-  /// Stub handler for HandshakeCompleted — will be implemented in Task 10.
+  /// Handles successful handshake completion, updating device sync status.
   Future<void> _onHandshakeCompleted(
     HandshakeCompleted event,
     Emitter<BluetoothState> emit,
   ) async {
-    // Will be implemented in Task 10
+    final deviceId = event.deviceInstanceId;
+    final result = event.result;
+
+    switch (result.type) {
+      case SyncResultType.success:
+      case SyncResultType.overrideComplete:
+        emit(state.copyWith(
+          connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
+            syncStatus: DeviceSyncStatus.synced,
+            selectedItemId: result.selectedFirestoreId,
+          )),
+        ));
+        // Reload paired devices to update UI
+        add(const LoadPairedDevices());
+    }
   }
 
   // ========== Cleanup ==========
