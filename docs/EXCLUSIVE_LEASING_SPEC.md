@@ -119,7 +119,7 @@ When the device claiming an item is **connected to the app**, the item is **full
 | View item details | **Yes** | — |
 | Enter item edit page | **Yes** | Device receives changes immediately |
 | Edit name, notes, etc. | **Yes** | Device receives changes immediately |
-| Move to different category | **Yes** | Device receives updated category info immediately |
+| Move to different category (drag-and-drop) | **Yes** | Via drag-and-drop on list page or edit page. Device receives updated category info immediately. |
 | Delete item | **Yes** | Device is notified; shows "no item selected" |
 | Reorder in list | **Yes** | Order is app-local |
 | Unlock/release | **Yes** | Standard release via swipe |
@@ -144,6 +144,8 @@ When the device claiming an item is **disconnected**, the item has restricted ed
 The offline device doesn't care about categories — it's locked to one item by ID. Moving the item to a different category:
 - Has **zero effect** on the offline device until it reconnects.
 - On reconnection, the device receives the updated category list via `set_items`.
+
+**Note:** Drag-and-drop reorder/category-move should be enabled regardless of connection state. With the fixed-task constraint, offline devices cannot switch items, so there is no risk from allowing reorder while disconnected. (The current implementation gates drag-and-drop on `isConnected` — this gate should be removed.)
 
 ---
 
@@ -254,20 +256,19 @@ When the device **reconnects**:
 
 When an item is deleted from the app while the claiming device is online:
 
-1. App sends `delete_item` to the claiming device (same as current single-device behavior).
-2. Device removes the item from NVS and shows **"no item selected"**.
-3. App pushes updated `set_items` to other connected devices in the same category (the deleted item is simply absent from the filtered list).
-4. User can select a new item from the device or app.
+1. App deletes the item from Firestore, then pushes updated `set_items` to all connected devices in the same category (the deleted item is simply absent from the list). This is the same approach used today for single-device deletion.
+2. Claiming device receives the update, removes the item from NVS, and shows **"no item selected"**.
+3. User can select a new item from the device or app.
 
 ### 5.4 Claiming from Device Side
 
 When a user selects an item on the device (while connected):
 
-1. Device sends `event` notification with `event: "switch"` (includes the new item's `itemId`).
+1. Device sends `event` notification with `event: "switch"` (includes the new item's numeric `deviceItemId` — the app maps this to a Firestore ID). Note: switch events do **not** produce an `item_delta` notification.
 2. App receives it and processes the claim:
    - **Unclaimed** → App writes claim to Firestore (releases previous item), pushes updated `set_items` to other affected devices.
    - **Claimed by this device** → Already owned, proceed.
-   - **Claimed by another device** → Near-zero probability since the device only has unclaimed items. Only possible if another device claimed the same item in the brief window since the last `set_items`. Firestore transaction rejects the claim; app pushes updated `set_items` (excluding the now-claimed item), then sends `set_selected` to redirect to next available item.
+   - **Claimed by another device** → Near-zero probability since the device only has unclaimed items. Only possible if another device claimed the same item in the brief window since the last `set_items`. Firestore transaction rejects the claim; app pushes updated `set_items` (excluding the now-claimed item), then sends `set_selected` to redirect to the first item in the updated list. If the updated list is empty, no `set_selected` is needed — the device already shows "no item selected" after receiving the empty `set_items`. App should verify the redirect succeeded by waiting for the expected `item_delta` response.
 
 ---
 
@@ -285,7 +286,7 @@ The claiming mechanism is handled entirely by the app filtering which items are 
 
 When a claim changes (item claimed or released), the app pushes an updated `set_items` to other connected devices whose **selected category** contains the affected item. Devices in a different category are unaffected and receive no update.
 
-**Note:** `set_items` clears the device's event log buffer. However, connected devices send events as real-time BLE notifications — they don't accumulate in the buffer. So claim-triggered `set_items` pushes do not risk losing events. This is the same behavior as the existing drag-and-drop reorder or category change flows.
+**Note:** `set_items` clears the device's event log buffer. Increment events are only buffered when disconnected, so they are safe. However, reset events are currently logged to the buffer unconditionally (even when connected) — a firmware bug. The app already receives resets as real-time BLE notifications, so the buffered copy is redundant. This should be fixed in firmware (add `isConnected` guard to reset event logging, same as increment events). With that fix, claim-triggered `set_items` pushes do not risk losing events.
 
 ### 6.3 Sync Sequence Compatibility
 
@@ -443,9 +444,11 @@ Device A reconnects after being force-released
 | User edits a claimed item (device offline) | **Blocked.** Edit icon is locked. Must reconnect the device first. |
 | Two devices try to claim same item simultaneously | Firestore transaction ensures only one succeeds. Loser's device receives updated `set_items` (item removed), then `set_selected` to redirect. |
 | Device factory reset while holding claim | Claim orphaned in Firestore. User unpairs the old device entry from paired devices page → claims auto-released. Or user break-glass releases the item directly. |
-| User unpairs device from paired devices page | All claims by that device are released automatically. |
+| User unpairs device from paired devices page | All claims by that device are released automatically. (New behavior — unpair flow must be extended to clear `claimed_by` on all items claimed by the removed device.) |
 | Offline device reconnects, item was moved to different category | Device receives updated category info via `set_items`. No data conflict. |
 | Device user tries to switch items while offline | Device displays "Item switch is disabled when offline. Please sync to the app." and stays on current item. |
+| App restarts (killed/relaunched) | Claims persist in Firestore. All devices appear disconnected until they reconnect and re-handshake. Claims flip to "claimed (offline)" state until devices reconnect. |
+| Device connects but handshake returns conflict | Claiming is only available **after** handshake/sync completes successfully. During conflict resolution, the device cannot be used for claiming. |
 | Only 1 device connected but 2+ paired | Single-device behavior. No claim UI, no colors. |
 
 ---
@@ -499,14 +502,16 @@ Then add claim logic:
 - Claim/release Firestore operations (with transactions for atomicity)
 - Auto-release on new claim (one-item-per-device enforcement)
 - Auto-release on device unpair
+- `ItemsBloc`: expose claim state per item, handle `ClaimItem` and `ReleaseItem` events
 
 ### Phase 3: UI — Item List
 
 - Device color tinting on item bars
 - Device name display on claimed items
-- Locked edit icon for offline-claimed items
+- Locked edit/delete swipe actions for offline-claimed items
 - Activate swipe action with device dropdown for multi-device claiming
 - Unlock swipe action with confirmation dialogs (normal + break-glass)
+- Enable drag-and-drop reorder/category-move regardless of connection state (remove `isConnected` gate)
 
 ### Phase 4: UI — Supporting Pages
 
@@ -518,6 +523,7 @@ Then add claim logic:
 - Fixed-task constraint: guard item switch on `isConnected` flag (already tracked in firmware), display "Item switch is disabled when offline. Please sync to the app." — applies to both serial command handler and item menu navigation
 - Device shows "no item selected" when it receives an empty item list or its claimed item is deleted
 - Implement production display rendering (current `displayMessage()` is a debug-only placeholder)
+- Fix reset event logging: add `isConnected` guard (same as increment events) so resets aren't buffered while connected
 - No payload format changes needed — claiming is handled entirely by app-side filtering
 
 ### Phase 6: Integration & Testing
