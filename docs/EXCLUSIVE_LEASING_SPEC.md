@@ -444,9 +444,9 @@ Device A reconnects after being force-released
   │     "Your item was released while this device was offline.
   │      Sync now? Device counts for released items will be discarded."
   │
-  │     [Sync to App]  [Don't Sync]
+  │     [Override Device]  [Don't Sync]
   │
-  ├── If Sync: Override flow → Firestore items pushed to device.
+  ├── If Override: Override flow → Firestore items pushed to device.
   │     Device receives filtered item list (only available items). Can now select a new item.
   │
   └── If Don't Sync: Disconnect. Device keeps local counts offline.
