@@ -520,7 +520,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       )),
       (_) => emit(state.copyWith(
         status: BluetoothStatus.ready,
-        connectedDevices: const {},
+        connectedDevices: _removeDevice(deviceId),
         clearConnectingDeviceId: true,
       )),
     );
@@ -1020,11 +1020,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
             .toList();
 
         if (isConnectedDevice) {
-          // Also clear connected state
+          // Also clear connected state for this device
           emit(state.copyWith(
             pairedDevices: updatedDevices,
             status: BluetoothStatus.ready,
-            connectedDevices: const {},
+            connectedDevices: _removeDevice(event.deviceInstanceId),
           ));
         } else {
           emit(state.copyWith(pairedDevices: updatedDevices));
@@ -1164,7 +1164,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
-        connectedDevices: const {},
+        connectedDevices: _removeDevice(connectedInstId),
       ));
     }
   }
@@ -1314,7 +1314,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
-        connectedDevices: const {},
+        connectedDevices: _removeDevice(connectedInstId),
       ));
     }
   }
@@ -1368,7 +1368,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await _bluetoothRepository.disconnect(deviceId);
       emit(state.copyWith(
         status: BluetoothStatus.ready,
-        connectedDevices: const {},
+        connectedDevices: _removeDevice(connectedInstId),
       ));
     }
   }
