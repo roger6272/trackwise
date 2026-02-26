@@ -257,13 +257,13 @@ class _MyAppState extends State<MyApp> {
             currentSelectedItemId: appUiState.activeItemId.isNotEmpty
                 ? appUiState.activeItemId
                 : null,
-            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+            deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
           ));
         },
         onCancel: () {
           final btBloc = context.read<BluetoothBloc>();
           btBloc.add(CancelSyncConflict(
-            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+            deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
           ));
         },
       );
@@ -284,13 +284,13 @@ class _MyAppState extends State<MyApp> {
             currentSelectedItemId: appUiState.activeItemId.isNotEmpty
                 ? appUiState.activeItemId
                 : null,
-            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+            deviceInstanceId: btBloc.state.setupDeviceInstanceId ?? '',
           ));
         },
         onCancel: () {
           final btBloc = context.read<BluetoothBloc>();
           btBloc.add(CancelDeviceSetup(
-            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+            deviceInstanceId: btBloc.state.setupDeviceInstanceId ?? '',
           ));
         },
       );

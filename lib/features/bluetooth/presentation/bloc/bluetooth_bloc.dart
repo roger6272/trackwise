@@ -897,12 +897,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     // Handle log pagination - if more pages available, request them
     if (message.type == BleMessageType.logs && message.hasMore) {
-      final deviceId = state.connectedDevice?.id;
-      if (deviceId != null) {
-        final currentPage = message.page ?? 0;
-        await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
-        add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1));
-      }
+      final currentPage = message.page ?? 0;
+      await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
+      add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1));
     }
 
     // Clear logs on device when all pages received

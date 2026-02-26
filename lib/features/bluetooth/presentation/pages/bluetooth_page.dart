@@ -111,13 +111,13 @@ class _BluetoothPageState extends State<BluetoothPage> {
           currentSelectedItemId: appUiState.activeItemId.isNotEmpty
               ? appUiState.activeItemId
               : null,
-          deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+          deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
         ));
       },
       onCancel: () {
         final btBloc = context.read<BluetoothBloc>();
         btBloc.add(CancelSyncConflict(
-          deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+          deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
         ));
         showInfoSnackBar(context, 'Disconnected. Connect again to sync.');
       },
