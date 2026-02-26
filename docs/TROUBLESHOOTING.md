@@ -834,6 +834,42 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 
 ---
 
+## 10. Multi-Device / Exclusive Leasing Issues
+
+### 10.1 "Can't edit or delete an item — actions are grayed out"
+
+**Symptoms:** Swipe actions for Edit and Delete are gray and unresponsive.
+
+**Root Cause:** The item is claimed by a device that is currently offline. In multi-device mode, offline-claimed items are locked to prevent conflicts.
+
+**Resolution:**
+1. Reconnect the claiming device — edit/delete become available
+2. Or force-release: swipe the item, tap **Unlock**, confirm the break-glass warning (unsynced counts will be lost)
+
+### 10.2 "No device colors or name subtitles showing"
+
+**Symptoms:** Items show no colored left border and no device name subtitle, even though multiple devices are paired.
+
+**Root Cause:** Multi-device UI only activates when **2+ devices are simultaneously connected** (`connectedDevices.length >= 2`). Having 2 paired devices but only 1 connected = single-device mode.
+
+**Resolution:** Connect a second device. Color tinting and claim UI appear automatically.
+
+### 10.3 "Force-released item — device reconnects and shows conflict"
+
+**Symptoms:** After break-glass releasing an item and its device reconnects, the sync conflict dialog appears.
+
+**This is expected behavior.** The device's `sync_seq` no longer matches the app. Choose:
+- **Sync Now** — overwrites device with app data (unsynced counts are lost, as warned in the break-glass dialog)
+- **Cancel** — disconnects without syncing
+
+### 10.4 "Device only shows some items after claiming"
+
+**Symptoms:** After activating an item on a device, the device only shows items from that category that are unclaimed or claimed by this device.
+
+**This is by design.** In multi-device mode, `SendItemsToDevice` filters to `claimedBy == null || claimedBy == thisDevice` within the category. Each device only sees its own items.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -850,6 +886,9 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 | Daily reset wrong time | Check timezone offset |
 | Device not responding | Check conflict state and command format |
 | New item not on device | Firestore stream timing - check includeItem path |
+| Edit/Delete grayed out | Item claimed by offline device - reconnect or force-release |
+| No device colors showing | Need 2+ devices connected simultaneously |
+| Conflict after force-release | Expected - choose Sync Now to overwrite device |
 | Override selects wrong item | Check AppUiState vs BluetoothState selectedItemId sync |
 | Wrong category after drag | Check `_lastSyncedSignature` null after `ItemsLoading` transition |
 | Wrong category after reset | Ensure sync goes through `syncItemsToDevice()`, not raw `SendItemsToDevice` |

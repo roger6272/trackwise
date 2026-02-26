@@ -521,14 +521,32 @@ On this page you can:
 
 ### How Multi-Device Works
 
-You can pair multiple Traxelos One devices to your account, but only **one device can be connected at a time**.
+You can pair multiple Traxelos One devices to your account. When **two or more devices are connected simultaneously**, exclusive leasing activates automatically — each item is assigned to one device at a time.
 
-**Key points:**
-- All your items automatically sync to whichever device is currently connected
-- Items are tied to your **account**, not to a specific device — switching devices gives you the same items
-- When you connect a different device, it receives the latest data from the app
+**Single device connected (classic mode):**
+- All your items sync to the connected device
+- No color indicators or claim UI — works exactly as before
 
-> **Important:** If you count on Device A while offline, then connect Device B instead, Device A's offline counts become stale. The next time Device A connects, the app's data will overwrite Device A's local data. To avoid losing counts, always **sync your current device before switching to another one**.
+**Multiple devices connected (exclusive leasing):**
+- Swipe an item and tap **Activate** to assign it to a device. If multiple devices are online, a **device selector sheet** appears — tap the device you want
+- Assigned items show a **colored left border** and the **device name** below the item name
+- Each device only sees its own assigned items on the physical buttons
+- To reassign an item, swipe it and tap **Unlock** to release it, then Activate on a different device
+
+**Changing device colors:**
+- Go to **Paired Devices** page
+- Tap the three-dot menu on a device > **Change Color**
+- Pick from 10 colors — this color appears on item tiles assigned to that device
+
+**Offline claims (break-glass release):**
+- If a device disconnects, its claimed items show a **grayed color** and "· disconnected" subtitle
+- You cannot edit or delete these items until the device reconnects
+- To force-release: swipe the item and tap **Unlock** — a warning explains that unsynced counts will be lost when the device reconnects
+
+**CSV export with device info:**
+- When exporting raw data, toggle **"Include Device Column"** to add a Device column showing which device logged each event
+
+> **Important:** If you force-release an item while its device is offline, any counts on that device since last sync will be discarded when it reconnects. The app will show a sync conflict dialog — choose "Sync Now" to overwrite the device.
 
 ### Starting a New Cycle
 
