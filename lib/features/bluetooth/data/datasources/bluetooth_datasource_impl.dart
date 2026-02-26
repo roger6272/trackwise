@@ -34,13 +34,16 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   final _messageController = StreamController<BleMessage>.broadcast();
   final _connectionStateController = StreamController<BleConnectionState>.broadcast();
 
-  /// Returns the active connection, throwing if none exists.
+  /// Returns the first connection. Only for methods whose abstract interface
+  /// lacks a deviceId parameter (sync-protocol commands, prepareReadCycle).
+  /// All other callers should use [_getConnection].
   DeviceConnection get _activeConnection {
     if (_connections.isEmpty) throw StateError('No active BLE connection');
     return _connections.values.first;
   }
 
   /// Returns the connection for [deviceId], throwing if not found.
+  /// Prefer this over [_activeConnection] whenever a deviceId is available.
   DeviceConnection _getConnection(String deviceId) {
     final conn = _connections[deviceId];
     if (conn == null) throw StateError('No active BLE connection for device $deviceId');
