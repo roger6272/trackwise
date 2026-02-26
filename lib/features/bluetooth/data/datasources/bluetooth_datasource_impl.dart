@@ -40,6 +40,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     return _connections.values.first;
   }
 
+  /// Returns the connection for [deviceId], throwing if not found.
+  DeviceConnection _getConnection(String deviceId) {
+    final conn = _connections[deviceId];
+    if (conn == null) throw StateError('No active BLE connection for device $deviceId');
+    return conn;
+  }
+
   /// Timeout for incomplete message assembly (5 seconds)
   static const Duration _messageAssemblyTimeout = Duration(seconds: 5);
 
@@ -304,8 +311,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// This optimization avoids redundant discoverServices() calls which take
   /// 400-1000ms each. Characteristics are cached after first discovery and
   /// reused for subsequent operations until disconnect.
-  Future<void> _ensureCharacteristicsCached(BluetoothDevice device) async {
-    final conn = _activeConnection;
+  Future<void> _ensureCharacteristicsCached(DeviceConnection conn) async {
     // Return immediately if already cached
     if (conn.writeChar != null && conn.readChar != null && conn.notifyChar != null && conn.setItemsChar != null) {
       AppLogger.debug('Using cached BLE characteristics (skipping discovery)');
@@ -314,12 +320,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
     // Need to discover services and cache characteristics
     AppLogger.debug('Discovering BLE services (first time or cache cleared)...');
-    await discoverServices(device);
+    await discoverServices(conn.device!);
   }
 
   @override
   Future<void> discoverServices(BluetoothDevice device) async {
-    final conn = _activeConnection;
+    final conn = _connections[device.remoteId.str];
+    if (conn == null) throw StateError('No connection for device ${device.remoteId}');
     final services = await device.discoverServices();
 
     // Search ALL services for our characteristics (like the old working code)
@@ -357,28 +364,25 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     AppLogger.debug('All BLE characteristics discovered and cached successfully');
 
     // Subscribe to notifications
-    await _subscribeToNotifications();
+    await _subscribeToNotifications(conn);
   }
 
-  Future<void> _subscribeToNotifications() async {
-    final conn = _activeConnection;
+  Future<void> _subscribeToNotifications(DeviceConnection conn) async {
     if (conn.notifyChar == null) return;
 
     await conn.notifyChar!.setNotifyValue(true);
 
     conn.notifySubscription?.cancel();
     conn.notifySubscription = conn.notifyChar!.lastValueStream.listen(
-      _handleNotificationData,
+      (data) => _handleNotificationData(conn, data),
       onError: (error) {
         _messageController.addError(error);
       },
     );
   }
 
-  void _handleNotificationData(List<int> data) {
+  void _handleNotificationData(DeviceConnection conn, List<int> data) {
     if (data.isEmpty) return;
-
-    final conn = _activeConnection;
 
     // Decode bytes to string and add to buffer
     final chunk = utf8.decode(data, allowMalformed: true);
@@ -395,24 +399,22 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
     // Reset message assembly timeout timer
     conn.messageTimeoutTimer?.cancel();
-    conn.messageTimeoutTimer = Timer(_messageAssemblyTimeout, _onMessageAssemblyTimeout);
+    conn.messageTimeoutTimer = Timer(_messageAssemblyTimeout, () => _onMessageAssemblyTimeout(conn));
 
     // Check for complete messages (newline delimiter)
-    _processMessageBuffer();
+    _processMessageBuffer(conn);
   }
 
   /// Called when message assembly times out (no newline received within timeout).
   /// Clears stale partial messages to prevent blocking subsequent messages.
-  void _onMessageAssemblyTimeout() {
-    final conn = _activeConnection;
+  void _onMessageAssemblyTimeout(DeviceConnection conn) {
     if (conn.messageBuffer.isNotEmpty) {
       AppLogger.debug('Message assembly timeout - clearing stale buffer: ${conn.messageBuffer.toString().substring(0, conn.messageBuffer.length > 100 ? 100 : conn.messageBuffer.length)}...');
       conn.messageBuffer.clear();
     }
   }
 
-  void _processMessageBuffer() {
-    final conn = _activeConnection;
+  void _processMessageBuffer(DeviceConnection conn) {
     var content = conn.messageBuffer.toString();
 
     while (content.contains('\n')) {
@@ -450,22 +452,22 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<void> writeItems(String deviceId, String jsonData) async {
-    final conn = _activeConnection;
+    final conn = _getConnection(deviceId);
     if (conn.setItemsChar == null) {
       throw StateError('SET_ITEMS characteristic not found. Call discoverServices first.');
     }
     // Use queue to prevent interleaved chunks with other writes
-    await _enqueueWrite(() => _writeChunked(conn.setItemsChar!, jsonData));
+    await _enqueueWrite(conn, () => _writeChunked(conn, conn.setItemsChar!, jsonData));
   }
 
   @override
   Future<void> writeCommand(String deviceId, String jsonData) async {
-    final conn = _activeConnection;
+    final conn = _getConnection(deviceId);
     if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
     // Use queue to prevent interleaved chunks with other writes
-    await _enqueueWrite(() => _writeChunked(conn.writeChar!, jsonData));
+    await _enqueueWrite(conn, () => _writeChunked(conn, conn.writeChar!, jsonData));
   }
 
   /// Writes a command without newline delimiter (for prepare_read commands).
@@ -476,7 +478,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
     // Use queue to prevent interleaved chunks with other writes
-    await _enqueueWrite(() async {
+    await _enqueueWrite(conn, () async {
       final bytes = utf8.encode(jsonData);
       await _writeWithRetry(conn.writeChar!, bytes);
     });
@@ -488,6 +490,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   /// ESP32 requires 20ms delay between chunks to process.
   /// Adds newline delimiter at end so firmware knows when message is complete.
   Future<void> _writeChunked(
+    DeviceConnection conn,
     BluetoothCharacteristic char,
     String data,
   ) async {
@@ -496,7 +499,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     final bytes = utf8.encode('$data\n');
 
     // Use negotiated MTU for optimal chunk size
-    final mtu = _activeConnection.negotiatedMtu;
+    final mtu = conn.negotiatedMtu;
     const chunkDelay = Duration(milliseconds: BluetoothConstants.chunkDelayMs);
 
     for (var i = 0; i < bytes.length; i += mtu) {
@@ -575,7 +578,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<String> readData(String deviceId) async {
-    final conn = _activeConnection;
+    final conn = _getConnection(deviceId);
     if (conn.readChar == null) {
       throw StateError('READ characteristic not found. Call discoverServices first.');
     }
@@ -586,14 +589,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<String> rediscoverAndReadData(String deviceId) async {
-    final conn = _activeConnection;
-    final device = conn.device;
-    if (device == null) {
+    final conn = _getConnection(deviceId);
+    if (conn.device == null) {
       throw StateError('Not connected to any device.');
     }
 
     // Use cached characteristics if available (avoids redundant discovery)
-    await _ensureCharacteristicsCached(device);
+    await _ensureCharacteristicsCached(conn);
 
     if (conn.readChar == null) {
       throw StateError('READ characteristic not found after discovery.');
@@ -608,13 +610,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   @override
   Future<String> prepareReadCycle(String command) async {
     final conn = _activeConnection;
-    final device = conn.device;
-    if (device == null) {
+    if (conn.device == null) {
       throw StateError('Not connected to any device.');
     }
 
     // Ensure characteristics are cached (only discovers if not already cached)
-    await _ensureCharacteristicsCached(device);
+    await _ensureCharacteristicsCached(conn);
 
     if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found.');
@@ -673,7 +674,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     });
 
     // Send command and wait for response with timeout
-    final response = await _sendCommandAndWaitForResponse(command);
+    final response = await _sendCommandAndWaitForResponse(conn, command);
 
     AppLogger.debug('Handshake response: $response');
 
@@ -716,7 +717,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
         'sync_seq': syncSeq,
         'total_chunks': totalChunks,
       });
-      await _enqueueWrite(() => _writeChunked(conn.writeChar!, startCommand));
+      await _enqueueWrite(conn, () => _writeChunked(conn, conn.writeChar!, startCommand));
       AppLogger.debug('Sent override_start');
 
       // Step 2: Send each chunk sequentially
@@ -727,7 +728,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
           'index': i,
           'items': chunks[i],
         });
-        await _enqueueWrite(() => _writeChunked(conn.writeChar!, chunkCommand));
+        await _enqueueWrite(conn, () => _writeChunked(conn, conn.writeChar!, chunkCommand));
         AppLogger.debug('Sent override_chunk $i/${chunks.length}');
       }
 
@@ -737,7 +738,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
         'selected_id': selectedId,
       });
 
-      final response = await _sendCommandAndWaitForResponse(endCommand);
+      final response = await _sendCommandAndWaitForResponse(conn, endCommand);
 
       AppLogger.debug('Override response: $response');
 
@@ -763,7 +764,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       'sync_seq': syncSeq,
     });
 
-    final response = await _sendCommandAndWaitForResponse(command);
+    final response = await _sendCommandAndWaitForResponse(conn, command);
 
     AppLogger.debug('sync_complete response: $response');
 
@@ -774,9 +775,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   ///
   /// Uses the existing notification stream to receive the response.
   /// Throws [TimeoutException] if no response within [_syncCommandTimeout].
-  Future<Map<String, dynamic>> _sendCommandAndWaitForResponse(String command) async {
-    final conn = _activeConnection;
-
+  Future<Map<String, dynamic>> _sendCommandAndWaitForResponse(DeviceConnection conn, String command) async {
     // Create a completer to wait for the response
     final completer = Completer<Map<String, dynamic>>();
     StreamSubscription<BleMessage>? subscription;
@@ -818,7 +817,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     );
 
     // Send the command
-    await _enqueueWrite(() => _writeChunked(conn.writeChar!, command));
+    await _enqueueWrite(conn, () => _writeChunked(conn, conn.writeChar!, command));
 
     // Wait for response
     return completer.future;
@@ -900,8 +899,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   /// Enqueues a write operation and processes it when ready.
   /// Ensures writes are serialized to prevent interleaved chunks.
-  Future<void> _enqueueWrite(Future<void> Function() writeOperation) async {
-    final conn = _activeConnection;
+  Future<void> _enqueueWrite(DeviceConnection conn, Future<void> Function() writeOperation) async {
     final completer = Completer<void>();
     conn.writeQueue.add(WriteOperation(
       execute: writeOperation,

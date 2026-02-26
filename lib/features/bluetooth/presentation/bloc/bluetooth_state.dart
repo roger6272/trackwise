@@ -175,11 +175,21 @@ class BluetoothState extends Equatable {
     return null;
   }
 
-  /// Device instance ID from conflict (same as connectedDeviceInstanceId in single-device mode).
-  String? get conflictDeviceInstanceId => connectedDeviceInstanceId;
+  /// Device instance ID of the device in conflict state.
+  String? get conflictDeviceInstanceId {
+    for (final entry in connectedDevices.entries) {
+      if (entry.value.syncStatus == DeviceSyncStatus.conflict) return entry.key;
+    }
+    return null;
+  }
 
-  /// Device instance ID from uninitialized device (same as connectedDeviceInstanceId).
-  String? get setupDeviceInstanceId => connectedDeviceInstanceId;
+  /// Device instance ID of the device needing setup.
+  String? get setupDeviceInstanceId {
+    for (final entry in connectedDevices.entries) {
+      if (entry.value.syncStatus == DeviceSyncStatus.setup) return entry.key;
+    }
+    return null;
+  }
 
   @override
   List<Object?> get props => [
