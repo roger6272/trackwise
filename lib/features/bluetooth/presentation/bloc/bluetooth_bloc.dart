@@ -981,6 +981,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     RemovePairedDevice event,
     Emitter<BluetoothState> emit,
   ) async {
+    // Release all claims for this device before unpairing
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (userId.isNotEmpty) {
+      final releaseResult = await _itemRepository.releaseAllClaims(event.deviceInstanceId, userId);
+      releaseResult.fold(
+        (failure) => AppLogger.debug('Failed to release claims for ${event.deviceInstanceId}: ${failure.message}'),
+        (_) => AppLogger.debug('Released all claims for device ${event.deviceInstanceId}'),
+      );
+    }
+
     // Check if the device being unpaired is the currently connected device
     final isConnectedDevice = state.connectedDeviceInstanceId == event.deviceInstanceId;
 
