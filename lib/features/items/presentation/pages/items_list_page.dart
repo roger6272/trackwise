@@ -19,6 +19,8 @@ import '../../../../core/utils/app_util.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
+import '../../../bluetooth/presentation/bloc/device_connection_state.dart';
+import '../../../bluetooth/domain/entities/paired_device.dart';
 import '../../domain/entities/item.dart';
 import '../../../categories/domain/entities/category.dart' as cat;
 import '../../../categories/presentation/bloc/categories_bloc.dart';
@@ -28,6 +30,8 @@ import '../bloc/items_bloc.dart';
 import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
 import '../bloc/items_event.dart';
 import '../bloc/items_state.dart';
+import '../widgets/device_selector_sheet.dart';
+import '../widgets/unlock_confirm_dialog.dart';
 import 'item_form_page.dart';
 
 /// Wrapper that rebuilds when auth state changes
@@ -425,12 +429,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
                                 // Use ReorderableListView when connected and not searching
                                 // During search, use ListView with "Move to Top" action instead
-                                if (isConnected && _searchQuery.isEmpty) {
+                                if (_searchQuery.isEmpty) {
                                   // Trigger activation hint when connected but no item selected
                                   final deviceSelectedId = context.read<BluetoothBloc>().state.selectedItemId;
                                   final hasNoDeviceSelection = deviceSelectedId == null || deviceSelectedId.isEmpty;
 
-                                  if (hasNoDeviceSelection && !appUiState.hasShownActivationHint && !_activationHintTriggered && filteredItems.isNotEmpty) {
+                                  if (isConnected && hasNoDeviceSelection && !appUiState.hasShownActivationHint && !_activationHintTriggered && filteredItems.isNotEmpty) {
                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                       _showActivationHint(appUiState, context);
                                     });
@@ -514,6 +518,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         alternate,
                                         activatedColor,
                                         isDragProxy: true,
+                                        connectedDevices: bluetoothState.connectedDevices,
+                                        pairedDevices: bluetoothState.pairedDevices,
                                       );
 
                                       return AnimatedBuilder(
@@ -685,6 +691,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         alternate,
                                         activatedColor,
                                         liftAnimation: needsReorderHint ? _liftAnimation : null,
+                                        connectedDevices: bluetoothState.connectedDevices,
+                                        pairedDevices: bluetoothState.pairedDevices,
                                       );
                                     },
                                   );
@@ -770,6 +778,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                           alternate,
                                           activatedColor,
                                           categoryLabel: categoryLabelText,
+                                          connectedDevices: bluetoothState.connectedDevices,
+                                          pairedDevices: bluetoothState.pairedDevices,
                                         );
                                       },
                                     ),
@@ -1325,6 +1335,104 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
+  Future<void> _handleActivate(BuildContext context, Item item,
+      AppUiState appUiState, String? selectedItemId) async {
+    final btBloc = context.read<BluetoothBloc>();
+    final btState = btBloc.state;
+    if (btState.hasMultipleDevices) {
+      final devicesList = btState.connectedDevices.entries
+          .where((e) => e.value.isOnline)
+          .map((e) {
+            final pd = btState.pairedDevices.firstWhere(
+              (p) => p.deviceInstanceId == e.key,
+              orElse: () => PairedDevice(deviceInstanceId: e.key, deviceName: e.key, pairedAt: DateTime.now()));
+            return (instanceId: e.key, name: pd.deviceName);
+          }).toList();
+      if (devicesList.isEmpty || !context.mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        builder: (_) => DeviceSelectorSheet(
+          devices: devicesList,
+          onDeviceSelected: (deviceId) {
+            Navigator.of(context).pop();
+            _claimForDevice(context, item, deviceId, appUiState, btBloc.state);
+          },
+        ),
+      );
+      return;
+    }
+    // Single device — claim immediately
+    final deviceId = btState.connectedDeviceInstanceId ?? '';
+    if (deviceId.isEmpty) return;
+    _claimForDevice(context, item, deviceId, appUiState, btState);
+  }
+
+  void _claimForDevice(BuildContext context, Item item, String deviceId,
+      AppUiState appUiState, BluetoothState btState) {
+    appUiState.activeItemId = item.id;
+    final itemsState = context.read<ItemsBloc>().state;
+    if (itemsState is ItemsLoaded) {
+      final catId = item.categoryId;
+      final categoryItems = itemsState.items.where((i) {
+        final sameCat = catId == null || catId.isEmpty
+            ? (i.categoryId == null || i.categoryId!.isEmpty)
+            : i.categoryId == catId;
+        return sameCat && (i.claimedBy == null || i.claimedBy == deviceId);
+      }).toList()..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+
+      context.read<BluetoothBloc>().add(SendItemsToDevice(
+        categoryItems, deviceInstanceId: deviceId, categoryNames: _cachedCategoryNames));
+      _lastSyncedCategoryId = catId ?? '';
+      _lastSyncedSignature = categoryItems.map((i) =>
+        '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}').join(',');
+      _lastSyncTime = DateTime.now();
+    }
+    final prevId = btState.connectedDevices[deviceId]?.selectedItemId;
+    final btBloc = context.read<BluetoothBloc>();
+    btBloc.add(SendSelectedItem(item.id, item.deviceItemId ?? 0, deviceInstanceId: deviceId));
+    btBloc.add(ClaimItem(itemId: item.id, deviceInstanceId: deviceId, previousItemId: prevId));
+  }
+
+  Future<void> _handleUnlock(BuildContext context, Item item,
+      Map<String, DeviceConnectionState> connectedDevices,
+      List<PairedDevice> pairedDevices) async {
+    if (item.claimedBy == null) return;
+    final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+    final deviceName = idx >= 0 ? pairedDevices[idx].deviceName : item.claimedBy!;
+    final isOnline = connectedDevices[item.claimedBy!]?.isOnline == true;
+    if (!context.mounted) return;
+    final confirmed = await showUnlockConfirmDialog(
+      context: context,
+      itemName: item.name,
+      deviceName: deviceName,
+      isBreakGlass: !isOnline,
+    );
+    if (confirmed && context.mounted) {
+      context.read<BluetoothBloc>().add(ReleaseItem(itemId: item.id));
+    }
+  }
+
+  /// Returns device color for claimed item, or null (single-device / unclaimed).
+  Color? _claimColor(Item item, Map<String, DeviceConnectionState> connectedDevices,
+      List<PairedDevice> pairedDevices, Brightness brightness, {bool forOffline = false}) {
+    if (connectedDevices.length < 2 || item.claimedBy == null) return null;
+    final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+    final colorIndex = idx >= 0 ? pairedDevices[idx].color : 0;
+    return forOffline
+        ? AppColors.deviceColorOffline(colorIndex, brightness)
+        : AppColors.deviceColor(colorIndex, brightness);
+  }
+
+  /// Returns claiming device name (+ "· disconnected" if offline), or null.
+  String? _claimDeviceName(Item item, Map<String, DeviceConnectionState> connectedDevices,
+      List<PairedDevice> pairedDevices) {
+    if (connectedDevices.length < 2 || item.claimedBy == null) return null;
+    final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+    final name = idx >= 0 ? pairedDevices[idx].deviceName : item.claimedBy!;
+    final isOnline = connectedDevices[item.claimedBy!]?.isOnline == true;
+    return isOnline ? name : '$name \u00B7 disconnected';
+  }
+
   Widget _buildItemTile(
     BuildContext context,
     Item item,
@@ -1339,24 +1447,41 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Animation<double>? liftAnimation,
     String? categoryLabel,
     bool isDragProxy = false,
+    Map<String, DeviceConnectionState> connectedDevices = const {},
+    List<PairedDevice> pairedDevices = const [],
   }) {
     // Use Bluetooth selectedItemId from device, fallback to appUiState
     final activeId = selectedItemId ?? appUiState.activeItemId;
     final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
-    // The tile content - wrapped in ReorderableDelayedDragStartListener when connected
+    // Multi-device claim state
+    final brightness = Theme.of(context).brightness;
+    final isMultiDevice = connectedDevices.length >= 2;
+    final isClaimedOnline = item.claimedBy != null &&
+        connectedDevices[item.claimedBy!]?.isOnline == true && isMultiDevice;
+    final isClaimedOffline = item.claimedBy != null && isMultiDevice &&
+        (connectedDevices[item.claimedBy!] == null ||
+         !connectedDevices[item.claimedBy!]!.isOnline);
+    final deviceAccentColor = isClaimedOnline
+        ? _claimColor(item, connectedDevices, pairedDevices, brightness)
+        : isClaimedOffline
+            ? _claimColor(item, connectedDevices, pairedDevices, brightness, forOffline: true)
+            : null;
+
+    // The tile content - wrapped in ReorderableDelayedDragStartListener
     // to enable long-press-to-drag without a visible handle
-    Widget tileContent = Opacity(
-      opacity: isConnected ? 1.0 : 0.5,
-      child: ClipRRect(
+    Widget tileContent = ClipRRect(
         borderRadius: BorderRadius.circular(8.0),
         child: Container(
           decoration: BoxDecoration(
-            color: isActivated ? activatedColor : alternate,
+            color: isActivated ? activatedColor
+                : deviceAccentColor != null ? deviceAccentColor.withValues(alpha: 0.15) : alternate,
             border: isActivated
-                ? Border(left: BorderSide(color: AppColors.actionActivate, width: 4.0))
-                : null,
+                ? Border(left: BorderSide(color: deviceAccentColor ?? AppColors.actionActivate, width: 4.0))
+                : deviceAccentColor != null
+                    ? Border(left: BorderSide(color: deviceAccentColor, width: 4.0))
+                    : null,
           ),
           child: InkWell(
             onTap: () {
@@ -1385,27 +1510,45 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 children: [
                   // Item name (expanded to take remaining space)
                   Expanded(
-                    child: Text(
-                      item.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: !isConnected ? secondaryText : primaryText,
-                        fontSize: 17.0,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item.name,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: !isConnected ? secondaryText : primaryText,
+                            fontSize: 17.0,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Builder(builder: (context) {
+                          final claimName = _claimDeviceName(item, connectedDevices, pairedDevices);
+                          if (claimName == null) return const SizedBox.shrink();
+                          return Text(claimName,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isClaimedOffline
+                                  ? AppColors.secondaryText(brightness).withValues(alpha: 0.6)
+                                  : deviceAccentColor ?? AppColors.secondaryText(brightness),
+                              fontSize: 11.0, fontStyle: FontStyle.italic),
+                            overflow: TextOverflow.ellipsis);
+                        }),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 16.0),
                   // Accent bar + count column
                   Builder(
                     builder: (context) {
-                      final isDark = Theme.of(context).brightness == Brightness.dark;
                       // Colors for accent bar and text
-                      final accentColor = isActivated
-                          ? (isDark ? const Color(0xFFB8B4FF) : const Color(0xFF8580E0))
-                          : (isDark ? const Color(0xFF6B7280) : const Color(0xFFD1D5DB));
-                      final textColor = isActivated
-                          ? (isDark ? const Color(0xFFB8B4FF) : AppColors.actionActivate)
-                          : primaryText;
+                      final accentColor = deviceAccentColor ??
+                          (isActivated
+                              ? (brightness == Brightness.dark ? const Color(0xFFB8B4FF) : const Color(0xFF8580E0))
+                              : (brightness == Brightness.dark ? const Color(0xFF6B7280) : const Color(0xFFD1D5DB)));
+                      final textColor = deviceAccentColor ??
+                          (isActivated
+                              ? (brightness == Brightness.dark ? const Color(0xFFB8B4FF) : AppColors.actionActivate)
+                              : primaryText);
                       return Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1449,21 +1592,24 @@ class _ItemsListContentState extends State<_ItemsListContent>
             ),
           ),
         ),
-      ),
-    );
+      );
 
     // For drag proxy, return just the tile content without padding/slidable
     if (isDragProxy) {
       return tileContent;
     }
 
-    // Wrap with ReorderableDelayedDragStartListener when connected for long-press drag
-    if (isConnected) {
-      tileContent = ReorderableDelayedDragStartListener(
-        index: index,
-        child: tileContent,
-      );
-    }
+    // Wrap with ReorderableDelayedDragStartListener for long-press drag
+    tileContent = ReorderableDelayedDragStartListener(
+      index: index,
+      child: tileContent,
+    );
+
+    // Claim-aware action state
+    final isClaimed = item.claimedBy != null;
+    final editable = isMultiDevice ? isItemEditable(item.claimedBy, connectedDevices) : isConnected;
+    final showUnlock = isClaimed && isMultiDevice;
+    final claimDeviceOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
 
     Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -1472,146 +1618,94 @@ class _ItemsListContentState extends State<_ItemsListContent>
             motion: const ScrollMotion(),
             extentRatio: 0.5,
             children: [
-            // Activate (pin) action
+            // Multi-device + claimed → Unlock. Otherwise when connected → Activate.
+            if (showUnlock)
+              SlidableAction(
+                backgroundColor: claimDeviceOnline ? AppColors.actionActivate : AppColors.actionDisabled,
+                icon: Icons.lock_open_rounded,
+                autoClose: false,
+                onPressed: (ctx) async {
+                  HapticFeedback.lightImpact();
+                  Slidable.of(ctx)?.close();
+                  await _handleUnlock(context, item, connectedDevices, pairedDevices);
+                },
+              )
+            else if (isConnected)
+              SlidableAction(
+                backgroundColor: AppColors.actionActivate,
+                icon: Icons.push_pin_rounded,
+                autoClose: false,
+                onPressed: (ctx) async {
+                  HapticFeedback.lightImpact();
+                  _dismissActivationHintIfShowing();
+                  await _handleActivate(context, item, appUiState, selectedItemId);
+                  Slidable.of(ctx)?.close();
+                },
+              ),
+            // Edit
             SlidableAction(
-              backgroundColor: isConnected ? AppColors.actionActivate : AppColors.actionDisabled,
-              icon: Icons.push_pin_rounded,
-              autoClose: false,
-              onPressed: (slidableContext) async {
-                HapticFeedback.lightImpact();
-                _dismissActivationHintIfShowing();
-                if (isConnected) {
-                  appUiState.activeItemId = item.id;
-                  // Send only items from the activated item's category to device
-                  final itemsState = context.read<ItemsBloc>().state;
-                  if (itemsState is ItemsLoaded) {
-                    // Filter items by the activated item's category
-                    final activatedCategoryId = item.categoryId;
-                    final categoryItems = itemsState.items.where((i) {
-                      // Match items with same categoryId (including uncategorized)
-                      final itemCategoryId = i.categoryId;
-                      if (activatedCategoryId == null || activatedCategoryId.isEmpty) {
-                        // Activated item is uncategorized - get all uncategorized
-                        return itemCategoryId == null || itemCategoryId.isEmpty;
-                      }
-                      return itemCategoryId == activatedCategoryId;
-                    }).toList();
-
-                    // Sort by categoryOrder for consistent device ordering
-                    categoryItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-
-                    final btBloc = context.read<BluetoothBloc>();
-                    btBloc.add(SendItemsToDevice(
-                      categoryItems,
-                      deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
-                      categoryNames: _cachedCategoryNames,
-                    ));
-
-                    // Update sync tracking so buildWhen doesn't duplicate the sync
-                    final catId = activatedCategoryId ?? '';
-                    _lastSyncedCategoryId = catId;
-                    _lastSyncedSignature = categoryItems
-                        .map((i) => '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}')
-                        .join(',');
-                    _lastSyncTime = DateTime.now();
-                  }
-                  // Then send selected item to device
-                  final btBloc2 = context.read<BluetoothBloc>();
-                  btBloc2.add(SendSelectedItem(
-                    item.id,
-                    item.deviceItemId ?? 0,
-                    deviceInstanceId: btBloc2.state.connectedDeviceInstanceId ?? '',
-                  ));
-                } else {
-                  await _showConnectDeviceDialog(context);
-                }
-                Slidable.of(slidableContext)?.close();
-              },
-            ),
-            SlidableAction(
-              backgroundColor: isConnected ? AppColors.primary : AppColors.actionDisabled,
+              backgroundColor: editable ? AppColors.primary : AppColors.actionDisabled,
               icon: Icons.edit,
               autoClose: false,
-              onPressed: (slidableContext) async {
+              onPressed: (ctx) async {
                 HapticFeedback.lightImpact();
                 _dismissActivationHintIfShowing();
-                Slidable.of(slidableContext)?.close();
-                if (isConnected) {
-                  context.pushNamed(
-                    ItemFormPage.routeName,
-                    extra: {'item': item},
-                  );
-                } else {
-                  await _showConnectDeviceDialog(context);
-                }
+                Slidable.of(ctx)?.close();
+                if (!isConnected) { await _showConnectDeviceDialog(context); return; }
+                if (!editable) return;
+                context.pushNamed(ItemFormPage.routeName, extra: {'item': item});
               },
             ),
+            // Delete
             SlidableAction(
-              backgroundColor: isConnected ? AppColors.actionDelete : AppColors.actionDisabled,
+              backgroundColor: editable ? AppColors.actionDelete : AppColors.actionDisabled,
               icon: Icons.delete_outline_rounded,
               autoClose: false,
-              onPressed: (slidableContext) async {
+              onPressed: (ctx) async {
                 HapticFeedback.mediumImpact();
                 _dismissActivationHintIfShowing();
-                if (isConnected) {
-                  // Capture references BEFORE the async dialog
-                  final itemsBloc = context.read<ItemsBloc>();
-                  final bluetoothBloc = context.read<BluetoothBloc>();
-                  final appUiStateRef = appUiState;
-                  final deviceSelectedId = selectedItemId;
+                if (!isConnected) { await _showConnectDeviceDialog(context); Slidable.of(ctx)?.close(); return; }
+                if (!editable) { Slidable.of(ctx)?.close(); return; }
 
-                  // Capture current items list BEFORE deletion
-                  final currentState = itemsBloc.state;
-                  final currentItems = currentState is ItemsLoaded
-                      ? currentState.items
-                      : <Item>[];
+                // Capture references BEFORE the async dialog
+                final itemsBloc = context.read<ItemsBloc>();
+                final bluetoothBloc = context.read<BluetoothBloc>();
+                final appUiStateRef = appUiState;
+                final deviceSelectedId = selectedItemId;
 
-                  final confirmed = await _showDeleteConfirmation(context, item.name);
-                  if (confirmed) {
-                    if (appUiStateRef.activeItemId == item.id) {
-                      appUiStateRef.activeItemId = 'none';
-                    }
+                final currentState = itemsBloc.state;
+                final currentItems = currentState is ItemsLoaded ? currentState.items : <Item>[];
 
-                    // Determine new selected item
-                    final newSelectedId = (deviceSelectedId == item.id || deviceSelectedId == null)
-                        ? 'none'
-                        : deviceSelectedId;
-
-                    itemsBloc.add(DeleteItemEvent(item.id));
-
-                    // Only sync if deleted item is in selected item's category
-                    final deletedCatId = item.categoryId ?? '';
-                    String? selectedCatId;
-                    if (newSelectedId != 'none') {
-                      final selectedItem = currentItems.where((i) => i.id == newSelectedId).firstOrNull;
-                      selectedCatId = selectedItem?.categoryId ?? '';
-                    }
-
-                    // Sync only if deleted item was in selected category
-                    // (or if selected item was the one deleted)
-                    if (newSelectedId == 'none' || deletedCatId == selectedCatId) {
-                      _syncDeviceWithSelectedCategory(
-                        bluetoothBloc: bluetoothBloc,
-                        allItems: currentItems,
-                        deviceSelectedId: newSelectedId,
-                        excludeItemId: item.id,
-                        fallbackCategoryId: item.categoryId,
-                      );
-                      // Update tracking so buildWhen doesn't duplicate the sync
-                      final targetCatId = selectedCatId ?? deletedCatId;
-                      final postDeleteItems = currentItems
-                          .where((i) => i.id != item.id && (i.categoryId ?? '') == targetCatId)
-                          .toList()
-                        ..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
-                      _lastSyncedSignature = _computeCategorySignature(postDeleteItems);
-                      _lastSyncedCategoryId = targetCatId;
-                      _lastSyncTime = DateTime.now();
-                    }
+                final confirmed = await _showDeleteConfirmation(context, item.name);
+                if (confirmed) {
+                  if (appUiStateRef.activeItemId == item.id) {
+                    appUiStateRef.activeItemId = 'none';
                   }
-                } else {
-                  await _showConnectDeviceDialog(context);
+                  final newSelectedId = (deviceSelectedId == item.id || deviceSelectedId == null)
+                      ? 'none' : deviceSelectedId;
+                  itemsBloc.add(DeleteItemEvent(item.id));
+
+                  final deletedCatId = item.categoryId ?? '';
+                  String? selectedCatId;
+                  if (newSelectedId != 'none') {
+                    final selectedItem = currentItems.where((i) => i.id == newSelectedId).firstOrNull;
+                    selectedCatId = selectedItem?.categoryId ?? '';
+                  }
+                  if (newSelectedId == 'none' || deletedCatId == selectedCatId) {
+                    _syncDeviceWithSelectedCategory(
+                      bluetoothBloc: bluetoothBloc, allItems: currentItems,
+                      deviceSelectedId: newSelectedId, excludeItemId: item.id,
+                      fallbackCategoryId: item.categoryId);
+                    final targetCatId = selectedCatId ?? deletedCatId;
+                    final postDeleteItems = currentItems
+                        .where((i) => i.id != item.id && (i.categoryId ?? '') == targetCatId)
+                        .toList()..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
+                    _lastSyncedSignature = _computeCategorySignature(postDeleteItems);
+                    _lastSyncedCategoryId = targetCatId;
+                    _lastSyncTime = DateTime.now();
+                  }
                 }
-                Slidable.of(slidableContext)?.close();
+                Slidable.of(ctx)?.close();
               },
             ),
           ],

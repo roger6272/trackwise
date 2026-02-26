@@ -21,6 +21,8 @@ class ExportCSV extends ExportEvent {
   final bool latestCycleOnly;
   final String email;
   final List<String>? itemIds;
+  final bool includeDeviceColumn;
+  final Map<String, String> deviceNameMap;
 
   const ExportCSV({
     required this.startDate,
@@ -29,10 +31,12 @@ class ExportCSV extends ExportEvent {
     this.latestCycleOnly = false,
     required this.email,
     this.itemIds,
+    this.includeDeviceColumn = false,
+    this.deviceNameMap = const {},
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, latestCycleOnly, email, itemIds];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, latestCycleOnly, email, itemIds, includeDeviceColumn, deviceNameMap];
 }
 
 /// Event to reset the export state.

@@ -14,6 +14,8 @@ class CSVExportConfig extends Equatable {
   final ExportAggregationLevel aggregationLevel;
   final bool latestCycleOnly; // Only relevant when byCycle is selected
   final List<String>? itemIds; // Optional: export for specific items only
+  final bool includeDeviceColumn; // Only relevant for raw aggregation
+  final Map<String, String> deviceNameMap; // deviceInstanceId -> deviceName
 
   const CSVExportConfig({
     required this.startDate,
@@ -21,10 +23,12 @@ class CSVExportConfig extends Equatable {
     this.aggregationLevel = ExportAggregationLevel.daily,
     this.latestCycleOnly = false,
     this.itemIds,
+    this.includeDeviceColumn = false,
+    this.deviceNameMap = const {},
   });
 
   @override
-  List<Object?> get props => [startDate, endDate, aggregationLevel, latestCycleOnly, itemIds];
+  List<Object?> get props => [startDate, endDate, aggregationLevel, latestCycleOnly, itemIds, includeDeviceColumn, deviceNameMap];
 
   /// Generate filename for the CSV export.
   String get filename {

@@ -7,6 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
+import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
 import '../../../categories/domain/entities/category.dart';
 import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../items/domain/entities/item.dart';
@@ -39,6 +41,7 @@ class _ExportPageState extends State<ExportPage> {
   DateTime _endDate = DateTime.now();
   ExportAggregationLevel _aggregationLevel = ExportAggregationLevel.daily;
   bool _latestCycleOnly = false;
+  bool _includeDeviceColumn = false;
 
   List<Item> _items = [];
   List<Category> _categories = [];
@@ -249,6 +252,29 @@ class _ExportPageState extends State<ExportPage> {
                               letterSpacing: 0.0,
                             ),
                           ),
+
+                          // Device column toggle (raw only)
+                          if (_aggregationLevel == ExportAggregationLevel.raw) ...[
+                            const SizedBox(height: 12.0),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: _cardBackground(context),
+                                borderRadius: BorderRadius.circular(12.0),
+                                border: Border.all(color: _inputBackground(context)),
+                              ),
+                              child: SwitchListTile(
+                                title: Text('Include Device Column',
+                                  style: TextStyle(fontFamily: 'Inter', fontSize: 14.0, color: _inputText(context))),
+                                subtitle: Text('Add device name to each event row',
+                                  style: TextStyle(fontFamily: 'Inter', fontSize: 12.0, color: _inputHint(context))),
+                                value: _includeDeviceColumn,
+                                onChanged: (v) => setState(() => _includeDeviceColumn = v),
+                                activeColor: AppColors.primaryAdaptive(Theme.of(context).brightness),
+                                dense: true,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+                              ),
+                            ),
+                          ],
 
                           // Conditional section below aggregation
                           if (_aggregationLevel == ExportAggregationLevel.byCycle) ...[
@@ -939,6 +965,14 @@ class _ExportPageState extends State<ExportPage> {
     if (_selectedItemIds.isEmpty) return;
 
     final isByCycle = _aggregationLevel == ExportAggregationLevel.byCycle;
+    // Build device name map from BluetoothState
+    Map<String, String> deviceNameMap = {};
+    if (_includeDeviceColumn && _aggregationLevel == ExportAggregationLevel.raw) {
+      final btState = context.read<BluetoothBloc>().state;
+      for (final pd in btState.pairedDevices) {
+        deviceNameMap[pd.deviceInstanceId] = pd.deviceName;
+      }
+    }
     blocContext.read<ExportBloc>().add(ExportCSV(
       startDate: isByCycle ? DateTime(2020) : _startDate,
       endDate: isByCycle ? DateTime.now() : _endDate,
@@ -946,6 +980,8 @@ class _ExportPageState extends State<ExportPage> {
       latestCycleOnly: _latestCycleOnly,
       email: emailController.text.trim(),
       itemIds: _allSelected ? null : _selectedItemIds.toList(),
+      includeDeviceColumn: _includeDeviceColumn && _aggregationLevel == ExportAggregationLevel.raw,
+      deviceNameMap: deviceNameMap,
     ));
   }
 }

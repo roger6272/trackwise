@@ -55,7 +55,8 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     }
 
     if (filteredEvents.isEmpty) {
-      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}, {}, {}, {}));
+      return Right(_generateCSV(filteredEvents, params.aggregationLevel, {}, {}, {}, {}, {},
+          includeDeviceColumn: params.includeDeviceColumn, deviceNameMap: params.deviceNameMap));
     }
 
     // Get userId from first event to fetch items and categories
@@ -107,7 +108,8 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       },
     );
 
-    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap, itemCycleNotesMap, itemCycleNamesMap);
+    final csv = _generateCSV(filteredEvents, params.aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap, itemCycleNotesMap, itemCycleNamesMap,
+        includeDeviceColumn: params.includeDeviceColumn, deviceNameMap: params.deviceNameMap);
     return Right(csv);
   }
 
@@ -119,8 +121,10 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     Map<String, String> categoryNameMap,
     Map<String, String> itemNameMap,
     Map<String, Map<String, String>> itemCycleNotesMap,
-    Map<String, Map<String, String>> itemCycleNamesMap,
-  ) {
+    Map<String, Map<String, String>> itemCycleNamesMap, {
+    bool includeDeviceColumn = false,
+    Map<String, String> deviceNameMap = const {},
+  }) {
     final buffer = StringBuffer();
 
     // Helper to get category name from itemId
@@ -150,7 +154,8 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
     // Header row
     if (aggregationLevel == ExportAggregationLevel.raw) {
-      buffer.writeln('Item Name,Category,Event Type,Cycle,Cycle Note,Timestamp,Event Count');
+      final deviceHeader = includeDeviceColumn ? ',Device' : '';
+      buffer.writeln('Item Name,Category,Event Type,Cycle,Cycle Note,Timestamp,Event Count$deviceHeader');
     } else if (aggregationLevel == ExportAggregationLevel.byCycle) {
       buffer.writeln('Item Name,Category,Cycle,Cycle Name,Cycle Note,Total Count');
     } else {
@@ -167,8 +172,11 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
         final itemName = getItemName(event.itemId);
         final category = getCategoryName(event.itemId);
         final cycleNote = getCycleNote(event.itemId, event.resetNumber);
+        final deviceSuffix = includeDeviceColumn
+            ? ',${_escapeCSV(deviceNameMap[event.deviceInstanceId ?? ''] ?? event.deviceInstanceId ?? '')}'
+            : '';
         buffer.writeln(
-          '${_escapeCSV(itemName)},${_escapeCSV(category)},${_escapeCSV(event.eventName)},${event.resetNumber},${_escapeCSV(cycleNote)},${_formatDateTime(event.createdTime)},${event.increment}',
+          '${_escapeCSV(itemName)},${_escapeCSV(category)},${_escapeCSV(event.eventName)},${event.resetNumber},${_escapeCSV(cycleNote)},${_formatDateTime(event.createdTime)},${event.increment}$deviceSuffix',
         );
       }
     } else if (aggregationLevel == ExportAggregationLevel.byCycle) {

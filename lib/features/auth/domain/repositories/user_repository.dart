@@ -76,6 +76,16 @@ abstract class UserRepository {
     String newName,
   );
 
+  /// Updates a paired device's color index.
+  ///
+  /// Returns [AuthFailure] if not authenticated.
+  /// Returns [ServerFailure] if Firestore operation fails.
+  /// Returns [ValidationFailure] if device not found.
+  Future<Either<Failure, void>> updateDeviceColor(
+    String deviceInstanceId,
+    int newColor,
+  );
+
   /// Completes onboarding and saves user preferences.
   ///
   /// [displayName] - User's name (optional).

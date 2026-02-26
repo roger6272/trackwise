@@ -27,6 +27,7 @@ import '../../domain/usecases/send_selected_item_usecase.dart';
 import '../../domain/usecases/send_time_sync_usecase.dart';
 import '../../domain/usecases/stop_scan_usecase.dart';
 import '../../domain/usecases/sync_device_data_usecase.dart';
+import '../../domain/usecases/refresh_device_items_usecase.dart';
 import '../../domain/usecases/sync_usecase.dart';
 import '../../domain/failures/sync_failures.dart';
 import '../../domain/usecases/watch_connection_state_usecase.dart';
@@ -64,6 +65,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final SyncDeviceDataUseCase _syncDeviceData;
   final PerformSyncUseCase _performSync;
   final PerformOverrideUseCase _performOverride;
+  final RefreshDeviceItemsUseCase _refreshDeviceItems;
   final UserRepository _userRepository;
   final BluetoothRepository _bluetoothRepository;
   final ItemRepository _itemRepository;
@@ -131,6 +133,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._syncDeviceData,
     this._performSync,
     this._performOverride,
+    this._refreshDeviceItems,
     this._userRepository,
     this._bluetoothRepository,
     this._itemRepository,
@@ -161,6 +164,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Multi-device events
     on<LoadPairedDevices>(_onLoadPairedDevices);
     on<UpdateDeviceName>(_onUpdateDeviceName);
+    on<UpdateDeviceColor>(_onUpdateDeviceColor);
     on<RemovePairedDevice>(_onRemovePairedDevice);
     on<SyncConflictDetected>(_onSyncConflictDetected);
     on<ConfirmSyncOverride>(_onConfirmSyncOverride);
@@ -402,21 +406,32 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await Future.delayed(const Duration(milliseconds: BluetoothConstants.scanStopDelayMs));
     }
 
-    // Guard: Check if Bluetooth is ready
-    if (!state.bluetoothEnabled) {
-      emit(state.copyWith(
-        status: BluetoothStatus.error,
-        errorMessage: 'Bluetooth is not enabled',
-      ));
-      return;
+    // Guard: Ensure permissions and adapter state are up-to-date
+    // (may not have been checked yet if user navigated directly to pairing page)
+    if (!state.permissionsGranted) {
+      final permResult = await _requestPermissions.call(const NoParams());
+      final granted = permResult.fold((_) => false, (v) => v);
+      emit(state.copyWith(permissionsGranted: granted));
+      if (!granted) {
+        emit(state.copyWith(
+          status: BluetoothStatus.error,
+          errorMessage: 'Bluetooth permissions not granted',
+        ));
+        return;
+      }
     }
 
-    if (!state.permissionsGranted) {
-      emit(state.copyWith(
-        status: BluetoothStatus.error,
-        errorMessage: 'Bluetooth permissions not granted',
-      ));
-      return;
+    if (!state.bluetoothEnabled) {
+      final btResult = await _checkBluetoothEnabled.call(const NoParams());
+      final enabled = btResult.fold((_) => false, (v) => v);
+      emit(state.copyWith(bluetoothEnabled: enabled));
+      if (!enabled) {
+        emit(state.copyWith(
+          status: BluetoothStatus.error,
+          errorMessage: 'Bluetooth is not enabled',
+        ));
+        return;
+      }
     }
 
     _manualDisconnects.remove(event.deviceId);
@@ -652,7 +667,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           // Fall back to old sync flow when offline
           _performLegacySync(deviceInstanceId);
         } else {
-          AppLogger.debug('Sync failed: ${failure.message}');
+          AppLogger.debug('Sync failed: ${failure.message}, falling back to legacy sync');
+          _performLegacySync(deviceInstanceId);
         }
       },
       (result) {
@@ -878,10 +894,19 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         },
         (syncResult) {
           if (syncResult.selectedFirestoreId != null) {
-            // Dispatch ClaimItem to handle claim logic in Firestore
+            // Capture previous selection before optimistic update (for release)
+            final previousItemId = state.connectedDevices[deviceInstanceId]?.selectedItemId;
+            // Optimistic update: show selection immediately for UI responsiveness
+            emit(state.copyWith(
+              connectedDevices: _updateDevice(deviceInstanceId, (d) => d.copyWith(
+                selectedItemId: syncResult.selectedFirestoreId,
+              )),
+            ));
+            // Dispatch ClaimItem to handle Firestore claim logic in background
             add(ClaimItem(
               itemId: syncResult.selectedFirestoreId!,
               deviceInstanceId: deviceInstanceId,
+              previousItemId: previousItemId,
             ));
           } else if (syncResult.clearSelection) {
             // Device explicitly said no item selected - clear app's selection
@@ -954,6 +979,32 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         final updatedDevices = state.pairedDevices.map((device) {
           if (device.deviceInstanceId == event.deviceInstanceId) {
             return device.copyWith(deviceName: event.newName);
+          }
+          return device;
+        }).toList();
+
+        emit(state.copyWith(pairedDevices: updatedDevices));
+      },
+    );
+  }
+
+  Future<void> _onUpdateDeviceColor(
+    UpdateDeviceColor event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final result = await _userRepository.updateDeviceColor(
+      event.deviceInstanceId,
+      event.newColor,
+    );
+
+    result.fold(
+      (failure) {
+        AppLogger.debug('Failed to update device color: ${failure.message}');
+      },
+      (_) {
+        final updatedDevices = state.pairedDevices.map((device) {
+          if (device.deviceInstanceId == event.deviceInstanceId) {
+            return device.copyWith(color: event.newColor);
           }
           return device;
         }).toList();
@@ -1333,6 +1384,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     switch (result.type) {
       case SyncResultType.success:
       case SyncResultType.overrideComplete:
+        // Capture previous selection before updating (for claim release logic)
+        final previousItemId = state.connectedDevices[deviceId]?.selectedItemId;
         emit(state.copyWith(
           connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
             syncStatus: DeviceSyncStatus.synced,
@@ -1347,8 +1400,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           add(ClaimItem(
             itemId: result.selectedFirestoreId!,
             deviceInstanceId: deviceId,
+            previousItemId: previousItemId,
           ));
         }
+
+        // Push claim-filtered items to newly synced device
+        _refreshDeviceItems.call(RefreshDeviceItemsParams(
+          deviceId: deviceId,
+          deviceInstanceId: deviceId,
+          selectedItemId: result.selectedFirestoreId,
+        ));
     }
   }
 
@@ -1358,11 +1419,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ClaimItem event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceState = state.connectedDevices[event.deviceInstanceId];
-    if (deviceState == null) return;
+    if (state.connectedDevices[event.deviceInstanceId] == null) return;
 
     // Release previous claim if device had a different item selected
-    final previousItemId = deviceState.selectedItemId;
+    final previousItemId = event.previousItemId;
     if (previousItemId != null && previousItemId != event.itemId) {
       final releaseResult = await _itemRepository.releaseItem(previousItemId);
       releaseResult.fold(
@@ -1371,23 +1431,31 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       );
     }
 
-    // Claim the new item
+    // Claim the new item (selectedItemId already set by optimistic update)
     final result = await _itemRepository.claimItem(event.itemId, event.deviceInstanceId);
 
     result.fold(
       (failure) {
-        // Claim conflict — log the failure
-        // Corrective push will happen when items are next synced
         AppLogger.debug('Claim failed for ${event.itemId}: ${failure.message}');
-      },
-      (_) {
-        // Claim succeeded — update selectedItemId in device state
+        // Revert optimistic update — restore previous selection
         emit(state.copyWith(
           connectedDevices: _updateDevice(event.deviceInstanceId, (d) =>
-            d.copyWith(selectedItemId: event.itemId)),
+            d.copyWith(
+              selectedItemId: previousItemId,
+              clearSelectedItemId: previousItemId == null,
+            )),
         ));
-
+        // Corrective push: send device the correct item list
+        _refreshDeviceItems.call(RefreshDeviceItemsParams(
+          deviceId: event.deviceInstanceId,
+          deviceInstanceId: event.deviceInstanceId,
+          selectedItemId: previousItemId,
+        ));
+      },
+      (_) {
         AppLogger.debug('Claimed item ${event.itemId} for device ${event.deviceInstanceId}');
+        // Push updated items to OTHER connected devices
+        _pushToOtherDevices(event.deviceInstanceId);
       },
     );
   }
@@ -1399,8 +1467,39 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final result = await _itemRepository.releaseItem(event.itemId);
     result.fold(
       (failure) => AppLogger.debug('Failed to release item ${event.itemId}: ${failure.message}'),
-      (_) => AppLogger.debug('Released claim on item ${event.itemId}'),
+      (_) {
+        AppLogger.debug('Released claim on item ${event.itemId}');
+        // Push updated items to ALL connected devices (released item now available)
+        _pushToAllDevices();
+      },
     );
+  }
+
+  // ========== Claim-Filtered Push Helpers ==========
+
+  /// Push claim-filtered items to all connected devices except the specified one.
+  void _pushToOtherDevices(String excludeDeviceId) {
+    for (final entry in state.connectedDevices.entries) {
+      if (entry.key == excludeDeviceId) continue;
+      if (!entry.value.isOnline) continue;
+      _refreshDeviceItems.call(RefreshDeviceItemsParams(
+        deviceId: entry.key,
+        deviceInstanceId: entry.key,
+        selectedItemId: entry.value.selectedItemId,
+      ));
+    }
+  }
+
+  /// Push claim-filtered items to ALL connected devices.
+  void _pushToAllDevices() {
+    for (final entry in state.connectedDevices.entries) {
+      if (!entry.value.isOnline) continue;
+      _refreshDeviceItems.call(RefreshDeviceItemsParams(
+        deviceId: entry.key,
+        deviceInstanceId: entry.key,
+        selectedItemId: entry.value.selectedItemId,
+      ));
+    }
   }
 
   // ========== Cleanup ==========

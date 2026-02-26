@@ -41,6 +41,8 @@ class ExportBloc extends Bloc<ExportEvent, ExportState> {
         aggregationLevel: event.aggregationLevel,
         latestCycleOnly: event.latestCycleOnly,
         itemIds: event.itemIds,
+        includeDeviceColumn: event.includeDeviceColumn,
+        deviceNameMap: event.deviceNameMap,
       ),
     );
 

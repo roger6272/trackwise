@@ -263,6 +263,52 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updateDeviceColor(
+    String deviceInstanceId,
+    int newColor,
+  ) async {
+    try {
+      final firebaseUser = _requireCurrentUser();
+      final userDocRef = _userDocRef(firebaseUser.uid);
+
+      final userDoc = await userDocRef.get();
+
+      if (!userDoc.exists) {
+        return const Left(ValidationFailure('Device not found'));
+      }
+
+      final data = userDoc.data() as Map<String, dynamic>?;
+      final existingDevices = data?['paired_devices'] as List<dynamic>? ?? [];
+
+      // Find and update the device
+      bool found = false;
+      final updatedDevices = existingDevices.map((d) {
+        final deviceMap = Map<String, dynamic>.from(d as Map<String, dynamic>);
+        if (deviceMap['device_instance_id'] == deviceInstanceId) {
+          found = true;
+          deviceMap['color'] = newColor;
+        }
+        return deviceMap;
+      }).toList();
+
+      if (!found) {
+        return const Left(ValidationFailure('Device not found'));
+      }
+
+      // Update the document
+      await userDocRef.update({'paired_devices': updatedDevices});
+
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on FirebaseException catch (e) {
+      return Left(ServerFailure('Failed to update device color: ${e.message}'));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error updating device color: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> completeOnboarding({
     String? displayName,
     required String primaryUseCase,

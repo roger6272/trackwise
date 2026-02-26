@@ -148,4 +148,45 @@ class AppColors {
   /// Get primary color based on brightness (lighter in dark mode for contrast)
   static Color primaryAdaptive(Brightness brightness) =>
       brightness == Brightness.dark ? primaryLight : primary;
+
+  // ==================== Device Color Palette ====================
+
+  static const List<Color> _deviceColorsLight = [
+    Color(0xFF1565C0), // 0 Blue
+    Color(0xFF2E7D32), // 1 Green
+    Color(0xFFE65100), // 2 Orange
+    Color(0xFF6A1B9A), // 3 Purple
+    Color(0xFFC62828), // 4 Red
+    Color(0xFF00695C), // 5 Teal
+    Color(0xFFAD1457), // 6 Pink
+    Color(0xFFF57F17), // 7 Amber
+    Color(0xFF283593), // 8 Indigo
+    Color(0xFF4E342E), // 9 Brown
+  ];
+
+  static const List<Color> _deviceColorsDark = [
+    Color(0xFF64B5F6), // 0 Blue
+    Color(0xFF81C784), // 1 Green
+    Color(0xFFFFB74D), // 2 Orange
+    Color(0xFFCE93D8), // 3 Purple
+    Color(0xFFEF9A9A), // 4 Red
+    Color(0xFF80CBC4), // 5 Teal
+    Color(0xFFF48FB1), // 6 Pink
+    Color(0xFFFFE082), // 7 Amber
+    Color(0xFF9FA8DA), // 8 Indigo
+    Color(0xFFBCAAA4), // 9 Brown
+  ];
+
+  static Color deviceColor(int index, Brightness brightness) {
+    final i = index.clamp(0, 9);
+    return brightness == Brightness.dark ? _deviceColorsDark[i] : _deviceColorsLight[i];
+  }
+
+  static Color deviceColorTint(int index, Brightness brightness) {
+    return deviceColor(index, brightness).withValues(alpha: 0.15);
+  }
+
+  static Color deviceColorOffline(int index, Brightness brightness) {
+    return deviceColor(index, brightness).withValues(alpha: 0.35);
+  }
 }

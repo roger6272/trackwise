@@ -9,6 +9,7 @@ import '../../domain/entities/paired_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
+import '../widgets/device_color_picker_dialog.dart';
 
 /// Page for managing paired Traxelos devices.
 ///
@@ -27,8 +28,8 @@ class PairedDevicesPage extends StatefulWidget {
 }
 
 class _PairedDevicesPageState extends State<PairedDevicesPage> {
-  /// Whether a connect was initiated from this page.
-  bool _connectingFromHere = false;
+  /// The deviceInstanceId we're connecting to from this page (null if not connecting).
+  String? _connectingDeviceId;
 
   @override
   void initState() {
@@ -63,14 +64,13 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
       ),
       body: BlocConsumer<BluetoothBloc, BluetoothState>(
         listener: (context, state) {
-          if (_connectingFromHere) {
-            if (state.isConnected) {
-              _connectingFromHere = false;
+          if (_connectingDeviceId != null) {
+            if (state.connectedDevices.containsKey(_connectingDeviceId)) {
+              _connectingDeviceId = null;
               showSuccessSnackBar(context, 'Connected to device');
-              context.pop();
             } else if (state.status == BluetoothStatus.error &&
                 state.errorMessage != null) {
-              _connectingFromHere = false;
+              _connectingDeviceId = null;
               showErrorSnackBar(context, state.errorMessage!);
             }
           }
@@ -88,7 +88,7 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
             itemBuilder: (context, index) {
               final device = devices[index];
               final isConnected =
-                  state.connectedDeviceInstanceId == device.deviceInstanceId;
+                  state.connectedDevices.containsKey(device.deviceInstanceId);
 
               final isConnecting =
                   state.connectingDeviceId == device.deviceInstanceId;
@@ -98,9 +98,10 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
                 isConnected: isConnected,
                 isConnecting: isConnecting,
                 onRename: () => _showRenameDialog(context, device),
+                onChangeColor: () => _showColorPickerDialog(context, device),
                 onUnpair: () => _showUnpairDialog(context, device),
                 onConnect: () {
-                  _connectingFromHere = true;
+                  _connectingDeviceId = device.deviceInstanceId;
                   context.read<BluetoothBloc>().add(
                         ConnectToDevice(device.deviceInstanceId),
                       );
@@ -250,6 +251,24 @@ class _PairedDevicesPageState extends State<PairedDevicesPage> {
     );
   }
 
+  void _showColorPickerDialog(BuildContext context, PairedDevice device) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => DeviceColorPickerDialog(
+        currentColor: device.color,
+        onColorSelected: (newColor) {
+          Navigator.of(dialogContext).pop();
+          context.read<BluetoothBloc>().add(
+            UpdateDeviceColor(
+              deviceInstanceId: device.deviceInstanceId,
+              newColor: newColor,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _showUnpairDialog(BuildContext context, PairedDevice device) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
@@ -346,6 +365,7 @@ class _DeviceListTile extends StatelessWidget {
   final bool isConnected;
   final bool isConnecting;
   final VoidCallback onRename;
+  final VoidCallback onChangeColor;
   final VoidCallback onUnpair;
   final VoidCallback onConnect;
   final VoidCallback onDisconnect;
@@ -355,6 +375,7 @@ class _DeviceListTile extends StatelessWidget {
     required this.isConnected,
     this.isConnecting = false,
     required this.onRename,
+    required this.onChangeColor,
     required this.onUnpair,
     required this.onConnect,
     required this.onDisconnect,
@@ -404,10 +425,25 @@ class _DeviceListTile extends StatelessWidget {
                     ),
                   ),
                 )
-              : Icon(
-                  Icons.watch,
-                  color: isConnected ? AppColors.success : secondaryText,
-                  size: 28,
+              : Stack(
+                  children: [
+                    Center(child: Icon(
+                      Icons.watch,
+                      color: isConnected ? AppColors.success : secondaryText,
+                      size: 28,
+                    )),
+                    Positioned(right: 2, bottom: 2, child: Container(
+                      width: 12, height: 12,
+                      decoration: BoxDecoration(
+                        color: AppColors.deviceColor(device.color, brightness),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: secondaryBackground.withValues(alpha: 0.8),
+                          width: 1.5,
+                        ),
+                      ),
+                    )),
+                  ],
                 ),
         ),
         title: Text(
@@ -455,6 +491,8 @@ class _DeviceListTile extends StatelessWidget {
               onDisconnect();
             } else if (value == 'rename') {
               onRename();
+            } else if (value == 'color') {
+              onChangeColor();
             } else if (value == 'unpair') {
               onUnpair();
             }
@@ -495,6 +533,17 @@ class _DeviceListTile extends StatelessWidget {
                   Icon(Icons.edit_outlined, size: 20),
                   SizedBox(width: 12),
                   Text('Rename'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'color',
+              child: Row(
+                children: [
+                  Icon(Icons.palette_outlined, size: 20,
+                    color: AppColors.deviceColor(device.color, brightness)),
+                  const SizedBox(width: 12),
+                  const Text('Change Color'),
                 ],
               ),
             ),

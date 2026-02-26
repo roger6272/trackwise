@@ -10,6 +10,8 @@ class SendEmailParams extends Equatable {
   final ExportAggregationLevel aggregationLevel;
   final bool latestCycleOnly;
   final List<String>? itemIds;
+  final bool includeDeviceColumn;
+  final Map<String, String> deviceNameMap;
 
   const SendEmailParams({
     required this.email,
@@ -18,10 +20,12 @@ class SendEmailParams extends Equatable {
     this.aggregationLevel = ExportAggregationLevel.daily,
     this.latestCycleOnly = false,
     this.itemIds,
+    this.includeDeviceColumn = false,
+    this.deviceNameMap = const {},
   });
 
   @override
-  List<Object?> get props => [email, startDate, endDate, aggregationLevel, latestCycleOnly, itemIds];
+  List<Object?> get props => [email, startDate, endDate, aggregationLevel, latestCycleOnly, itemIds, includeDeviceColumn, deviceNameMap];
 
   /// Convert to CSVExportConfig for CSV generation.
   CSVExportConfig toCSVExportConfig() {
@@ -31,6 +35,8 @@ class SendEmailParams extends Equatable {
       aggregationLevel: aggregationLevel,
       latestCycleOnly: latestCycleOnly,
       itemIds: itemIds,
+      includeDeviceColumn: includeDeviceColumn,
+      deviceNameMap: deviceNameMap,
     );
   }
 }

@@ -230,6 +230,20 @@ class UpdateDeviceName extends BluetoothEvent {
   List<Object?> get props => [deviceInstanceId, newName];
 }
 
+/// Update a paired device's color index.
+class UpdateDeviceColor extends BluetoothEvent {
+  final String deviceInstanceId;
+  final int newColor;
+
+  const UpdateDeviceColor({
+    required this.deviceInstanceId,
+    required this.newColor,
+  });
+
+  @override
+  List<Object?> get props => [deviceInstanceId, newColor];
+}
+
 /// Remove a paired device from the user's list.
 class RemovePairedDevice extends BluetoothEvent {
   final String deviceInstanceId;
@@ -384,11 +398,13 @@ class HandshakeCompleted extends BluetoothEvent {
 class ClaimItem extends BluetoothEvent {
   final String itemId;
   final String deviceInstanceId;
+  /// Previous item ID to release (captured before optimistic update).
+  final String? previousItemId;
 
-  const ClaimItem({required this.itemId, required this.deviceInstanceId});
+  const ClaimItem({required this.itemId, required this.deviceInstanceId, this.previousItemId});
 
   @override
-  List<Object?> get props => [itemId, deviceInstanceId];
+  List<Object?> get props => [itemId, deviceInstanceId, previousItemId];
 }
 
 /// Release a claim on an item.
