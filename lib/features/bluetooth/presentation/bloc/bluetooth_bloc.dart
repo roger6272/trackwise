@@ -1409,6 +1409,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           deviceId: deviceId,
           deviceInstanceId: deviceId,
           selectedItemId: result.selectedFirestoreId,
+        )).then((r) => r.fold(
+          (f) => AppLogger.debug('RefreshDeviceItems failed for $deviceId: ${f.message}'),
+          (_) {},
         ));
     }
   }
@@ -1450,6 +1453,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           deviceId: event.deviceInstanceId,
           deviceInstanceId: event.deviceInstanceId,
           selectedItemId: previousItemId,
+        )).then((r) => r.fold(
+          (f) => AppLogger.debug('Corrective refresh failed for ${event.deviceInstanceId}: ${f.message}'),
+          (_) {},
         ));
       },
       (_) {
@@ -1486,6 +1492,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         deviceId: entry.key,
         deviceInstanceId: entry.key,
         selectedItemId: entry.value.selectedItemId,
+      )).then((r) => r.fold(
+        (f) => AppLogger.debug('Push to ${entry.key} failed: ${f.message}'),
+        (_) {},
       ));
     }
   }
@@ -1498,6 +1507,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         deviceId: entry.key,
         deviceInstanceId: entry.key,
         selectedItemId: entry.value.selectedItemId,
+      )).then((r) => r.fold(
+        (f) => AppLogger.debug('Push to ${entry.key} failed: ${f.message}'),
+        (_) {},
       ));
     }
   }
