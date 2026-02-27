@@ -141,19 +141,28 @@ class SendTimeSync extends BluetoothEvent {
 class RequestDeviceData extends BluetoothEvent {
   final DeviceDataType type;
   final int page;
+  /// Target device. When null, falls back to first connected device (single-device compat).
+  final String? deviceInstanceId;
 
   const RequestDeviceData({
     required this.type,
     this.page = 0,
+    this.deviceInstanceId,
   });
 
   @override
-  List<Object?> get props => [type, page];
+  List<Object?> get props => [type, page, deviceInstanceId];
 }
 
 /// Clear logs on the ESP32 device.
 class ClearDeviceLogs extends BluetoothEvent {
-  const ClearDeviceLogs();
+  /// Target device. When null, falls back to first connected device (single-device compat).
+  final String? deviceInstanceId;
+
+  const ClearDeviceLogs({this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }
 
 /// Unpair the device from the current account.
@@ -400,11 +409,20 @@ class ClaimItem extends BluetoothEvent {
   final String deviceInstanceId;
   /// Previous item ID to release (captured before optimistic update).
   final String? previousItemId;
+  /// True when this claim originates from a device prefs echo (not user action).
+  /// Device-echo claims still write to Firestore but do NOT push to other
+  /// devices, preventing A→B→A cascading updates.
+  final bool fromDeviceEcho;
 
-  const ClaimItem({required this.itemId, required this.deviceInstanceId, this.previousItemId});
+  const ClaimItem({
+    required this.itemId,
+    required this.deviceInstanceId,
+    this.previousItemId,
+    this.fromDeviceEcho = false,
+  });
 
   @override
-  List<Object?> get props => [itemId, deviceInstanceId, previousItemId];
+  List<Object?> get props => [itemId, deviceInstanceId, previousItemId, fromDeviceEcho];
 }
 
 /// Release a claim on an item.

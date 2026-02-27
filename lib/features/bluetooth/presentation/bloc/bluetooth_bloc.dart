@@ -648,13 +648,25 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     syncResult.fold(
       (failure) {
         if (failure is SyncConflictFailure) {
-          // Conflict detected - notify UI to show dialog
-          AppLogger.debug('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}, deviceInstanceId=${failure.deviceInstanceId}');
-          add(SyncConflictDetected(
-            appSyncSeq: failure.appSyncSeq,
-            deviceSyncSeq: failure.deviceSyncSeq,
-            deviceInstanceId: failure.deviceInstanceId ?? deviceInstanceId,
-          ));
+          final conflictDeviceId = failure.deviceInstanceId ?? deviceInstanceId;
+          final isAlreadyPaired = state.pairedDevices.any(
+            (d) => d.deviceInstanceId.toUpperCase() == conflictDeviceId.toUpperCase(),
+          );
+          if (isAlreadyPaired) {
+            // Already-paired device with stale sync_seq — auto-override silently
+            AppLogger.debug('Sync conflict for paired device $conflictDeviceId — auto-overriding');
+            add(ConfirmSyncOverride(
+              deviceInstanceId: conflictDeviceId,
+            ));
+          } else {
+            // New device or genuinely dangerous conflict — show dialog
+            AppLogger.debug('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}, deviceInstanceId=$conflictDeviceId');
+            add(SyncConflictDetected(
+              appSyncSeq: failure.appSyncSeq,
+              deviceSyncSeq: failure.deviceSyncSeq,
+              deviceInstanceId: conflictDeviceId,
+            ));
+          }
         } else if (failure is DeviceUninitializedFailure) {
           // Device needs setup (factory reset or new device)
           AppLogger.debug('Device uninitialized: deviceInstanceId=${failure.deviceInstanceId}');
@@ -793,7 +805,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     RequestDeviceData event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceId = state.connectedDevice?.id;
+    // Use target device if specified, fall back to first connected (single-device compat)
+    final deviceId = event.deviceInstanceId != null
+        ? state.connectedDevices[event.deviceInstanceId]?.device.id
+        : state.connectedDevice?.id;
     if (deviceId == null) return;
 
     final result = await _requestData.call(
@@ -820,7 +835,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ClearDeviceLogs event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceId = state.connectedDevice?.id;
+    // Use target device if specified, fall back to first connected (single-device compat)
+    final deviceId = event.deviceInstanceId != null
+        ? state.connectedDevices[event.deviceInstanceId]?.device.id
+        : state.connectedDevice?.id;
     if (deviceId == null) return;
 
     final result = await _clearLogs.call(
@@ -894,15 +912,23 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         },
         (syncResult) {
           if (syncResult.selectedFirestoreId != null) {
-            // Capture previous selection before optimistic update (for release)
             final previousItemId = state.connectedDevices[deviceInstanceId]?.selectedItemId;
+            // Skip if selection hasn't changed (prefs echo from device)
+            if (previousItemId == syncResult.selectedFirestoreId) {
+              AppLogger.debug('Skipping prefs echo for ${syncResult.selectedFirestoreId} on $deviceInstanceId');
+              return;
+            }
             // Optimistic update: show selection immediately for UI responsiveness
             emit(state.copyWith(
               connectedDevices: _updateDevice(deviceInstanceId, (d) => d.copyWith(
                 selectedItemId: syncResult.selectedFirestoreId,
               )),
             ));
-            // Dispatch ClaimItem to handle Firestore claim logic in background
+            // Dispatch ClaimItem to handle Firestore claim logic in background.
+            // Push to other devices so they get claim-filtered item lists.
+            // The echo check above (previousItemId == selectedFirestoreId)
+            // prevents infinite loops: when B receives a push and echoes
+            // back the same selection, the check short-circuits.
             add(ClaimItem(
               itemId: syncResult.selectedFirestoreId!,
               deviceInstanceId: deviceInstanceId,
@@ -924,12 +950,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     if (message.type == BleMessageType.logs && message.hasMore) {
       final currentPage = message.page ?? 0;
       await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
-      add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1));
+      add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1, deviceInstanceId: deviceInstanceId));
     }
 
     // Clear logs on device when all pages received
     if (message.type == BleMessageType.logs && !message.hasMore) {
-      add(const ClearDeviceLogs());
+      add(ClearDeviceLogs(deviceInstanceId: deviceInstanceId));
     }
   }
 
@@ -1030,20 +1056,19 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       );
     }
 
-    // Check if the device being unpaired is the currently connected device
-    final isConnectedDevice = state.connectedDeviceInstanceId == event.deviceInstanceId;
+    // Check if the device being unpaired is currently connected (direct map lookup)
+    final deviceState = state.connectedDevices[event.deviceInstanceId];
 
-    // Disconnect first if this is the connected device
-    if (isConnectedDevice && state.connectedDevice != null) {
+    // Disconnect first if this device is connected
+    if (deviceState != null) {
       AppLogger.debug('Disconnecting from device being unpaired');
-      final connectedId = state.connectedDeviceInstanceId ?? event.deviceInstanceId;
-      _manualDisconnects.add(connectedId);
-      _devicesToReconnect.remove(connectedId);
-      _reconnectTimers[connectedId]?.cancel();
-      _reconnectTimers.remove(connectedId);
-      _reconnectAttempts.remove(connectedId);
+      _manualDisconnects.add(event.deviceInstanceId);
+      _devicesToReconnect.remove(event.deviceInstanceId);
+      _reconnectTimers[event.deviceInstanceId]?.cancel();
+      _reconnectTimers.remove(event.deviceInstanceId);
+      _reconnectAttempts.remove(event.deviceInstanceId);
 
-      await _bluetoothRepository.disconnect(state.connectedDevice!.id);
+      await _bluetoothRepository.disconnect(deviceState.device.id);
     }
 
     final result = await _userRepository.removePairedDevice(event.deviceInstanceId);
@@ -1058,7 +1083,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
             .where((d) => d.deviceInstanceId != event.deviceInstanceId)
             .toList();
 
-        if (isConnectedDevice) {
+        if (deviceState != null) {
           // Also clear connected state for this device
           emit(state.copyWith(
             pairedDevices: updatedDevices,
@@ -1384,8 +1409,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     switch (result.type) {
       case SyncResultType.success:
       case SyncResultType.overrideComplete:
-        // Capture previous selection before updating (for claim release logic)
-        final previousItemId = state.connectedDevices[deviceId]?.selectedItemId;
         emit(state.copyWith(
           connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
             syncStatus: DeviceSyncStatus.synced,
@@ -1397,6 +1420,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
         // Claim the selected item if handshake returned one
         if (result.selectedFirestoreId != null) {
+          final previousItemId = state.connectedDevices[deviceId]?.selectedItemId;
           add(ClaimItem(
             itemId: result.selectedFirestoreId!,
             deviceInstanceId: deviceId,
@@ -1404,7 +1428,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           ));
         }
 
-        // Push claim-filtered items to newly synced device
+        // Always push claim-filtered items on connection. When
+        // selectedFirestoreId is null (normal sync), RefreshDeviceItemsUseCase
+        // falls back to the device's claimedBy item for correct selection.
         _refreshDeviceItems.call(RefreshDeviceItemsParams(
           deviceId: deviceId,
           deviceInstanceId: deviceId,
@@ -1459,9 +1485,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         ));
       },
       (_) {
-        AppLogger.debug('Claimed item ${event.itemId} for device ${event.deviceInstanceId}');
-        // Push updated items to OTHER connected devices
-        _pushToOtherDevices(event.deviceInstanceId);
+        AppLogger.debug('Claimed item ${event.itemId} for device ${event.deviceInstanceId}'
+            '${event.fromDeviceEcho ? ' (echo, no push)' : ''}');
+        // Only push to other devices for user-initiated claims.
+        // Device-echo claims (from prefs responses) must NOT push, otherwise:
+        // A claims → push to B → B echoes → ClaimItem(B) → push to A → loop.
+        if (!event.fromDeviceEcho) {
+          _pushToOtherDevices(event.deviceInstanceId);
+        }
       },
     );
   }
