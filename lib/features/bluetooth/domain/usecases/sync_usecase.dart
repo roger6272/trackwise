@@ -63,19 +63,19 @@ class PerformSyncParams extends Equatable {
   List<Object?> get props => [deviceId];
 }
 
-/// Use case for performing the complete sync handshake flow.
+/// Use case for performing the sync handshake flow.
 ///
 /// This is the main entry point after BLE connection is established.
 /// Handles:
 /// 1. Internet connectivity check
-/// 2. Fresh sync_seq fetch from Firestore
-/// 3. Handshake with device
-/// 4. Wrong account detection
+/// 2. Handshake with device (sync_seq=-1 to skip comparison)
+/// 3. Wrong account / uninitialized detection
+/// 4. Conflict fallback (old firmware that doesn't understand -1)
 /// 5. New device registration (with limit check)
-/// 6. Normal sync or conflict detection
 ///
-/// Returns [SyncConflictFailure] when conflict is detected - the UI should
-/// then prompt the user and call [PerformOverrideUseCase] if they confirm.
+/// After success, the BLoC pushes claim-filtered items via
+/// [RefreshDeviceItemsUseCase]. No sync_complete or sync_seq update
+/// is needed — sync_seq is obsolete in multi-device mode.
 @lazySingleton
 class PerformSyncUseCase {
   final BluetoothRepository _bluetoothRepository;
@@ -84,12 +84,6 @@ class PerformSyncUseCase {
 
   /// Maximum number of devices allowed per account.
   static const int maxDevices = 10;
-
-  /// Maximum number of items that can be synced.
-  static const int maxItems = 100;
-
-  /// Maximum Firestore retry attempts.
-  static const int maxRetries = 3;
 
   PerformSyncUseCase(
     this._bluetoothRepository,
@@ -101,20 +95,24 @@ class PerformSyncUseCase {
   ///
   /// Steps:
   /// 1. Check internet connectivity
-  /// 2. Fetch fresh sync_seq from Firestore
-  /// 3. Send handshake to device
-  /// 4. Handle wrong account (return error)
+  /// 2. Send handshake to device (sync_seq=-1 to skip comparison)
+  /// 3. Handle wrong account / uninitialized (return error)
+  /// 4. Handle conflict (safety net for old firmware)
   /// 5. Add to paired_devices if new (check limit)
-  /// 6. If in_sync -> perform normal sync
-  /// 7. If conflict -> return [SyncConflictFailure] for UI
+  /// 6. Return success — BLoC pushes items via RefreshDeviceItemsUseCase
+  ///
+  /// In multi-device mode, sync_seq serves no purpose: each device connection
+  /// would increment the global counter, causing every reconnection to be a
+  /// "conflict". Instead we send -1 so firmware skips the comparison and
+  /// always returns in_sync. Items are pushed after handshake completes.
   Future<Either<Failure, SyncResult>> call(PerformSyncParams params) async {
-    // Step 0: Check internet connectivity FIRST
+    // Step 1: Check internet connectivity FIRST
     final hasInternet = await _connectivityService.hasInternetConnection();
     if (!hasInternet) {
       return const Left(NoInternetFailure());
     }
 
-    // Step 1: Get current user
+    // Step 2: Get current user
     final userResult = await _userRepository.getCurrentUser();
     if (userResult.isLeft()) {
       return userResult.fold(
@@ -124,21 +122,13 @@ class PerformSyncUseCase {
     }
     final user = userResult.getOrElse(() => throw StateError('User should exist'));
 
-    // Step 2: Fetch FRESH sync_seq from Firestore (not cached!)
-    final syncSeqResult = await _userRepository.fetchSyncSequenceFromServer();
-    if (syncSeqResult.isLeft()) {
-      return syncSeqResult.fold(
-        (failure) => Left(_mapToSyncFailure(failure)),
-        (_) => const Left(FirestoreUpdateFailure('Failed to fetch sync state.')),
-      );
-    }
-    final appSyncSeq = syncSeqResult.getOrElse(() => 0);
-
-
     // Step 3: Send handshake to device
+    // Send sync_seq=-1 to skip sync_seq comparison on firmware side.
+    // This eliminates false conflicts in multi-device mode.
     final handshakeResult = await _bluetoothRepository.sendHandshake(
+      deviceId: params.deviceId,
       uid: user.id,
-      syncSeq: appSyncSeq,
+      syncSeq: -1,
     );
 
     if (handshakeResult.isLeft()) {
@@ -167,12 +157,12 @@ class PerformSyncUseCase {
       ));
     }
 
-    // Step 6: Check for conflict BEFORE adding to paired devices
-    // (Don't add device until sync is successful)
+    // Step 6: Safety net — old firmware that doesn't understand sync_seq=-1
+    // will return conflict. BLoC auto-overrides for paired devices.
     if (handshake.status == SyncStatus.conflict) {
       return Left(SyncConflictFailure(
         deviceSyncSeq: handshake.deviceSyncSeq,
-        appSyncSeq: appSyncSeq,
+        appSyncSeq: 0,
         deviceInstanceId: deviceInstanceId,
       ));
     }
@@ -188,113 +178,30 @@ class PerformSyncUseCase {
         return const Left(DeviceLimitFailure());
       }
 
+      // Compute next available color
+      final usedColors = user.pairedDevices.map((d) => d.color).toSet();
+      var nextColor = 0;
+      for (var i = 0; i < 10; i++) {
+        if (!usedColors.contains(i)) { nextColor = i; break; }
+      }
+
       await _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: deviceInstanceId,
           deviceName: 'Traxelos One',
           pairedAt: DateTime.now(),
+          color: nextColor,
         ),
       );
     }
 
-    // Step 8: Perform normal sync (device is source of truth)
-    return _performNormalSync(user.id, appSyncSeq, deviceInstanceId);
-  }
-
-  /// Performs normal sync flow (device is source of truth).
-  ///
-  /// Steps:
-  /// 1. Request prefs from device
-  /// 2. Increment sync_seq
-  /// 3. Send sync_complete and wait for ack
-  /// 4. Update Firestore (with retry)
-  Future<Either<Failure, SyncResult>> _performNormalSync(
-    String userId,
-    int currentSeq,
-    String deviceInstanceId,
-  ) async {
-
-    // Step 1: Request prefs from device
-    // This is handled by the existing BLE message flow (prefs are sent
-    // automatically after handshake success). The BLoC will receive them
-    // via watchMessages and call SyncDeviceDataUseCase.
-    // Here we need to wait for that to complete...
-    //
-    // NOTE: For now, we rely on the existing flow where prefs arrive
-    // via the notification stream. This use case focuses on the handshake
-    // and sync_complete logic. The actual prefs processing happens in
-    // SyncDeviceDataUseCase which the BLoC already calls.
-
-    // Step 2: Increment sync_seq
-    final newSyncSeq = currentSeq + 1;
-
-    // Step 3: Send sync_complete and WAIT for acknowledgment
-    final ackResult = await _bluetoothRepository.sendSyncComplete(newSyncSeq);
-
-    if (ackResult.isLeft()) {
-      return ackResult.fold(
-        (failure) => Left(BleSyncFailure(failure.message)),
-        (_) => const Left(SyncCompleteNotAcknowledgedFailure()),
-      );
-    }
-
-    final ack = ackResult.getOrElse(
-      () => throw StateError('Ack should exist'),
-    );
-
-    if (!ack.isSuccess) {
-      return const Left(SyncCompleteNotAcknowledgedFailure());
-    }
-
-
-    // Step 4: Update Firestore (with retry)
-    // Note: In the full implementation, we'd get the selected item from prefs
-    // For now, preserve existing value (-1 means unknown)
-    final updateResult = await _updateSyncStateWithRetry(
-      syncSequenceNo: newSyncSeq,
-      lastSelectedDeviceItemId: -1, // Prefs handling updates this separately
-    );
-
-    if (updateResult.isLeft()) {
-      return updateResult.fold(
-        (failure) => Left(failure),
-        (_) => const Left(FirestoreUpdateFailure()),
-      );
-    }
-
-
+    // Step 8: Return success — no sync_complete or sync_seq update needed.
+    // BLoC handles item push in _onHandshakeCompleted via RefreshDeviceItemsUseCase.
+    // Firmware sends prefs+logs automatically after in_sync handshake.
     return Right(SyncResult(
       type: SyncResultType.success,
       deviceInstanceId: deviceInstanceId,
     ));
-  }
-
-  /// Updates Firestore sync state with retry logic.
-  ///
-  /// Retries up to 3 times with exponential backoff (1s, 2s, 3s).
-  Future<Either<Failure, void>> _updateSyncStateWithRetry({
-    required int syncSequenceNo,
-    required int lastSelectedDeviceItemId,
-  }) async {
-    for (var attempt = 1; attempt <= maxRetries; attempt++) {
-      final result = await _userRepository.updateSyncState(
-        syncSequenceNo: syncSequenceNo,
-        lastSelectedDeviceItemId: lastSelectedDeviceItemId,
-      );
-
-      if (result.isRight()) {
-        return const Right(null);
-      }
-
-      if (attempt == maxRetries) {
-        return const Left(FirestoreUpdateFailure());
-      }
-
-      // Backoff: 1s, 2s, 3s
-      await Future.delayed(Duration(seconds: attempt));
-    }
-
-    return const Left(FirestoreUpdateFailure());
   }
 
   /// Maps generic failures to sync-specific failures.
@@ -314,8 +221,8 @@ class PerformOverrideParams extends Equatable {
   /// ID of the connected BLE device.
   final String deviceId;
 
-  /// Device instance ID from the conflict (needed to add to paired devices).
-  final String? deviceInstanceId;
+  /// Device instance ID (required for claim filtering in multi-device mode).
+  final String deviceInstanceId;
 
   /// Device name for display in paired devices list.
   final String? deviceName;
@@ -326,7 +233,7 @@ class PerformOverrideParams extends Equatable {
 
   const PerformOverrideParams({
     required this.deviceId,
-    this.deviceInstanceId,
+    required this.deviceInstanceId,
     this.deviceName,
     this.currentSelectedFirestoreId,
   });
@@ -478,6 +385,18 @@ class PerformOverrideUseCase {
       }
     }
 
+    // Fall back to device's current claim (reconnection — device had an item selected)
+    if (selectedItem == null && params.deviceInstanceId != null && syncedItems.isNotEmpty) {
+      selectedItem = syncedItems.cast<Item?>().firstWhere(
+        (i) => i?.claimedBy == params.deviceInstanceId,
+        orElse: () => null,
+      );
+      if (selectedItem != null) {
+        selectedItemId = selectedItem.deviceItemId ?? -1;
+        AppLogger.debug('   ✓ Found by claimedBy ${params.deviceInstanceId}: ${selectedItem.name} (deviceItemId=$selectedItemId)');
+      }
+    }
+
     // If no current selection, fall back to last synced selection
     if (selectedItem == null && user.lastSelectedDeviceItemId >= 0 && syncedItems.isNotEmpty) {
       selectedItem = syncedItems.cast<Item?>().firstWhere(
@@ -511,8 +430,21 @@ class PerformOverrideUseCase {
       // Sort by categoryOrder for consistent ordering
       deviceItems.sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
-      // Keep the original selectedItemId - don't override with first item
-      // The selection was already determined above based on lastSelectedDeviceItemId
+      // Filter out items claimed by other devices (exclusive leasing)
+      deviceItems = deviceItems.where((i) =>
+        i.claimedBy == null || i.claimedBy == params.deviceInstanceId
+      ).toList();
+
+      // Validate selected item is still in claim-filtered list
+      if (selectedItemId >= 0 &&
+          !deviceItems.any((i) => i.deviceItemId == selectedItemId)) {
+        // Selected item was claimed by another device — redirect
+        if (deviceItems.isNotEmpty) {
+          selectedItemId = deviceItems.first.deviceItemId ?? -1;
+        } else {
+          selectedItemId = -1;
+        }
+      }
     } else {
       // No items at all - send empty list
       deviceItems = [];
@@ -528,6 +460,7 @@ class PerformOverrideUseCase {
 
     // Step 8: Send override to device (uid is stored on device during setup)
     final overrideResult = await _bluetoothRepository.sendOverrideChunked(
+      deviceId: params.deviceId,
       uid: user.id,
       syncSeq: newSyncSeq,
       selectedId: selectedItemId,
@@ -567,11 +500,19 @@ class PerformOverrideUseCase {
 
     // Step 9: Add device to paired devices (await to ensure it completes before LoadPairedDevices)
     if (params.deviceInstanceId != null) {
+      // Compute next available color
+      final usedColors = user.pairedDevices.map((d) => d.color).toSet();
+      var nextColor = 0;
+      for (var i = 0; i < 10; i++) {
+        if (!usedColors.contains(i)) { nextColor = i; break; }
+      }
+
       await _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: params.deviceInstanceId!,
           deviceName: params.deviceName ?? 'Traxelos One',
           pairedAt: DateTime.now(),
+          color: nextColor,
         ),
       );
     }

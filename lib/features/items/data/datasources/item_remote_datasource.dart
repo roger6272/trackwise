@@ -251,6 +251,12 @@ abstract class ItemRemoteDataSource {
   /// Throws [ServerException] on other failures.
   Future<void> claimItem(String itemId, String deviceInstanceId);
 
+  /// Atomically releases [previousItemId] and claims [newItemId] for [deviceInstanceId]
+  /// in a single Firestore transaction. No-op if the new item is already claimed by this device.
+  /// Throws [ClaimConflictException] if [newItemId] is claimed by another device.
+  /// Throws [ServerException] on other failures.
+  Future<void> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId);
+
   /// Releases a claim on an item.
   Future<void> releaseItem(String itemId);
 

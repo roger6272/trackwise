@@ -400,6 +400,18 @@ class ItemRepositoryImpl implements ItemRepository {
   }
 
   @override
+  Future<Either<Failure, void>> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId) async {
+    try {
+      await remoteDataSource.atomicClaimSwap(newItemId, deviceInstanceId, previousItemId);
+      return const Right(null);
+    } on ClaimConflictException catch (e) {
+      return Left(ClaimConflictFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> releaseItem(String itemId) async {
     try {
       await remoteDataSource.releaseItem(itemId);

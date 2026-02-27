@@ -131,17 +131,44 @@ void main() {
         );
       });
 
+      test('should send sync_seq=-1 in handshake to skip comparison', () async {
+        // arrange
+        when(() => mockConnectivityService.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockUserRepository.getCurrentUser())
+            .thenAnswer((_) async => Right(tUserWithDevice));
+        when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
+          uid: tUserId,
+          syncSeq: -1,
+        )).thenAnswer((_) async => const Right(HandshakeResult(
+          status: SyncStatus.inSync,
+          deviceInstanceId: tDeviceInstanceId,
+        )));
+
+        // act
+        await performSyncUseCase(
+          const PerformSyncParams(deviceId: tDeviceId),
+        );
+
+        // assert — handshake called with -1, NOT the user's syncSequenceNo
+        verify(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
+          uid: tUserId,
+          syncSeq: -1,
+        )).called(1);
+      });
+
       test('should return WrongAccountFailure when device paired to another account', () async {
         // arrange
         when(() => mockConnectivityService.hasInternetConnection())
             .thenAnswer((_) async => true);
         when(() => mockUserRepository.getCurrentUser())
             .thenAnswer((_) async => Right(tUser));
-        when(() => mockUserRepository.fetchSyncSequenceFromServer())
-            .thenAnswer((_) async => const Right(tSyncSeq));
         when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
           uid: tUserId,
-          syncSeq: tSyncSeq,
+          syncSeq: -1,
         )).thenAnswer((_) async => const Right(HandshakeResult(
           status: SyncStatus.wrongAccount,
           deviceInstanceId: tDeviceInstanceId,
@@ -181,11 +208,10 @@ void main() {
             .thenAnswer((_) async => true);
         when(() => mockUserRepository.getCurrentUser())
             .thenAnswer((_) async => Right(userWith10Devices));
-        when(() => mockUserRepository.fetchSyncSequenceFromServer())
-            .thenAnswer((_) async => const Right(tSyncSeq));
         when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
           uid: tUserId,
-          syncSeq: tSyncSeq,
+          syncSeq: -1,
         )).thenAnswer((_) async => const Right(HandshakeResult(
           status: SyncStatus.inSync,
           deviceInstanceId: 'new-device',
@@ -204,17 +230,17 @@ void main() {
         );
       });
 
-      test('should return SyncConflictFailure when sync_seq mismatch', () async {
+      test('should return SyncConflictFailure as safety net for old firmware', () async {
+        // Old firmware that doesn't understand sync_seq=-1 will return conflict
         // arrange
         when(() => mockConnectivityService.hasInternetConnection())
             .thenAnswer((_) async => true);
         when(() => mockUserRepository.getCurrentUser())
             .thenAnswer((_) async => Right(tUserWithDevice));
-        when(() => mockUserRepository.fetchSyncSequenceFromServer())
-            .thenAnswer((_) async => const Right(tSyncSeq));
         when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
           uid: tUserId,
-          syncSeq: tSyncSeq,
+          syncSeq: -1,
         )).thenAnswer((_) async => const Right(HandshakeResult(
           status: SyncStatus.conflict,
           deviceInstanceId: tDeviceInstanceId,
@@ -233,7 +259,7 @@ void main() {
             expect(failure, isA<SyncConflictFailure>());
             final syncFailure = failure as SyncConflictFailure;
             expect(syncFailure.deviceSyncSeq, 3);
-            expect(syncFailure.appSyncSeq, tSyncSeq);
+            expect(syncFailure.appSyncSeq, 0);
           },
           (_) => fail('Should return failure'),
         );
@@ -245,23 +271,16 @@ void main() {
             .thenAnswer((_) async => true);
         when(() => mockUserRepository.getCurrentUser())
             .thenAnswer((_) async => Right(tUser)); // User has no devices
-        when(() => mockUserRepository.fetchSyncSequenceFromServer())
-            .thenAnswer((_) async => const Right(tSyncSeq));
         when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
           uid: tUserId,
-          syncSeq: tSyncSeq,
+          syncSeq: -1,
         )).thenAnswer((_) async => const Right(HandshakeResult(
           status: SyncStatus.inSync,
           deviceInstanceId: tDeviceInstanceId,
         )));
         when(() => mockUserRepository.addPairedDevice(any()))
             .thenAnswer((_) async => const Right(null));
-        when(() => mockBluetoothRepository.sendSyncComplete(tSyncSeq + 1))
-            .thenAnswer((_) async => const Right(SyncCompleteResult(status: 'seq_updated')));
-        when(() => mockUserRepository.updateSyncState(
-          syncSequenceNo: any(named: 'syncSequenceNo'),
-          lastSelectedDeviceItemId: any(named: 'lastSelectedDeviceItemId'),
-        )).thenAnswer((_) async => const Right(null));
 
         // act
         await performSyncUseCase(
@@ -272,27 +291,20 @@ void main() {
         verify(() => mockUserRepository.addPairedDevice(any())).called(1);
       });
 
-      test('should perform normal sync when in_sync status', () async {
+      test('should return success immediately without sync_complete or Firestore update', () async {
         // arrange
         when(() => mockConnectivityService.hasInternetConnection())
             .thenAnswer((_) async => true);
         when(() => mockUserRepository.getCurrentUser())
             .thenAnswer((_) async => Right(tUserWithDevice));
-        when(() => mockUserRepository.fetchSyncSequenceFromServer())
-            .thenAnswer((_) async => const Right(tSyncSeq));
         when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
           uid: tUserId,
-          syncSeq: tSyncSeq,
+          syncSeq: -1,
         )).thenAnswer((_) async => const Right(HandshakeResult(
           status: SyncStatus.inSync,
           deviceInstanceId: tDeviceInstanceId,
         )));
-        when(() => mockBluetoothRepository.sendSyncComplete(tSyncSeq + 1))
-            .thenAnswer((_) async => const Right(SyncCompleteResult(status: 'seq_updated')));
-        when(() => mockUserRepository.updateSyncState(
-          syncSequenceNo: tSyncSeq + 1,
-          lastSelectedDeviceItemId: -1,
-        )).thenAnswer((_) async => const Right(null));
 
         // act
         final result = await performSyncUseCase(
@@ -305,85 +317,15 @@ void main() {
           (failure) => fail('Should succeed'),
           (syncResult) => expect(syncResult.type, SyncResultType.success),
         );
-        verify(() => mockBluetoothRepository.sendSyncComplete(tSyncSeq + 1)).called(1);
-        verify(() => mockUserRepository.updateSyncState(
-          syncSequenceNo: tSyncSeq + 1,
-          lastSelectedDeviceItemId: -1,
-        )).called(1);
-      });
-
-      test('should return SyncCompleteNotAcknowledgedFailure when device does not ack', () async {
-        // arrange
-        when(() => mockConnectivityService.hasInternetConnection())
-            .thenAnswer((_) async => true);
-        when(() => mockUserRepository.getCurrentUser())
-            .thenAnswer((_) async => Right(tUserWithDevice));
-        when(() => mockUserRepository.fetchSyncSequenceFromServer())
-            .thenAnswer((_) async => const Right(tSyncSeq));
-        when(() => mockBluetoothRepository.sendHandshake(
-          uid: tUserId,
-          syncSeq: tSyncSeq,
-        )).thenAnswer((_) async => const Right(HandshakeResult(
-          status: SyncStatus.inSync,
-          deviceInstanceId: tDeviceInstanceId,
-        )));
-        when(() => mockBluetoothRepository.sendSyncComplete(tSyncSeq + 1))
-            .thenAnswer((_) async => const Right(SyncCompleteResult(status: 'error')));
-
-        // act
-        final result = await performSyncUseCase(
-          const PerformSyncParams(deviceId: tDeviceId),
-        );
-
-        // assert
-        expect(result.isLeft(), true);
-        result.fold(
-          (failure) => expect(failure, isA<SyncCompleteNotAcknowledgedFailure>()),
-          (_) => fail('Should return failure'),
-        );
-      });
-
-      test('should retry Firestore update on failure', () async {
-        // arrange
-        when(() => mockConnectivityService.hasInternetConnection())
-            .thenAnswer((_) async => true);
-        when(() => mockUserRepository.getCurrentUser())
-            .thenAnswer((_) async => Right(tUserWithDevice));
-        when(() => mockUserRepository.fetchSyncSequenceFromServer())
-            .thenAnswer((_) async => const Right(tSyncSeq));
-        when(() => mockBluetoothRepository.sendHandshake(
-          uid: tUserId,
-          syncSeq: tSyncSeq,
-        )).thenAnswer((_) async => const Right(HandshakeResult(
-          status: SyncStatus.inSync,
-          deviceInstanceId: tDeviceInstanceId,
-        )));
-        when(() => mockBluetoothRepository.sendSyncComplete(tSyncSeq + 1))
-            .thenAnswer((_) async => const Right(SyncCompleteResult(status: 'seq_updated')));
-
-        var updateAttempt = 0;
-        when(() => mockUserRepository.updateSyncState(
+        // No sync_complete should be sent
+        verifyNever(() => mockBluetoothRepository.sendSyncComplete(any(), any()));
+        // No Firestore sync state update should happen
+        verifyNever(() => mockUserRepository.updateSyncState(
           syncSequenceNo: any(named: 'syncSequenceNo'),
           lastSelectedDeviceItemId: any(named: 'lastSelectedDeviceItemId'),
-        )).thenAnswer((_) async {
-          updateAttempt++;
-          if (updateAttempt < 2) {
-            return const Left(ServerFailure('Network error'));
-          }
-          return const Right(null);
-        });
-
-        // act
-        final result = await performSyncUseCase(
-          const PerformSyncParams(deviceId: tDeviceId),
-        );
-
-        // assert
-        expect(result.isRight(), true);
-        verify(() => mockUserRepository.updateSyncState(
-          syncSequenceNo: any(named: 'syncSequenceNo'),
-          lastSelectedDeviceItemId: any(named: 'lastSelectedDeviceItemId'),
-        )).called(2); // First failed, second succeeded
+        ));
+        // No sync_seq fetch should happen
+        verifyNever(() => mockUserRepository.fetchSyncSequenceFromServer());
       });
     });
   });
@@ -434,7 +376,7 @@ void main() {
 
       // act
       final result = await performOverrideUseCase(
-        const PerformOverrideParams(deviceId: tDeviceId),
+        const PerformOverrideParams(deviceId: tDeviceId, deviceInstanceId: tDeviceInstanceId),
       );
 
       // assert
@@ -472,7 +414,7 @@ void main() {
 
       // act
       final result = await performOverrideUseCase(
-        const PerformOverrideParams(deviceId: tDeviceId),
+        const PerformOverrideParams(deviceId: tDeviceId, deviceInstanceId: tDeviceInstanceId),
       );
 
       // assert
@@ -497,6 +439,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: tDeviceId,
         uid: tUserId,
         syncSeq: tSyncSeq + 1,
         selectedId: tUser.lastSelectedDeviceItemId,
@@ -509,10 +452,12 @@ void main() {
         syncSequenceNo: tSyncSeq + 1,
         lastSelectedDeviceItemId: tUser.lastSelectedDeviceItemId,
       )).thenAnswer((_) async => const Right(null));
+      when(() => mockUserRepository.addPairedDevice(any()))
+          .thenAnswer((_) async => const Right(null));
 
       // act
       final result = await performOverrideUseCase(
-        const PerformOverrideParams(deviceId: tDeviceId),
+        const PerformOverrideParams(deviceId: tDeviceId, deviceInstanceId: tDeviceInstanceId),
       );
 
       // assert
@@ -522,12 +467,77 @@ void main() {
         (syncResult) => expect(syncResult.type, SyncResultType.overrideComplete),
       );
       verify(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: tDeviceId,
         uid: tUserId,
         syncSeq: tSyncSeq + 1,
         selectedId: tUser.lastSelectedDeviceItemId,
         items: tItems,
         categoryNames: any(named: 'categoryNames'),
       )).called(1);
+    });
+
+    test('should exclude items claimed by other devices from override payload', () async {
+      // arrange — item-2 is claimed by a different device
+      final itemClaimedByOther = Item(
+        id: 'item-2',
+        name: 'Test Item 2',
+        count: 20,
+        todayCount: 10,
+        incrementBy: 1,
+        reminder: ReminderType.none,
+        reminderValue: 0,
+        lastUpdated: DateTime.now(),
+        userId: tUserId,
+        deviceItemId: 1,
+        claimedBy: 'other-device-999',
+      );
+      final itemsWithClaim = [tItems[0], itemClaimedByOther];
+
+      when(() => mockConnectivityService.hasInternetConnection())
+          .thenAnswer((_) async => true);
+      when(() => mockUserRepository.getCurrentUser())
+          .thenAnswer((_) async => Right(tUser));
+      when(() => mockItemRepository.getItems(tUserId))
+          .thenAnswer((_) async => Right(itemsWithClaim));
+      when(() => mockCategoryRepository.getCategories(tUserId))
+          .thenAnswer((_) async => Right(tCategories));
+      when(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: any(named: 'deviceId'),
+        uid: any(named: 'uid'),
+        syncSeq: any(named: 'syncSeq'),
+        selectedId: any(named: 'selectedId'),
+        items: any(named: 'items'),
+        categoryNames: any(named: 'categoryNames'),
+      )).thenAnswer((_) async => const Right(OverrideResult(
+        status: 'override_complete',
+      )));
+      when(() => mockUserRepository.updateSyncState(
+        syncSequenceNo: any(named: 'syncSequenceNo'),
+        lastSelectedDeviceItemId: any(named: 'lastSelectedDeviceItemId'),
+      )).thenAnswer((_) async => const Right(null));
+      when(() => mockUserRepository.addPairedDevice(any()))
+          .thenAnswer((_) async => const Right(null));
+
+      // act
+      final result = await performOverrideUseCase(
+        const PerformOverrideParams(deviceId: tDeviceId, deviceInstanceId: tDeviceInstanceId),
+      );
+
+      // assert — override succeeds
+      expect(result.isRight(), true);
+
+      // Verify that only item-1 was sent (item-2 claimed by other device excluded)
+      final captured = verify(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: any(named: 'deviceId'),
+        uid: any(named: 'uid'),
+        syncSeq: any(named: 'syncSeq'),
+        selectedId: any(named: 'selectedId'),
+        items: captureAny(named: 'items'),
+        categoryNames: any(named: 'categoryNames'),
+      )).captured;
+      final sentItems = captured.first as List<Item>;
+      expect(sentItems.length, 1);
+      expect(sentItems.first.id, 'item-1');
     });
 
     test('should return OverrideFailure when device returns error', () async {
@@ -541,6 +551,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: any(named: 'deviceId'),
         uid: any(named: 'uid'),
         syncSeq: any(named: 'syncSeq'),
         selectedId: any(named: 'selectedId'),
@@ -553,7 +564,7 @@ void main() {
 
       // act
       final result = await performOverrideUseCase(
-        const PerformOverrideParams(deviceId: tDeviceId),
+        const PerformOverrideParams(deviceId: tDeviceId, deviceInstanceId: tDeviceInstanceId),
       );
 
       // assert
@@ -578,6 +589,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: any(named: 'deviceId'),
         uid: any(named: 'uid'),
         syncSeq: any(named: 'syncSeq'),
         selectedId: any(named: 'selectedId'),
@@ -598,10 +610,12 @@ void main() {
         }
         return const Right(null);
       });
+      when(() => mockUserRepository.addPairedDevice(any()))
+          .thenAnswer((_) async => const Right(null));
 
       // act
       final result = await performOverrideUseCase(
-        const PerformOverrideParams(deviceId: tDeviceId),
+        const PerformOverrideParams(deviceId: tDeviceId, deviceInstanceId: tDeviceInstanceId),
       );
 
       // assert
@@ -624,6 +638,7 @@ void main() {
       when(() => mockCategoryRepository.getCategories(tUserId))
           .thenAnswer((_) async => Right(tCategories));
       when(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: any(named: 'deviceId'),
         uid: any(named: 'uid'),
         syncSeq: any(named: 'syncSeq'),
         selectedId: any(named: 'selectedId'),
@@ -639,7 +654,7 @@ void main() {
 
       // act
       final result = await performOverrideUseCase(
-        const PerformOverrideParams(deviceId: tDeviceId),
+        const PerformOverrideParams(deviceId: tDeviceId, deviceInstanceId: tDeviceInstanceId),
       );
 
       // assert

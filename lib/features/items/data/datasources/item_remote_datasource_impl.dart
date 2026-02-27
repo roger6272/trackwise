@@ -850,7 +850,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
         if (data == null) throw ServerException('Item not found');
 
         final currentClaim = data['claimed_by'] as String?;
-        if (currentClaim != null && currentClaim != deviceInstanceId) {
+        if (currentClaim == deviceInstanceId) return; // Already owned — no-op
+        if (currentClaim != null) {
           throw ClaimConflictException('Item already claimed by $currentClaim');
         }
 
@@ -867,11 +868,49 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   }
 
   @override
+  Future<void> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId) async {
+    try {
+      await firestore.runTransaction((transaction) async {
+        // Read the new item first (Firestore requires all reads before writes)
+        final newRef = firestore.collection('Item').doc(newItemId);
+        final newSnapshot = await transaction.get(newRef);
+        final newData = newSnapshot.data();
+        if (newData == null) throw ServerException('Item not found');
+
+        final currentClaim = newData['claimed_by'] as String?;
+        if (currentClaim == deviceInstanceId) return; // Already owned — no-op
+        if (currentClaim != null) {
+          throw ClaimConflictException('Item already claimed by $currentClaim');
+        }
+
+        // Release previous item in same transaction
+        if (previousItemId != null && previousItemId != newItemId) {
+          final prevRef = firestore.collection('Item').doc(previousItemId);
+          transaction.update(prevRef, {
+            'claimed_by': null,
+            'claimed_at': null,
+          });
+        }
+
+        // Claim new item
+        transaction.update(newRef, {
+          'claimed_by': deviceInstanceId,
+          'claimed_at': FieldValue.serverTimestamp(),
+        });
+      });
+    } on ClaimConflictException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw ServerException('Failed to claim item: ${e.message}');
+    }
+  }
+
+  @override
   Future<void> releaseItem(String itemId) async {
     try {
       await firestore.collection('Item').doc(itemId).update({
-        'claimed_by': FieldValue.delete(),
-        'claimed_at': FieldValue.delete(),
+        'claimed_by': null,
+        'claimed_at': null,
       });
     } on FirebaseException catch (e) {
       throw ServerException('Failed to release item: ${e.message}');

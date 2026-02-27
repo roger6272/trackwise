@@ -1450,18 +1450,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) async {
     if (state.connectedDevices[event.deviceInstanceId] == null) return;
 
-    // Release previous claim if device had a different item selected
+    // Atomically release previous claim + claim new item in single transaction
     final previousItemId = event.previousItemId;
-    if (previousItemId != null && previousItemId != event.itemId) {
-      final releaseResult = await _itemRepository.releaseItem(previousItemId);
-      releaseResult.fold(
-        (failure) => AppLogger.debug('Failed to release previous claim: ${failure.message}'),
-        (_) => AppLogger.debug('Released previous claim on $previousItemId'),
-      );
-    }
-
-    // Claim the new item (selectedItemId already set by optimistic update)
-    final result = await _itemRepository.claimItem(event.itemId, event.deviceInstanceId);
+    final result = await _itemRepository.atomicClaimSwap(
+      event.itemId, event.deviceInstanceId, previousItemId,
+    );
 
     result.fold(
       (failure) {

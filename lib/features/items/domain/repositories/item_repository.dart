@@ -267,6 +267,10 @@ abstract class ItemRepository {
   /// Claims an item for exclusive use by a device.
   Future<Either<Failure, void>> claimItem(String itemId, String deviceInstanceId);
 
+  /// Atomically releases [previousItemId] and claims [newItemId] for [deviceInstanceId]
+  /// in a single Firestore transaction.
+  Future<Either<Failure, void>> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId);
+
   /// Releases a claim on an item.
   Future<Either<Failure, void>> releaseItem(String itemId);
 
