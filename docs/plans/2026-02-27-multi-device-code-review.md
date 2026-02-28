@@ -3,13 +3,13 @@
 > **Date:** 2026-02-27
 > **Branch:** `feature/multi-device-ble`
 > **Range:** `b4bc25b..03dde73` (31 commits, +6329/-914 lines)
-> **Status:** Review complete — 2 critical bugs, several lower-priority items
+> **Status:** All findings resolved
 
 ---
 
 ## Critical (Must Fix Before Merge)
 
-### C1. Wrong device disconnect on unpair
+### C1. Wrong device disconnect on unpair — FIXED (88d8090)
 
 **File:** `bluetooth_bloc.dart:1054-1066`
 
@@ -19,27 +19,11 @@
 - Device B stays connected with released claims
 - Line 1066 uses `state.connectedDevice!.id` (device A's transport ID) — would disconnect the wrong device if the condition did pass
 
-**Fix:** Replace the first-device getter with a direct map lookup:
-
-```dart
-final isConnectedDevice = state.connectedDevices.containsKey(event.deviceInstanceId);
-if (isConnectedDevice) {
-    _manualDisconnects.add(event.deviceInstanceId);
-    _devicesToReconnect.remove(event.deviceInstanceId);
-    _reconnectTimers[event.deviceInstanceId]?.cancel();
-    _reconnectTimers.remove(event.deviceInstanceId);
-    _reconnectAttempts.remove(event.deviceInstanceId);
-    // Use the device's own BLE transport ID, not another device's
-    final device = state.connectedDevices[event.deviceInstanceId]?.device;
-    if (device != null) {
-      await _bluetoothRepository.disconnect(device.id);
-    }
-}
-```
+**Fix:** Replaced first-device getter with direct map lookup `state.connectedDevices[event.deviceInstanceId]`.
 
 ---
 
-### C2. Wrong device log pagination and clear
+### C2. Wrong device log pagination and clear — FIXED (88d8090)
 
 **Files:**
 - `bluetooth_event.dart:141-157` (event definitions)
@@ -50,93 +34,73 @@ if (isConnectedDevice) {
 
 When device B sends logs, the pagination request and clear command get sent to device A.
 
-**Fix:** Add `deviceInstanceId` to both events:
-
-```dart
-class RequestDeviceData extends BluetoothEvent {
-  final DeviceDataType type;
-  final int page;
-  final String deviceInstanceId;
-  ...
-}
-
-class ClearDeviceLogs extends BluetoothEvent {
-  final String deviceInstanceId;
-  ...
-}
-```
-
-Update handlers to use `event.deviceInstanceId` instead of `state.connectedDevice?.id`. Update dispatch sites (lines 947, 952) to pass `deviceInstanceId`.
+**Fix:** Added `deviceInstanceId` to both events. Updated handlers and dispatch sites to pass it through.
 
 ---
 
 ## Important (Should Fix)
 
-### I1. Claim + release are not atomic
+### I1. Claim + release are not atomic — FIXED (8d2b3b6)
 
 **File:** `bluetooth_bloc.dart:1450-1459`
 
 Spec (Section 7.4) requires a single Firestore transaction for release + claim. Code does two separate operations. If the app crashes between them, the old item is released but the new one is never claimed.
 
-Practical risk is low (millisecond window, self-healing on next selection), but violates the spec's atomicity guarantee.
-
-**Fix:** Create `atomicClaimSwap` in `ItemRemoteDataSource` that releases previous + claims new in one `runTransaction`.
+**Fix:** Created `atomicClaimSwap` in datasource/repo/impl that releases previous + claims new in one `runTransaction`. Also added same-device no-op check to `claimItem`.
 
 ---
 
-### I2. Override test never exercises claim filtering
+### I2. Override test never exercises claim filtering — FIXED (8d2b3b6)
 
 **File:** `sync_usecase_test.dart:431-475`
 
 Test items have no `claimedBy` set, so the claim filter at `sync_usecase.dart:434-438` is never exercised. A bug in that condition would not be caught.
 
-**Fix:** Add test case with items where some have `claimedBy` set to another device, verify those items are excluded from the override payload.
+**Fix:** Added test `should exclude items claimed by other devices from override payload` verifying items with `claimedBy` set to another device are excluded.
 
 ---
 
-### I3. `deviceInstanceId` optional in `PerformOverrideParams`
+### I3. `deviceInstanceId` optional in `PerformOverrideParams` — FIXED (8d2b3b6)
 
 **File:** `sync_usecase.dart` — `PerformOverrideParams` class
 
 Claim filter at line 434 is behind `if (params.deviceInstanceId != null)`. If a caller omits it, all items (including those claimed by other devices) are sent to the device.
 
-Current call sites all pass it, but the optional type creates a trap for future callers.
-
-**Fix:** Make `deviceInstanceId` required in `PerformOverrideParams`.
+**Fix:** Made `deviceInstanceId` required in `PerformOverrideParams`. Removed null guard so claim filter always applies.
 
 ---
 
 ## Low Priority (Track for Later)
 
-### L1. Same-device re-claim wastes a Firestore write
+### L1. Same-device re-claim wastes a Firestore write — FIXED (8d2b3b6, part of I1)
 
 **File:** `item_remote_datasource_impl.dart:852-861`
 
-When the same device claims an item it already holds, the transaction still writes. Add `if (currentClaim == deviceInstanceId) return;` to save a write.
+**Fix:** Added `if (currentClaim == deviceInstanceId) return;` no-op check inside `atomicClaimSwap` and `claimItem`.
 
-### L2. `releaseItem` uses `FieldValue.delete()` instead of null
+### L2. `releaseItem` uses `FieldValue.delete()` instead of null — FIXED (8d2b3b6, part of I1)
 
 **File:** `item_remote_datasource_impl.dart:870-878`
 
-Spec says `claimed_by` should be null when unclaimed, not absent. Functionally equivalent today, but could matter if Firestore Security Rules are added later.
+**Fix:** Changed `releaseItem` to set `claimed_by` and `claimed_at` to `null` instead of `FieldValue.delete()`.
 
-### L3. `_onSendTimeSync` and `_onUnpairDevice` use first-device fallback
+### L3. `_onSendTimeSync` and `_onUnpairDevice` use first-device fallback — FIXED (ae7bbb2)
 
 **File:** `bluetooth_bloc.dart:791, 855`
 
-Same pattern as C2, but these are dispatched from UI contexts where single-device is the common case. Lower risk but should get `deviceInstanceId` eventually.
+**Fix:** Added optional `deviceInstanceId` to `SendTimeSync` and `UnpairDevice` events. Updated handlers to resolve target device from event when specified, falling back to first connected for single-device compat.
 
-### L4. Invisible space character reserves tile height in single-device mode
+### L4. Invisible space character reserves tile height in single-device mode — FIXED (ae7bbb2)
 
 **File:** `items_list_page.dart:1553`
 
-`Text(claimName ?? ' ')` renders an invisible space when no claim name exists, adding unnecessary padding to all tiles in single-device mode. Replace with `SizedBox.shrink()` when null.
+**Fix:** Replaced `Text(claimName ?? ' ')` with early return of `SizedBox.shrink()` when `claimName` is null.
 
-### L5. Hardcoded hex colors in accent bar
+### L5. Hardcoded hex colors in accent bar — FIXED (ae7bbb2)
 
 **File:** `items_list_page.dart:1566-1569`
 
-`Color(0xFFB8B4FF)` etc. violate `CLAUDE.md` rule to use `AppColors`. These are pre-existing but the Phase 3 plan called for replacing them with device colors.
+**Fix:** Added `accentActive()` and `accentInactive()` semantic colors to `AppColors`. Replaced all hardcoded hex values in accent bar and count text.
 
 ---
 
@@ -163,5 +127,5 @@ Spec says "no device colors on item bars" for single device. Device *names* are 
 - Claim filtering consistently applied in all 3 push paths (helper, refresh use case, override)
 - `fromDeviceEcho` flag correctly prevents infinite A→B→A cascade
 - Firmware changes are minimal and correct (switch guard + display messages)
-- All 824 tests pass with no regressions
+- All 825 tests pass with no regressions
 - Docs updated alongside code changes
