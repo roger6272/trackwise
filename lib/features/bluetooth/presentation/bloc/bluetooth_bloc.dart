@@ -1456,44 +1456,41 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) async {
     if (state.connectedDevices[event.deviceInstanceId] == null) return;
 
-    // Atomically release previous claim + claim new item in single transaction
+    // Fire-and-forget: don't block the BLoC event queue on the Firestore
+    // transaction. The UI already has an optimistic update from SendSelectedItem,
+    // and the watchItems stream will reflect the confirmed claim.
     final previousItemId = event.previousItemId;
-    final result = await _itemRepository.atomicClaimSwap(
-      event.itemId, event.deviceInstanceId, previousItemId,
-    );
+    final deviceInstanceId = event.deviceInstanceId;
+    final fromDeviceEcho = event.fromDeviceEcho;
+    final itemId = event.itemId;
 
-    result.fold(
-      (failure) {
-        AppLogger.debug('Claim failed for ${event.itemId}: ${failure.message}');
-        // Revert optimistic update — restore previous selection
-        emit(state.copyWith(
-          connectedDevices: _updateDevice(event.deviceInstanceId, (d) =>
-            d.copyWith(
-              selectedItemId: previousItemId,
-              clearSelectedItemId: previousItemId == null,
-            )),
-        ));
-        // Corrective push: send device the correct item list
-        _refreshDeviceItems.call(RefreshDeviceItemsParams(
-          deviceId: event.deviceInstanceId,
-          deviceInstanceId: event.deviceInstanceId,
-          selectedItemId: previousItemId,
-        )).then((r) => r.fold(
-          (f) => AppLogger.debug('Corrective refresh failed for ${event.deviceInstanceId}: ${f.message}'),
-          (_) {},
-        ));
-      },
-      (_) {
-        AppLogger.debug('Claimed item ${event.itemId} for device ${event.deviceInstanceId}'
-            '${event.fromDeviceEcho ? ' (echo, no push)' : ''}');
-        // Only push to other devices for user-initiated claims.
-        // Device-echo claims (from prefs responses) must NOT push, otherwise:
-        // A claims → push to B → B echoes → ClaimItem(B) → push to A → loop.
-        if (!event.fromDeviceEcho) {
-          _pushToOtherDevices(event.deviceInstanceId);
-        }
-      },
-    );
+    _itemRepository.atomicClaimSwap(
+      itemId, deviceInstanceId, previousItemId,
+    ).then((result) {
+      result.fold(
+        (failure) {
+          AppLogger.debug('Claim failed for $itemId: ${failure.message}');
+          // Corrective push: revert device to the correct item list + selection.
+          // The optimistic selectedItemId in BLoC state will be corrected when
+          // the corrective push completes (via RefreshDeviceItems).
+          _refreshDeviceItems.call(RefreshDeviceItemsParams(
+            deviceId: deviceInstanceId,
+            deviceInstanceId: deviceInstanceId,
+            selectedItemId: previousItemId,
+          )).then((r) => r.fold(
+            (f) => AppLogger.debug('Corrective refresh failed for $deviceInstanceId: ${f.message}'),
+            (_) {},
+          ));
+        },
+        (_) {
+          AppLogger.debug('Claimed item $itemId for device $deviceInstanceId'
+              '${fromDeviceEcho ? ' (echo, no push)' : ''}');
+          if (!fromDeviceEcho) {
+            _pushToOtherDevices(deviceInstanceId);
+          }
+        },
+      );
+    });
   }
 
   Future<void> _onReleaseItem(
