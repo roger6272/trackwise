@@ -1563,14 +1563,22 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         Builder(builder: (context) {
                           final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontSize: 11.0, fontStyle: FontStyle.italic);
-                          if (item.claimedBy == null) {
+                          // Resolve claiming device: Firestore claim (suppressed
+                          // when being released), then optimistic selection.
+                          final claimDeviceId = (item.claimedBy != null && !claimBeingReleased)
+                              ? item.claimedBy
+                              : connectedDevices.entries
+                                  .where((e) => e.value.selectedItemId == item.id)
+                                  .map((e) => e.key)
+                                  .firstOrNull;
+                          if (claimDeviceId == null) {
                             // Reserve line height so tiles are uniform
                             return Text(' ', style: subtitleStyle);
                           }
-                          final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+                          final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == claimDeviceId);
                           final claimName = () {
-                            final name = idx >= 0 ? pairedDevices[idx].deviceName : item.claimedBy!;
-                            final online = connectedDevices[item.claimedBy!]?.isOnline == true;
+                            final name = idx >= 0 ? pairedDevices[idx].deviceName : claimDeviceId;
+                            final online = connectedDevices[claimDeviceId]?.isOnline == true;
                             return online ? name : '$name \u00B7 disconnected';
                           }();
                           final claimStyle = subtitleStyle?.copyWith(

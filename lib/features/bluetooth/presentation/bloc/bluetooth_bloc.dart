@@ -83,6 +83,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   bool _wasBluetoothOff = false; // Keep global — adapter state is global
   final Map<String, int> _reconnectAttempts = {};
 
+  // Per-device claim queue: serializes fire-and-forget atomicClaimSwap calls
+  // so they execute in order, preventing stale-release race conditions.
+  final Map<String, Future<void>> _claimQueues = {};
+
   /// Maximum reconnect delay in seconds (caps exponential growth)
   static const int _maxReconnectDelaySeconds = 60;
 
@@ -516,6 +520,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     _reconnectTimers[deviceId]?.cancel();
     _reconnectTimers.remove(deviceId);
     _reconnectAttempts.remove(deviceId);
+    _claimQueues.remove(deviceId);
 
     // Don't await these - they can hang if the stream is mid-emission
     _messageSubscriptions[deviceId]?.cancel();
@@ -1073,6 +1078,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       _reconnectTimers[event.deviceInstanceId]?.cancel();
       _reconnectTimers.remove(event.deviceInstanceId);
       _reconnectAttempts.remove(event.deviceInstanceId);
+      _claimQueues.remove(event.deviceInstanceId);
 
       await _bluetoothRepository.disconnect(deviceState.device.id);
     }
@@ -1456,23 +1462,23 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) async {
     if (state.connectedDevices[event.deviceInstanceId] == null) return;
 
-    // Fire-and-forget: don't block the BLoC event queue on the Firestore
-    // transaction. The UI already has an optimistic update from SendSelectedItem,
-    // and the watchItems stream will reflect the confirmed claim.
+    // Fire-and-forget but SERIALIZED per device: each claim waits for the
+    // previous one to complete before starting, preventing out-of-order
+    // Firestore transactions that would leave stale claims behind.
     final previousItemId = event.previousItemId;
     final deviceInstanceId = event.deviceInstanceId;
     final fromDeviceEcho = event.fromDeviceEcho;
     final itemId = event.itemId;
 
-    _itemRepository.atomicClaimSwap(
-      itemId, deviceInstanceId, previousItemId,
-    ).then((result) {
+    final previous = _claimQueues[deviceInstanceId] ?? Future.value();
+    _claimQueues[deviceInstanceId] = previous.then((_) async {
+      final result = await _itemRepository.atomicClaimSwap(
+        itemId, deviceInstanceId, previousItemId,
+      );
       result.fold(
         (failure) {
           AppLogger.debug('Claim failed for $itemId: ${failure.message}');
           // Corrective push: revert device to the correct item list + selection.
-          // The optimistic selectedItemId in BLoC state will be corrected when
-          // the corrective push completes (via RefreshDeviceItems).
           _refreshDeviceItems.call(RefreshDeviceItemsParams(
             deviceId: deviceInstanceId,
             deviceInstanceId: deviceInstanceId,

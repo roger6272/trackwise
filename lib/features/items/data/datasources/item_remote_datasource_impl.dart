@@ -869,17 +869,29 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
   @override
   Future<void> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId) async {
+    // Query for this device's ACTUAL current claim in Firestore.
+    // The previousItemId from BLoC dispatch can be stale after conflicts,
+    // so we always use the real Firestore state. Safe because per-device
+    // claim queue serializes calls — no concurrent modifications.
+    final currentClaimQuery = await firestore.collection('Item')
+        .where('claimed_by', isEqualTo: deviceInstanceId)
+        .limit(1)
+        .get();
+    final actualPrevId = currentClaimQuery.docs.isNotEmpty
+        ? currentClaimQuery.docs.first.id
+        : null;
+
     try {
       await firestore.runTransaction((transaction) async {
         // Firestore requires ALL reads before ANY writes in a transaction.
         final newRef = firestore.collection('Item').doc(newItemId);
         final newSnapshot = await transaction.get(newRef);
 
-        final hasPrevious = previousItemId != null && previousItemId != newItemId;
+        final hasPrevious = actualPrevId != null && actualPrevId != newItemId;
         DocumentSnapshot? prevSnapshot;
         if (hasPrevious) {
           prevSnapshot = await transaction.get(
-            firestore.collection('Item').doc(previousItemId));
+            firestore.collection('Item').doc(actualPrevId));
         }
 
         // Validate new item
@@ -892,7 +904,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           throw ClaimConflictException('Item already claimed by $currentClaim');
         }
 
-        // Release previous item only if we own it
+        // Release previous item only if we still own it
         if (hasPrevious && prevSnapshot != null) {
           final prevData = prevSnapshot.data() as Map<String, dynamic>?;
           if (prevData != null && prevData['claimed_by'] == deviceInstanceId) {
