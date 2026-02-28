@@ -2177,6 +2177,17 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final bluetoothState = context.read<BluetoothBloc>().state;
     if (!bluetoothState.isConnected) return;
 
+    final isMultiDevice = bluetoothState.connectedDevices.length > 1;
+
+    if (isMultiDevice) {
+      _lastSyncedSignature = _computeCategorySignature(
+        current.items.toList()..sort((a, b) => a.id.compareTo(b.id)),
+      );
+      _lastSyncedCategoryId = null;
+      _lastSyncTime = DateTime.now();
+      return;
+    }
+
     final selectedId = bluetoothState.selectedItemId;
     if (selectedId == null || selectedId.isEmpty) return;
 
@@ -2207,11 +2218,40 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final bluetoothState = context.read<BluetoothBloc>().state;
     if (!bluetoothState.isConnected) return;
 
-    // Multi-device: use RefreshDeviceItemsUseCase which applies claim filtering.
-    // _checkDeviceSync's signature-based change detection still works to avoid
-    // redundant pushes — only the delivery mechanism differs.
     final isMultiDevice = bluetoothState.connectedDevices.length > 1;
 
+    // Debounce: skip if synced recently (within 500ms)
+    final now = DateTime.now();
+    final recentlySynced = _lastSyncTime != null &&
+        now.difference(_lastSyncTime!).inMilliseconds < 500;
+    // After connection, suppress for 5s — BLoC handles initial push via
+    // override or _refreshDeviceItems; this prevents a redundant second push.
+    final justConnected = _deviceConnectedAt != null &&
+        now.difference(_deviceConnectedAt!).inSeconds < 5;
+
+    if (isMultiDevice) {
+      // Multi-device: use a global items signature. Each device's
+      // RefreshDeviceItemsUseCase resolves its own category independently,
+      // so we just need to detect *any* items change and push to all.
+      final anyDeviceHasSelection = bluetoothState.connectedDevices.values
+          .any((d) => d.selectedItemId != null && d.selectedItemId!.isNotEmpty);
+      if (!anyDeviceHasSelection) return;
+
+      final globalSignature = _computeCategorySignature(
+        current.items.toList()..sort((a, b) => a.id.compareTo(b.id)),
+      );
+      if (globalSignature != _lastSyncedSignature) {
+        if (!recentlySynced && !justConnected) {
+          _lastSyncTime = now;
+          context.read<BluetoothBloc>().add(const RefreshAllDevices());
+        }
+        _lastSyncedSignature = globalSignature;
+        _lastSyncedCategoryId = null;
+      }
+      return;
+    }
+
+    // Single-device: category-scoped signature detection
     final selectedId = bluetoothState.selectedItemId;
     if (selectedId == null || selectedId.isEmpty) return;
 
@@ -2228,15 +2268,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     final currentSignature = _computeCategorySignature(currentCategoryItems);
 
-    // Debounce: skip if synced recently (within 500ms)
-    final now = DateTime.now();
-    final recentlySynced = _lastSyncTime != null &&
-        now.difference(_lastSyncTime!).inMilliseconds < 500;
-    // After connection, suppress for 5s — BLoC handles initial push via
-    // override or _refreshDeviceItems; this prevents a redundant second push.
-    final justConnected = _deviceConnectedAt != null &&
-        now.difference(_deviceConnectedAt!).inSeconds < 5;
-
     final categoryChanged = _lastSyncedCategoryId != selectedCatId;
     final signatureChanged = currentSignature != _lastSyncedSignature;
 
@@ -2244,28 +2275,21 @@ class _ItemsListContentState extends State<_ItemsListContent>
       if (!recentlySynced && !justConnected) {
         _lastSyncTime = now;
         final btBloc = context.read<BluetoothBloc>();
-        if (isMultiDevice) {
-          // Multi-device: use RefreshDeviceItemsUseCase for claim filtering
-          btBloc.add(const RefreshAllDevices());
-        } else {
-          btBloc.add(SendItemsToDevice(
-            currentCategoryItems,
-            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
-            categoryNames: _cachedCategoryNames,
+        btBloc.add(SendItemsToDevice(
+          currentCategoryItems,
+          deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+          categoryNames: _cachedCategoryNames,
+        ));
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!mounted) return;
+          final btBloc2 = context.read<BluetoothBloc>();
+          btBloc2.add(SendSelectedItem(
+            selectedId,
+            selectedItem.deviceItemId ?? 0,
+            deviceInstanceId: btBloc2.state.connectedDeviceInstanceId ?? '',
           ));
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (!mounted) return;
-            final btBloc2 = context.read<BluetoothBloc>();
-            btBloc2.add(SendSelectedItem(
-              selectedId,
-              selectedItem.deviceItemId ?? 0,
-              deviceInstanceId: btBloc2.state.connectedDeviceInstanceId ?? '',
-            ));
-          });
-        }
+        });
       }
-      // Always update signature so debounced changes don't trigger
-      // a stale re-sync on the next unrelated state change
       _lastSyncedSignature = currentSignature;
       _lastSyncedCategoryId = selectedCatId;
     }
