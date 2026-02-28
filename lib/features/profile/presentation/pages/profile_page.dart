@@ -17,8 +17,6 @@ import '../../../bluetooth/domain/repositories/bluetooth_repository.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_event.dart';
 import '../../../bluetooth/presentation/bloc/bluetooth_state.dart';
-import '../../../bluetooth/presentation/utils/device_sync_helper.dart';
-import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../../items/domain/repositories/item_repository.dart';
 import '../bloc/profile_bloc.dart';
@@ -216,11 +214,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               context,
                               icon: Icons.restart_alt_outlined,
                               title: 'Start New Cycle',
-                              subtitle: isConnected ? null : 'Requires device connection',
-                              enabled: isConnected,
-                              onTap: isConnected
-                                  ? () => _showStartNewCycleDialog(context)
-                                  : null,
+                              onTap: () => _showStartNewCycleDialog(context),
                             ),
                             _buildDivider(context),
                             _buildSettingItem(
@@ -764,6 +758,13 @@ class _ProfilePageState extends State<ProfilePage> {
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
+    // Check for disconnected paired devices to warn user
+    final btState = context.read<BluetoothBloc>().state;
+    final disconnectedDevices = btState.pairedDevices.where((pd) {
+      final conn = btState.connectedDevices[pd.deviceInstanceId];
+      return conn == null || !conn.isOnline;
+    }).toList();
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -808,6 +809,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            if (disconnectedDevices.isNotEmpty) ...[
+              const SizedBox(height: 12.0),
+              Text(
+                'Note: ${disconnectedDevices.length == 1 ? '1 device is' : '${disconnectedDevices.length} devices are'} '
+                'currently disconnected. Any unsynced counts on ${disconnectedDevices.length == 1 ? 'that device' : 'those devices'} '
+                'will be discarded when ${disconnectedDevices.length == 1 ? 'it reconnects' : 'they reconnect'}.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.warning,
+                  fontSize: 13.0,
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -903,23 +916,9 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     if (resetItems != null && resetItems!.isNotEmpty) {
-      // Sync to device
+      // Sync reset items to all connected devices
       if (bluetoothBloc.state.isConnected) {
-        // Get category names for device sync
-        final categoryRepository = sl<CategoryRepository>();
-        final categoriesResult = await categoryRepository.getCategories(userId);
-        final categoryNames = categoriesResult.fold(
-          (_) => <String, String>{},
-          (categories) => {for (final c in categories) c.id: c.name},
-        );
-
-        syncItemsToDevice(
-          bluetoothBloc: bluetoothBloc,
-          allItems: resetItems!,
-          deviceSelectedId: bluetoothBloc.state.selectedItemId,
-          categoryNames: categoryNames,
-          deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
-        );
+        bluetoothBloc.add(const RefreshAllDevices());
       }
 
       scaffoldMessenger.showSnackBar(
