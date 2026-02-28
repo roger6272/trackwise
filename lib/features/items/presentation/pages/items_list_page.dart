@@ -2253,7 +2253,22 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     // Single-device: category-scoped signature detection
     final selectedId = bluetoothState.selectedItemId;
-    if (selectedId == null || selectedId.isEmpty) return;
+    if (selectedId == null || selectedId.isEmpty) {
+      // No selection — fall back to global signature like multi-device path.
+      // RefreshDeviceItemsUseCase resolves category from claimedBy or cache.
+      final globalSignature = _computeCategorySignature(
+        current.items.toList()..sort((a, b) => a.id.compareTo(b.id)),
+      );
+      if (globalSignature != _lastSyncedSignature) {
+        if (!recentlySynced && !justConnected) {
+          _lastSyncTime = now;
+          context.read<BluetoothBloc>().add(const RefreshAllDevices());
+        }
+        _lastSyncedSignature = globalSignature;
+        _lastSyncedCategoryId = null;
+      }
+      return;
+    }
 
     final selectedItem = current.items
         .where((i) => i.id == selectedId)
