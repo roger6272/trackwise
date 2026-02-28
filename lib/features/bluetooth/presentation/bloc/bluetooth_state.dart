@@ -60,6 +60,10 @@ class BluetoothState extends Equatable {
   /// Has 0 or 1 entries in current single-device mode.
   final Map<String, DeviceConnectionState> connectedDevices;
 
+  /// True when the most recent disconnect was user-initiated.
+  /// Used by AppShell to suppress "Reconnecting..." snackbar on manual disconnect.
+  final bool lastDisconnectWasManual;
+
   const BluetoothState({
     this.status = BluetoothStatus.initial,
     this.discoveredDevices = const [],
@@ -69,6 +73,7 @@ class BluetoothState extends Equatable {
     this.bluetoothEnabled = false,
     this.pairedDevices = const [],
     this.connectedDevices = const {},
+    this.lastDisconnectWasManual = false,
   });
 
   /// Creates a copy of this state with the given fields replaced.
@@ -81,6 +86,7 @@ class BluetoothState extends Equatable {
     bool? bluetoothEnabled,
     List<PairedDevice>? pairedDevices,
     Map<String, DeviceConnectionState>? connectedDevices,
+    bool? lastDisconnectWasManual,
     bool clearConnectingDeviceId = false,
     bool clearErrorMessage = false,
   }) {
@@ -93,6 +99,7 @@ class BluetoothState extends Equatable {
       bluetoothEnabled: bluetoothEnabled ?? this.bluetoothEnabled,
       pairedDevices: pairedDevices ?? this.pairedDevices,
       connectedDevices: connectedDevices ?? this.connectedDevices,
+      lastDisconnectWasManual: lastDisconnectWasManual ?? this.lastDisconnectWasManual,
     );
   }
 
@@ -201,6 +208,7 @@ class BluetoothState extends Equatable {
         bluetoothEnabled,
         pairedDevices,
         connectedDevices,
+        lastDisconnectWasManual,
       ];
 
   @override

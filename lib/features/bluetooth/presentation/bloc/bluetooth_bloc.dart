@@ -547,6 +547,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         status: BluetoothStatus.ready,
         connectedDevices: _removeDevice(deviceId),
         clearConnectingDeviceId: true,
+        lastDisconnectWasManual: true,
       )),
     );
   }
@@ -595,12 +596,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       // Perform initial sync
       _performInitialSync(event.deviceInstanceId);
     } else {
-      // Disconnected
+      // Disconnected (unexpected — manual disconnects go through _onDisconnect)
       final deviceId = event.deviceInstanceId;
       emit(state.copyWith(
         status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
         connectedDevices: _removeDevice(deviceId),
         clearConnectingDeviceId: true,
+        lastDisconnectWasManual: false,
       ));
 
       // Auto-reconnect if not manual disconnect (with exponential backoff)

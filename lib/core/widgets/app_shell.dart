@@ -29,11 +29,12 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // Detect unexpected disconnect
+        // Detect unexpected disconnect (skip manual disconnects)
         BlocListener<BluetoothBloc, BluetoothState>(
           listenWhen: (prev, curr) =>
               prev.isConnected && !curr.isConnected,
           listener: (context, state) {
+            if (state.lastDisconnectWasManual) return;
             _awaitingReconnect = true;
             showInfoSnackBar(context, 'Device disconnected. Reconnecting...');
           },
