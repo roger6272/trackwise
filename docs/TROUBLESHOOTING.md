@@ -870,18 +870,30 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 
 ### 10.5 "Item switch is slow / claim colors update sequentially"
 
-**Symptoms:** When tapping a different item to switch the device's active item, the UI feels slow. The new item gets the claim color first, then the old item loses its color a moment later (or vice versa). The two visual changes don't happen simultaneously.
+**Symptoms:** When tapping a different item to switch the device's active item, the UI feels slow. The new item gets the claim color first, then the old item loses its color a moment later (or vice versa). Multiple unclaimed items may also show device colors.
 
-**Root Cause (slowness):** `_onClaimItem` in `bluetooth_bloc.dart` was `await`ing the `atomicClaimSwap` Firestore transaction (~200-500ms network round-trip), blocking the entire BLoC event queue. During that time, no other BLoC events (incoming BLE messages, etc.) could be processed.
+**Root Cause (slowness):** `_onClaimItem` in `bluetooth_bloc.dart` was `await`ing the `atomicClaimSwap` Firestore transaction (~200-500ms network round-trip), blocking the entire BLoC event queue.
 
-**Root Cause (sequential colors):** The claim color rendering in `items_list_page.dart` was driven solely by `item.claimedBy` from the Firestore `watchItems` stream. Even though `atomicClaimSwap` updates both documents in one transaction, the stream may deliver two separate snapshots — one for the new item's `claimedBy` being set, another for the old item's `claimedBy` being cleared. This caused the color changes to appear in different render frames.
+**Root Cause (sequential colors):** During a switch A→B, BLoC `selectedItemId` updates instantly but Firestore `claimedBy` takes 200-500ms. Without suppression, both old item (via `claimedBy`) and new item (via `selectedItemId`) show color simultaneously during that window.
 
-**Fix Applied:**
-1. **Fire-and-forget claim:** `_onClaimItem` no longer awaits the Firestore transaction. The `SendSelectedItem` optimistic emit already updates the device instantly. The Firestore write runs in the background; `watchItems` confirms the UI when it arrives. On failure, a corrective `RefreshDeviceItems` push reverts the device.
+**Root Cause (stale claims on multiple items):** `_claimForDevice` sourced `previousItemId` from BLoC `selectedItemId`, which can be null on first activation after reconnect. When null, `atomicClaimSwap` claimed the new item but never released the old one, causing `claimedBy` to accumulate on multiple items.
 
-2. **Claim colors use Firestore `claimedBy` only.** An optimistic approach (deriving claim colors from BLoC `selectedItemId`) was attempted but reverted — it conflates UI selection state with Firestore ownership state. These diverge on disconnect, reconnect, and prefs echoes, causing incorrect colors on offline devices. The fire-and-forget fix alone reduces the perceptible delay enough that the sequential color update is acceptable.
+**Fix Applied (3 layers):**
 
-**Key Lesson:** Don't use optimistic local state to drive UI that depends on server-authoritative ownership. `selectedItemId` (which item the user tapped) and `claimedBy` (which device owns the item in Firestore) are different concepts that diverge when devices go offline. Firestore `claimedBy` is the sole source of truth for claim colors.
+1. **Fire-and-forget claim:** `_onClaimItem` no longer awaits the Firestore transaction. The `SendSelectedItem` optimistic emit updates BLoC state instantly. Firestore writes run in the background; `watchItems` confirms when done. On failure, a corrective `RefreshDeviceItems` push reverts the device.
+
+2. **Reliable `previousItemId`:** `_claimForDevice` now finds the previous claim from the in-memory items list (`itemsState.items.firstWhere(i.claimedBy == deviceId)`) instead of BLoC `selectedItemId`. This is an O(n) in-memory scan with zero network cost, and always reflects actual Firestore state from the `watchItems` stream.
+
+3. **Stale claim suppression:** `items_list_page.dart` suppresses the old item's `claimedBy` color when the claiming device is online and has actively selected a different item (`claimBeingReleased`). Safe because:
+   - **Offline devices:** suppression doesn't apply (gated on `isOnline`)
+   - **No selection yet:** suppression doesn't apply (gated on `selectedItemId != null`)
+   - **Matching selection:** suppression doesn't apply (`selectedItemId == item.id`)
+
+Both items re-render in the same frame: new item gains color via `isActivated`, old item loses color via `claimBeingReleased`.
+
+**Ownership check in `atomicClaimSwap`:** The transaction reads `previousItemId` and verifies `claimed_by == deviceInstanceId` before releasing. Prevents releasing another device's claim on the failure-recovery path (corrective push → device echo → re-claim with stale `previousItemId`).
+
+**Key Lesson:** When using optimistic local state to suppress server-authoritative UI, gate the suppression on connection status. `selectedItemId` and `claimedBy` diverge when devices go offline — suppression must only apply to online devices with an active selection. Separately, always source `previousItemId` from the actual data (items list), not from derived BLoC state that may be null or stale.
 
 ---
 
@@ -922,4 +934,4 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 | Device wiped but account not deleted | Cleanup must run AFTER `user.delete()` — see ADR-004 |
 | Previous cycle shows "Now" after reset | Stale events — `_updateIntervalsFromEvents` patches endTime from `_lastResetTime` |
 | Reset events missing from export | Field name mismatch — `'eventName'` vs `'event_name'` in `resetAllItems()` batch write |
-| Item switch slow / colors flicker | `_onClaimItem` was blocking on Firestore — use fire-and-forget; claim colors from Firestore `claimedBy` only |
+| Item switch slow / colors flicker | Fire-and-forget claim + reliable `previousItemId` from items list + `claimBeingReleased` suppression for instant same-frame update |
