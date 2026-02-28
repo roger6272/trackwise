@@ -1401,7 +1401,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
         '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}').join(',');
       _lastSyncTime = DateTime.now();
     }
-    final prevId = btState.connectedDevices[deviceId]?.selectedItemId;
+    // Source previousItemId from actual Firestore state (items in memory),
+    // not BLoC selectedItemId which can be null on first activation after reconnect.
+    final prevId = (itemsState is ItemsLoaded)
+        ? itemsState.items.cast<Item?>().firstWhere(
+            (i) => i!.claimedBy == deviceId && i.id != item.id,
+            orElse: () => null,
+          )?.id
+        : btState.connectedDevices[deviceId]?.selectedItemId;
     final btBloc = context.read<BluetoothBloc>();
     btBloc.add(SendSelectedItem(item.id, item.deviceItemId ?? 0, deviceInstanceId: deviceId));
     btBloc.add(ClaimItem(itemId: item.id, deviceInstanceId: deviceId, previousItemId: prevId));

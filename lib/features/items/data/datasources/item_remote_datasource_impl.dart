@@ -870,28 +870,16 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   @override
   Future<void> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId) async {
     try {
-      // Query ALL items currently claimed by this device (outside transaction).
-      // This ensures stale claims are released even when previousItemId is null
-      // or stale (e.g. first activation after reconnect, or BLoC selectedItemId
-      // not yet populated).
-      final claimedQuery = await firestore.collection('Item')
-          .where('claimed_by', isEqualTo: deviceInstanceId)
-          .get();
-      final claimedIds = claimedQuery.docs
-          .map((d) => d.id)
-          .where((id) => id != newItemId)
-          .toList();
-
       await firestore.runTransaction((transaction) async {
         // Firestore requires ALL reads before ANY writes in a transaction.
         final newRef = firestore.collection('Item').doc(newItemId);
         final newSnapshot = await transaction.get(newRef);
 
-        // Read all currently-claimed items to verify ownership before releasing
-        final claimedSnapshots = <String, DocumentSnapshot>{};
-        for (final id in claimedIds) {
-          final ref = firestore.collection('Item').doc(id);
-          claimedSnapshots[id] = await transaction.get(ref);
+        final hasPrevious = previousItemId != null && previousItemId != newItemId;
+        DocumentSnapshot? prevSnapshot;
+        if (hasPrevious) {
+          prevSnapshot = await transaction.get(
+            firestore.collection('Item').doc(previousItemId));
         }
 
         // Validate new item
@@ -904,11 +892,11 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           throw ClaimConflictException('Item already claimed by $currentClaim');
         }
 
-        // Release all items this device currently claims
-        for (final entry in claimedSnapshots.entries) {
-          final data = entry.value.data() as Map<String, dynamic>?;
-          if (data != null && data['claimed_by'] == deviceInstanceId) {
-            transaction.update(entry.value.reference, {
+        // Release previous item only if we own it
+        if (hasPrevious && prevSnapshot != null) {
+          final prevData = prevSnapshot.data() as Map<String, dynamic>?;
+          if (prevData != null && prevData['claimed_by'] == deviceInstanceId) {
+            transaction.update(prevSnapshot.reference, {
               'claimed_by': null,
               'claimed_at': null,
             });
