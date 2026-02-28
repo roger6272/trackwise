@@ -66,8 +66,9 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
   final EventLogRepository eventLogRepository;
 
   /// Cache of deviceItemId -> Firestore ID mapping.
-  /// Built from items on first use, refreshed when items change.
+  /// Built on first use, refreshed on prefs or cache miss.
   Map<int, String> _deviceItemIdMap = {};
+  String _mappingUserId = '';
 
   SyncDeviceDataUseCase(this.itemRepository, this.eventLogRepository);
 
@@ -83,6 +84,7 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
           for (final item in items)
             if (item.deviceItemId != null) item.deviceItemId!: item.id
         };
+        _mappingUserId = userId;
         AppLogger.debug('Built deviceItemId mapping: ${_deviceItemIdMap.length} items');
       },
     );
@@ -95,16 +97,26 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
     return _deviceItemIdMap[deviceItemId];
   }
 
+  /// Looks up Firestore ID, rebuilding cache on miss in case items changed.
+  Future<String?> _getFirestoreIdWithRetry(int? deviceItemId, String userId) async {
+    final result = _getFirestoreId(deviceItemId);
+    if (result != null || deviceItemId == null || deviceItemId < 0) return result;
+    // Cache miss on a valid ID — items may have changed, rebuild and retry
+    await _buildMapping(userId);
+    return _deviceItemIdMap[deviceItemId];
+  }
+
   @override
   Future<Either<Failure, SyncDeviceDataResult>> call(SyncDeviceDataParams params) async {
     final message = params.message;
     final userId = params.userId;
 
-    // Build/refresh mapping for messages that need ID translation
+    // Build mapping on first use, user change, or prefs (initial sync).
+    // Reuse cache for event/itemDelta/logs to avoid a Firestore read per message.
+    // Cache misses on valid deviceItemIds trigger a lazy rebuild (see _getFirestoreIdWithRetry).
     if (message.type == BleMessageType.prefs ||
-        message.type == BleMessageType.event ||
-        message.type == BleMessageType.logs ||
-        message.type == BleMessageType.itemDelta) {
+        _deviceItemIdMap.isEmpty ||
+        _mappingUserId != userId) {
       await _buildMapping(userId);
     }
 
@@ -237,13 +249,15 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
       // Get deviceItemId - may be in 'deviceItemId' (new) or 'itemId' (as int)
       final deviceItemId = eventData['deviceItemId'] as int? ??
           (eventData['itemId'] is int ? eventData['itemId'] as int : null);
-      final firestoreId = _getFirestoreId(deviceItemId);
 
       // For switch events, extract the selected item but don't create EventLog
       if (eventName == 'switch') {
-        selectedFirestoreId = firestoreId;
+        // Use retry lookup — items may have been added since cache was built
+        selectedFirestoreId = await _getFirestoreIdWithRetry(deviceItemId, userId);
         continue;
       }
+
+      final firestoreId = _getFirestoreId(deviceItemId);
 
       if (firestoreId == null) continue;
 
@@ -368,7 +382,7 @@ class SyncDeviceDataUseCase extends UseCase<SyncDeviceDataResult, SyncDeviceData
 
     // Get deviceItemId - stored as 'deviceItemId' by ble_message_model
     final deviceItemId = data['deviceItemId'] as int?;
-    final firestoreId = _getFirestoreId(deviceItemId);
+    final firestoreId = await _getFirestoreIdWithRetry(deviceItemId, userId);
     if (firestoreId == null) return const Right(SyncDeviceDataResult());
 
     final count = data['count'] as int? ?? 0;
