@@ -1473,21 +1473,31 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       final result = await _itemRepository.atomicClaimSwap(
         itemId, deviceInstanceId, previousItemId,
       );
-      result.fold(
-        (failure) {
-          AppLogger.debug('Claim failed for $itemId: ${failure.message}');
-          // Corrective push: revert device to the correct item list + selection.
-          _refreshAndUpdateCategory(deviceInstanceId, previousItemId);
-        },
-        (_) {
-          AppLogger.debug('Claimed item $itemId for device $deviceInstanceId'
-              '${fromDeviceEcho ? ' (echo, no push)' : ''}');
-          if (!fromDeviceEcho) {
-            _pushToOtherDevices(deviceInstanceId,
-                sourceCategoryId: _deviceCategories[deviceInstanceId]);
-          }
-        },
-      );
+      if (result.isLeft()) {
+        final failure = result.fold((f) => f, (_) => throw StateError('unreachable'));
+        AppLogger.debug('Claim failed for $itemId: ${failure.message}');
+        // Corrective push: revert device to the correct item list + selection.
+        _refreshAndUpdateCategory(deviceInstanceId, previousItemId);
+        return;
+      }
+      AppLogger.debug('Claimed item $itemId for device $deviceInstanceId'
+          '${fromDeviceEcho ? ' (echo, no push)' : ''}');
+      if (!fromDeviceEcho) {
+        // Resolve source device's category (lightweight, no BLE send) before
+        // deciding which other devices need a push. This ensures the cache
+        // is up-to-date after a cross-category switch.
+        final r = await _refreshDeviceItems.resolveCategory(RefreshDeviceItemsParams(
+          deviceId: deviceInstanceId,
+          deviceInstanceId: deviceInstanceId,
+          selectedItemId: itemId,
+        ));
+        r.fold(
+          (f) => AppLogger.debug('Category lookup failed for $deviceInstanceId: ${f.message}'),
+          (categoryId) => _deviceCategories[deviceInstanceId] = categoryId,
+        );
+        _pushToOtherDevices(deviceInstanceId,
+            sourceCategoryId: _deviceCategories[deviceInstanceId]);
+      }
     });
   }
 

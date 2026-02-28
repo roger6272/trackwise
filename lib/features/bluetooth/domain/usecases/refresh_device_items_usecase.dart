@@ -111,6 +111,44 @@ class RefreshDeviceItemsUseCase {
     return Right(RefreshDeviceItemsResult(categoryId: categoryId));
   }
 
+  /// Lightweight category lookup — determines which category a device is in
+  /// based on its selected item, WITHOUT sending any BLE data.
+  Future<Either<Failure, String>> resolveCategory(RefreshDeviceItemsParams params) async {
+    final userResult = await _userRepository.getCurrentUser();
+    if (userResult.isLeft()) {
+      return userResult.fold(
+        (f) => Left(f),
+        (_) => const Left(ServerFailure('Failed to get user')),
+      );
+    }
+    final user = userResult.getOrElse(() => throw StateError('User should exist'));
+
+    final itemsResult = await _itemRepository.getItems(user.id);
+    if (itemsResult.isLeft()) {
+      return itemsResult.fold(
+        (f) => Left(f),
+        (_) => const Left(ServerFailure('Failed to fetch items')),
+      );
+    }
+    final allItems = itemsResult.getOrElse(() => []);
+    final syncedItems = allItems.where((i) => i.deviceItemId != null).toList();
+
+    Item? selectedItem;
+    if (params.selectedItemId != null) {
+      selectedItem = syncedItems.cast<Item?>().firstWhere(
+        (i) => i?.id == params.selectedItemId,
+        orElse: () => null,
+      );
+    }
+    selectedItem ??= syncedItems.cast<Item?>().firstWhere(
+      (i) => i?.claimedBy == params.deviceInstanceId,
+      orElse: () => null,
+    );
+    selectedItem ??= syncedItems.isNotEmpty ? syncedItems.first : null;
+
+    return Right(selectedItem?.categoryId ?? '');
+  }
+
   Future<Map<String, String>> _buildCategoryNameMap(String userId) async {
     final result = await _categoryRepository.getCategories(userId);
     return result.fold(
