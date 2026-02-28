@@ -348,21 +348,20 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           // Search field (between category filter and pin chip)
                           if (_isSearching)
                             _buildSearchField(context, primaryText, secondaryText, alternate),
-                          // Active item chip (shows when connected with active item)
+                          // Active item chips (one per connected device)
                           BlocSelector<ItemsBloc, ItemsState, ItemsLoaded?>(
                             selector: (state) => state is ItemsLoaded ? state : null,
                             builder: (context, itemsState) {
                               if (!isConnected || itemsState == null) {
                                 return const SizedBox.shrink();
                               }
-                              return _buildActiveItemChip(
+                              return _buildActiveItemChips(
                                 context,
                                 itemsState,
                                 bluetoothState,
                                 appUiState,
                                 primaryText,
                                 secondaryText,
-                                alternate,
                               );
                             },
                           ),
@@ -1174,98 +1173,160 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
-  Widget _buildActiveItemChip(
+  Widget _buildActiveItemChips(
     BuildContext context,
     ItemsLoaded itemsState,
     BluetoothState bluetoothState,
     AppUiState appUiState,
     Color primaryText,
     Color secondaryText,
-    Color alternate,
   ) {
-    // Get the active item ID from device or fallback to app state
-    final activeId = bluetoothState.selectedItemId ?? appUiState.activeItemId;
-    if (activeId.isEmpty) return const SizedBox.shrink();
-
-    // Find the active item in the items list
-    final activeItem = itemsState.items.where((i) => i.id == activeId).firstOrNull;
-    if (activeItem == null) return const SizedBox.shrink();
-
-    // Check if we're already viewing the active item's category
+    final brightness = Theme.of(context).brightness;
     final currentCategoryId = itemsState.selectedCategoryId;
-    final activeCategoryId = activeItem.categoryId;
-    final isUncategorized = activeCategoryId == null || activeCategoryId.isEmpty;
-    // Show navigation arrow unless already viewing the exact category
-    // In "All" view (null), always show arrow to navigate to the specific category
-    final isInCurrentCategory =
-        (currentCategoryId == '' && isUncategorized) || // viewing uncategorized filter
-        (currentCategoryId != null && currentCategoryId == activeCategoryId); // viewing exact category
 
-    // Get category name from cached map
-    String categoryName = 'Uncategorized';
-    if (activeCategoryId != null && activeCategoryId.isNotEmpty) {
-      categoryName = _cachedCategoryNames[activeCategoryId] ?? 'Uncategorized';
+    // Build one chip per connected device that has a selected item.
+    final chips = <Widget>[];
+    for (final entry in bluetoothState.connectedDevices.entries) {
+      final deviceId = entry.key;
+      final selectedItemId = entry.value.selectedItemId;
+      if (selectedItemId == null || selectedItemId.isEmpty) continue;
+
+      final activeItem = itemsState.items.where((i) => i.id == selectedItemId).firstOrNull;
+      if (activeItem == null) continue;
+
+      // Resolve device color
+      final pairedIdx = bluetoothState.pairedDevices.indexWhere((d) => d.deviceInstanceId == deviceId);
+      final chipColor = pairedIdx >= 0
+          ? AppColors.deviceColor(bluetoothState.pairedDevices[pairedIdx].color, brightness)
+          : AppColors.actionActivate;
+
+      // Category info
+      final activeCategoryId = activeItem.categoryId;
+      final isUncategorized = activeCategoryId == null || activeCategoryId.isEmpty;
+      final isInCurrentCategory =
+          (currentCategoryId == '' && isUncategorized) ||
+          (currentCategoryId != null && currentCategoryId == activeCategoryId);
+
+      String categoryName = 'Uncategorized';
+      if (activeCategoryId != null && activeCategoryId.isNotEmpty) {
+        categoryName = _cachedCategoryNames[activeCategoryId] ?? 'Uncategorized';
+      }
+
+      chips.add(_buildSingleActiveChip(
+        context,
+        itemName: activeItem.name,
+        categoryName: categoryName,
+        chipColor: chipColor,
+        isInCurrentCategory: isInCurrentCategory,
+        secondaryText: secondaryText,
+        onTap: isInCurrentCategory ? null : () {
+          final targetCategoryId = isUncategorized ? '' : activeCategoryId!;
+          context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
+          context.read<AppUiState>().selectedCategoryId = targetCategoryId;
+        },
+      ));
     }
 
-    // Resolve device color for the active item indicator chip
-    final chipDeviceColor = () {
-      final brightness = Theme.of(context).brightness;
-      if (bluetoothState.connectedDevices.isEmpty) return null;
-      final deviceId = bluetoothState.connectedDevices.keys.first;
-      final idx = bluetoothState.pairedDevices.indexWhere((d) => d.deviceInstanceId == deviceId);
-      if (idx < 0) return null;
-      return AppColors.deviceColor(bluetoothState.pairedDevices[idx].color, brightness);
-    }();
+    // Fallback: single-device mode without connectedDevices entry
+    if (chips.isEmpty) {
+      final activeId = appUiState.activeItemId;
+      if (activeId.isEmpty) return const SizedBox.shrink();
+      final activeItem = itemsState.items.where((i) => i.id == activeId).firstOrNull;
+      if (activeItem == null) return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: GestureDetector(
-        onTap: () {
-          if (!isInCurrentCategory) {
-            // Navigate to the active item's category
-            final targetCategoryId = (activeCategoryId == null || activeCategoryId.isEmpty)
-                ? '' // uncategorized
-                : activeCategoryId;
-            context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
-            context.read<AppUiState>().selectedCategoryId = targetCategoryId;
-          }
+      final activeCategoryId = activeItem.categoryId;
+      final isUncategorized = activeCategoryId == null || activeCategoryId.isEmpty;
+      final isInCurrentCategory =
+          (currentCategoryId == '' && isUncategorized) ||
+          (currentCategoryId != null && currentCategoryId == activeCategoryId);
+
+      String categoryName = 'Uncategorized';
+      if (activeCategoryId != null && activeCategoryId.isNotEmpty) {
+        categoryName = _cachedCategoryNames[activeCategoryId] ?? 'Uncategorized';
+      }
+
+      chips.add(_buildSingleActiveChip(
+        context,
+        itemName: activeItem.name,
+        categoryName: categoryName,
+        chipColor: AppColors.actionActivate,
+        isInCurrentCategory: isInCurrentCategory,
+        secondaryText: secondaryText,
+        onTap: isInCurrentCategory ? null : () {
+          final targetCategoryId = isUncategorized ? '' : activeCategoryId!;
+          context.read<ItemsBloc>().add(FilterByCategoryEvent(targetCategoryId));
+          context.read<AppUiState>().selectedCategoryId = targetCategoryId;
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-          decoration: BoxDecoration(
-            color: (chipDeviceColor ?? AppColors.actionActivate).withAlpha(15),
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.push_pin_rounded,
-                size: 11.0,
-                color: chipDeviceColor ?? AppColors.actionActivate,
+      ));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    // Single chip: no scroll needed
+    if (chips.length == 1) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: chips.first,
+      );
+    }
+
+    // Multiple chips: horizontal scroll row
+    return SizedBox(
+      height: 28.0,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8.0),
+        itemBuilder: (_, i) => chips[i],
+      ),
+    );
+  }
+
+  Widget _buildSingleActiveChip(
+    BuildContext context, {
+    required String itemName,
+    required String categoryName,
+    required Color chipColor,
+    required bool isInCurrentCategory,
+    required Color secondaryText,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        decoration: BoxDecoration(
+          color: chipColor.withAlpha(15),
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.push_pin_rounded,
+              size: 11.0,
+              color: chipColor,
+            ),
+            const SizedBox(width: 4.0),
+            Text(
+              '$itemName · $categoryName',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: secondaryText,
+                fontSize: 11.0,
+                fontWeight: FontWeight.w500,
               ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (!isInCurrentCategory) ...[
               const SizedBox(width: 4.0),
-              Flexible(
-                child: Text(
-                  '${activeItem.name} · $categoryName',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: secondaryText,
-                    fontSize: 11.0,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+              Icon(
+                Icons.arrow_forward_rounded,
+                size: 11.0,
+                color: secondaryText,
               ),
-              if (!isInCurrentCategory) ...[
-                const SizedBox(width: 4.0),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 11.0,
-                  color: secondaryText,
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       ),
     );
