@@ -879,14 +879,9 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 **Fix Applied:**
 1. **Fire-and-forget claim:** `_onClaimItem` no longer awaits the Firestore transaction. The `SendSelectedItem` optimistic emit already updates the device instantly. The Firestore write runs in the background; `watchItems` confirms the UI when it arrives. On failure, a corrective `RefreshDeviceItems` push reverts the device.
 
-2. **Optimistic claim color:** `items_list_page.dart` now computes `optimisticClaimBy` from the BLoC's per-device `selectedItemId` instead of relying solely on Firestore's `claimedBy`. Three-step logic:
-   - If an online device's `selectedItemId` matches this item → treat it as claimed (new item gets color immediately)
-   - If Firestore says device X claims this item, but device X is online with a *different* `selectedItemId` → suppress the stale claim (old item loses color immediately)
-   - Otherwise fall back to Firestore `claimedBy` (offline devices, no active selection)
+2. **Claim colors use Firestore `claimedBy` only.** An optimistic approach (deriving claim colors from BLoC `selectedItemId`) was attempted but reverted — it conflates UI selection state with Firestore ownership state. These diverge on disconnect, reconnect, and prefs echoes, causing incorrect colors on offline devices. The fire-and-forget fix alone reduces the perceptible delay enough that the sequential color update is acceptable.
 
-Both items now re-render in the same frame when `SendSelectedItem` fires its optimistic emit.
-
-**Key Lesson:** When Firestore real-time streams drive UI state, always consider the latency gap. For user-initiated actions where responsiveness matters, use optimistic local state (already available in the BLoC) to drive the UI immediately, and let Firestore confirm asynchronously. For derived visual state like claim colors, don't rely on a single source (`claimedBy`) — cross-reference with the optimistic source (`selectedItemId`) to suppress stale values and apply new values in the same frame.
+**Key Lesson:** Don't use optimistic local state to drive UI that depends on server-authoritative ownership. `selectedItemId` (which item the user tapped) and `claimedBy` (which device owns the item in Firestore) are different concepts that diverge when devices go offline. Firestore `claimedBy` is the sole source of truth for claim colors.
 
 ---
 
@@ -927,4 +922,4 @@ Both items now re-render in the same frame when `SendSelectedItem` fires its opt
 | Device wiped but account not deleted | Cleanup must run AFTER `user.delete()` — see ADR-004 |
 | Previous cycle shows "Now" after reset | Stale events — `_updateIntervalsFromEvents` patches endTime from `_lastResetTime` |
 | Reset events missing from export | Field name mismatch — `'eventName'` vs `'event_name'` in `resetAllItems()` batch write |
-| Item switch slow / colors flicker | `_onClaimItem` was blocking on Firestore — use fire-and-forget + optimistic `selectedItemId` for colors |
+| Item switch slow / colors flicker | `_onClaimItem` was blocking on Firestore — use fire-and-forget; claim colors from Firestore `claimedBy` only |
