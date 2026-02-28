@@ -1553,20 +1553,25 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           overflow: TextOverflow.ellipsis,
                         ),
                         Builder(builder: (context) {
-                          if (item.claimedBy == null) return const SizedBox.shrink();
+                          final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontSize: 11.0, fontStyle: FontStyle.italic);
+                          if (item.claimedBy == null) {
+                            // Reserve line height so tiles are uniform
+                            return Text(' ', style: subtitleStyle);
+                          }
                           final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
                           final claimName = () {
                             final name = idx >= 0 ? pairedDevices[idx].deviceName : item.claimedBy!;
                             final online = connectedDevices[item.claimedBy!]?.isOnline == true;
                             return online ? name : '$name \u00B7 disconnected';
                           }();
-                          final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+                          final claimStyle = subtitleStyle?.copyWith(
                             color: isClaimedOffline
                                     ? AppColors.secondaryText(brightness).withValues(alpha: 0.6)
                                     : claimedColor ?? AppColors.secondaryText(brightness),
-                            fontSize: 11.0, fontStyle: FontStyle.italic);
+                          );
                           return Text(claimName,
-                            style: subtitleStyle,
+                            style: claimStyle,
                             overflow: TextOverflow.ellipsis);
                         }),
                       ],
