@@ -1732,7 +1732,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
       child: Slidable(
           endActionPane: ActionPane(
             motion: const ScrollMotion(),
-            extentRatio: 0.5,
+            extentRatio: (showUnlock && !editable) ? 0.2 : 0.5,
             children: [
             // Multi-device + claimed → Unlock. Otherwise when connected → Activate.
             if (showUnlock)
@@ -1758,30 +1758,28 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   Slidable.of(ctx)?.close();
                 },
               ),
-            // Edit
+            // Edit — hidden for claimed items when claiming device is offline
+            if (editable)
             SlidableAction(
-              backgroundColor: editable ? AppColors.primary : AppColors.actionDisabled,
+              backgroundColor: AppColors.primary,
               icon: Icons.edit,
               autoClose: false,
               onPressed: (ctx) async {
                 HapticFeedback.lightImpact();
                 _dismissActivationHintIfShowing();
                 Slidable.of(ctx)?.close();
-                if (isClaimed && !isConnected) { await _showConnectDeviceDialog(context); return; }
-                if (!editable) return;
                 context.pushNamed(ItemFormPage.routeName, extra: {'item': item});
               },
             ),
-            // Delete
+            // Delete — hidden for claimed items when claiming device is offline
+            if (editable)
             SlidableAction(
-              backgroundColor: editable ? AppColors.actionDelete : AppColors.actionDisabled,
+              backgroundColor: AppColors.actionDelete,
               icon: Icons.delete_outline_rounded,
               autoClose: false,
               onPressed: (ctx) async {
                 HapticFeedback.mediumImpact();
                 _dismissActivationHintIfShowing();
-                if (isClaimed && !isConnected) { await _showConnectDeviceDialog(context); Slidable.of(ctx)?.close(); return; }
-                if (!editable) { Slidable.of(ctx)?.close(); return; }
 
                 // Capture references BEFORE the async dialog
                 final itemsBloc = context.read<ItemsBloc>();
