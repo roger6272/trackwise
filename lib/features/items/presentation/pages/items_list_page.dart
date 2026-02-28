@@ -1460,10 +1460,33 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     final brightness = Theme.of(context).brightness;
 
-    // Resolve device color for claimed items (claimed = selected)
-    final activateColor = () {
+    // Optimistic claim owner: prefer BLoC selectedItemId over Firestore claimedBy
+    // so both old and new items update in the same frame on item switch.
+    final optimisticClaimBy = () {
+      // 1. If an online device actively selects this item, it's the claim owner
+      for (final entry in connectedDevices.entries) {
+        if (entry.value.selectedItemId == item.id && entry.value.isOnline) {
+          return entry.key;
+        }
+      }
+      // 2. If Firestore says device X claims this, but device X is online and
+      //    has actively selected a DIFFERENT item, the claim is being released
       if (item.claimedBy != null) {
-        final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+        final claimDevice = connectedDevices[item.claimedBy!];
+        if (claimDevice != null && claimDevice.isOnline &&
+            claimDevice.selectedItemId != null &&
+            claimDevice.selectedItemId != item.id) {
+          return null; // Suppress stale Firestore claim
+        }
+      }
+      // 3. Fall back to Firestore claimedBy (offline devices, no active selection)
+      return item.claimedBy;
+    }();
+
+    // Resolve device color for claimed items
+    final activateColor = () {
+      if (optimisticClaimBy != null) {
+        final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == optimisticClaimBy);
         if (idx >= 0) return AppColors.deviceColor(pairedDevices[idx].color, brightness);
       }
       // Single-device: use the connected device's color
@@ -1476,10 +1499,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }();
 
     // Claim state — applies regardless of how many devices are connected
-    final isClaimed = item.claimedBy != null;
-    final isClaimedOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
+    final isClaimed = optimisticClaimBy != null;
+    final isClaimedOnline = isClaimed && connectedDevices[optimisticClaimBy!]?.isOnline == true;
     final isClaimedOffline = isClaimed &&
-        (connectedDevices[item.claimedBy!] == null || !connectedDevices[item.claimedBy!]!.isOnline);
+        (connectedDevices[optimisticClaimBy!] == null || !connectedDevices[optimisticClaimBy!]!.isOnline);
     final effectivelyActivated = isActivated || isClaimedOnline;
     final claimedColor = isClaimedOffline
         ? activateColor?.withValues(alpha: 0.35)
@@ -1542,8 +1565,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           overflow: TextOverflow.ellipsis,
                         ),
                         Builder(builder: (context) {
-                          final claimName = _claimDeviceName(item, connectedDevices, pairedDevices);
-                          if (claimName == null) return const SizedBox.shrink();
+                          if (optimisticClaimBy == null) return const SizedBox.shrink();
+                          final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == optimisticClaimBy);
+                          final claimName = () {
+                            final name = idx >= 0 ? pairedDevices[idx].deviceName : optimisticClaimBy;
+                            final online = connectedDevices[optimisticClaimBy]?.isOnline == true;
+                            return online ? name : '$name \u00B7 disconnected';
+                          }();
                           final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: isClaimedOffline
                                     ? AppColors.secondaryText(brightness).withValues(alpha: 0.6)
@@ -1624,12 +1652,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
 
     // Claim-aware action state
-    final editable = isClaimed ? isItemEditable(item.claimedBy, connectedDevices) : isConnected;
+    final editable = isClaimed ? isItemEditable(optimisticClaimBy, connectedDevices) : isConnected;
     final showUnlock = isClaimed;
-    final claimDeviceOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
+    final claimDeviceOnline = isClaimed && connectedDevices[optimisticClaimBy!]?.isOnline == true;
     // Resolve claiming device's color for unlock action
     final claimColor = isClaimed ? () {
-      final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+      final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == optimisticClaimBy);
       if (idx < 0) return null;
       return AppColors.deviceColor(pairedDevices[idx].color, brightness);
     }() : null;
