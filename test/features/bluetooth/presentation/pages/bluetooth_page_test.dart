@@ -156,7 +156,8 @@ void main() {
       expect(find.text('ESP32-Tracker'), findsOneWidget);
     });
 
-    testWidgets('FAB is visible when devices are paired', (tester) async {
+    testWidgets('search button is visible in AppBar when devices are paired',
+        (tester) async {
       when(() => mockBluetoothBloc.state).thenReturn(
         BluetoothState(
           status: BluetoothStatus.ready,
@@ -169,7 +170,7 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.byIcon(Icons.bluetooth_searching), findsOneWidget);
     });
 
     testWidgets('tapping Grant Permissions dispatches event', (tester) async {

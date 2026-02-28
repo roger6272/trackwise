@@ -80,23 +80,25 @@ class _BluetoothPageState extends State<BluetoothPage> {
             ),
             automaticallyImplyLeading: false,
             elevation: 0.0,
+            actions: devices.isNotEmpty
+                ? [
+                    Semantics(
+                      label: 'Search for devices',
+                      child: IconButton(
+                        onPressed: canSearch
+                            ? () =>
+                                context.push(BluetoothSearchPage.routePath)
+                            : null,
+                        icon: const Icon(Icons.bluetooth_searching),
+                        tooltip: 'Find Device',
+                      ),
+                    ),
+                  ]
+                : null,
           ),
           body: devices.isEmpty
               ? _buildEmptyState(context, state)
               : _buildDeviceList(context, state),
-          floatingActionButton: devices.isNotEmpty
-              ? FloatingActionButton(
-                  onPressed: canSearch
-                      ? () => context.push(BluetoothSearchPage.routePath)
-                      : null,
-                  backgroundColor:
-                      canSearch ? AppColors.primary : AppColors.primary.withValues(alpha: 0.4),
-                  child: Icon(
-                    Icons.bluetooth_searching,
-                    color: canSearch ? Colors.white : Colors.white.withValues(alpha: 0.6),
-                  ),
-                )
-              : null,
         );
       },
     );
