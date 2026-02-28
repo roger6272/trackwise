@@ -1460,8 +1460,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Map<String, DeviceConnectionState> connectedDevices = const {},
     List<PairedDevice> pairedDevices = const [],
   }) {
-    final activeId = selectedItemId ?? appUiState.activeItemId;
-    final isActivated = activeId == item.id && isConnected;
+    // Check ALL devices' selections (not just first) for instant color.
+    // appUiState.activeItemId covers the tap-before-BLoC-processes gap.
+    final isActivated = isConnected && (
+        connectedDevices.values.any((d) => d.selectedItemId == item.id) ||
+        appUiState.activeItemId == item.id);
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
     final brightness = Theme.of(context).brightness;
