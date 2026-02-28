@@ -71,6 +71,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
           backgroundColor: primaryBackground,
           appBar: AppBar(
             backgroundColor: primaryBackground,
+            foregroundColor: primaryText,
             title: Text(
               'Bluetooth',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
