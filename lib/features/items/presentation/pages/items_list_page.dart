@@ -1535,7 +1535,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             },
             borderRadius: BorderRadius.circular(8.0),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
               child: Row(
                 children: [
                   // Item name (expanded to take remaining space)
