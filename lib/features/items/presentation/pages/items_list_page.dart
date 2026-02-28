@@ -1722,7 +1722,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
 
     // Claim-aware action state
-    final editable = isClaimed ? isItemEditable(item.claimedBy, connectedDevices) : isConnected;
+    final editable = isClaimed ? isItemEditable(item.claimedBy, connectedDevices) : true;
     final showUnlock = isClaimed;
     final claimDeviceOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
     // Resolve claiming device's color for unlock action
@@ -1772,7 +1772,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 HapticFeedback.lightImpact();
                 _dismissActivationHintIfShowing();
                 Slidable.of(ctx)?.close();
-                if (!isConnected) { await _showConnectDeviceDialog(context); return; }
+                if (isClaimed && !isConnected) { await _showConnectDeviceDialog(context); return; }
                 if (!editable) return;
                 context.pushNamed(ItemFormPage.routeName, extra: {'item': item});
               },
@@ -1785,7 +1785,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               onPressed: (ctx) async {
                 HapticFeedback.mediumImpact();
                 _dismissActivationHintIfShowing();
-                if (!isConnected) { await _showConnectDeviceDialog(context); Slidable.of(ctx)?.close(); return; }
+                if (isClaimed && !isConnected) { await _showConnectDeviceDialog(context); Slidable.of(ctx)?.close(); return; }
                 if (!editable) { Slidable.of(ctx)?.close(); return; }
 
                 // Capture references BEFORE the async dialog
