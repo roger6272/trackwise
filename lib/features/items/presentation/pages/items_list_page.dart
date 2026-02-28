@@ -268,10 +268,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                           return IconButton(
                             tooltip: 'Create item',
                             onPressed: () async {
-                              if (!isConnected) {
-                                await _showConnectDeviceDialog(context);
-                                return;
-                              }
                               // Check item limit
                               if (hasReachedLimit) {
                                 await _showItemLimitDialog(context);
@@ -280,12 +276,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                               await context.pushNamed<Item>(ItemFormPage.routeName);
                             },
                             style: IconButton.styleFrom(
-                              backgroundColor: isConnected ? AppColors.primary : AppColors.disabled,
+                              backgroundColor: AppColors.primary,
                               shape: const CircleBorder(),
                             ),
-                            icon: Icon(
+                            icon: const Icon(
                               Icons.add_rounded,
-                              color: isConnected ? Colors.white : AppColors.neutral,
+                              color: Colors.white,
                               size: 24.0,
                             ),
                           );
@@ -422,7 +418,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       ).toList();
 
                                 if (state.items.isEmpty) {
-                                  return _buildEmptyState(context, primaryText, secondaryText, isConnected);
+                                  return _buildEmptyState(context, primaryText, secondaryText);
                                 }
 
                                 // Show "no results" if search has no matches
@@ -1908,7 +1904,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText, bool isConnected) {
+  Widget _buildEmptyState(BuildContext context, Color primaryText, Color secondaryText) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1934,28 +1930,16 @@ class _ItemsListContentState extends State<_ItemsListContent>
           ),
           const SizedBox(height: 24.0),
           FilledButton.icon(
-            onPressed: isConnected
-                ? () async {
-                    await context.pushNamed<Item>(ItemFormPage.routeName);
-                  }
-                : null,
+            onPressed: () async {
+              await context.pushNamed<Item>(ItemFormPage.routeName);
+            },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
-              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
             ),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Create Item'),
           ),
-          if (!isConnected) ...[
-            const SizedBox(height: 8.0),
-            Text(
-              'Connect device to create items',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: secondaryText.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
         ],
       ),
     );
