@@ -1549,34 +1549,23 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       );
     }
 
+    // Clear the claiming device's selection before pushing
+    if (isOnline) {
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(claimingDeviceId!, (d) => d.copyWith(
+          clearSelectedItemId: true,
+        )),
+      ));
+    }
+
     final result = await _itemRepository.releaseItem(event.itemId);
     result.fold(
       (failure) => AppLogger.debug('Failed to release item ${event.itemId}: ${failure.message}'),
       (_) {
         AppLogger.debug('Released claim on item ${event.itemId}');
-
-        if (isOnline) {
-          // Clear the claiming device's selection and push with no auto-select
-          emit(state.copyWith(
-            connectedDevices: _updateDevice(claimingDeviceId!, (d) => d.copyWith(
-              clearSelectedItemId: true,
-            )),
-          ));
-          _refreshDeviceItems.call(RefreshDeviceItemsParams(
-            deviceId: claimingDeviceId,
-            deviceInstanceId: claimingDeviceId,
-            clearSelection: true,
-            categoryId: _deviceCategories[claimingDeviceId],
-          )).then((r) => r.fold(
-            (f) => AppLogger.debug('Push to $claimingDeviceId failed: ${f.message}'),
-            (res) => _deviceCategories[claimingDeviceId] = res.categoryId,
-          ));
-          // Push to other devices normally
-          _pushToOtherDevices(claimingDeviceId);
-        } else {
-          // No online claiming device — push to all
-          _pushToAllDevices();
-        }
+        // Push updated items to all devices — claiming device gets -1 (no selection)
+        // because its selectedItemId was cleared above.
+        _pushToAllDevices();
       },
     );
   }
@@ -1621,6 +1610,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       deviceId: deviceId,
       deviceInstanceId: deviceId,
       selectedItemId: selectedItemId,
+      categoryId: _deviceCategories[deviceId],
     )).then((r) => r.fold(
       (f) => AppLogger.debug('Push to $deviceId failed: ${f.message}'),
       (result) => _deviceCategories[deviceId] = result.categoryId,
