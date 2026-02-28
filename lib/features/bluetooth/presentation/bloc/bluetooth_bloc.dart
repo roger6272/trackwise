@@ -87,6 +87,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   // so they execute in order, preventing stale-release race conditions.
   final Map<String, Future<void>> _claimQueues = {};
 
+  // Per-device category cache: used to skip cross-category pushes.
+  final Map<String, String> _deviceCategories = {};
+
   /// Maximum reconnect delay in seconds (caps exponential growth)
   static const int _maxReconnectDelaySeconds = 60;
 
@@ -521,6 +524,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     _reconnectTimers.remove(deviceId);
     _reconnectAttempts.remove(deviceId);
     _claimQueues.remove(deviceId);
+    _deviceCategories.remove(deviceId);
 
     // Don't await these - they can hang if the stream is mid-emission
     _messageSubscriptions[deviceId]?.cancel();
@@ -1079,6 +1083,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       _reconnectTimers.remove(event.deviceInstanceId);
       _reconnectAttempts.remove(event.deviceInstanceId);
       _claimQueues.remove(event.deviceInstanceId);
+      _deviceCategories.remove(event.deviceInstanceId);
 
       await _bluetoothRepository.disconnect(deviceState.device.id);
     }
@@ -1443,14 +1448,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         // Always push claim-filtered items on connection. When
         // selectedFirestoreId is null (normal sync), RefreshDeviceItemsUseCase
         // falls back to the device's claimedBy item for correct selection.
-        _refreshDeviceItems.call(RefreshDeviceItemsParams(
-          deviceId: deviceId,
-          deviceInstanceId: deviceId,
-          selectedItemId: result.selectedFirestoreId,
-        )).then((r) => r.fold(
-          (f) => AppLogger.debug('RefreshDeviceItems failed for $deviceId: ${f.message}'),
-          (_) {},
-        ));
+        _refreshAndUpdateCategory(deviceId, result.selectedFirestoreId);
     }
   }
 
@@ -1479,20 +1477,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         (failure) {
           AppLogger.debug('Claim failed for $itemId: ${failure.message}');
           // Corrective push: revert device to the correct item list + selection.
-          _refreshDeviceItems.call(RefreshDeviceItemsParams(
-            deviceId: deviceInstanceId,
-            deviceInstanceId: deviceInstanceId,
-            selectedItemId: previousItemId,
-          )).then((r) => r.fold(
-            (f) => AppLogger.debug('Corrective refresh failed for $deviceInstanceId: ${f.message}'),
-            (_) {},
-          ));
+          _refreshAndUpdateCategory(deviceInstanceId, previousItemId);
         },
         (_) {
           AppLogger.debug('Claimed item $itemId for device $deviceInstanceId'
               '${fromDeviceEcho ? ' (echo, no push)' : ''}');
           if (!fromDeviceEcho) {
-            _pushToOtherDevices(deviceInstanceId);
+            _pushToOtherDevices(deviceInstanceId,
+                sourceCategoryId: _deviceCategories[deviceInstanceId]);
           }
         },
       );
@@ -1517,18 +1509,19 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   // ========== Claim-Filtered Push Helpers ==========
 
   /// Push claim-filtered items to all connected devices except the specified one.
-  void _pushToOtherDevices(String excludeDeviceId) {
+  /// Skips devices in a different category than [sourceCategoryId] when provided.
+  void _pushToOtherDevices(String excludeDeviceId, {String? sourceCategoryId}) {
     for (final entry in state.connectedDevices.entries) {
       if (entry.key == excludeDeviceId) continue;
       if (!entry.value.isOnline) continue;
-      _refreshDeviceItems.call(RefreshDeviceItemsParams(
-        deviceId: entry.key,
-        deviceInstanceId: entry.key,
-        selectedItemId: entry.value.selectedItemId,
-      )).then((r) => r.fold(
-        (f) => AppLogger.debug('Push to ${entry.key} failed: ${f.message}'),
-        (_) {},
-      ));
+      // Skip devices in a different category — their item list is unaffected.
+      final targetCategory = _deviceCategories[entry.key];
+      if (sourceCategoryId != null &&
+          targetCategory != null &&
+          targetCategory != sourceCategoryId) {
+        continue;
+      }
+      _refreshAndUpdateCategory(entry.key, entry.value.selectedItemId);
     }
   }
 
@@ -1536,15 +1529,20 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   void _pushToAllDevices() {
     for (final entry in state.connectedDevices.entries) {
       if (!entry.value.isOnline) continue;
-      _refreshDeviceItems.call(RefreshDeviceItemsParams(
-        deviceId: entry.key,
-        deviceInstanceId: entry.key,
-        selectedItemId: entry.value.selectedItemId,
-      )).then((r) => r.fold(
-        (f) => AppLogger.debug('Push to ${entry.key} failed: ${f.message}'),
-        (_) {},
-      ));
+      _refreshAndUpdateCategory(entry.key, entry.value.selectedItemId);
     }
+  }
+
+  /// Calls [RefreshDeviceItemsUseCase] and caches the device's category.
+  void _refreshAndUpdateCategory(String deviceId, String? selectedItemId) {
+    _refreshDeviceItems.call(RefreshDeviceItemsParams(
+      deviceId: deviceId,
+      deviceInstanceId: deviceId,
+      selectedItemId: selectedItemId,
+    )).then((r) => r.fold(
+      (f) => AppLogger.debug('Push to $deviceId failed: ${f.message}'),
+      (result) => _deviceCategories[deviceId] = result.categoryId,
+    ));
   }
 
   // ========== Cleanup ==========
