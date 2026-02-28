@@ -40,15 +40,22 @@ class SyncResult extends Equatable {
   /// Used to track which paired device is connected.
   final String? deviceInstanceId;
 
+  /// Item names that were unlocked while this device was offline.
+  /// Non-empty means stale claim dialog should be shown before syncing.
+  /// Populated from Firestore paired_devices during handshake so the BLoC
+  /// can check synchronously without an extra async call.
+  final List<String> staleClaims;
+
   const SyncResult({
     required this.type,
     this.selectedFirestoreId,
     this.selectedDeviceItemId = -1,
     this.deviceInstanceId,
+    this.staleClaims = const [],
   });
 
   @override
-  List<Object?> get props => [type, selectedFirestoreId, selectedDeviceItemId, deviceInstanceId];
+  List<Object?> get props => [type, selectedFirestoreId, selectedDeviceItemId, deviceInstanceId, staleClaims];
 }
 
 /// Parameters for the PerformSyncUseCase.
@@ -195,12 +202,22 @@ class PerformSyncUseCase {
       );
     }
 
-    // Step 8: Return success — no sync_complete or sync_seq update needed.
+    // Step 8: Check for stale claims (items unlocked while device was offline).
+    // Include them in the result so the BLoC can guard synchronously —
+    // avoids an async gap where firmware prefs/logs could slip through.
+    final pairedDevice = user.pairedDevices.cast<PairedDevice?>().firstWhere(
+      (d) => d!.deviceInstanceId.toUpperCase() == deviceInstanceId,
+      orElse: () => null,
+    );
+    final staleClaims = pairedDevice?.staleClaims ?? const [];
+
+    // Step 9: Return success — no sync_complete or sync_seq update needed.
     // BLoC handles item push in _onHandshakeCompleted via RefreshDeviceItemsUseCase.
     // Firmware sends prefs+logs automatically after in_sync handshake.
     return Right(SyncResult(
       type: SyncResultType.success,
       deviceInstanceId: deviceInstanceId,
+      staleClaims: staleClaims,
     ));
   }
 

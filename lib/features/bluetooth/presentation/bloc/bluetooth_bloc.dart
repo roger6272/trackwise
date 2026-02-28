@@ -1443,27 +1443,18 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     switch (result.type) {
       case SyncResultType.success:
       case SyncResultType.overrideComplete:
-        // Fetch fresh paired devices from Firestore (not async event)
-        // to get up-to-date staleClaims data before checking.
-        final userResult = await _userRepository.getCurrentUser();
-        final freshPairedDevices = userResult.fold(
-          (_) => state.pairedDevices,
-          (user) => user.pairedDevices,
-        );
-        emit(state.copyWith(pairedDevices: freshPairedDevices));
-
-        // Check for stale claims (items unlocked while this device was offline)
-        final pairedDevice = freshPairedDevices.cast<PairedDevice?>().firstWhere(
-          (d) => d!.deviceInstanceId.toUpperCase() == deviceId.toUpperCase(),
-          orElse: () => null,
-        );
-        if (pairedDevice != null && pairedDevice.staleClaims.isNotEmpty) {
-          AppLogger.debug('Stale claims detected for $deviceId: ${pairedDevice.staleClaims}');
+        // Check for stale claims synchronously (data comes from SyncResult,
+        // populated during handshake — no async gap for firmware messages
+        // to slip through before the guard is set).
+        if (result.staleClaims.isNotEmpty) {
+          AppLogger.debug('Stale claims detected for $deviceId: ${result.staleClaims}');
           emit(state.copyWith(
             connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
               syncStatus: DeviceSyncStatus.staleClaim,
             )),
           ));
+          // Refresh paired devices so dialog can read device name + stale claim items
+          add(const LoadPairedDevices());
           return; // Wait for user decision via dialog
         }
 
