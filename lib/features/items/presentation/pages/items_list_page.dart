@@ -1720,7 +1720,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     // Claim-aware action state
     final editable = isClaimed ? isItemEditable(item.claimedBy, connectedDevices) : true;
     final showUnlock = isClaimed;
-    final claimDeviceOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
     // Resolve claiming device's color for unlock action
     final claimColor = isClaimed ? () {
       final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
@@ -1738,7 +1737,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             // Multi-device + claimed → Unlock. Otherwise when connected → Activate.
             if (showUnlock)
               SlidableAction(
-                backgroundColor: claimDeviceOnline ? (claimColor ?? AppColors.actionActivate) : AppColors.actionDisabled,
+                backgroundColor: claimColor ?? AppColors.actionActivate,
                 icon: Icons.lock_open_rounded,
                 autoClose: false,
                 onPressed: (ctx) async {
