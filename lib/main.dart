@@ -255,24 +255,24 @@ class _MyAppState extends State<MyApp> {
       final deviceName = pairedDevice?.deviceName;
       final itemNames = pairedDevice?.staleClaims ?? [];
 
+      final capturedInstanceId = instanceId ?? '';
+
       StaleClaimDialog.show(
         context: navigatorContext,
         deviceName: deviceName,
         itemNames: itemNames,
         onConfirm: () {
           final appUiState = context.read<AppUiState>();
-          final btBloc = context.read<BluetoothBloc>();
-          btBloc.add(ConfirmSyncOverride(
+          context.read<BluetoothBloc>().add(ConfirmSyncOverride(
             currentSelectedItemId: appUiState.activeItemId.isNotEmpty
                 ? appUiState.activeItemId
                 : null,
-            deviceInstanceId: btBloc.state.staleClaimDeviceInstanceId ?? '',
+            deviceInstanceId: capturedInstanceId,
           ));
         },
         onCancel: () {
-          final btBloc = context.read<BluetoothBloc>();
-          btBloc.add(CancelSyncConflict(
-            deviceInstanceId: btBloc.state.staleClaimDeviceInstanceId ?? '',
+          context.read<BluetoothBloc>().add(CancelSyncConflict(
+            deviceInstanceId: capturedInstanceId,
           ));
         },
       );
@@ -293,6 +293,8 @@ class _MyAppState extends State<MyApp> {
           : null;
       final deviceName = pairedDevice?.deviceName ?? btState.connectedDevice?.name;
 
+      final capturedInstanceId = btState.conflictDeviceInstanceId ?? '';
+
       SyncConflictDialog.show(
         context: navigatorContext,
         deviceName: deviceName,
@@ -300,18 +302,16 @@ class _MyAppState extends State<MyApp> {
         onConfirm: () {
           // Pass the currently selected item from AppUiState
           final appUiState = context.read<AppUiState>();
-          final btBloc = context.read<BluetoothBloc>();
-          btBloc.add(ConfirmSyncOverride(
+          context.read<BluetoothBloc>().add(ConfirmSyncOverride(
             currentSelectedItemId: appUiState.activeItemId.isNotEmpty
                 ? appUiState.activeItemId
                 : null,
-            deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
+            deviceInstanceId: capturedInstanceId,
           ));
         },
         onCancel: () {
-          final btBloc = context.read<BluetoothBloc>();
-          btBloc.add(CancelSyncConflict(
-            deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
+          context.read<BluetoothBloc>().add(CancelSyncConflict(
+            deviceInstanceId: capturedInstanceId,
           ));
         },
       );
@@ -322,23 +322,22 @@ class _MyAppState extends State<MyApp> {
     // Use the router's navigator context for the dialog
     final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
     if (navigatorContext != null) {
+      final capturedInstanceId = context.read<BluetoothBloc>().state.setupDeviceInstanceId ?? '';
+
       DeviceSetupDialog.show(
         context: navigatorContext,
         onConfirm: () {
-          // Pass the currently selected item from AppUiState
           final appUiState = context.read<AppUiState>();
-          final btBloc = context.read<BluetoothBloc>();
-          btBloc.add(ConfirmDeviceSetup(
+          context.read<BluetoothBloc>().add(ConfirmDeviceSetup(
             currentSelectedItemId: appUiState.activeItemId.isNotEmpty
                 ? appUiState.activeItemId
                 : null,
-            deviceInstanceId: btBloc.state.setupDeviceInstanceId ?? '',
+            deviceInstanceId: capturedInstanceId,
           ));
         },
         onCancel: () {
-          final btBloc = context.read<BluetoothBloc>();
-          btBloc.add(CancelDeviceSetup(
-            deviceInstanceId: btBloc.state.setupDeviceInstanceId ?? '',
+          context.read<BluetoothBloc>().add(CancelDeviceSetup(
+            deviceInstanceId: capturedInstanceId,
           ));
         },
       );

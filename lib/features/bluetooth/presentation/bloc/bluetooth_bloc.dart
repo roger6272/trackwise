@@ -1443,11 +1443,17 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     switch (result.type) {
       case SyncResultType.success:
       case SyncResultType.overrideComplete:
-        // Reload paired devices first so we have fresh staleClaims data
-        add(const LoadPairedDevices());
+        // Fetch fresh paired devices from Firestore (not async event)
+        // to get up-to-date staleClaims data before checking.
+        final userResult = await _userRepository.getCurrentUser();
+        final freshPairedDevices = userResult.fold(
+          (_) => state.pairedDevices,
+          (user) => user.pairedDevices,
+        );
+        emit(state.copyWith(pairedDevices: freshPairedDevices));
 
         // Check for stale claims (items unlocked while this device was offline)
-        final pairedDevice = state.pairedDevices.cast<PairedDevice?>().firstWhere(
+        final pairedDevice = freshPairedDevices.cast<PairedDevice?>().firstWhere(
           (d) => d!.deviceInstanceId.toUpperCase() == deviceId.toUpperCase(),
           orElse: () => null,
         );
@@ -1543,7 +1549,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       final isOnline = state.connectedDevices[event.claimedBy]?.isOnline ?? false;
       if (!isOnline) {
         AppLogger.debug('Stale claim: ${event.itemName} unlocked while ${event.claimedBy} is offline');
-        _userRepository.addStaleClaim(event.claimedBy!, event.itemName!);
+        final claimResult = await _userRepository.addStaleClaim(event.claimedBy!, event.itemName!);
+        claimResult.fold(
+          (f) => AppLogger.error('Failed to record stale claim: ${f.message}'),
+          (_) {},
+        );
       }
     }
 
