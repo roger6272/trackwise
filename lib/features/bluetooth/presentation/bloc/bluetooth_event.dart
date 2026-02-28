@@ -441,10 +441,16 @@ class ClaimItem extends BluetoothEvent {
 class ReleaseItem extends BluetoothEvent {
   final String itemId;
 
-  const ReleaseItem({required this.itemId});
+  /// Device instance ID that currently claims this item (for stale-claim tracking).
+  final String? claimedBy;
+
+  /// Item name (for stale-claim dialog messaging).
+  final String? itemName;
+
+  const ReleaseItem({required this.itemId, this.claimedBy, this.itemName});
 
   @override
-  List<Object?> get props => [itemId];
+  List<Object?> get props => [itemId, claimedBy, itemName];
 }
 
 /// Triggers a claim-filtered item push to all connected devices.

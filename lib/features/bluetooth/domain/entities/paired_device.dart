@@ -31,11 +31,16 @@ class PairedDevice extends Equatable {
   /// Default 0 (blue). Assigned automatically on pairing, user-changeable in settings.
   final int color;
 
+  /// Item names that were unlocked while this device was offline.
+  /// Non-empty means the device has stale claims — show dialog on reconnection.
+  final List<String> staleClaims;
+
   const PairedDevice({
     required this.deviceInstanceId,
     required this.deviceName,
     required this.pairedAt,
     this.color = 0,
+    this.staleClaims = const [],
   });
 
   /// Creates a copy with the given fields replaced.
@@ -44,12 +49,14 @@ class PairedDevice extends Equatable {
     String? deviceName,
     DateTime? pairedAt,
     int? color,
+    List<String>? staleClaims,
   }) {
     return PairedDevice(
       deviceInstanceId: deviceInstanceId ?? this.deviceInstanceId,
       deviceName: deviceName ?? this.deviceName,
       pairedAt: pairedAt ?? this.pairedAt,
       color: color ?? this.color,
+      staleClaims: staleClaims ?? this.staleClaims,
     );
   }
 
@@ -60,6 +67,10 @@ class PairedDevice extends Equatable {
       deviceName: data['device_name'] as String? ?? 'Traxelos One',
       pairedAt: _parseTimestamp(data['paired_at']),
       color: data['color'] as int? ?? 0,
+      staleClaims: (data['stale_claims'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
     );
   }
 
@@ -70,6 +81,7 @@ class PairedDevice extends Equatable {
       'device_name': deviceName,
       'paired_at': Timestamp.fromDate(pairedAt),
       'color': color,
+      if (staleClaims.isNotEmpty) 'stale_claims': staleClaims,
     };
   }
 
@@ -90,11 +102,12 @@ class PairedDevice extends Equatable {
   }
 
   @override
-  List<Object?> get props => [deviceInstanceId, deviceName, pairedAt, color];
+  List<Object?> get props => [deviceInstanceId, deviceName, pairedAt, color, staleClaims];
 
   @override
   String toString() {
     return 'PairedDevice(deviceInstanceId: $deviceInstanceId, '
-        'deviceName: $deviceName, pairedAt: $pairedAt, color: $color)';
+        'deviceName: $deviceName, pairedAt: $pairedAt, color: $color'
+        '${staleClaims.isNotEmpty ? ', staleClaims: $staleClaims' : ''})';
   }
 }

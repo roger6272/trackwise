@@ -18,6 +18,7 @@ import 'features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import 'features/bluetooth/presentation/widgets/device_setup_dialog.dart';
+import 'features/bluetooth/presentation/widgets/stale_claim_dialog.dart';
 import 'features/bluetooth/presentation/widgets/sync_conflict_dialog.dart';
 import 'features/bluetooth/presentation/widgets/wrong_account_dialog.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
@@ -195,6 +196,14 @@ class _MyAppState extends State<MyApp> {
       },
       child: BlocListener<BluetoothBloc, BluetoothState>(
         listenWhen: (previous, current) =>
+            !previous.hasStaleClaim && current.hasStaleClaim,
+        listener: (context, state) {
+          if (state.hasStaleClaim) {
+            _showStaleClaimDialog(context);
+          }
+        },
+        child: BlocListener<BluetoothBloc, BluetoothState>(
+        listenWhen: (previous, current) =>
             !previous.needsSetup && current.needsSetup,
         listener: (context, state) {
           if (state.needsSetup) {
@@ -228,7 +237,46 @@ class _MyAppState extends State<MyApp> {
       ),
         ),
       ),
+      ),
     );
+  }
+
+  void _showStaleClaimDialog(BuildContext context) {
+    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
+    if (navigatorContext != null) {
+      final btState = context.read<BluetoothBloc>().state;
+      final instanceId = btState.staleClaimDeviceInstanceId;
+      final pairedDevice = instanceId != null
+          ? btState.pairedDevices.cast<PairedDevice?>().firstWhere(
+                (d) => d!.deviceInstanceId.toUpperCase() == instanceId.toUpperCase(),
+                orElse: () => null,
+              )
+          : null;
+      final deviceName = pairedDevice?.deviceName;
+      final itemNames = pairedDevice?.staleClaims ?? [];
+
+      StaleClaimDialog.show(
+        context: navigatorContext,
+        deviceName: deviceName,
+        itemNames: itemNames,
+        onConfirm: () {
+          final appUiState = context.read<AppUiState>();
+          final btBloc = context.read<BluetoothBloc>();
+          btBloc.add(ConfirmSyncOverride(
+            currentSelectedItemId: appUiState.activeItemId.isNotEmpty
+                ? appUiState.activeItemId
+                : null,
+            deviceInstanceId: btBloc.state.staleClaimDeviceInstanceId ?? '',
+          ));
+        },
+        onCancel: () {
+          final btBloc = context.read<BluetoothBloc>();
+          btBloc.add(CancelSyncConflict(
+            deviceInstanceId: btBloc.state.staleClaimDeviceInstanceId ?? '',
+          ));
+        },
+      );
+    }
   }
 
   void _showConflictDialog(BuildContext context) {

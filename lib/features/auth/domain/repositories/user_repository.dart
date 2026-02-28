@@ -86,6 +86,21 @@ abstract class UserRepository {
     int newColor,
   );
 
+  /// Adds a stale claim item name to a paired device.
+  ///
+  /// Called when an item is unlocked while the claiming device is offline.
+  /// The stale claim list triggers a dialog on device reconnection.
+  Future<Either<Failure, void>> addStaleClaim(
+    String deviceInstanceId,
+    String itemName,
+  );
+
+  /// Clears all stale claims for a paired device.
+  ///
+  /// Called after the user acknowledges the stale claim dialog
+  /// (either "Sync Now" or "Keep Offline").
+  Future<Either<Failure, void>> clearStaleClaims(String deviceInstanceId);
+
   /// Completes onboarding and saves user preferences.
   ///
   /// [displayName] - User's name (optional).

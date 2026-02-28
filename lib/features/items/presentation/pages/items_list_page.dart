@@ -1486,7 +1486,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
       isBreakGlass: !isOnline,
     );
     if (confirmed && context.mounted) {
-      context.read<BluetoothBloc>().add(ReleaseItem(itemId: item.id));
+      context.read<BluetoothBloc>().add(ReleaseItem(
+        itemId: item.id,
+        claimedBy: item.claimedBy,
+        itemName: item.name,
+      ));
     }
   }
 

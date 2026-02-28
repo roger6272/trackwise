@@ -901,6 +901,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final message = event.message;
     final deviceInstanceId = event.deviceInstanceId;
 
+    // Drop incoming data while stale claim dialog is pending —
+    // user hasn't decided whether to sync or keep offline yet.
+    final deviceState = state.connectedDevices[deviceInstanceId];
+    if (deviceState?.syncStatus == DeviceSyncStatus.staleClaim) {
+      AppLogger.debug('Dropping ${message.type.name} from $deviceInstanceId (stale claim pending)');
+      return;
+    }
+
     // Update device state: clear isSyncing when prefs arrive, update hasMoreLogs
     final isSyncingUpdate = message.type == BleMessageType.prefs
         ? DeviceSyncStatus.synced
@@ -1163,7 +1171,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     final deviceName = state.connectedDevices[deviceId]?.device.name;
 
-    // Clear conflict and set isOverriding
+    // Clear conflict/staleClaim and set isOverriding
     emit(state.copyWith(
       connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
         isOverriding: true,
@@ -1171,6 +1179,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         clearConflict: true,
       )),
     ));
+
+    // Clear stale claims in Firestore (fire-and-forget)
+    _userRepository.clearStaleClaims(deviceId);
 
     // Use event's selectedItemId if provided, otherwise fall back to device state
     final selectedItemId = event.currentSelectedItemId
@@ -1207,20 +1218,23 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
   }
 
-  /// User cancelled conflict dialog - disconnect from the conflicting device.
+  /// User cancelled conflict/staleClaim dialog - disconnect from the device.
   Future<void> _onCancelSyncConflict(
     CancelSyncConflict event,
     Emitter<BluetoothState> emit,
   ) async {
     final deviceId = event.deviceInstanceId;
 
-    // Clear conflict state for this specific device
+    // Clear conflict/staleClaim state for this specific device
     emit(state.copyWith(
       connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
         syncStatus: DeviceSyncStatus.handshaking,
         clearConflict: true,
       )),
     ));
+
+    // Clear stale claims in Firestore (fire-and-forget)
+    _userRepository.clearStaleClaims(deviceId);
 
     // Disconnect from this device
     _manualDisconnects.add(deviceId);
@@ -1429,14 +1443,30 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     switch (result.type) {
       case SyncResultType.success:
       case SyncResultType.overrideComplete:
+        // Reload paired devices first so we have fresh staleClaims data
+        add(const LoadPairedDevices());
+
+        // Check for stale claims (items unlocked while this device was offline)
+        final pairedDevice = state.pairedDevices.cast<PairedDevice?>().firstWhere(
+          (d) => d!.deviceInstanceId.toUpperCase() == deviceId.toUpperCase(),
+          orElse: () => null,
+        );
+        if (pairedDevice != null && pairedDevice.staleClaims.isNotEmpty) {
+          AppLogger.debug('Stale claims detected for $deviceId: ${pairedDevice.staleClaims}');
+          emit(state.copyWith(
+            connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
+              syncStatus: DeviceSyncStatus.staleClaim,
+            )),
+          ));
+          return; // Wait for user decision via dialog
+        }
+
         emit(state.copyWith(
           connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
             syncStatus: DeviceSyncStatus.synced,
             selectedItemId: result.selectedFirestoreId,
           )),
         ));
-        // Reload paired devices to update UI
-        add(const LoadPairedDevices());
 
         // Claim the selected item if handshake returned one
         if (result.selectedFirestoreId != null) {
@@ -1508,6 +1538,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ReleaseItem event,
     Emitter<BluetoothState> emit,
   ) async {
+    // Track stale claim if the claiming device is offline
+    if (event.claimedBy != null && event.itemName != null) {
+      final isOnline = state.connectedDevices[event.claimedBy]?.isOnline ?? false;
+      if (!isOnline) {
+        AppLogger.debug('Stale claim: ${event.itemName} unlocked while ${event.claimedBy} is offline');
+        _userRepository.addStaleClaim(event.claimedBy!, event.itemName!);
+      }
+    }
+
     final result = await _itemRepository.releaseItem(event.itemId);
     result.fold(
       (failure) => AppLogger.debug('Failed to release item ${event.itemId}: ${failure.message}'),

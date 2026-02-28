@@ -309,6 +309,77 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
+  Future<Either<Failure, void>> addStaleClaim(
+    String deviceInstanceId,
+    String itemName,
+  ) async {
+    try {
+      final firebaseUser = _requireCurrentUser();
+      final userDocRef = _userDocRef(firebaseUser.uid);
+
+      final userDoc = await userDocRef.get();
+      if (!userDoc.exists) return const Right(null);
+
+      final data = userDoc.data() as Map<String, dynamic>?;
+      final existingDevices = data?['paired_devices'] as List<dynamic>? ?? [];
+
+      final updatedDevices = existingDevices.map((d) {
+        final deviceMap = Map<String, dynamic>.from(d as Map<String, dynamic>);
+        if (deviceMap['device_instance_id'] == deviceInstanceId) {
+          final claims = List<String>.from(
+            deviceMap['stale_claims'] as List<dynamic>? ?? [],
+          );
+          if (!claims.contains(itemName)) claims.add(itemName);
+          deviceMap['stale_claims'] = claims;
+        }
+        return deviceMap;
+      }).toList();
+
+      await userDocRef.update({'paired_devices': updatedDevices});
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on FirebaseException catch (e) {
+      return Left(ServerFailure('Failed to add stale claim: ${e.message}'));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error adding stale claim: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> clearStaleClaims(
+    String deviceInstanceId,
+  ) async {
+    try {
+      final firebaseUser = _requireCurrentUser();
+      final userDocRef = _userDocRef(firebaseUser.uid);
+
+      final userDoc = await userDocRef.get();
+      if (!userDoc.exists) return const Right(null);
+
+      final data = userDoc.data() as Map<String, dynamic>?;
+      final existingDevices = data?['paired_devices'] as List<dynamic>? ?? [];
+
+      final updatedDevices = existingDevices.map((d) {
+        final deviceMap = Map<String, dynamic>.from(d as Map<String, dynamic>);
+        if (deviceMap['device_instance_id'] == deviceInstanceId) {
+          deviceMap.remove('stale_claims');
+        }
+        return deviceMap;
+      }).toList();
+
+      await userDocRef.update({'paired_devices': updatedDevices});
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on FirebaseException catch (e) {
+      return Left(ServerFailure('Failed to clear stale claims: ${e.message}'));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error clearing stale claims: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> completeOnboarding({
     String? displayName,
     required String primaryUseCase,

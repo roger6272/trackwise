@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/ble_device.dart';
 
-enum DeviceSyncStatus { handshaking, syncing, synced, conflict, setup, wrongAccount }
+enum DeviceSyncStatus { handshaking, syncing, synced, conflict, staleClaim, setup, wrongAccount }
 
 class DeviceConnectionState extends Equatable {
   final BleDevice device;
