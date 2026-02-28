@@ -29,10 +29,14 @@ class BluetoothSearchPage extends StatefulWidget {
 
 class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
   bool _hasAutoStartedScan = false;
+  /// Number of connected devices when page opened.
+  /// Navigation only triggers when a NEW device connects beyond this count.
+  late int _initialConnectedCount;
 
   @override
   void initState() {
     super.initState();
+    _initialConnectedCount = context.read<BluetoothBloc>().state.connectedDevices.length;
     // Check permissions on page load
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<BluetoothBloc>().add(const CheckBluetoothPermissions());
@@ -79,8 +83,8 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
           // Auto-start scan if ready and no prior search was done
           _tryAutoStartScan(state);
 
-          // Navigate to items list when connected
-          if (state.isConnected) {
+          // Navigate home only when a NEW device connects from this page
+          if (state.connectedDevices.length > _initialConnectedCount) {
             context.go('/');
           }
           // Show error snackbar
