@@ -816,7 +816,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 'currently disconnected. Any unsynced counts on ${disconnectedDevices.length == 1 ? 'that device' : 'those devices'} '
                 'will be discarded when ${disconnectedDevices.length == 1 ? 'it reconnects' : 'they reconnect'}.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.warning,
+                  color: AppColors.warningText(brightness),
                   fontSize: 13.0,
                 ),
               ),

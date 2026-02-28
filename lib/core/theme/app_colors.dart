@@ -28,6 +28,10 @@ class AppColors {
   /// Warning color (yellow)
   static const Color warning = Color(0xFFF9CF58);
 
+  /// Warning text color — darker in light mode for readability
+  static Color warningText(Brightness brightness) =>
+      brightness == Brightness.dark ? warning : const Color(0xFFB8860B);
+
   /// Error color (red)
   static const Color error = Color(0xFFFF5963);
 
