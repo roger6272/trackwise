@@ -763,6 +763,60 @@ T10     [Both in sync at seq=43]
                      └─────────────────┘
 ```
 
+### 7.3 Cross-Category Push Optimization
+
+When a device switches items, the app pushes updated item lists to other connected devices. However, devices in different categories don't need each other's updates.
+
+```
+BLoC maintains: _deviceCategories = { deviceId → categoryId }
+
+On claim change (device A switches item):
+  1. resolveCategory(A) → look up A's new category from Firestore (no BLE send)
+  2. _deviceCategories[A] = resolved category
+  3. For each other online device B:
+     - If _deviceCategories[B] != _deviceCategories[A] → SKIP (different category)
+     - Otherwise → RefreshDeviceItems(B) → sends filtered item list over BLE
+
+Result: If BLUE is in "Fruits" and GREEN is in "Vegetables",
+        switching an item on BLUE does NOT push to GREEN.
+```
+
+**Key design choice:** `resolveCategory()` is a lightweight Firestore-only lookup (no BLE send). The full `RefreshDeviceItemsUseCase.call()` sends items over BLE — calling it on the source device would redundantly push items it already has.
+
+### 7.4 Item Reorder / Drag-and-Drop (Multi-Device)
+
+```
+┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICES │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① User reorders     │
+     │                     │   items via drag    │
+     │                     │                     │
+     │ ② Write new order   │                     │
+     │ ◄───────────────────│                     │
+     │   (categoryOrder)   │                     │
+     │                     │                     │
+     │ ③ watchItems stream │                     │
+     │ ───────────────────►│                     │
+     │                     │                     │
+     │                     │ ④ _checkDeviceSync  │
+     │                     │   detects signature │
+     │                     │   change            │
+     │                     │                     │
+     │                     │ ⑤ RefreshAllDevices │
+     │                     │ ───────────────────►│
+     │                     │   (each device gets │
+     │                     │    claim-filtered   │
+     │                     │    item list)       │
+     │                     │                     │
+
+Single device: uses SendItemsToDevice (legacy path)
+Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
+               Each device receives only its claimed items
+               in the updated order.
+```
+
 ---
 
 ## 8. Data Consistency Rules

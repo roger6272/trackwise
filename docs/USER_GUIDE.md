@@ -532,6 +532,7 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 - Assigned items show a **colored left border** and the **device name** below the item name
 - Each device only sees its own assigned items on the physical buttons
 - To reassign an item, swipe it and tap **Unlock** to release it, then Activate on a different device
+- **Per-device active item pills** appear at the top of the items list — one colored pill per connected device showing each device's currently selected item. Tap a pill to filter to that item's category
 
 **Changing device colors:**
 - Go to **Paired Devices** page

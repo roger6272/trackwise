@@ -905,6 +905,16 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 **Key Lesson:** When multiplexing BLE connections through a shared datasource singleton, ensure each device's notification stream is isolated. A single shared stream works fine for single-device mode but silently breaks in multi-device — every device's subscription fires for every other device's messages, and the `deviceInstanceId` tag applied at the subscription site is wrong for cross-device messages.
 
+### 10.7 "Drag-and-drop reorder doesn't update devices in multi-device mode"
+
+**Symptoms:** Reordering items via drag-and-drop works for a single device, but when 2+ devices are connected, the new order is not pushed to any device.
+
+**Root Cause:** `_checkDeviceSync` in `items_list_page.dart` had `if (connectedDevices.length > 1) return;` — it bailed out entirely in multi-device mode. A comment stated "BLoC handles all pushes via RefreshDeviceItemsUseCase" but nothing actually triggered a push after reorder.
+
+**Fix:** Added `RefreshAllDevices` event. In multi-device mode, `_checkDeviceSync` dispatches `RefreshAllDevices` instead of the single-device `SendItemsToDevice` path. `_onRefreshAllDevices` calls `_pushToAllDevices()`, which sends each device its claim-filtered item list in the updated order.
+
+**Key Lesson:** When guarding a code path with "handled elsewhere", verify something actually invokes that other path. The comment was aspirational — the BLoC had no trigger for reorder-driven pushes in multi-device mode.
+
 ---
 
 ## Quick Reference: Error → Solution
@@ -932,6 +942,7 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | Dialog shows twice | Guard `BlocConsumer.listener` with `listenWhen` or tracking boolean |
 | Items missing deviceItemId | Use `fromFirestore` + `copyWith`, not manual `ItemModel(...)` |
 | Multiple items with id=0 | Check device_item_id in Firestore (null?) |
+| Drag reorder not updating devices | Multi-device needs `RefreshAllDevices`, not `SendItemsToDevice` |
 | Unnecessary sync after navigation | `_lastSyncedSignature` null after `ItemsLoading` — needs `_initSyncTracking` |
 | Device stale after category deletion | Sync from `manage_categories_page`, not `buildWhen` (page disposed on tab switch) |
 | Empty list after deleting viewed category | Reset BLoC filter with `FilterByCategoryEvent(null)` when category is gone |
