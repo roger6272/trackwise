@@ -30,12 +30,14 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   // Per-device connection state (0 or 1 entries in current implementation)
   final Map<String, DeviceConnection> _connections = {};
 
-  // Global streams (shared across all connections)
+  // Global message stream (shared across all connections)
   final _messageController = StreamController<BleMessage>.broadcast();
-  final _connectionStateController = StreamController<BleConnectionState>.broadcast();
+
+  // Per-device connection state streams
+  final _connectionControllers = <String, StreamController<BleConnectionState>>{};
 
   /// Returns the first connection. Only for methods whose abstract interface
-  /// lacks a deviceId parameter (sync-protocol commands, prepareReadCycle).
+  /// lacks a deviceId parameter (writeCommandRaw, prepareReadCycle).
   /// All other callers should use [_getConnection].
   DeviceConnection get _activeConnection {
     if (_connections.isEmpty) throw StateError('No active BLE connection');
@@ -48,6 +50,14 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     final conn = _connections[deviceId];
     if (conn == null) throw StateError('No active BLE connection for device $deviceId');
     return conn;
+  }
+
+  /// Returns (or creates) the per-device connection-state controller.
+  StreamController<BleConnectionState> _getOrCreateConnectionController(String deviceId) {
+    return _connectionControllers.putIfAbsent(
+      deviceId,
+      () => StreamController<BleConnectionState>.broadcast(),
+    );
   }
 
   /// Timeout for incomplete message assembly (5 seconds)
@@ -218,9 +228,11 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       // Only emit disconnected state here - connected state will be emitted
       // after service discovery completes to avoid race conditions
       if (state == BluetoothConnectionState.disconnected) {
-        _connectionStateController.add(BleConnectionState.disconnected);
+        _getOrCreateConnectionController(deviceId).add(BleConnectionState.disconnected);
         conn.clearConnectionState();
         _connections.remove(deviceId);
+        final ctrl = _connectionControllers.remove(deviceId);
+        if (ctrl != null) Future.microtask(() => ctrl.close());
       }
     });
 
@@ -289,6 +301,13 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     conn.connectionSubscription?.cancel();
     conn.connectionSubscription = null;
 
+    // Emit disconnected on the per-device stream before closing it
+    final ctrl = _connectionControllers.remove(deviceId);
+    if (ctrl != null) {
+      ctrl.add(BleConnectionState.disconnected);
+      Future.microtask(() => ctrl.close());
+    }
+
     final device = BluetoothDevice.fromId(deviceId);
     await device.disconnect();
     conn.clearConnectionState();
@@ -297,14 +316,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Stream<BleConnectionState> watchConnectionState(String deviceId) {
-    // Use our internal controller which gets updated when we connect
-    // This ensures we don't miss any state changes
-    return _connectionStateController.stream;
+    return _getOrCreateConnectionController(deviceId).stream;
   }
 
   @override
-  void emitConnectedState() {
-    _connectionStateController.add(BleConnectionState.connected);
+  void emitConnectedState(String deviceId) {
+    _getOrCreateConnectionController(deviceId).add(BleConnectionState.connected);
   }
 
   // ========== Services & Characteristics ==========
@@ -433,6 +450,9 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
         AppLogger.debug('Parsing BLE message: $messageJson');
         final message = BleMessageModel.fromJson(messageJson);
         AppLogger.debug('Parsed message type: ${message.type}, data: ${message.data}');
+        // Emit to per-device stream (for watchNotifications) AND global stream
+        // (for _sendCommandAndWaitForResponse handshake listener).
+        conn.messageController.add(message);
         _messageController.add(message);
       } catch (e) {
         AppLogger.debug('BLE message parse error: $e');
@@ -652,6 +672,10 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Stream<BleMessage> watchNotifications(String deviceId) {
+    final conn = _connections[deviceId];
+    if (conn != null) return conn.messageController.stream;
+    // Fallback for calls before connection is established (shouldn't happen
+    // in practice, but keeps the contract safe).
     return _messageController.stream;
   }
 
@@ -659,10 +683,11 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<HandshakeResult> sendHandshake({
+    required String deviceId,
     required String uid,
     required int syncSeq,
   }) async {
-    final conn = _activeConnection;
+    final conn = _getConnection(deviceId);
     if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
@@ -686,13 +711,14 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<OverrideResult> sendOverrideChunked({
+    required String deviceId,
     required String uid,
     required int syncSeq,
     required int selectedId,
     required List<Item> items,
     Map<String, String> categoryNames = const {},
   }) async {
-    final conn = _activeConnection;
+    final conn = _getConnection(deviceId);
     if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
@@ -754,8 +780,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   }
 
   @override
-  Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
-    final conn = _activeConnection;
+  Future<SyncCompleteResult> sendSyncComplete(String deviceId, int syncSeq) async {
+    final conn = _getConnection(deviceId);
     if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
@@ -955,6 +981,9 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     _connections.clear();
 
     await _messageController.close();
-    await _connectionStateController.close();
+    for (final ctrl in _connectionControllers.values) {
+      await ctrl.close();
+    }
+    _connectionControllers.clear();
   }
 }
