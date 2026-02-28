@@ -1482,10 +1482,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }();
 
     // Claim state — applies regardless of how many devices are connected.
+    // Suppress stale Firestore claimedBy when the claiming device is online
+    // and has actively selected a different item (claim is being released).
     final isClaimed = item.claimedBy != null;
-    final isClaimedOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
-    final isClaimedOffline = isClaimed &&
-        (connectedDevices[item.claimedBy!] == null || !connectedDevices[item.claimedBy!]!.isOnline);
+    final claimDevice = isClaimed ? connectedDevices[item.claimedBy!] : null;
+    final claimBeingReleased = claimDevice != null && claimDevice.isOnline &&
+        claimDevice.selectedItemId != null && claimDevice.selectedItemId != item.id;
+    final isClaimedOnline = claimDevice != null && claimDevice.isOnline && !claimBeingReleased;
+    final isClaimedOffline = isClaimed && !claimBeingReleased &&
+        (claimDevice == null || !claimDevice.isOnline);
     final effectivelyActivated = isActivated || isClaimedOnline;
     final claimedColor = isClaimedOffline
         ? activateColor?.withValues(alpha: 0.35)
