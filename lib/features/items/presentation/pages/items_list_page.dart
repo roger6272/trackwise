@@ -2237,10 +2237,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
       // Multi-device: use a global items signature. Each device's
       // RefreshDeviceItemsUseCase resolves its own category independently,
       // so we just need to detect *any* items change and push to all.
-      final anyDeviceHasSelection = bluetoothState.connectedDevices.values
-          .any((d) => d.selectedItemId != null && d.selectedItemId!.isNotEmpty);
-      if (!anyDeviceHasSelection) return;
-
       final globalSignature = _computeCategorySignature(
         current.items.toList()..sort((a, b) => a.id.compareTo(b.id)),
       );
