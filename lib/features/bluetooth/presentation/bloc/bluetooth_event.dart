@@ -134,7 +134,13 @@ class SendSelectedItem extends BluetoothEvent {
 
 /// Send time sync to the ESP32 device.
 class SendTimeSync extends BluetoothEvent {
-  const SendTimeSync();
+  /// Target device. When null, falls back to first connected device (single-device compat).
+  final String? deviceInstanceId;
+
+  const SendTimeSync({this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }
 
 /// Request data from the ESP32 device.
@@ -168,7 +174,13 @@ class ClearDeviceLogs extends BluetoothEvent {
 /// Unpair the device from the current account.
 /// Clears pairing data (UID) so it can be paired to another account.
 class UnpairDevice extends BluetoothEvent {
-  const UnpairDevice();
+  /// Target device. When null, falls back to first connected device (single-device compat).
+  final String? deviceInstanceId;
+
+  const UnpairDevice({this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }
 
 // ========== Message Events ==========

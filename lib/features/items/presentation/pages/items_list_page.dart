@@ -105,6 +105,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
   String? _lastSyncedSignature;
   String? _lastSyncedCategoryId;
   DateTime? _lastSyncTime;
+  // Suppress _checkDeviceSync after connection (BLoC handles initial push)
+  DateTime? _deviceConnectedAt;
 
   // Key to force category dropdown rebuild after returning from Manage Categories
   int _categoryDropdownKey = 0;
@@ -192,6 +194,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
           listenWhen: (previous, current) =>
               !previous.isConnected && current.isConnected,
           listener: (context, bluetoothState) {
+            // Suppress _checkDeviceSync for a few seconds — BLoC handles initial push
+            _deviceConnectedAt = DateTime.now();
             // When device connects, show all categories view
             // (device sync sends correct category-filtered items regardless of app view)
             context.read<ItemsBloc>().add(FilterByCategoryEvent(null));
@@ -1203,6 +1207,16 @@ class _ItemsListContentState extends State<_ItemsListContent>
       categoryName = _cachedCategoryNames[activeCategoryId] ?? 'Uncategorized';
     }
 
+    // Resolve device color for the active item indicator chip
+    final chipDeviceColor = () {
+      final brightness = Theme.of(context).brightness;
+      if (bluetoothState.connectedDevices.isEmpty) return null;
+      final deviceId = bluetoothState.connectedDevices.keys.first;
+      final idx = bluetoothState.pairedDevices.indexWhere((d) => d.deviceInstanceId == deviceId);
+      if (idx < 0) return null;
+      return AppColors.deviceColor(bluetoothState.pairedDevices[idx].color, brightness);
+    }();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: GestureDetector(
@@ -1219,7 +1233,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
           decoration: BoxDecoration(
-            color: AppColors.actionActivate.withAlpha(15),
+            color: (chipDeviceColor ?? AppColors.actionActivate).withAlpha(15),
             borderRadius: BorderRadius.circular(12.0),
           ),
           child: Row(
@@ -1228,7 +1242,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               Icon(
                 Icons.push_pin_rounded,
                 size: 11.0,
-                color: AppColors.actionActivate,
+                color: chipDeviceColor ?? AppColors.actionActivate,
               ),
               const SizedBox(width: 4.0),
               Flexible(
@@ -1412,21 +1426,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }
   }
 
-  /// Returns device color for claimed item, or null (single-device / unclaimed).
-  Color? _claimColor(Item item, Map<String, DeviceConnectionState> connectedDevices,
-      List<PairedDevice> pairedDevices, Brightness brightness, {bool forOffline = false}) {
-    if (connectedDevices.length < 2 || item.claimedBy == null) return null;
-    final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
-    final colorIndex = idx >= 0 ? pairedDevices[idx].color : 0;
-    return forOffline
-        ? AppColors.deviceColorOffline(colorIndex, brightness)
-        : AppColors.deviceColor(colorIndex, brightness);
-  }
-
   /// Returns claiming device name (+ "· disconnected" if offline), or null.
   String? _claimDeviceName(Item item, Map<String, DeviceConnectionState> connectedDevices,
       List<PairedDevice> pairedDevices) {
-    if (connectedDevices.length < 2 || item.claimedBy == null) return null;
+    if (item.claimedBy == null) return null;
     final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
     final name = idx >= 0 ? pairedDevices[idx].deviceName : item.claimedBy!;
     final isOnline = connectedDevices[item.claimedBy!]?.isOnline == true;
@@ -1455,19 +1458,32 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
-    // Multi-device claim state
     final brightness = Theme.of(context).brightness;
-    final isMultiDevice = connectedDevices.length >= 2;
-    final isClaimedOnline = item.claimedBy != null &&
-        connectedDevices[item.claimedBy!]?.isOnline == true && isMultiDevice;
-    final isClaimedOffline = item.claimedBy != null && isMultiDevice &&
-        (connectedDevices[item.claimedBy!] == null ||
-         !connectedDevices[item.claimedBy!]!.isOnline);
-    final deviceAccentColor = isClaimedOnline
-        ? _claimColor(item, connectedDevices, pairedDevices, brightness)
-        : isClaimedOffline
-            ? _claimColor(item, connectedDevices, pairedDevices, brightness, forOffline: true)
-            : null;
+
+    // Resolve device color for claimed items (claimed = selected)
+    final activateColor = () {
+      if (item.claimedBy != null) {
+        final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+        if (idx >= 0) return AppColors.deviceColor(pairedDevices[idx].color, brightness);
+      }
+      // Single-device: use the connected device's color
+      if (connectedDevices.isNotEmpty) {
+        final deviceId = connectedDevices.keys.first;
+        final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == deviceId);
+        if (idx >= 0) return AppColors.deviceColor(pairedDevices[idx].color, brightness);
+      }
+      return null;
+    }();
+
+    // Claim state — applies regardless of how many devices are connected
+    final isClaimed = item.claimedBy != null;
+    final isClaimedOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
+    final isClaimedOffline = isClaimed &&
+        (connectedDevices[item.claimedBy!] == null || !connectedDevices[item.claimedBy!]!.isOnline);
+    final effectivelyActivated = isActivated || isClaimedOnline;
+    final claimedColor = isClaimedOffline
+        ? activateColor?.withValues(alpha: 0.35)
+        : activateColor;
 
     // The tile content - wrapped in ReorderableDelayedDragStartListener
     // to enable long-press-to-drag without a visible handle
@@ -1475,12 +1491,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
         borderRadius: BorderRadius.circular(8.0),
         child: Container(
           decoration: BoxDecoration(
-            color: isActivated ? activatedColor
-                : deviceAccentColor != null ? deviceAccentColor.withValues(alpha: 0.15) : alternate,
-            border: isActivated
-                ? Border(left: BorderSide(color: deviceAccentColor ?? AppColors.actionActivate, width: 4.0))
-                : deviceAccentColor != null
-                    ? Border(left: BorderSide(color: deviceAccentColor, width: 4.0))
+            color: effectivelyActivated
+                ? (claimedColor?.withValues(alpha: 0.2) ?? activatedColor)
+                : isClaimedOffline
+                    ? (claimedColor?.withValues(alpha: 0.1) ?? alternate)
+                    : alternate,
+            border: effectivelyActivated
+                ? Border(left: BorderSide(color: claimedColor ?? AppColors.actionActivate, width: 4.0))
+                : isClaimedOffline
+                    ? Border(left: BorderSide(color: claimedColor ?? AppColors.actionActivate, width: 4.0))
                     : null,
           ),
           child: InkWell(
@@ -1505,7 +1524,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             },
             borderRadius: BorderRadius.circular(8.0),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
               child: Row(
                 children: [
                   // Item name (expanded to take remaining space)
@@ -1525,12 +1544,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
                         Builder(builder: (context) {
                           final claimName = _claimDeviceName(item, connectedDevices, pairedDevices);
                           if (claimName == null) return const SizedBox.shrink();
+                          final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: isClaimedOffline
+                                    ? AppColors.secondaryText(brightness).withValues(alpha: 0.6)
+                                    : claimedColor ?? AppColors.secondaryText(brightness),
+                            fontSize: 11.0, fontStyle: FontStyle.italic);
                           return Text(claimName,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: isClaimedOffline
-                                  ? AppColors.secondaryText(brightness).withValues(alpha: 0.6)
-                                  : deviceAccentColor ?? AppColors.secondaryText(brightness),
-                              fontSize: 11.0, fontStyle: FontStyle.italic),
+                            style: subtitleStyle,
                             overflow: TextOverflow.ellipsis);
                         }),
                       ],
@@ -1541,14 +1561,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   Builder(
                     builder: (context) {
                       // Colors for accent bar and text
-                      final accentColor = deviceAccentColor ??
-                          (isActivated
-                              ? (brightness == Brightness.dark ? const Color(0xFFB8B4FF) : const Color(0xFF8580E0))
-                              : (brightness == Brightness.dark ? const Color(0xFF6B7280) : const Color(0xFFD1D5DB)));
-                      final textColor = deviceAccentColor ??
-                          (isActivated
-                              ? (brightness == Brightness.dark ? const Color(0xFFB8B4FF) : AppColors.actionActivate)
-                              : primaryText);
+                      final accentColor = (effectivelyActivated || isClaimedOffline)
+                          ? (claimedColor ?? AppColors.accentActive(brightness))
+                          : AppColors.accentInactive(brightness);
+                      final textColor = (effectivelyActivated || isClaimedOffline)
+                          ? (claimedColor ?? AppColors.accentActive(brightness))
+                          : primaryText;
                       return Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1606,10 +1624,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
     );
 
     // Claim-aware action state
-    final isClaimed = item.claimedBy != null;
-    final editable = isMultiDevice ? isItemEditable(item.claimedBy, connectedDevices) : isConnected;
-    final showUnlock = isClaimed && isMultiDevice;
+    final editable = isClaimed ? isItemEditable(item.claimedBy, connectedDevices) : isConnected;
+    final showUnlock = isClaimed;
     final claimDeviceOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
+    // Resolve claiming device's color for unlock action
+    final claimColor = isClaimed ? () {
+      final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
+      if (idx < 0) return null;
+      return AppColors.deviceColor(pairedDevices[idx].color, brightness);
+    }() : null;
 
     Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -1621,7 +1644,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             // Multi-device + claimed → Unlock. Otherwise when connected → Activate.
             if (showUnlock)
               SlidableAction(
-                backgroundColor: claimDeviceOnline ? AppColors.actionActivate : AppColors.actionDisabled,
+                backgroundColor: claimDeviceOnline ? (claimColor ?? AppColors.actionActivate) : AppColors.actionDisabled,
                 icon: Icons.lock_open_rounded,
                 autoClose: false,
                 onPressed: (ctx) async {
@@ -1632,7 +1655,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
               )
             else if (isConnected)
               SlidableAction(
-                backgroundColor: AppColors.actionActivate,
+                backgroundColor: activateColor ?? AppColors.actionActivate,
                 icon: Icons.push_pin_rounded,
                 autoClose: false,
                 onPressed: (ctx) async {
@@ -2096,9 +2119,17 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
   /// Checks whether device sync is needed and sends items if so.
   /// Called on ItemsLoaded → ItemsLoaded transitions in buildWhen.
+  ///
+  /// Only active in single-device mode. In multi-device mode, all pushes go
+  /// through RefreshDeviceItemsUseCase (which applies claim filtering).
+  /// _checkDeviceSync doesn't know about per-device selections or claims,
+  /// so it would send unfiltered items with the wrong selection.
   void _checkDeviceSync(BuildContext context, ItemsLoaded current) {
     final bluetoothState = context.read<BluetoothBloc>().state;
     if (!bluetoothState.isConnected) return;
+
+    // Multi-device: BLoC handles all pushes via RefreshDeviceItemsUseCase
+    if (bluetoothState.connectedDevices.length > 1) return;
 
     final selectedId = bluetoothState.selectedItemId;
     if (selectedId == null || selectedId.isEmpty) return;
@@ -2120,12 +2151,16 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final now = DateTime.now();
     final recentlySynced = _lastSyncTime != null &&
         now.difference(_lastSyncTime!).inMilliseconds < 500;
+    // After connection, suppress for 5s — BLoC handles initial push via
+    // override or _refreshDeviceItems; this prevents a redundant second push.
+    final justConnected = _deviceConnectedAt != null &&
+        now.difference(_deviceConnectedAt!).inSeconds < 5;
 
     final categoryChanged = _lastSyncedCategoryId != selectedCatId;
     final signatureChanged = currentSignature != _lastSyncedSignature;
 
     if (signatureChanged || categoryChanged) {
-      if (!recentlySynced) {
+      if (!recentlySynced && !justConnected) {
         _lastSyncTime = now;
         final btBloc = context.read<BluetoothBloc>();
         btBloc.add(SendItemsToDevice(

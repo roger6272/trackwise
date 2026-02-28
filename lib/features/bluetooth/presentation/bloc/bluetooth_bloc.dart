@@ -788,7 +788,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     SendTimeSync event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceId = state.connectedDevice?.id;
+    // Use target device if specified, fall back to first connected (single-device compat)
+    final deviceId = event.deviceInstanceId != null
+        ? state.connectedDevices[event.deviceInstanceId]?.device.id
+        : state.connectedDevice?.id;
     if (deviceId == null) return;
 
     final result = await _sendTimeSync.call(
@@ -858,7 +861,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     UnpairDevice event,
     Emitter<BluetoothState> emit,
   ) async {
-    final deviceId = state.connectedDevice?.id;
+    // Use target device if specified, fall back to first connected (single-device compat)
+    final deviceId = event.deviceInstanceId != null
+        ? state.connectedDevices[event.deviceInstanceId]?.device.id
+        : state.connectedDevice?.id;
     if (deviceId == null) return;
 
     final result = await _unpairDevice.call(

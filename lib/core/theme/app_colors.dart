@@ -98,6 +98,18 @@ class AppColors {
   static const Color actionDelete = Color(0xFFD11F43);
   static const Color actionDisabled = Color(0xFF565656);
 
+  // ==================== Accent Bar Colors ====================
+
+  static const Color accentActiveLight = Color(0xFF8580E0);
+  static const Color accentActiveDark = Color(0xFFB8B4FF);
+  static Color accentActive(Brightness brightness) =>
+      brightness == Brightness.dark ? accentActiveDark : accentActiveLight;
+
+  static const Color accentInactiveLight = Color(0xFFD1D5DB);
+  static const Color accentInactiveDark = Color(0xFF6B7280);
+  static Color accentInactive(Brightness brightness) =>
+      brightness == Brightness.dark ? accentInactiveDark : accentInactiveLight;
+
   // ==================== Activated Item Highlight ====================
 
   static const Color activatedLight = Color(0xFFCAC6FF);
