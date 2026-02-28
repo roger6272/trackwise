@@ -209,7 +209,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               context,
                               icon: Icons.watch_outlined,
                               title: 'Paired Devices',
-                              onTap: () => context.push('/profile/paired-devices'),
+                              onTap: () => context.go('/bluetooth'),
                             ),
                             _buildDivider(context),
                             _buildSettingItem(

@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
-import '../../../../core/state/app_ui_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
 import '../../domain/entities/paired_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
-import '../widgets/sync_conflict_dialog.dart';
+import '../widgets/device_color_picker_dialog.dart';
 import 'bluetooth_search_page.dart';
 
-/// Main Bluetooth page - entry point for Bluetooth functionality.
+/// Main Bluetooth page — unified device management.
 ///
 /// Shows:
-/// - Connection status overview
-/// - Quick actions based on current state
-/// - Navigate to search or device management
+/// - Summary bar (connected count, BT/permissions status)
+/// - Paired device list with connect/disconnect/rename/color/unpair
+/// - FAB to search for new devices
+/// - Empty state when no devices are paired
 class BluetoothPage extends StatefulWidget {
   const BluetoothPage({super.key});
 
@@ -30,324 +30,798 @@ class BluetoothPage extends StatefulWidget {
 }
 
 class _BluetoothPageState extends State<BluetoothPage> {
+  /// The deviceInstanceId we're connecting to from this page (null if not connecting).
+  String? _connectingDeviceId;
+
   @override
   void initState() {
     super.initState();
-    // Check permissions on page load
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<BluetoothBloc>().add(const CheckBluetoothPermissions());
+      final bloc = context.read<BluetoothBloc>();
+      bloc.add(const CheckBluetoothPermissions());
+      bloc.add(const LoadPairedDevices());
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final textTheme = Theme.of(context).textTheme;
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
-    return BlocListener<BluetoothBloc, BluetoothState>(
-      listenWhen: (previous, current) =>
-          !previous.hasConflict && current.hasConflict,
+    return BlocConsumer<BluetoothBloc, BluetoothState>(
       listener: (context, state) {
-        // Show conflict dialog when conflict is detected
-        if (state.hasConflict) {
-          _showConflictDialog(context);
+        // Connection success feedback
+        if (_connectingDeviceId != null) {
+          if (state.connectedDevices.containsKey(_connectingDeviceId)) {
+            _connectingDeviceId = null;
+            showSuccessSnackBar(context, 'Connected to device');
+          } else if (state.status == BluetoothStatus.error &&
+              state.errorMessage != null) {
+            _connectingDeviceId = null;
+            showErrorSnackBar(context, state.errorMessage!);
+          }
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
+      builder: (context, state) {
+        final devices = state.pairedDevices;
+        final canSearch = state.permissionsGranted && state.bluetoothEnabled;
+
+        return Scaffold(
           backgroundColor: primaryBackground,
-          title: Text(
-            'Bluetooth',
-            style: textTheme.titleLarge?.copyWith(
-              color: primaryText,
-              fontSize: 22.0,
+          appBar: AppBar(
+            backgroundColor: primaryBackground,
+            title: Text(
+              'Bluetooth',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: primaryText,
+                    fontSize: 22.0,
+                  ),
             ),
+            automaticallyImplyLeading: false,
+            elevation: 0.0,
           ),
-          automaticallyImplyLeading: false,
-          elevation: 0.0,
-        ),
-        body: BlocBuilder<BluetoothBloc, BluetoothState>(
-          builder: (context, state) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _StatusCard(state: state),
-                  const SizedBox(height: 24),
-                  _buildActionButtons(context, state),
-                  const SizedBox(height: 24),
-                  _buildInfoSection(context, state),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _showConflictDialog(BuildContext context) {
-    final btState = context.read<BluetoothBloc>().state;
-    final instanceId = btState.connectedDeviceInstanceId;
-    final pairedDevice = instanceId != null
-        ? btState.pairedDevices.cast<PairedDevice?>().firstWhere(
-              (d) => d!.deviceInstanceId == instanceId,
-              orElse: () => null,
-            )
-        : null;
-    final deviceName = pairedDevice?.deviceName ?? btState.connectedDevice?.name;
-
-    SyncConflictDialog.show(
-      context: context,
-      deviceName: deviceName,
-      deviceId: instanceId,
-      onConfirm: () {
-        final appUiState = context.read<AppUiState>();
-        final btBloc = context.read<BluetoothBloc>();
-        btBloc.add(ConfirmSyncOverride(
-          currentSelectedItemId: appUiState.activeItemId.isNotEmpty
-              ? appUiState.activeItemId
+          body: devices.isEmpty
+              ? _buildEmptyState(context, state)
+              : _buildDeviceList(context, state),
+          floatingActionButton: devices.isNotEmpty
+              ? FloatingActionButton(
+                  onPressed: canSearch
+                      ? () => context.push(BluetoothSearchPage.routePath)
+                      : null,
+                  backgroundColor:
+                      canSearch ? AppColors.primary : AppColors.primary.withValues(alpha: 0.4),
+                  child: Icon(
+                    Icons.bluetooth_searching,
+                    color: canSearch ? Colors.white : Colors.white.withValues(alpha: 0.6),
+                  ),
+                )
               : null,
-          deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
-        ));
-      },
-      onCancel: () {
-        final btBloc = context.read<BluetoothBloc>();
-        btBloc.add(CancelSyncConflict(
-          deviceInstanceId: btBloc.state.conflictDeviceInstanceId ?? '',
-        ));
-        showInfoSnackBar(context, 'Disconnected. Connect again to sync.');
+        );
       },
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, BluetoothState state) {
-    if (state.isConnected) {
-      return OutlinedButton.icon(
-        onPressed: () {
-          final btBloc = context.read<BluetoothBloc>();
-          btBloc.add(DisconnectFromDevice(
-            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
-          ));
-        },
-        icon: const Icon(Icons.bluetooth_disabled),
-        label: const Text('Disconnect'),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          foregroundColor: AppColors.error,
-        ),
-      );
-    }
+  Widget _buildDeviceList(BuildContext context, BluetoothState state) {
+    final devices = state.pairedDevices;
 
-    if (state.isConnecting) {
-      return ElevatedButton.icon(
-        onPressed: null,
-        icon: const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        label: const Text('Connecting...'),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-      );
-    }
-
-    // Not connected
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ElevatedButton.icon(
-          onPressed: state.permissionsGranted && state.bluetoothEnabled
-              ? () => context.push(BluetoothSearchPage.routePath)
-              : null,
-          icon: const Icon(Icons.bluetooth_searching),
-          label: const Text('Find Device'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+        // Status banners
+        _buildBanners(context, state),
+        // Summary bar
+        _SummaryBar(state: state),
+        // Device list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(top: 4.0, bottom: 80.0),
+            itemCount: devices.length,
+            itemBuilder: (context, index) {
+              final device = devices[index];
+              final isConnected =
+                  state.connectedDevices.containsKey(device.deviceInstanceId);
+              final isConnecting =
+                  state.connectingDeviceId == device.deviceInstanceId;
+
+              return _DeviceListTile(
+                device: device,
+                isConnected: isConnected,
+                isConnecting: isConnecting,
+                onRename: () => _showRenameDialog(context, device),
+                onChangeColor: () => _showColorPickerDialog(context, device),
+                onUnpair: () => _showUnpairDialog(context, device),
+                onConnect: () {
+                  _connectingDeviceId = device.deviceInstanceId;
+                  context.read<BluetoothBloc>().add(
+                        ConnectToDevice(device.deviceInstanceId),
+                      );
+                },
+                onDisconnect: () {
+                  context.read<BluetoothBloc>().add(
+                        DisconnectFromDevice(
+                            deviceInstanceId: device.deviceInstanceId),
+                      );
+                },
+              );
+            },
           ),
         ),
-        if (!state.permissionsGranted) ...[
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () {
-              context.read<BluetoothBloc>().add(const RequestBluetoothPermissions());
-            },
-            icon: const Icon(Icons.security),
-            label: const Text('Grant Permissions'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-        ],
       ],
     );
   }
 
-  Widget _buildInfoSection(BuildContext context, BluetoothState state) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'About ESP32 Connection',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            _InfoRow(
-              icon: Icons.bluetooth,
-              label: 'Bluetooth',
-              value: state.bluetoothEnabled ? 'Enabled' : 'Disabled',
-              valueColor: state.bluetoothEnabled ? AppColors.success : AppColors.error,
-            ),
-            const Divider(height: 24),
-            _InfoRow(
-              icon: Icons.security,
-              label: 'Permissions',
-              value: state.permissionsGranted ? 'Granted' : 'Required',
-              valueColor: state.permissionsGranted ? AppColors.success : AppColors.warning,
-            ),
-            const Divider(height: 24),
-            _InfoRow(
-              icon: Icons.devices,
-              label: 'Device',
-              value: state.connectedDevice?.name ?? 'Not connected',
-              valueColor: state.isConnected ? AppColors.success : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+  Widget _buildBanners(BuildContext context, BluetoothState state) {
+    final banners = <Widget>[];
 
-class _StatusCard extends StatelessWidget {
-  final BluetoothState state;
-
-  const _StatusCard({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, color, title, subtitle) = _getStatusInfo();
-
-    return Card(
-      color: color.withValues(alpha: 0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 48, color: color),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  (IconData, Color, String, String) _getStatusInfo() {
-    if (state.isConnected) {
-      return (
-        Icons.bluetooth_connected,
-        AppColors.success,
-        'Connected',
-        'Connected to ${state.connectedDevice?.name ?? "device"}',
-      );
-    }
-
-    if (state.isConnecting) {
-      return (
-        Icons.bluetooth_searching,
-        AppColors.warning,
-        'Connecting',
-        'Establishing connection...',
-      );
+    if (!state.bluetoothEnabled) {
+      banners.add(_StatusBanner(
+        message: 'Bluetooth is disabled',
+        color: AppColors.error,
+        icon: Icons.bluetooth_disabled,
+      ));
     }
 
     if (!state.permissionsGranted) {
-      return (
-        Icons.security,
-        AppColors.warning,
-        'Permissions Required',
-        'Grant Bluetooth permissions to connect',
-      );
+      banners.add(_StatusBanner(
+        message: 'Bluetooth permissions required',
+        color: AppColors.warning,
+        icon: Icons.security,
+        actionLabel: 'Grant',
+        onAction: () {
+          context
+              .read<BluetoothBloc>()
+              .add(const RequestBluetoothPermissions());
+        },
+      ));
     }
 
-    if (!state.bluetoothEnabled) {
-      return (
-        Icons.bluetooth_disabled,
-        AppColors.error,
-        'Bluetooth Disabled',
-        'Enable Bluetooth in settings',
-      );
-    }
+    if (banners.isEmpty) return const SizedBox.shrink();
 
-    return (
-      Icons.bluetooth,
-      AppColors.primary,
-      'Ready to Connect',
-      'Search for your ESP32 device',
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(children: banners),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context, BluetoothState state) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+    final canSearch = state.permissionsGranted && state.bluetoothEnabled;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Banners at top even in empty state
+            if (!state.bluetoothEnabled || !state.permissionsGranted) ...[
+              _buildBanners(context, state),
+              const SizedBox(height: 32),
+            ],
+            Icon(
+              Icons.watch_outlined,
+              size: 64,
+              color: secondaryText.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No devices paired',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: secondaryText,
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Search for a Traxelos device to pair it with your account.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: secondaryText.withValues(alpha: 0.7),
+                  ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: canSearch
+                  ? () => context.push(BluetoothSearchPage.routePath)
+                  : null,
+              icon: const Icon(Icons.bluetooth_searching),
+              label: const Text('Find Device'),
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              ),
+            ),
+            if (!state.permissionsGranted) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  context
+                      .read<BluetoothBloc>()
+                      .add(const RequestBluetoothPermissions());
+                },
+                icon: const Icon(Icons.security),
+                label: const Text('Grant Permissions'),
+                style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ========== Dialogs (from paired_devices_page) ==========
+
+  void _showRenameDialog(BuildContext context, PairedDevice device) {
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final backgroundColor = AppColors.secondaryBackground(brightness);
+
+    final controller = TextEditingController(text: device.deviceName);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: backgroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        title: Text(
+          'Rename Device',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: primaryText,
+          ),
+        ),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            style: TextStyle(color: primaryText),
+            decoration: InputDecoration(
+              labelText: 'Device Name',
+              labelStyle: TextStyle(color: secondaryText),
+              hintText: 'e.g., Office Counter, Home Device',
+              hintStyle: TextStyle(
+                color: secondaryText.withValues(alpha: 0.5),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: secondaryText.withValues(alpha: 0.3),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.primary, width: 2),
+              ),
+            ),
+            maxLength: 32,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Device name is required';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: secondaryText),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.of(dialogContext).pop();
+                final newName = controller.text.trim();
+                context.read<BluetoothBloc>().add(
+                      UpdateDeviceName(
+                        deviceInstanceId: device.deviceInstanceId,
+                        newName: newName,
+                      ),
+                    );
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            child: const Text(
+              'Save',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showColorPickerDialog(BuildContext context, PairedDevice device) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => DeviceColorPickerDialog(
+        currentColor: device.color,
+        onColorSelected: (newColor) {
+          Navigator.of(dialogContext).pop();
+          context.read<BluetoothBloc>().add(
+                UpdateDeviceColor(
+                  deviceInstanceId: device.deviceInstanceId,
+                  newColor: newColor,
+                ),
+              );
+        },
+      ),
+    );
+  }
+
+  void _showUnpairDialog(BuildContext context, PairedDevice device) {
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final backgroundColor = AppColors.secondaryBackground(brightness);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: backgroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        title: Text(
+          'Unpair Device',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: primaryText,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'To complete unpairing, factory reset the device.',
+              style: Theme.of(dialogContext).textTheme.bodyLarge?.copyWith(
+                    color: primaryText,
+                    fontSize: 15.0,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: secondaryText.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: secondaryText,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'On device: Hold B button for 10 seconds.',
+                      style:
+                          Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
+                                color: secondaryText,
+                                fontSize: 13.0,
+                                fontWeight: FontWeight.w500,
+                              ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: secondaryText),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<BluetoothBloc>().add(
+                    RemovePairedDevice(device.deviceInstanceId),
+                  );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: const Text(
+              'Remove from List',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
+// ========== Summary Bar ==========
 
-  const _InfoRow({
+class _SummaryBar extends StatelessWidget {
+  final BluetoothState state;
+
+  const _SummaryBar({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+    final connected = state.connectedDevices.length;
+    final total = state.pairedDevices.length;
+
+    final statusText = connected > 0
+        ? '$connected of $total connected'
+        : 'No devices connected';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(
+            connected > 0
+                ? Icons.bluetooth_connected
+                : Icons.bluetooth,
+            size: 20,
+            color: connected > 0 ? AppColors.success : secondaryText,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            statusText,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: connected > 0 ? AppColors.success : secondaryText,
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+          const Spacer(),
+          // Bluetooth status dot
+          Semantics(
+            label: state.bluetoothEnabled
+                ? 'Bluetooth enabled'
+                : 'Bluetooth disabled',
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: state.bluetoothEnabled ? AppColors.success : AppColors.error,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Permissions status dot
+          Semantics(
+            label: state.permissionsGranted
+                ? 'Permissions granted'
+                : 'Permissions required',
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: state.permissionsGranted
+                    ? AppColors.success
+                    : AppColors.warning,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ========== Status Banner ==========
+
+class _StatusBanner extends StatelessWidget {
+  final String message;
+  final Color color;
+  final IconData icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _StatusBanner({
+    required this.message,
+    required this.color,
     required this.icon,
-    required this.label,
-    required this.value,
-    this.valueColor,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.outline),
-        const SizedBox(width: 12),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        const Spacer(),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: valueColor,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8.0),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ),
+          if (actionLabel != null && onAction != null)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: color,
+                minimumSize: Size.zero,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              ),
+              child: Text(actionLabel!),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ========== Device List Tile ==========
+
+class _DeviceListTile extends StatelessWidget {
+  final PairedDevice device;
+  final bool isConnected;
+  final bool isConnecting;
+  final VoidCallback onRename;
+  final VoidCallback onChangeColor;
+  final VoidCallback onUnpair;
+  final VoidCallback onConnect;
+  final VoidCallback onDisconnect;
+
+  const _DeviceListTile({
+    required this.device,
+    required this.isConnected,
+    this.isConnecting = false,
+    required this.onRename,
+    required this.onChangeColor,
+    required this.onUnpair,
+    required this.onConnect,
+    required this.onDisconnect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final primaryText = AppColors.primaryText(brightness);
+    final secondaryText = AppColors.secondaryText(brightness);
+    final secondaryBackground = AppColors.secondaryBackground(brightness);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      decoration: BoxDecoration(
+        color: isConnected
+            ? AppColors.success.withValues(alpha: 0.15)
+            : secondaryBackground,
+        borderRadius: BorderRadius.circular(12.0),
+        border: isConnected
+            ? Border.all(
+                color: AppColors.success.withValues(alpha: 0.5), width: 1.5)
+            : null,
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16.0,
+          vertical: 8.0,
+        ),
+        onTap: (!isConnected && !isConnecting) ? onConnect : null,
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isConnected
+                ? AppColors.success.withValues(alpha: 0.1)
+                : secondaryText.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: isConnecting
+              ? Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                )
+              : Stack(
+                  children: [
+                    Center(
+                        child: Icon(
+                      Icons.watch,
+                      color: isConnected ? AppColors.success : secondaryText,
+                      size: 28,
+                    )),
+                    Positioned(
+                        right: 2,
+                        bottom: 2,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: AppColors.deviceColor(
+                                device.color, brightness),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color:
+                                  secondaryBackground.withValues(alpha: 0.8),
+                              width: 1.5,
+                            ),
+                          ),
+                        )),
+                  ],
+                ),
+        ),
+        title: Text(
+          device.deviceName,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: primaryText,
                 fontWeight: FontWeight.w500,
               ),
         ),
-      ],
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isConnecting
+                  ? 'Connecting...'
+                  : isConnected
+                      ? 'Connected'
+                      : 'Paired ${_formatDate(device.pairedAt)}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isConnecting
+                        ? AppColors.primary
+                        : isConnected
+                            ? AppColors.success
+                            : secondaryText,
+                    fontSize: 13.0,
+                  ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'ID: ${device.deviceInstanceId}',
+              style: TextStyle(
+                color: secondaryText.withValues(alpha: 0.6),
+                fontSize: 11.0,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          icon: Icon(Icons.more_vert, color: secondaryText),
+          onSelected: (value) {
+            if (value == 'connect') {
+              onConnect();
+            } else if (value == 'disconnect') {
+              onDisconnect();
+            } else if (value == 'rename') {
+              onRename();
+            } else if (value == 'color') {
+              onChangeColor();
+            } else if (value == 'unpair') {
+              onUnpair();
+            }
+          },
+          itemBuilder: (context) => [
+            if (!isConnected && !isConnecting)
+              PopupMenuItem(
+                value: 'connect',
+                child: Row(
+                  children: [
+                    Icon(Icons.bluetooth_connected,
+                        size: 20, color: AppColors.primary),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Connect',
+                      style: TextStyle(color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            if (isConnected)
+              PopupMenuItem(
+                value: 'disconnect',
+                child: Row(
+                  children: [
+                    Icon(Icons.bluetooth_disabled,
+                        size: 20, color: AppColors.error),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Disconnect',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                  ],
+                ),
+              ),
+            PopupMenuItem(
+              value: 'rename',
+              child: Row(
+                children: const [
+                  Icon(Icons.edit_outlined, size: 20),
+                  SizedBox(width: 12),
+                  Text('Rename'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'color',
+              child: Row(
+                children: [
+                  Icon(Icons.palette_outlined,
+                      size: 20,
+                      color: AppColors.deviceColor(device.color, brightness)),
+                  const SizedBox(width: 12),
+                  const Text('Change Color'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'unpair',
+              child: Row(
+                children: [
+                  const Icon(Icons.link_off, size: 20, color: AppColors.error),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Unpair',
+                    style: TextStyle(color: AppColors.error),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      return 'today';
+    } else if (difference.inDays == 1) {
+      return 'yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      return DateFormat('MMM d, yyyy').format(date);
+    }
   }
 }

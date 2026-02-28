@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:traxelos/features/bluetooth/domain/entities/ble_device.dart';
+import 'package:traxelos/features/bluetooth/domain/entities/paired_device.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_bloc.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
@@ -20,6 +21,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(const CheckBluetoothPermissions());
     registerFallbackValue(const RequestBluetoothPermissions());
+    registerFallbackValue(const LoadPairedDevices());
     registerFallbackValue(const DisconnectFromDevice(deviceInstanceId: ''));
   });
 
@@ -36,6 +38,13 @@ void main() {
     );
   }
 
+  final testDevice = PairedDevice(
+    deviceInstanceId: 'test_device_id',
+    deviceName: 'ESP32-Tracker',
+    pairedAt: DateTime(2026, 1, 1),
+    color: 0,
+  );
+
   group('BluetoothPage', () {
     testWidgets('displays app bar with title', (tester) async {
       when(() => mockBluetoothBloc.state).thenReturn(const BluetoothState());
@@ -43,15 +52,15 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      // Find Bluetooth text in AppBar
-      expect(find.descendant(
-        of: find.byType(AppBar),
-        matching: find.text('Bluetooth'),
-      ), findsOneWidget);
+      expect(
+          find.descendant(
+            of: find.byType(AppBar),
+            matching: find.text('Bluetooth'),
+          ),
+          findsOneWidget);
     });
 
-    testWidgets('displays ready state when permissions granted and BT enabled',
-        (tester) async {
+    testWidgets('displays empty state when no paired devices', (tester) async {
       when(() => mockBluetoothBloc.state).thenReturn(
         const BluetoothState(
           status: BluetoothStatus.ready,
@@ -63,11 +72,12 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Ready to Connect'), findsOneWidget);
+      expect(find.text('No devices paired'), findsOneWidget);
       expect(find.text('Find Device'), findsOneWidget);
     });
 
-    testWidgets('displays permissions required when not granted', (tester) async {
+    testWidgets('displays permissions banner and Grant button when not granted',
+        (tester) async {
       when(() => mockBluetoothBloc.state).thenReturn(
         const BluetoothState(
           status: BluetoothStatus.permissionsDenied,
@@ -79,11 +89,12 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Permissions Required'), findsOneWidget);
+      expect(find.text('Bluetooth permissions required'), findsOneWidget);
       expect(find.text('Grant Permissions'), findsOneWidget);
     });
 
-    testWidgets('displays bluetooth disabled when BT is off', (tester) async {
+    testWidgets('displays bluetooth disabled banner when BT is off',
+        (tester) async {
       when(() => mockBluetoothBloc.state).thenReturn(
         const BluetoothState(
           status: BluetoothStatus.bluetoothDisabled,
@@ -95,28 +106,28 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Bluetooth Disabled'), findsOneWidget);
+      expect(find.text('Bluetooth is disabled'), findsOneWidget);
     });
 
-    testWidgets('displays connecting state', (tester) async {
+    testWidgets('displays device list with paired device', (tester) async {
       when(() => mockBluetoothBloc.state).thenReturn(
-        const BluetoothState(
-          status: BluetoothStatus.connecting,
+        BluetoothState(
+          status: BluetoothStatus.ready,
           permissionsGranted: true,
           bluetoothEnabled: true,
+          pairedDevices: [testDevice],
         ),
       );
 
       await tester.pumpWidget(createTestWidget());
-      // Use pump instead of pumpAndSettle due to animation
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
 
-      expect(find.text('Connecting'), findsWidgets);
+      expect(find.text('ESP32-Tracker'), findsOneWidget);
+      expect(find.text('No devices connected'), findsOneWidget);
     });
 
-    testWidgets('displays connected state with device info', (tester) async {
-      final testDevice = BleDevice(
+    testWidgets('displays connected device with summary', (tester) async {
+      final bleDevice = BleDevice(
         id: 'test_device_id',
         name: 'ESP32-Tracker',
         rssi: -50,
@@ -127,9 +138,10 @@ void main() {
           status: BluetoothStatus.ready,
           permissionsGranted: true,
           bluetoothEnabled: true,
+          pairedDevices: [testDevice],
           connectedDevices: {
             'test_device_id': DeviceConnectionState(
-              device: testDevice,
+              device: bleDevice,
               syncStatus: DeviceSyncStatus.synced,
             ),
           },
@@ -139,57 +151,25 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
+      expect(find.text('1 of 1 connected'), findsOneWidget);
       expect(find.text('Connected'), findsOneWidget);
-      expect(find.textContaining('ESP32-Tracker'), findsWidgets);
-      expect(find.text('Disconnect'), findsOneWidget);
+      expect(find.text('ESP32-Tracker'), findsOneWidget);
     });
 
-    testWidgets('shows info section with bluetooth status', (tester) async {
+    testWidgets('FAB is visible when devices are paired', (tester) async {
       when(() => mockBluetoothBloc.state).thenReturn(
-        const BluetoothState(
+        BluetoothState(
           status: BluetoothStatus.ready,
           permissionsGranted: true,
           bluetoothEnabled: true,
+          pairedDevices: [testDevice],
         ),
       );
 
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('About ESP32 Connection'), findsOneWidget);
-      expect(find.text('Permissions'), findsOneWidget);
-      expect(find.text('Device'), findsOneWidget);
-    });
-
-    testWidgets('Find Device button is visible when ready', (tester) async {
-      when(() => mockBluetoothBloc.state).thenReturn(
-        const BluetoothState(
-          status: BluetoothStatus.ready,
-          permissionsGranted: true,
-          bluetoothEnabled: true,
-        ),
-      );
-
-      await tester.pumpWidget(createTestWidget());
-      await tester.pumpAndSettle();
-
-      expect(find.text('Find Device'), findsOneWidget);
-    });
-
-    testWidgets('shows permissions message when not granted',
-        (tester) async {
-      when(() => mockBluetoothBloc.state).thenReturn(
-        const BluetoothState(
-          status: BluetoothStatus.permissionsDenied,
-          permissionsGranted: false,
-          bluetoothEnabled: true,
-        ),
-      );
-
-      await tester.pumpWidget(createTestWidget());
-      await tester.pumpAndSettle();
-
-      expect(find.text('Permissions Required'), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
     });
 
     testWidgets('tapping Grant Permissions dispatches event', (tester) async {
@@ -211,8 +191,9 @@ void main() {
           .called(1);
     });
 
-    testWidgets('tapping Disconnect dispatches event', (tester) async {
-      final testDevice = BleDevice(
+    testWidgets('tapping Disconnect in popup menu dispatches event',
+        (tester) async {
+      final bleDevice = BleDevice(
         id: 'test_device_id',
         name: 'ESP32-Tracker',
         rssi: -50,
@@ -223,9 +204,10 @@ void main() {
           status: BluetoothStatus.ready,
           permissionsGranted: true,
           bluetoothEnabled: true,
+          pairedDevices: [testDevice],
           connectedDevices: {
             'test_device_id': DeviceConnectionState(
-              device: testDevice,
+              device: bleDevice,
               syncStatus: DeviceSyncStatus.synced,
             ),
           },
@@ -235,10 +217,17 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
+      // Open popup menu
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      // Tap disconnect
       await tester.tap(find.text('Disconnect'));
       await tester.pump();
 
-      verify(() => mockBluetoothBloc.add(any(that: isA<DisconnectFromDevice>()))).called(1);
+      verify(() =>
+              mockBluetoothBloc.add(any(that: isA<DisconnectFromDevice>())))
+          .called(1);
     });
   });
 }
