@@ -191,6 +191,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Claim events (stub handlers, implemented in Task 13)
     on<ClaimItem>(_onClaimItem);
     on<ReleaseItem>(_onReleaseItem);
+    on<RefreshAllDevices>(_onRefreshAllDevices);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -1514,6 +1515,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         _pushToAllDevices();
       },
     );
+  }
+
+  void _onRefreshAllDevices(
+    RefreshAllDevices event,
+    Emitter<BluetoothState> emit,
+  ) {
+    _pushToAllDevices();
   }
 
   // ========== Claim-Filtered Push Helpers ==========

@@ -2226,8 +2226,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final bluetoothState = context.read<BluetoothBloc>().state;
     if (!bluetoothState.isConnected) return;
 
-    // Multi-device: BLoC handles all pushes via RefreshDeviceItemsUseCase
-    if (bluetoothState.connectedDevices.length > 1) return;
+    // Multi-device: use RefreshDeviceItemsUseCase which applies claim filtering.
+    // _checkDeviceSync's signature-based change detection still works to avoid
+    // redundant pushes — only the delivery mechanism differs.
+    final isMultiDevice = bluetoothState.connectedDevices.length > 1;
 
     final selectedId = bluetoothState.selectedItemId;
     if (selectedId == null || selectedId.isEmpty) return;
@@ -2261,20 +2263,25 @@ class _ItemsListContentState extends State<_ItemsListContent>
       if (!recentlySynced && !justConnected) {
         _lastSyncTime = now;
         final btBloc = context.read<BluetoothBloc>();
-        btBloc.add(SendItemsToDevice(
-          currentCategoryItems,
-          deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
-          categoryNames: _cachedCategoryNames,
-        ));
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (!mounted) return;
-          final btBloc2 = context.read<BluetoothBloc>();
-          btBloc2.add(SendSelectedItem(
-            selectedId,
-            selectedItem.deviceItemId ?? 0,
-            deviceInstanceId: btBloc2.state.connectedDeviceInstanceId ?? '',
+        if (isMultiDevice) {
+          // Multi-device: use RefreshDeviceItemsUseCase for claim filtering
+          btBloc.add(const RefreshAllDevices());
+        } else {
+          btBloc.add(SendItemsToDevice(
+            currentCategoryItems,
+            deviceInstanceId: btBloc.state.connectedDeviceInstanceId ?? '',
+            categoryNames: _cachedCategoryNames,
           ));
-        });
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (!mounted) return;
+            final btBloc2 = context.read<BluetoothBloc>();
+            btBloc2.add(SendSelectedItem(
+              selectedId,
+              selectedItem.deviceItemId ?? 0,
+              deviceInstanceId: btBloc2.state.connectedDeviceInstanceId ?? '',
+            ));
+          });
+        }
       }
       // Always update signature so debounced changes don't trigger
       // a stale re-sync on the next unrelated state change

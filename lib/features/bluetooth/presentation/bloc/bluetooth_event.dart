@@ -446,3 +446,13 @@ class ReleaseItem extends BluetoothEvent {
   @override
   List<Object?> get props => [itemId];
 }
+
+/// Triggers a claim-filtered item push to all connected devices.
+/// Used after item reorder/edits in multi-device mode where the UI-layer
+/// sync path (_checkDeviceSync) cannot apply per-device claim filtering.
+class RefreshAllDevices extends BluetoothEvent {
+  const RefreshAllDevices();
+
+  @override
+  List<Object?> get props => [];
+}
