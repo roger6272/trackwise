@@ -1460,23 +1460,28 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Map<String, DeviceConnectionState> connectedDevices = const {},
     List<PairedDevice> pairedDevices = const [],
   }) {
-    // Check ALL devices' selections (not just first) for instant color.
-    // appUiState.activeItemId covers the tap-before-BLoC-processes gap.
-    final isActivated = isConnected && (
-        connectedDevices.values.any((d) => d.selectedItemId == item.id) ||
-        appUiState.activeItemId == item.id);
+    // Check ALL devices' selections for instant color.
+    final isActivated = isConnected &&
+        connectedDevices.values.any((d) => d.selectedItemId == item.id);
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
     final brightness = Theme.of(context).brightness;
 
-    // Resolve device color for claimed items
+    // Resolve device color: prefer Firestore claim, then optimistic selection
     final activateColor = () {
       if (item.claimedBy != null) {
         final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == item.claimedBy);
         if (idx >= 0) return AppColors.deviceColor(pairedDevices[idx].color, brightness);
       }
-      // Single-device: use the connected device's color
-      if (connectedDevices.isNotEmpty) {
+      // Optimistic: find which device currently has this item selected
+      for (final entry in connectedDevices.entries) {
+        if (entry.value.selectedItemId == item.id) {
+          final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == entry.key);
+          if (idx >= 0) return AppColors.deviceColor(pairedDevices[idx].color, brightness);
+        }
+      }
+      // Single-device fallback (only 1 device connected, no ambiguity)
+      if (connectedDevices.length == 1) {
         final deviceId = connectedDevices.keys.first;
         final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == deviceId);
         if (idx >= 0) return AppColors.deviceColor(pairedDevices[idx].color, brightness);
