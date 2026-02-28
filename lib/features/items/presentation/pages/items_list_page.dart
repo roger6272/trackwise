@@ -1453,9 +1453,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Map<String, DeviceConnectionState> connectedDevices = const {},
     List<PairedDevice> pairedDevices = const [],
   }) {
-    // Use Bluetooth selectedItemId from device, fallback to appUiState
-    final activeId = selectedItemId ?? appUiState.activeItemId;
-    final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
     final brightness = Theme.of(context).brightness;
@@ -1475,12 +1472,14 @@ class _ItemsListContentState extends State<_ItemsListContent>
       return null;
     }();
 
-    // Claim state — applies regardless of how many devices are connected
+    // Claim state — applies regardless of how many devices are connected.
+    // Color is driven solely by Firestore claimedBy (not BLoC selectedItemId)
+    // to avoid two items showing color during the fire-and-forget latency window.
     final isClaimed = item.claimedBy != null;
     final isClaimedOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
     final isClaimedOffline = isClaimed &&
         (connectedDevices[item.claimedBy!] == null || !connectedDevices[item.claimedBy!]!.isOnline);
-    final effectivelyActivated = isActivated || isClaimedOnline;
+    final effectivelyActivated = isClaimedOnline;
     final claimedColor = isClaimedOffline
         ? activateColor?.withValues(alpha: 0.35)
         : activateColor;
