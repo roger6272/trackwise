@@ -871,10 +871,20 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   Future<void> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId) async {
     try {
       await firestore.runTransaction((transaction) async {
-        // Read the new item first (Firestore requires all reads before writes)
+        // Firestore requires ALL reads before ANY writes in a transaction.
         final newRef = firestore.collection('Item').doc(newItemId);
         final newSnapshot = await transaction.get(newRef);
-        final newData = newSnapshot.data();
+
+        final hasPrevious = previousItemId != null && previousItemId != newItemId;
+        DocumentReference? prevRef;
+        DocumentSnapshot? prevSnapshot;
+        if (hasPrevious) {
+          prevRef = firestore.collection('Item').doc(previousItemId);
+          prevSnapshot = await transaction.get(prevRef);
+        }
+
+        // Validate new item
+        final newData = newSnapshot.data() as Map<String, dynamic>?;
         if (newData == null) throw ServerException('Item not found');
 
         final currentClaim = newData['claimed_by'] as String?;
@@ -883,13 +893,15 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           throw ClaimConflictException('Item already claimed by $currentClaim');
         }
 
-        // Release previous item in same transaction
-        if (previousItemId != null && previousItemId != newItemId) {
-          final prevRef = firestore.collection('Item').doc(previousItemId);
-          transaction.update(prevRef, {
-            'claimed_by': null,
-            'claimed_at': null,
-          });
+        // Release previous item only if we own it
+        if (hasPrevious && prevSnapshot != null) {
+          final prevData = prevSnapshot.data() as Map<String, dynamic>?;
+          if (prevData != null && prevData['claimed_by'] == deviceInstanceId) {
+            transaction.update(prevRef!, {
+              'claimed_by': null,
+              'claimed_at': null,
+            });
+          }
         }
 
         // Claim new item
