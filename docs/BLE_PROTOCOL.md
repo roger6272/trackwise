@@ -526,6 +526,8 @@ App: Disconnects
 
 The multi-device sync protocol enables a single user account to sync with multiple physical devices while maintaining data consistency via Firestore. This protocol uses a handshake-first approach with sync sequence numbers for conflict detection.
 
+> **Implementation note:** All sync protocol commands (`handshake`, `override_start/chunk/end`, `sync_complete`) are routed to a specific device via `deviceId`, ensuring that concurrent device connections don't interfere with each other. The BLoC passes `deviceId` through the use case and repository layers down to the datasource, which looks up the correct `DeviceConnection` for BLE writes.
+
 ### 4.1 Protocol Overview
 
 | Scenario | Source of Truth | Protocol Flow |

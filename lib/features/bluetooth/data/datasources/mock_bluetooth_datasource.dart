@@ -79,7 +79,14 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   bool _isScanning = false;
   BleDeviceModel? _connectedDevice;
   final _messageController = StreamController<BleMessage>.broadcast();
-  final _connectionStateController = StreamController<BleConnectionState>.broadcast();
+  final _connectionControllers = <String, StreamController<BleConnectionState>>{};
+
+  StreamController<BleConnectionState> _getOrCreateConnectionController(String deviceId) {
+    return _connectionControllers.putIfAbsent(
+      deviceId,
+      () => StreamController<BleConnectionState>.broadcast(),
+    );
+  }
 
   @override
   bool get isScanning => _isScanning;
@@ -139,7 +146,7 @@ class MockBluetoothDataSource implements BluetoothDataSource {
       throw Exception('Mock connection failure');
     }
 
-    _connectionStateController.add(BleConnectionState.connecting);
+    _getOrCreateConnectionController(deviceId).add(BleConnectionState.connecting);
 
     // Simulate connection delay
     await Future.delayed(connectionDelay);
@@ -159,20 +166,23 @@ class MockBluetoothDataSource implements BluetoothDataSource {
 
   @override
   Future<void> disconnect(String deviceId) async {
-    _connectionStateController.add(BleConnectionState.disconnecting);
+    final ctrl = _getOrCreateConnectionController(deviceId);
+    ctrl.add(BleConnectionState.disconnecting);
     await Future.delayed(const Duration(milliseconds: 100));
     _connectedDevice = null;
-    _connectionStateController.add(BleConnectionState.disconnected);
+    ctrl.add(BleConnectionState.disconnected);
+    _connectionControllers.remove(deviceId);
+    Future.microtask(() => ctrl.close());
   }
 
   @override
   Stream<BleConnectionState> watchConnectionState(String deviceId) {
-    return _connectionStateController.stream;
+    return _getOrCreateConnectionController(deviceId).stream;
   }
 
   @override
-  void emitConnectedState() {
-    _connectionStateController.add(BleConnectionState.connected);
+  void emitConnectedState(String deviceId) {
+    _getOrCreateConnectionController(deviceId).add(BleConnectionState.connected);
   }
 
   // ========== Characteristics ==========
@@ -251,6 +261,7 @@ class MockBluetoothDataSource implements BluetoothDataSource {
 
   @override
   Future<HandshakeResult> sendHandshake({
+    required String deviceId,
     required String uid,
     required int syncSeq,
   }) async {
@@ -266,6 +277,7 @@ class MockBluetoothDataSource implements BluetoothDataSource {
 
   @override
   Future<OverrideResult> sendOverrideChunked({
+    required String deviceId,
     required String uid,
     required int syncSeq,
     required int selectedId,
@@ -282,7 +294,7 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   }
 
   @override
-  Future<SyncCompleteResult> sendSyncComplete(int syncSeq) async {
+  Future<SyncCompleteResult> sendSyncComplete(String deviceId, int syncSeq) async {
     // Simulate network delay
     await Future.delayed(const Duration(milliseconds: 100));
 
@@ -296,7 +308,10 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   @override
   Future<void> dispose() async {
     await _messageController.close();
-    await _connectionStateController.close();
+    for (final ctrl in _connectionControllers.values) {
+      await ctrl.close();
+    }
+    _connectionControllers.clear();
     _connectedDevice = null;
     _isScanning = false;
   }
@@ -358,9 +373,11 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   }
 
   /// Simulates an unexpected disconnect.
-  void simulateDisconnect() {
+  void simulateDisconnect(String deviceId) {
     _connectedDevice = null;
-    _connectionStateController.add(BleConnectionState.disconnected);
+    _getOrCreateConnectionController(deviceId).add(BleConnectionState.disconnected);
+    final ctrl = _connectionControllers.remove(deviceId);
+    if (ctrl != null) Future.microtask(() => ctrl.close());
   }
 
   /// Resets all mock state to defaults.

@@ -65,6 +65,8 @@ import 'package:traxelos/features/bluetooth/domain/usecases/connect_device_useca
     as _i597;
 import 'package:traxelos/features/bluetooth/domain/usecases/disconnect_device_usecase.dart'
     as _i368;
+import 'package:traxelos/features/bluetooth/domain/usecases/refresh_device_items_usecase.dart'
+    as _i905;
 import 'package:traxelos/features/bluetooth/domain/usecases/request_bluetooth_permissions_usecase.dart'
     as _i937;
 import 'package:traxelos/features/bluetooth/domain/usecases/request_device_data_usecase.dart'
@@ -293,6 +295,13 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i721.UserRepository>(),
           gh<_i394.ConnectivityService>(),
         ));
+    gh.lazySingleton<_i905.RefreshDeviceItemsUseCase>(
+        () => _i905.RefreshDeviceItemsUseCase(
+              gh<_i452.ItemRepository>(),
+              gh<_i531.CategoryRepository>(),
+              gh<_i649.BluetoothRepository>(),
+              gh<_i721.UserRepository>(),
+            ));
     gh.lazySingleton<_i1008.SyncDeviceDataUseCase>(
         () => _i1008.SyncDeviceDataUseCase(
               gh<_i452.ItemRepository>(),
@@ -370,18 +379,6 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i531.CategoryRepository>(),
               gh<_i394.ConnectivityService>(),
             ));
-    gh.lazySingleton<_i409.CreateCategoryUseCase>(
-        () => _i409.CreateCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i923.DeleteCategoryUseCase>(
-        () => _i923.DeleteCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i622.GetCategoriesUseCase>(
-        () => _i622.GetCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i349.ReorderCategoriesUseCase>(
-        () => _i349.ReorderCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i810.UpdateCategoryUseCase>(
-        () => _i810.UpdateCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i789.WatchCategoriesUseCase>(
-        () => _i789.WatchCategoriesUseCase(gh<_i531.CategoryRepository>()));
     gh.lazySingleton<_i531.BluetoothBloc>(() => _i531.BluetoothBloc(
           gh<_i1033.ScanDevicesUseCase>(),
           gh<_i177.StopScanUseCase>(),
@@ -400,10 +397,23 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i1008.SyncDeviceDataUseCase>(),
           gh<_i62.PerformSyncUseCase>(),
           gh<_i62.PerformOverrideUseCase>(),
+          gh<_i905.RefreshDeviceItemsUseCase>(),
           gh<_i721.UserRepository>(),
           gh<_i649.BluetoothRepository>(),
           gh<_i452.ItemRepository>(),
         ));
+    gh.lazySingleton<_i409.CreateCategoryUseCase>(
+        () => _i409.CreateCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i923.DeleteCategoryUseCase>(
+        () => _i923.DeleteCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i622.GetCategoriesUseCase>(
+        () => _i622.GetCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i349.ReorderCategoriesUseCase>(
+        () => _i349.ReorderCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i810.UpdateCategoryUseCase>(
+        () => _i810.UpdateCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i789.WatchCategoriesUseCase>(
+        () => _i789.WatchCategoriesUseCase(gh<_i531.CategoryRepository>()));
     gh.factory<_i943.ProfileBloc>(() => _i943.ProfileBloc(
           getProfile: gh<_i740.GetProfileUseCase>(),
           updateProfile: gh<_i759.UpdateProfileUseCase>(),

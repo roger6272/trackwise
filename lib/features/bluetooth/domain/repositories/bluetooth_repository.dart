@@ -233,6 +233,7 @@ abstract class BluetoothRepository {
   /// - Right(HandshakeResult): Response with status and device info
   /// - Left(BluetoothFailure): Command failed or timed out
   Future<Either<Failure, HandshakeResult>> sendHandshake({
+    required String deviceId,
     required String uid,
     required int syncSeq,
   });
@@ -252,6 +253,7 @@ abstract class BluetoothRepository {
   /// - Right(OverrideResult): Override completed or error
   /// - Left(BluetoothFailure): BLE error (override aborted)
   Future<Either<Failure, OverrideResult>> sendOverrideChunked({
+    required String deviceId,
     required String uid,
     required int syncSeq,
     required int selectedId,
@@ -269,7 +271,7 @@ abstract class BluetoothRepository {
   /// Returns:
   /// - Right(SyncCompleteResult): Device stored the new sync_seq
   /// - Left(BluetoothFailure): Command failed or timed out
-  Future<Either<Failure, SyncCompleteResult>> sendSyncComplete(int syncSeq);
+  Future<Either<Failure, SyncCompleteResult>> sendSyncComplete(String deviceId, int syncSeq);
 
   // ============================================================
   // PERMISSIONS & ADAPTER STATE

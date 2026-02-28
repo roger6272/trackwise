@@ -58,7 +58,7 @@ abstract class BluetoothDataSource {
   ///
   /// Should be called by the repository AFTER discoverServices() completes
   /// to ensure characteristics are cached before any listeners react.
-  void emitConnectedState();
+  void emitConnectedState(String deviceId);
 
   // ========== Characteristics ==========
 
@@ -128,6 +128,7 @@ abstract class BluetoothDataSource {
   ///
   /// Throws on BLE error or 10-second timeout.
   Future<HandshakeResult> sendHandshake({
+    required String deviceId,
     required String uid,
     required int syncSeq,
   });
@@ -152,6 +153,7 @@ abstract class BluetoothDataSource {
   ///
   /// Throws on BLE error during any chunk send (aborts override).
   Future<OverrideResult> sendOverrideChunked({
+    required String deviceId,
     required String uid,
     required int syncSeq,
     required int selectedId,
@@ -169,7 +171,7 @@ abstract class BluetoothDataSource {
   /// - 'seq_updated': Device stored the new sync_seq
   ///
   /// Throws on BLE error or 10-second timeout.
-  Future<SyncCompleteResult> sendSyncComplete(int syncSeq);
+  Future<SyncCompleteResult> sendSyncComplete(String deviceId, int syncSeq);
 
   // ========== Permissions & Adapter State ==========
 

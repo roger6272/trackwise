@@ -63,7 +63,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       await dataSource.discoverServices(device);
       // Only emit connected state AFTER services are discovered
       // This ensures characteristics are cached before any listeners react
-      dataSource.emitConnectedState();
+      dataSource.emitConnectedState(deviceId);
       return const Right(true);
     } on FlutterBluePlusException catch (e) {
       return Left(BluetoothFailure('Connection failed: ${e.description}'));
@@ -371,11 +371,13 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
 
   @override
   Future<Either<Failure, HandshakeResult>> sendHandshake({
+    required String deviceId,
     required String uid,
     required int syncSeq,
   }) async {
     try {
       final result = await dataSource.sendHandshake(
+        deviceId: deviceId,
         uid: uid,
         syncSeq: syncSeq,
       );
@@ -397,6 +399,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
 
   @override
   Future<Either<Failure, OverrideResult>> sendOverrideChunked({
+    required String deviceId,
     required String uid,
     required int syncSeq,
     required int selectedId,
@@ -405,6 +408,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }) async {
     try {
       final result = await dataSource.sendOverrideChunked(
+        deviceId: deviceId,
         uid: uid,
         syncSeq: syncSeq,
         selectedId: selectedId,
@@ -428,9 +432,9 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }
 
   @override
-  Future<Either<Failure, SyncCompleteResult>> sendSyncComplete(int syncSeq) async {
+  Future<Either<Failure, SyncCompleteResult>> sendSyncComplete(String deviceId, int syncSeq) async {
     try {
-      final result = await dataSource.sendSyncComplete(syncSeq);
+      final result = await dataSource.sendSyncComplete(deviceId, syncSeq);
       return Right(result);
     } on TimeoutException catch (e) {
       AppLogger.error('sync_complete timed out', e);

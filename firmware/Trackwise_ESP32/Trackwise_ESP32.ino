@@ -15,7 +15,7 @@
 
 // Debug logging macro - compiles out when DEBUG is not defined
 // To enable: add -DDEBUG to build flags (Arduino IDE: Tools > Compiler Warnings)
-// #define DEBUG  // Uncomment for serial debug logging
+#define DEBUG  // Uncomment for serial debug logging
 
 #ifdef DEBUG
   #define DEBUG_LOG(...) Serial.printf(__VA_ARGS__)
@@ -488,7 +488,9 @@ void handleHandshake(const String& uid, int appSyncSeq) {
   // Step 3: Sync sequence check (device is already paired)
   int deviceSyncSeq = getSyncSeqNo();  // 0 = never synced
 
-  if (appSyncSeq == deviceSyncSeq) {
+  // App sends -1 to skip sync_seq comparison (multi-device mode).
+  // This avoids false conflicts when multiple devices each increment sync_seq.
+  if (appSyncSeq == -1 || appSyncSeq == deviceSyncSeq) {
     // In sync - device is Source of Truth, proceed with normal sync
     StaticJsonDocument<256> doc;
     doc["status"] = "in_sync";
