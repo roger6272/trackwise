@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class DeviceSelectorSheet extends StatelessWidget {
-  final List<({String instanceId, String name})> devices;
+  final List<({String instanceId, String name, int color})> devices;
   final ValueChanged<String> onDeviceSelected;
 
   const DeviceSelectorSheet({
@@ -45,7 +45,8 @@ class DeviceSelectorSheet extends StatelessWidget {
             ),
             const Divider(height: 1),
             ...devices.map((d) => ListTile(
-              leading: Icon(Icons.watch, color: AppColors.primary),
+              leading: Icon(Icons.watch,
+                  color: AppColors.deviceColor(d.color, brightness)),
               title: Text(
                 d.name,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(

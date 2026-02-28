@@ -1421,7 +1421,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
             final pd = btState.pairedDevices.firstWhere(
               (p) => p.deviceInstanceId == e.key,
               orElse: () => PairedDevice(deviceInstanceId: e.key, deviceName: e.key, pairedAt: DateTime.now()));
-            return (instanceId: e.key, name: pd.deviceName);
+            return (instanceId: e.key, name: pd.deviceName, color: pd.color);
           }).toList();
       if (devicesList.isEmpty || !context.mounted) return;
       await showModalBottomSheet<void>(

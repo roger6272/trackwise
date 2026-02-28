@@ -9,8 +9,8 @@ void main() {
       home: Scaffold(
         body: DeviceSelectorSheet(
           devices: [
-            (instanceId: 'dev1', name: 'Office'),
-            (instanceId: 'dev2', name: 'Home'),
+            (instanceId: 'dev1', name: 'Office', color: 0),
+            (instanceId: 'dev2', name: 'Home', color: 1),
           ],
           onDeviceSelected: (id) {
             selected = id;
@@ -28,7 +28,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: DeviceSelectorSheet(
-          devices: [(instanceId: 'dev1', name: 'Test')],
+          devices: [(instanceId: 'dev1', name: 'Test', color: 0)],
           onDeviceSelected: (_) {},
         ),
       ),
