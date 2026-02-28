@@ -1460,6 +1460,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
     Map<String, DeviceConnectionState> connectedDevices = const {},
     List<PairedDevice> pairedDevices = const [],
   }) {
+    final activeId = selectedItemId ?? appUiState.activeItemId;
+    final isActivated = activeId == item.id && isConnected;
     final displayCount = appUiState.isTodayToggle ? item.todayCount : item.count;
 
     final brightness = Theme.of(context).brightness;
@@ -1480,13 +1482,11 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }();
 
     // Claim state — applies regardless of how many devices are connected.
-    // Color is driven solely by Firestore claimedBy (not BLoC selectedItemId)
-    // to avoid two items showing color during the fire-and-forget latency window.
     final isClaimed = item.claimedBy != null;
     final isClaimedOnline = isClaimed && connectedDevices[item.claimedBy!]?.isOnline == true;
     final isClaimedOffline = isClaimed &&
         (connectedDevices[item.claimedBy!] == null || !connectedDevices[item.claimedBy!]!.isOnline);
-    final effectivelyActivated = isClaimedOnline;
+    final effectivelyActivated = isActivated || isClaimedOnline;
     final claimedColor = isClaimedOffline
         ? activateColor?.withValues(alpha: 0.35)
         : activateColor;
