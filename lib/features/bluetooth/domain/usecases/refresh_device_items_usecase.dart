@@ -65,10 +65,13 @@ class RefreshDeviceItemsUseCase {
       orElse: () => null,
     );
     // Fall back to first synced item if no selection
-    selectedItem ??= syncedItems.isNotEmpty ? syncedItems.first : null;
+    // Skip when clearSelection is set (e.g., claimed item was unlocked)
+    if (!params.clearSelection) {
+      selectedItem ??= syncedItems.isNotEmpty ? syncedItems.first : null;
+    }
 
     // 5. Filter by category
-    final categoryId = selectedItem?.categoryId ?? '';
+    final categoryId = selectedItem?.categoryId ?? params.categoryId ?? '';
     var deviceItems = syncedItems.where((i) =>
       (i.categoryId ?? '') == categoryId).toList();
 
@@ -169,14 +172,25 @@ class RefreshDeviceItemsParams extends Equatable {
   /// Firestore ID of the selected item (determines which category to push).
   final String? selectedItemId;
 
+  /// When true, don't auto-select the first item if no selection exists.
+  /// Sends -1 (no selection) to the device instead.
+  /// Used when explicitly clearing a device's selection (e.g., claimed item unlocked).
+  final bool clearSelection;
+
+  /// Explicit category override. Used with [clearSelection] so the device
+  /// still receives its current category's items even with no selection.
+  final String? categoryId;
+
   const RefreshDeviceItemsParams({
     required this.deviceId,
     required this.deviceInstanceId,
     this.selectedItemId,
+    this.clearSelection = false,
+    this.categoryId,
   });
 
   @override
-  List<Object?> get props => [deviceId, deviceInstanceId, selectedItemId];
+  List<Object?> get props => [deviceId, deviceInstanceId, selectedItemId, clearSelection, categoryId];
 }
 
 /// Result of [RefreshDeviceItemsUseCase], including the resolved category.

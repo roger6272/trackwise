@@ -1535,17 +1535,18 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ReleaseItem event,
     Emitter<BluetoothState> emit,
   ) async {
+    final claimingDeviceId = event.claimedBy;
+    final isOnline = claimingDeviceId != null &&
+        (state.connectedDevices[claimingDeviceId]?.isOnline ?? false);
+
     // Track stale claim if the claiming device is offline
-    if (event.claimedBy != null && event.itemName != null) {
-      final isOnline = state.connectedDevices[event.claimedBy]?.isOnline ?? false;
-      if (!isOnline) {
-        AppLogger.debug('Stale claim: ${event.itemName} unlocked while ${event.claimedBy} is offline');
-        final claimResult = await _userRepository.addStaleClaim(event.claimedBy!, event.itemName!);
-        claimResult.fold(
-          (f) => AppLogger.error('Failed to record stale claim: ${f.message}'),
-          (_) {},
-        );
-      }
+    if (claimingDeviceId != null && event.itemName != null && !isOnline) {
+      AppLogger.debug('Stale claim: ${event.itemName} unlocked while $claimingDeviceId is offline');
+      final claimResult = await _userRepository.addStaleClaim(claimingDeviceId, event.itemName!);
+      claimResult.fold(
+        (f) => AppLogger.error('Failed to record stale claim: ${f.message}'),
+        (_) {},
+      );
     }
 
     final result = await _itemRepository.releaseItem(event.itemId);
@@ -1553,8 +1554,29 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       (failure) => AppLogger.debug('Failed to release item ${event.itemId}: ${failure.message}'),
       (_) {
         AppLogger.debug('Released claim on item ${event.itemId}');
-        // Push updated items to ALL connected devices (released item now available)
-        _pushToAllDevices();
+
+        if (isOnline) {
+          // Clear the claiming device's selection and push with no auto-select
+          emit(state.copyWith(
+            connectedDevices: _updateDevice(claimingDeviceId!, (d) => d.copyWith(
+              clearSelectedItemId: true,
+            )),
+          ));
+          _refreshDeviceItems.call(RefreshDeviceItemsParams(
+            deviceId: claimingDeviceId,
+            deviceInstanceId: claimingDeviceId,
+            clearSelection: true,
+            categoryId: _deviceCategories[claimingDeviceId],
+          )).then((r) => r.fold(
+            (f) => AppLogger.debug('Push to $claimingDeviceId failed: ${f.message}'),
+            (res) => _deviceCategories[claimingDeviceId] = res.categoryId,
+          ));
+          // Push to other devices normally
+          _pushToOtherDevices(claimingDeviceId);
+        } else {
+          // No online claiming device — push to all
+          _pushToAllDevices();
+        }
       },
     );
   }
