@@ -259,6 +259,16 @@ For new items (deviceItemId not found):
 
 **Mitigation:** The 5-minute periodic flush reduces this window.
 
+### 3.4 "Released item counts restored after reconnect"
+
+**Symptoms:** Device disconnects, item is released from app, device reconnects — the released item's count in Firestore gets overwritten with the device's stale count.
+
+**Root Cause:** The `_onMessageReceived` guard only blocked messages during `staleClaim` status. Firmware sends prefs automatically 100ms after handshake (during `handshaking` status), before the BLoC processes `HandshakeCompleted` and detects stale claims. The prefs — containing stale counts for the released item — were written to Firestore before the stale claim guard was set.
+
+**Fix:** Changed the message guard from checking specifically for `staleClaim` to checking `!isOnline` (only `synced` status allows messages through). This ensures no device data is processed until the handshake is fully complete and stale claims are resolved.
+
+**Key Lesson:** Guards on specific enum values are fragile — guard on the positive condition (`isOnline`) rather than individual negative states. New states added later (e.g., `setup`, `wrongAccount`) get protection automatically.
+
 ---
 
 ## 4. Notification Issues
