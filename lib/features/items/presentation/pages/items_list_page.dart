@@ -1759,20 +1759,21 @@ class _ItemsListContentState extends State<_ItemsListContent>
             children: [
             // Multi-device + claimed → Unlock. Otherwise when connected → Activate.
             if (showUnlock)
-              SlidableAction(
+              CustomSlidableAction(
                 backgroundColor: claimColor ?? AppColors.actionActivate,
-                icon: Icons.lock_open_rounded,
+                foregroundColor: Colors.white,
                 autoClose: false,
                 onPressed: (ctx) async {
                   HapticFeedback.lightImpact();
                   Slidable.of(ctx)?.close();
                   await _handleUnlock(context, item, connectedDevices, pairedDevices);
                 },
+                child: const Icon(Icons.lock_open_rounded, size: 24),
               )
             else if (isConnected)
-              SlidableAction(
+              CustomSlidableAction(
                 backgroundColor: activateColor ?? AppColors.actionActivate,
-                icon: Icons.push_pin_rounded,
+                foregroundColor: Colors.white,
                 autoClose: false,
                 onPressed: (ctx) async {
                   HapticFeedback.lightImpact();
@@ -1780,12 +1781,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   await _handleActivate(context, item, appUiState, selectedItemId);
                   Slidable.of(ctx)?.close();
                 },
+                child: const Icon(Icons.push_pin_rounded, size: 24),
               ),
             // Edit — hidden for claimed items when claiming device is offline
             if (editable)
-            SlidableAction(
+            CustomSlidableAction(
               backgroundColor: AppColors.primary,
-              icon: Icons.edit,
+              foregroundColor: Colors.white,
               autoClose: false,
               onPressed: (ctx) async {
                 HapticFeedback.lightImpact();
@@ -1793,12 +1795,13 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 Slidable.of(ctx)?.close();
                 context.pushNamed(ItemFormPage.routeName, extra: {'item': item});
               },
+              child: const Icon(Icons.edit, size: 24),
             ),
             // Delete — hidden for claimed items when claiming device is offline
             if (editable)
-            SlidableAction(
+            CustomSlidableAction(
               backgroundColor: AppColors.actionDelete,
-              icon: Icons.delete_outline_rounded,
+              foregroundColor: Colors.white,
               autoClose: false,
               onPressed: (ctx) async {
                 HapticFeedback.mediumImpact();
@@ -1844,6 +1847,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 }
                 Slidable.of(ctx)?.close();
               },
+              child: const Icon(Icons.delete_outline_rounded, size: 24),
             ),
           ],
         ),
