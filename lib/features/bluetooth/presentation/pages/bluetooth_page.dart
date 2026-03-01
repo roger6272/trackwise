@@ -726,7 +726,28 @@ class _DeviceListTile extends StatelessWidget {
             ),
           ],
         ),
-        trailing: PopupMenuButton<String>(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Battery placeholder (no firmware support yet)
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.battery_unknown,
+                  size: 20,
+                  color: secondaryText.withValues(alpha: 0.4),
+                ),
+                Text(
+                  '--%',
+                  style: TextStyle(
+                    color: secondaryText.withValues(alpha: 0.4),
+                    fontSize: 10.0,
+                  ),
+                ),
+              ],
+            ),
+            PopupMenuButton<String>(
           icon: Icon(Icons.more_vert, color: secondaryText),
           onSelected: (value) {
             if (value == 'connect') {
@@ -807,6 +828,8 @@ class _DeviceListTile extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
           ],
         ),
       ),
