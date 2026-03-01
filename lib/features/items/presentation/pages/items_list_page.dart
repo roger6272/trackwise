@@ -1619,50 +1619,56 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 children: [
                   // Item name (expanded to take remaining space)
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          item.name,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: !isConnected ? secondaryText : primaryText,
-                            fontSize: 17.0,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                    child: Builder(builder: (context) {
+                      final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 11.0, fontStyle: FontStyle.italic);
+                      // Resolve claiming device: Firestore claim (suppressed
+                      // when being released), then optimistic selection.
+                      final claimDeviceId = (item.claimedBy != null && !claimBeingReleased)
+                          ? item.claimedBy
+                          : connectedDevices.entries
+                              .where((e) => e.value.selectedItemId == item.id)
+                              .map((e) => e.key)
+                              .firstOrNull;
+                      final nameWidget = Text(
+                        item.name,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: !isConnected ? secondaryText : primaryText,
+                          fontSize: 17.0,
                         ),
-                        Builder(builder: (context) {
-                          final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 11.0, fontStyle: FontStyle.italic);
-                          // Resolve claiming device: Firestore claim (suppressed
-                          // when being released), then optimistic selection.
-                          final claimDeviceId = (item.claimedBy != null && !claimBeingReleased)
-                              ? item.claimedBy
-                              : connectedDevices.entries
-                                  .where((e) => e.value.selectedItemId == item.id)
-                                  .map((e) => e.key)
-                                  .firstOrNull;
-                          if (claimDeviceId == null) {
-                            // Reserve line height so tiles are uniform
-                            return Text(' ', style: subtitleStyle);
-                          }
-                          final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == claimDeviceId);
-                          final claimName = () {
-                            final name = idx >= 0 ? pairedDevices[idx].deviceName : claimDeviceId;
-                            final online = connectedDevices[claimDeviceId]?.isOnline == true;
-                            return online ? name : '$name \u00B7 disconnected';
-                          }();
-                          final claimStyle = subtitleStyle?.copyWith(
-                            color: isClaimedOffline
-                                    ? AppColors.secondaryText(brightness).withValues(alpha: 0.6)
-                                    : claimedColor ?? AppColors.secondaryText(brightness),
-                          );
-                          return Text(claimName,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                      if (claimDeviceId == null) {
+                        // Pad equally above and below to match claimed tile
+                        // height (subtitle line ≈ 11pt × 1.4 line-height).
+                        const halfSubtitle = 7.5;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: halfSubtitle),
+                          child: nameWidget,
+                        );
+                      }
+                      final idx = pairedDevices.indexWhere((d) => d.deviceInstanceId == claimDeviceId);
+                      final claimName = () {
+                        final name = idx >= 0 ? pairedDevices[idx].deviceName : claimDeviceId;
+                        final online = connectedDevices[claimDeviceId]?.isOnline == true;
+                        return online ? name : '$name \u00B7 disconnected';
+                      }();
+                      final claimStyle = subtitleStyle?.copyWith(
+                        color: isClaimedOffline
+                                ? AppColors.secondaryText(brightness).withValues(alpha: 0.6)
+                                : claimedColor ?? AppColors.secondaryText(brightness),
+                      );
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          nameWidget,
+                          Text(claimName,
                             style: claimStyle,
-                            overflow: TextOverflow.ellipsis);
-                        }),
-                      ],
-                    ),
+                            overflow: TextOverflow.ellipsis),
+                        ],
+                      );
+                    }),
                   ),
                   const SizedBox(width: 16.0),
                   // Accent bar + count column
