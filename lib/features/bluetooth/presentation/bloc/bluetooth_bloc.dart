@@ -596,13 +596,15 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       // Perform initial sync
       _performInitialSync(event.deviceInstanceId);
     } else {
-      // Disconnected (unexpected — manual disconnects go through _onDisconnect)
+      // Disconnected — check if this was a manual disconnect (event may have
+      // been queued before _onDisconnect cancelled the subscription).
       final deviceId = event.deviceInstanceId;
+      final wasManual = _manualDisconnects.contains(deviceId);
       emit(state.copyWith(
         status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
         connectedDevices: _removeDevice(deviceId),
         clearConnectingDeviceId: true,
-        lastDisconnectWasManual: false,
+        lastDisconnectWasManual: wasManual,
       ));
 
       // Auto-reconnect if not manual disconnect (with exponential backoff)
@@ -1390,16 +1392,14 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       )),
     ));
 
-    // Use event's selectedItemId if provided, otherwise fall back to device state
-    final selectedItemId = event.currentSelectedItemId
-        ?? state.connectedDevices[deviceId]?.selectedItemId;
-
+    // New device setup: pair but start with empty item list.
+    // User must explicitly claim an item from the items page.
     final result = await _performOverride.call(
       PerformOverrideParams(
         deviceId: deviceId,
         deviceInstanceId: deviceId,
         deviceName: deviceName,
-        currentSelectedFirestoreId: selectedItemId,
+        startEmpty: true,
       ),
     );
 
