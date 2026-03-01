@@ -40,7 +40,7 @@ class SyncResult extends Equatable {
   /// Used to track which paired device is connected.
   final String? deviceInstanceId;
 
-  /// Item names that were unlocked while this device was offline.
+  /// Item names that were released while this device was offline.
   /// Non-empty means stale claim dialog should be shown before syncing.
   /// Populated from Firestore paired_devices during handshake so the BLoC
   /// can check synchronously without an extra async call.
@@ -202,7 +202,7 @@ class PerformSyncUseCase {
       );
     }
 
-    // Step 8: Check for stale claims (items unlocked while device was offline).
+    // Step 8: Check for stale claims (items released while device was offline).
     // Include them in the result so the BLoC can guard synchronously —
     // avoids an async gap where firmware prefs/logs could slip through.
     final pairedDevice = user.pairedDevices.cast<PairedDevice?>().firstWhere(

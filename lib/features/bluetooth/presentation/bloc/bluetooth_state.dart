@@ -145,7 +145,7 @@ class BluetoothState extends Equatable {
   bool get hasConflict =>
       connectedDevices.values.any((d) => d.syncStatus == DeviceSyncStatus.conflict);
 
-  /// Whether a stale claim was detected (items unlocked while device was offline).
+  /// Whether a stale claim was detected (items released while device was offline).
   bool get hasStaleClaim =>
       connectedDevices.values.any((d) => d.syncStatus == DeviceSyncStatus.staleClaim);
 

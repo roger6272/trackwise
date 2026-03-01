@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
 /// Dialog shown when a device reconnects and has stale claims
-/// (items that were unlocked while the device was offline).
+/// (items that were released while the device was offline).
 ///
 /// Actions:
 /// - Keep Offline: Disconnects without syncing (device keeps its counts)
@@ -56,7 +56,7 @@ class StaleClaimDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.0),
       ),
       title: Text(
-        'Items Unlocked',
+        'Items Released',
         style: TextStyle(
           fontWeight: FontWeight.w600,
           color: primaryText,
@@ -68,7 +68,7 @@ class StaleClaimDialog extends StatelessWidget {
         children: [
           Text(
             'While $deviceLabel was offline, the following '
-            '${itemNames.length == 1 ? 'item was' : 'items were'} unlocked:',
+            '${itemNames.length == 1 ? 'item was' : 'items were'} released:',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: primaryText,
               fontSize: 15.0,

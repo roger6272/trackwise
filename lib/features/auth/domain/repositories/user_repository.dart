@@ -88,7 +88,7 @@ abstract class UserRepository {
 
   /// Adds a stale claim item name to a paired device.
   ///
-  /// Called when an item is unlocked while the claiming device is offline.
+  /// Called when an item is released while the claiming device is offline.
   /// The stale claim list triggers a dialog on device reconnection.
   Future<Either<Failure, void>> addStaleClaim(
     String deviceInstanceId,

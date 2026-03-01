@@ -1541,7 +1541,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     // Track stale claim if the claiming device is offline
     if (claimingDeviceId != null && event.itemName != null && !isOnline) {
-      AppLogger.debug('Stale claim: ${event.itemName} unlocked while $claimingDeviceId is offline');
+      AppLogger.debug('Stale claim: ${event.itemName} released while $claimingDeviceId is offline');
       final claimResult = await _userRepository.addStaleClaim(claimingDeviceId, event.itemName!);
       claimResult.fold(
         (f) => AppLogger.error('Failed to record stale claim: ${f.message}'),

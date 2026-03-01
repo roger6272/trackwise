@@ -31,7 +31,7 @@ class PairedDevice extends Equatable {
   /// Default 0 (blue). Assigned automatically on pairing, user-changeable in settings.
   final int color;
 
-  /// Item names that were unlocked while this device was offline.
+  /// Item names that were released while this device was offline.
   /// Non-empty means the device has stale claims — show dialog on reconnection.
   final List<String> staleClaims;
 
