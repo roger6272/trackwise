@@ -1170,9 +1170,18 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       return;
     }
 
+    // Stale claim: released items no longer belong to this device.
+    // Push empty item list so the device starts fresh — user picks a
+    // new category/item from the app.
+    final isStaleClaim = state.connectedDevices[deviceId]?.syncStatus == DeviceSyncStatus.staleClaim;
+    if (isStaleClaim) {
+      await _resetDeviceAfterStaleClaim(deviceId, emit);
+      return;
+    }
+
     final deviceName = state.connectedDevices[deviceId]?.device.name;
 
-    // Clear conflict/staleClaim and set isOverriding
+    // Clear conflict and set isOverriding
     emit(state.copyWith(
       connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
         isOverriding: true,
@@ -1180,9 +1189,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         clearConflict: true,
       )),
     ));
-
-    // Clear stale claims in Firestore (fire-and-forget)
-    _userRepository.clearStaleClaims(deviceId);
 
     // Use event's selectedItemId if provided, otherwise fall back to device state
     final selectedItemId = event.currentSelectedItemId
@@ -1217,6 +1223,62 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         add(SyncCompleted(deviceInstanceId: deviceId));
       },
     );
+  }
+
+  /// Resets a device after stale claim: sends empty item list + no selection,
+  /// clears Firestore stale claims, and marks device as synced.
+  Future<void> _resetDeviceAfterStaleClaim(
+    String deviceId,
+    Emitter<BluetoothState> emit,
+  ) async {
+    AppLogger.debug('Stale claim reset: sending empty items to $deviceId');
+
+    emit(state.copyWith(
+      connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
+        syncStatus: DeviceSyncStatus.syncing,
+        clearConflict: true,
+      )),
+    ));
+
+    // Clear stale claims in Firestore (fire-and-forget)
+    _userRepository.clearStaleClaims(deviceId);
+
+    // Push empty item list to device
+    final sendResult = await _sendItems.call(SendItemsParams(
+      deviceId: deviceId,
+      items: const [],
+    ));
+
+    if (sendResult.isLeft()) {
+      final failure = sendResult.fold((f) => f, (_) => throw StateError('unreachable'));
+      AppLogger.debug('Stale claim reset failed (sendItems): ${failure.message}');
+      emit(state.copyWith(
+        connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
+          syncStatus: DeviceSyncStatus.synced,
+        )),
+        errorMessage: failure.message,
+      ));
+      return;
+    }
+
+    // Send no selection
+    await _sendSelectedItem.call(SendSelectedItemParams(
+      deviceId: deviceId,
+      itemId: 'none',
+      deviceItemId: -1,
+    ));
+
+    // Clear device category cache — no category loaded
+    _deviceCategories.remove(deviceId);
+
+    emit(state.copyWith(
+      connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
+        syncStatus: DeviceSyncStatus.synced,
+        clearSelectedItemId: true,
+      )),
+    ));
+
+    AppLogger.debug('Stale claim reset complete — device $deviceId has empty items');
   }
 
   /// User cancelled conflict/staleClaim dialog - disconnect from the device.
