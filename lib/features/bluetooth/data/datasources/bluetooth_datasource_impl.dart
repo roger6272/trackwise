@@ -147,10 +147,11 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
         }
       });
 
-      // Now start the scan
+      // Now start the scan — filter to Traxelos devices by advertised service UUID
       await FlutterBluePlus.startScan(
         timeout: timeout,
         androidUsesFineLocation: true,
+        withServices: [Guid(BluetoothConstants.serviceUUID)],
       );
     };
 
