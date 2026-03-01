@@ -163,6 +163,10 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
   }
 
   Widget _buildDeviceList(BuildContext context, BluetoothState state) {
+    // Hide already-paired devices from search results
+    final pairedIds = state.pairedDevices.map((d) => d.deviceInstanceId).toSet();
+    final unpaired = state.discoveredDevices.where((d) => !pairedIds.contains(d.id)).toList();
+
     // Show loading indicator while scanning
     if (state.isScanning) {
       return Center(
@@ -184,7 +188,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${state.discoveredDevices.length} device${state.discoveredDevices.length == 1 ? '' : 's'} found',
+              '${unpaired.length} new device${unpaired.length == 1 ? '' : 's'} found',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
@@ -196,7 +200,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
     }
 
     // Show empty state when not scanning and no devices found
-    if (state.discoveredDevices.isEmpty) {
+    if (unpaired.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -208,7 +212,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No devices found.\nTap "Scan" to search.',
+              'No new devices found.\nTap "Scan" to search.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
@@ -220,7 +224,7 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
     }
 
     // Sort by signal strength (strongest first)
-    final sortedDevices = List<BleDevice>.from(state.discoveredDevices)
+    final sortedDevices = List<BleDevice>.from(unpaired)
       ..sort((a, b) => b.rssi.compareTo(a.rssi));
 
     return ListView.builder(
