@@ -196,7 +196,7 @@ class PerformSyncUseCase {
       await _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: deviceInstanceId,
-          deviceName: 'Traxelos One',
+          deviceName: 'Traxelos One (${user.pairedDevices.length + 1})',
           pairedAt: DateTime.now(),
           color: nextColor,
         ),
