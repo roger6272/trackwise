@@ -901,11 +901,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final message = event.message;
     final deviceInstanceId = event.deviceInstanceId;
 
-    // Drop incoming data while stale claim dialog is pending —
-    // user hasn't decided whether to sync or keep offline yet.
+    // Only process device messages once the device is fully synced.
+    // During handshaking/staleClaim/conflict, firmware may send prefs with
+    // stale counts (e.g. counts for items released while device was offline).
     final deviceState = state.connectedDevices[deviceInstanceId];
-    if (deviceState?.syncStatus == DeviceSyncStatus.staleClaim) {
-      AppLogger.debug('Dropping ${message.type.name} from $deviceInstanceId (stale claim pending)');
+    if (deviceState != null && !deviceState.isOnline) {
+      AppLogger.debug('Dropping ${message.type.name} from $deviceInstanceId (status: ${deviceState.syncStatus.name})');
       return;
     }
 
