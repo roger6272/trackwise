@@ -542,7 +542,7 @@ class PerformOverrideUseCase {
       await _userRepository.addPairedDevice(
         PairedDevice(
           deviceInstanceId: params.deviceInstanceId!,
-          deviceName: params.deviceName ?? 'Traxelos One',
+          deviceName: _nextDeviceName(user.pairedDevices),
           pairedAt: DateTime.now(),
           color: nextColor,
         ),
@@ -619,7 +619,7 @@ class PerformOverrideUseCase {
     await _userRepository.addPairedDevice(
       PairedDevice(
         deviceInstanceId: params.deviceInstanceId,
-        deviceName: params.deviceName ?? 'Traxelos One',
+        deviceName: _nextDeviceName(user.pairedDevices),
         pairedAt: DateTime.now(),
         color: nextColor,
       ),
@@ -631,6 +631,11 @@ class PerformOverrideUseCase {
       selectedDeviceItemId: -1,
       deviceInstanceId: params.deviceInstanceId,
     ));
+  }
+
+  /// Generates a numbered device name: "Traxelos One (1)", "Traxelos One (2)", etc.
+  String _nextDeviceName(List<PairedDevice> existing) {
+    return 'Traxelos One (${existing.length + 1})';
   }
 
   /// Builds a map of categoryId -> categoryName.
