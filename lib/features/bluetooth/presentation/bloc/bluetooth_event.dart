@@ -425,16 +425,20 @@ class ClaimItem extends BluetoothEvent {
   /// Device-echo claims still write to Firestore but do NOT push to other
   /// devices, preventing A→B→A cascading updates.
   final bool fromDeviceEcho;
+  /// Category of the claimed item. When provided, skips the Firestore
+  /// resolveCategory lookup before pushing to other devices.
+  final String? categoryId;
 
   const ClaimItem({
     required this.itemId,
     required this.deviceInstanceId,
     this.previousItemId,
     this.fromDeviceEcho = false,
+    this.categoryId,
   });
 
   @override
-  List<Object?> get props => [itemId, deviceInstanceId, previousItemId, fromDeviceEcho];
+  List<Object?> get props => [itemId, deviceInstanceId, previousItemId, fromDeviceEcho, categoryId];
 }
 
 /// Release a claim on an item.

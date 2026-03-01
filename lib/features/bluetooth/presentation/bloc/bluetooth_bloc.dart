@@ -1560,6 +1560,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceInstanceId = event.deviceInstanceId;
     final fromDeviceEcho = event.fromDeviceEcho;
     final itemId = event.itemId;
+    final eventCategoryId = event.categoryId;
 
     final previous = _claimQueues[deviceInstanceId] ?? Future.value();
     _claimQueues[deviceInstanceId] = previous.then((_) async {
@@ -1576,18 +1577,23 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       AppLogger.debug('Claimed item $itemId for device $deviceInstanceId'
           '${fromDeviceEcho ? ' (echo, no push)' : ''}');
       if (!fromDeviceEcho) {
-        // Resolve source device's category (lightweight, no BLE send) before
-        // deciding which other devices need a push. This ensures the cache
-        // is up-to-date after a cross-category switch.
-        final r = await _refreshDeviceItems.resolveCategory(RefreshDeviceItemsParams(
-          deviceId: deviceInstanceId,
-          deviceInstanceId: deviceInstanceId,
-          selectedItemId: itemId,
-        ));
-        r.fold(
-          (f) => AppLogger.debug('Category lookup failed for $deviceInstanceId: ${f.message}'),
-          (categoryId) => _deviceCategories[deviceInstanceId] = categoryId,
-        );
+        // Update the device's category cache before pushing to other devices.
+        // When the caller provides categoryId (e.g. UI-initiated claim), use
+        // it directly to skip a Firestore round-trip. Otherwise resolve from
+        // Firestore (device echo / handshake where category isn't known).
+        if (eventCategoryId != null) {
+          _deviceCategories[deviceInstanceId] = eventCategoryId;
+        } else {
+          final r = await _refreshDeviceItems.resolveCategory(RefreshDeviceItemsParams(
+            deviceId: deviceInstanceId,
+            deviceInstanceId: deviceInstanceId,
+            selectedItemId: itemId,
+          ));
+          r.fold(
+            (f) => AppLogger.debug('Category lookup failed for $deviceInstanceId: ${f.message}'),
+            (categoryId) => _deviceCategories[deviceInstanceId] = categoryId,
+          );
+        }
         _pushToOtherDevices(deviceInstanceId,
             sourceCategoryId: _deviceCategories[deviceInstanceId]);
       }

@@ -1442,17 +1442,16 @@ class _ItemsListContentState extends State<_ItemsListContent>
       AppUiState appUiState, BluetoothState btState) {
     appUiState.activeItemId = item.id;
     final itemsState = context.read<ItemsBloc>().state;
+    List<Item>? categoryItems;
     if (itemsState is ItemsLoaded) {
       final catId = item.categoryId;
-      final categoryItems = itemsState.items.where((i) {
+      categoryItems = itemsState.items.where((i) {
         final sameCat = catId == null || catId.isEmpty
             ? (i.categoryId == null || i.categoryId!.isEmpty)
             : i.categoryId == catId;
         return sameCat && (i.claimedBy == null || i.claimedBy == deviceId);
       }).toList()..sort((a, b) => a.categoryOrder.compareTo(b.categoryOrder));
 
-      context.read<BluetoothBloc>().add(SendItemsToDevice(
-        categoryItems, deviceInstanceId: deviceId, categoryNames: _cachedCategoryNames));
       // In multi-device mode, _checkDeviceSync uses a global signature (all
       // items sorted by id). Set the same format here so the Firestore stream
       // echo (claimedBy change only) doesn't look like a signature mismatch.
@@ -1477,8 +1476,12 @@ class _ItemsListContentState extends State<_ItemsListContent>
           )?.id
         : btState.connectedDevices[deviceId]?.selectedItemId;
     final btBloc = context.read<BluetoothBloc>();
+    if (categoryItems != null) {
+      btBloc.add(SendItemsToDevice(
+        categoryItems, deviceInstanceId: deviceId, categoryNames: _cachedCategoryNames));
+    }
     btBloc.add(SendSelectedItem(item.id, item.deviceItemId ?? 0, deviceInstanceId: deviceId));
-    btBloc.add(ClaimItem(itemId: item.id, deviceInstanceId: deviceId, previousItemId: prevId));
+    btBloc.add(ClaimItem(itemId: item.id, deviceInstanceId: deviceId, previousItemId: prevId, categoryId: item.categoryId ?? ''));
   }
 
   Future<void> _handleUnlock(BuildContext context, Item item,
