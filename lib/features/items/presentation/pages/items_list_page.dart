@@ -1453,9 +1453,19 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
       context.read<BluetoothBloc>().add(SendItemsToDevice(
         categoryItems, deviceInstanceId: deviceId, categoryNames: _cachedCategoryNames));
-      _lastSyncedCategoryId = catId ?? '';
-      _lastSyncedSignature = categoryItems.map((i) =>
-        '${i.id}:${i.categoryId ?? ''}:${i.categoryOrder}:${i.name}:${i.incrementBy}:${i.reminder.index}:${i.reminderValue}').join(',');
+      // In multi-device mode, _checkDeviceSync uses a global signature (all
+      // items sorted by id). Set the same format here so the Firestore stream
+      // echo (claimedBy change only) doesn't look like a signature mismatch.
+      final btState2 = context.read<BluetoothBloc>().state;
+      if (btState2.connectedDevices.length > 1) {
+        _lastSyncedSignature = _computeCategorySignature(
+          itemsState.items.toList()..sort((a, b) => a.id.compareTo(b.id)),
+        );
+        _lastSyncedCategoryId = null;
+      } else {
+        _lastSyncedCategoryId = catId ?? '';
+        _lastSyncedSignature = _computeCategorySignature(categoryItems);
+      }
       _lastSyncTime = DateTime.now();
     }
     // Source previousItemId from actual Firestore state (items in memory),
@@ -2280,9 +2290,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
         if (!recentlySynced && !justConnected) {
           _lastSyncTime = now;
           final affected = _computeAffectedCategories(previous.items, current.items);
-          context.read<BluetoothBloc>().add(RefreshAllDevices(
-            affectedCategories: affected.isNotEmpty ? affected : null,
-          ));
+          // Only push when at least one category is actually affected.
+          // Signature can change due to field reordering or claim-only
+          // changes (claimedBy not in signature but items list order may
+          // shift) — in those cases affected is empty and no push is needed.
+          if (affected.isNotEmpty) {
+            context.read<BluetoothBloc>().add(RefreshAllDevices(
+              affectedCategories: affected,
+            ));
+          }
         }
         _lastSyncedSignature = globalSignature;
         _lastSyncedCategoryId = null;

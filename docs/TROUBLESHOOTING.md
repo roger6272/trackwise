@@ -937,6 +937,22 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 **Key Lesson:** Dart's `?.` + `??` chain conflates "object is null" with "object exists but field is null". When `null` is a meaningful domain value (Uncategorized), use explicit null checks instead.
 
+### 10.8 "Claiming an item pushes to devices in other categories"
+
+**Symptoms:** With 2+ devices connected to different categories, claiming an item for device A also sends a BLE item push to device B (different category). Device B flickers or re-renders unnecessarily.
+
+**Root Cause (two bugs):**
+
+1. **Signature format mismatch.** `_claimForDevice` in `items_list_page.dart` set `_lastSyncedSignature` using only the claiming device's **category items sorted by `categoryOrder`**. But `_checkDeviceSync` in multi-device mode computes a **global signature** (ALL items sorted by `id`). These are fundamentally different strings, so the Firestore echo after `atomicClaimSwap` (which only changes `claimedBy` — not in the signature) still triggered a "signature changed" detection.
+
+2. **Empty affected set treated as "push all".** `_computeAffectedCategories` correctly found zero affected categories (the signature fields didn't actually change). But the code passed `affected.isNotEmpty ? affected : null`, turning the empty set into `null`. `_pushToAllDevices(affectedCategories: null)` has no filter → pushes to every device.
+
+**Fix Applied:**
+- `_claimForDevice` now sets `_lastSyncedSignature` using the same global format (all items sorted by `id`) in multi-device mode, preventing false signature mismatches
+- `_checkDeviceSync` now skips the push entirely when `affected` is empty — no affected categories means nothing to send
+
+**Key Lesson:** When multiple code paths maintain a shared variable (`_lastSyncedSignature`), they must use the **same format**. A category-scoped signature and a global signature will always disagree, causing false change detection. Separately, when converting an empty set to null for "no filter" semantics, question whether "no categories affected" should mean "push everything" or "push nothing".
+
 ---
 
 ## Quick Reference: Error → Solution
@@ -980,3 +996,4 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | Reset events missing from export | Field name mismatch — `'eventName'` vs `'event_name'` in `resetAllItems()` batch write |
 | Item switch slow / colors flicker | Fire-and-forget claim + reliable `previousItemId` from items list + `claimBeingReleased` suppression for instant same-frame update |
 | Colors vanish on 2nd device connect | `watchNotifications` was returning global stream — per-device `conn.messageController` now used |
+| Claim pushes to other categories | Signature format mismatch + empty affected set → null → unfiltered push — see 10.8 |
