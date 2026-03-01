@@ -646,9 +646,7 @@ class _DeviceListTile extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: isConnected
-                ? AppColors.success.withValues(alpha: 0.1)
-                : secondaryText.withValues(alpha: 0.1),
+            color: AppColors.deviceColor(device.color, brightness).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: isConnecting
@@ -662,32 +660,12 @@ class _DeviceListTile extends StatelessWidget {
                     ),
                   ),
                 )
-              : Stack(
-                  children: [
-                    Center(
-                        child: Icon(
-                      Icons.watch,
-                      color: isConnected ? AppColors.success : secondaryText,
-                      size: 28,
-                    )),
-                    Positioned(
-                        right: 2,
-                        bottom: 2,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.deviceColor(
-                                device.color, brightness),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color:
-                                  secondaryBackground.withValues(alpha: 0.8),
-                              width: 1.5,
-                            ),
-                          ),
-                        )),
-                  ],
+              : Center(
+                  child: Icon(
+                    Icons.watch,
+                    color: AppColors.deviceColor(device.color, brightness),
+                    size: 28,
+                  ),
                 ),
         ),
         title: Text(
