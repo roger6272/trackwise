@@ -101,7 +101,8 @@ See [Connecting Your Device](#3-connecting-your-device) below.
    - If this is a new device, you'll see a **"New Device Detected"** setup dialog — tap **"Set Up"** to pair
 
 6. **You're connected!**
-   - The app returns to the home screen
+   - The device is now paired but starts with **no items and no selection**
+   - Go to the **Home** screen and tap an item to claim it for the device — this assigns the device to that item's category
    - The Bluetooth icon in the bottom navigation turns **green** to indicate an active connection
 
 ### Reconnecting

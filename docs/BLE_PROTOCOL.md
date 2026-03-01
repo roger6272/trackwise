@@ -534,7 +534,7 @@ The multi-device sync protocol enables a single user account to sync with multip
 |----------|-----------------|---------------|
 | Normal sync (in_sync) | Device | handshake → device sends prefs/logs → sync_complete |
 | Conflict (sync_seq mismatch) | App (Firestore) | handshake → override_start → override_chunk(s) → override_end |
-| New device setup | App (Firestore) | handshake → override_start → override_chunk(s) → override_end |
+| New device setup | App (empty list) | handshake → override_start (0 items) → override_end (selected_id: -1) |
 | Wrong account | N/A | handshake → disconnect |
 
 ### 4.2 handshake

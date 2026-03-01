@@ -77,7 +77,7 @@
 |----------|-----------------|-----|
 | Normal sync (`in_sync`) | **Device** | User may have incremented while disconnected |
 | Conflict sync | **Firestore** | Another device synced more recently |
-| New device setup | **Firestore** | Device has no data yet |
+| New device setup | **App (empty)** | Device starts with no items; user claims one to assign category |
 | Real-time (connected) | **Device** | Immediate feedback on button press |
 | Offline (disconnected) | **Device** | Only place tracking increments |
 
@@ -366,38 +366,33 @@ Data Flow:
 │FIRESTORE│           │   APP   │           │ DEVICE  │
 └────┬────┘           └────┬────┘           └────┬────┘
      │                     │                     │
-     │ ① Read items        │                     │
-     │ ◄───────────────────│                     │
-     │                     │                     │
-     │                     │ ② handshake(uid,seq)│
+     │                     │ ① handshake(uid,seq)│
      │                     │ ───────────────────►│ No UID stored
      │                     │                     │
-     │                     │ ③ {status:          │
+     │                     │ ② {status:          │
      │                     │    uninitialized,   │
      │                     │    protocol_version:2}
      │                     │ ◄───────────────────│ Shows "AWAITING
      │                     │                     │  SETUP"
      │                     │                     │
-     │                     │ ④ Show setup wizard │
+     │                     │ ③ Show setup wizard │
      │                     │                     │
-     │                     │ ⑤ override_start    │
+     │                     │ ④ override_start    │
      │                     │ ───────────────────►│
-     │                     │ (uid, seq, N)       │ Stores UID!
+     │                     │ (uid, seq, 0 items) │ Stores UID!
      │                     │                     │ (Pairing complete)
      │                     │                     │
-     │                     │ ⑥ override_chunks   │
+     │                     │ ⑤ override_end      │
      │                     │ ───────────────────►│
+     │                     │ (selected_id: -1)   │ No selection
      │                     │                     │
-     │                     │ ⑦ override_end      │
-     │                     │ ───────────────────►│
-     │                     │                     │
-     │                     │ ⑧ {override_complete}
+     │                     │ ⑥ {override_complete}
      │                     │ ◄───────────────────│
      │                     │                     │
 
 Data Flow:
-  Firestore items → App → Device NVS
-  Also: UID stored on device (pairing)
+  App → Device NVS (UID only; no items sent)
+  Device starts empty — user must claim an item to assign it a category.
 ```
 
 ### 4.4 Wrong Account
