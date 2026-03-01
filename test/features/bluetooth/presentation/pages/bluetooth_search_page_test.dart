@@ -98,7 +98,7 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('No devices found'), findsOneWidget);
+      expect(find.textContaining('No new devices found'), findsOneWidget);
     });
 
     testWidgets('displays discovered devices', (tester) async {

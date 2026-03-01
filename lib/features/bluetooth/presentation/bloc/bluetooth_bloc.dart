@@ -1183,6 +1183,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     final deviceName = state.connectedDevices[deviceId]?.device.name;
 
+    // Device not in paired list → new or re-pairing — start empty so user
+    // picks a category from the app (same behaviour as fresh device setup).
+    final isAlreadyPaired = state.pairedDevices.any(
+      (d) => d.deviceInstanceId.toUpperCase() == deviceId.toUpperCase(),
+    );
+
     // Clear conflict and set isOverriding
     emit(state.copyWith(
       connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
@@ -1195,7 +1201,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Use event's selectedItemId if provided, otherwise fall back to device state
     final selectedItemId = event.currentSelectedItemId
         ?? state.connectedDevices[deviceId]?.selectedItemId;
-    AppLogger.debug('Override: selectedItemId=$selectedItemId');
+    AppLogger.debug('Override: selectedItemId=$selectedItemId, isAlreadyPaired=$isAlreadyPaired');
 
     final result = await _performOverride.call(
       PerformOverrideParams(
@@ -1203,6 +1209,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         deviceInstanceId: deviceId,
         deviceName: deviceName,
         currentSelectedFirestoreId: selectedItemId,
+        startEmpty: !isAlreadyPaired,
       ),
     );
 
@@ -1519,6 +1526,18 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           // Refresh paired devices so dialog can read device name + stale claim items
           add(const LoadPairedDevices());
           return; // Wait for user decision via dialog
+        }
+
+        // Device returned in_sync but is NOT in our paired list → it was
+        // unpaired and is being re-connected.  Treat like a fresh device
+        // setup so it starts empty (user picks a category from the app).
+        final isKnownDevice = state.pairedDevices.any(
+          (d) => d.deviceInstanceId.toUpperCase() == deviceId.toUpperCase(),
+        );
+        if (!isKnownDevice) {
+          AppLogger.debug('in_sync but device not in pairedDevices — redirecting to device setup');
+          add(DeviceSetupRequired(deviceInstanceId: deviceId));
+          return;
         }
 
         emit(state.copyWith(

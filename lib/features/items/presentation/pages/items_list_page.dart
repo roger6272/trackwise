@@ -1223,8 +1223,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
       ));
     }
 
-    // Fallback: single-device mode without connectedDevices entry
-    if (chips.isEmpty) {
+    // Fallback: single-device mode without connectedDevices entry.
+    // Only use fallback when no devices are connected — if devices ARE
+    // connected but none selected an item, show nothing (empty start).
+    if (chips.isEmpty && bluetoothState.connectedDevices.isEmpty) {
       final activeId = appUiState.activeItemId;
       if (activeId.isEmpty) return const SizedBox.shrink();
       final activeItem = itemsState.items.where((i) => i.id == activeId).firstOrNull;
