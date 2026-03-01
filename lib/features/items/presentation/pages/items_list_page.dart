@@ -1582,9 +1582,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
 
     // The tile content - wrapped in ReorderableDelayedDragStartListener
     // to enable long-press-to-drag without a visible handle
-    Widget tileContent = ClipRRect(
-        borderRadius: BorderRadius.circular(8.0),
-        child: Container(
+    final tileContainer = Container(
           decoration: BoxDecoration(
             color: effectivelyActivated
                 ? (claimedColor?.withValues(alpha: 0.2) ?? activatedColor)
@@ -1728,8 +1726,26 @@ class _ItemsListContentState extends State<_ItemsListContent>
               ),
             ),
           ),
-        ),
-      );
+        );
+
+    Widget tileContent = ClipRRect(
+      borderRadius: BorderRadius.circular(8.0),
+      child: isClaimedOffline
+          ? Stack(children: [
+              tileContainer,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _DiagonalStripesPainter(
+                      color: (claimedColor ?? AppColors.secondaryText(brightness))
+                          .withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+              ),
+            ])
+          : tileContainer,
+    );
 
     // For drag proxy, return just the tile content without padding/slidable
     if (isDragProxy) {
@@ -2444,4 +2460,35 @@ class _ListEntry {
       item: item,
     );
   }
+}
+
+/// Paints thin diagonal stripes across a widget to signal "locked / unavailable".
+class _DiagonalStripesPainter extends CustomPainter {
+  _DiagonalStripesPainter({required this.color, this.spacing = 12.0, this.strokeWidth = 1.0});
+
+  final Color color;
+  final double spacing;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    // Draw diagonal lines from top-left to bottom-right
+    final total = size.width + size.height;
+    for (double d = 0; d < total; d += spacing) {
+      canvas.drawLine(
+        Offset(d <= size.width ? d : size.width, d <= size.width ? 0 : d - size.width),
+        Offset(d <= size.height ? 0 : d - size.height, d <= size.height ? d : size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DiagonalStripesPainter oldDelegate) =>
+      color != oldDelegate.color || spacing != oldDelegate.spacing || strokeWidth != oldDelegate.strokeWidth;
 }
