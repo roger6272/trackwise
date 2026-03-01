@@ -6,6 +6,7 @@ import '../../../../core/utils/logger.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/services/connectivity_service.dart';
+import '../../../auth/domain/entities/user.dart';
 import '../../../auth/domain/repositories/user_repository.dart';
 import '../../../categories/domain/repositories/category_repository.dart';
 import '../../../items/domain/entities/item.dart';
@@ -248,15 +249,20 @@ class PerformOverrideParams extends Equatable {
   /// If provided, this takes precedence over the last synced selection.
   final String? currentSelectedFirestoreId;
 
+  /// When true, sends an empty item list with no selection.
+  /// Used for fresh device setup so the user must explicitly claim an item.
+  final bool startEmpty;
+
   const PerformOverrideParams({
     required this.deviceId,
     required this.deviceInstanceId,
     this.deviceName,
     this.currentSelectedFirestoreId,
+    this.startEmpty = false,
   });
 
   @override
-  List<Object?> get props => [deviceId, deviceInstanceId, deviceName, currentSelectedFirestoreId];
+  List<Object?> get props => [deviceId, deviceInstanceId, deviceName, currentSelectedFirestoreId, startEmpty];
 }
 
 /// Use case for performing override flow (app is source of truth).
@@ -319,6 +325,17 @@ class PerformOverrideUseCase {
     }
     final user = userResult.getOrElse(() => throw StateError('User should exist'));
 
+    final newSyncSeq = user.syncSequenceNo + 1;
+
+    // Start empty: send no items, no selection. Device gets paired but stays clean.
+    if (params.startEmpty) {
+      return _sendEmptyOverride(
+        params: params,
+        user: user,
+        newSyncSeq: newSyncSeq,
+      );
+    }
+
     // Step 3: Fetch items from Firestore
     final itemsResult = await _itemRepository.getItems(user.id);
     if (itemsResult.isLeft()) {
@@ -332,11 +349,9 @@ class PerformOverrideUseCase {
     // Filter to items with device_item_id (synced items only)
     final syncedItems = allItems.where((i) => i.deviceItemId != null).toList();
 
-
     // Step 4: Determine selected item
     // Priority: current app selection > last synced selection > first item
     var selectedItemId = -1;
-    final newSyncSeq = user.syncSequenceNo + 1;
 
     // Step 5: Find selected item and filter to its category
     // (Device should only have items from the active category, like normal sync)
@@ -548,6 +563,72 @@ class PerformOverrideUseCase {
       type: SyncResultType.overrideComplete,
       selectedFirestoreId: selectedFirestoreId,
       selectedDeviceItemId: selectedItemId,
+      deviceInstanceId: params.deviceInstanceId,
+    ));
+  }
+
+  /// Sends an empty override: pairs the device but pushes no items.
+  Future<Either<Failure, SyncResult>> _sendEmptyOverride({
+    required PerformOverrideParams params,
+    required User user,
+    required int newSyncSeq,
+  }) async {
+    final overrideResult = await _bluetoothRepository.sendOverrideChunked(
+      deviceId: params.deviceId,
+      uid: user.id,
+      syncSeq: newSyncSeq,
+      selectedId: -1,
+      items: [],
+    );
+
+    if (overrideResult.isLeft()) {
+      return overrideResult.fold(
+        (failure) => Left(BleSyncFailure(failure.message)),
+        (_) => const Left(OverrideFailure()),
+      );
+    }
+
+    final result = overrideResult.getOrElse(
+      () => throw StateError('Override result should exist'),
+    );
+
+    if (!result.isSuccess) {
+      return Left(OverrideFailure(deviceMessage: result.message));
+    }
+
+    // Update Firestore sync_seq
+    final updateResult = await _updateSyncStateWithRetry(
+      syncSequenceNo: newSyncSeq,
+      lastSelectedDeviceItemId: -1,
+    );
+
+    if (updateResult.isLeft()) {
+      return updateResult.fold(
+        (failure) => Left(failure),
+        (_) => const Left(FirestoreUpdateFailure()),
+      );
+    }
+
+    // Add device to paired devices
+    final usedColors = user.pairedDevices.map((d) => d.color).toSet();
+    var nextColor = 0;
+    for (var i = 0; i < 10; i++) {
+      if (!usedColors.contains(i)) { nextColor = i; break; }
+    }
+
+    await _userRepository.addPairedDevice(
+      PairedDevice(
+        deviceInstanceId: params.deviceInstanceId,
+        deviceName: params.deviceName ?? 'Traxelos One',
+        pairedAt: DateTime.now(),
+        color: nextColor,
+      ),
+    );
+
+    return Right(SyncResult(
+      type: SyncResultType.overrideComplete,
+      selectedFirestoreId: null,
+      selectedDeviceItemId: -1,
       deviceInstanceId: params.deviceInstanceId,
     ));
   }
