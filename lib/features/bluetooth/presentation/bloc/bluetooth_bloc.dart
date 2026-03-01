@@ -1558,14 +1558,21 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       ));
     }
 
+    // Resolve affected category before Firestore write (cache may be cleared later).
+    final affectedCategory = claimingDeviceId != null
+        ? _deviceCategories[claimingDeviceId]
+        : null;
+
     final result = await _itemRepository.releaseItem(event.itemId);
     result.fold(
       (failure) => AppLogger.debug('Failed to release item ${event.itemId}: ${failure.message}'),
       (_) {
         AppLogger.debug('Released claim on item ${event.itemId}');
-        // Push updated items to all devices — claiming device gets -1 (no selection)
-        // because its selectedItemId was cleared above.
-        _pushToAllDevices();
+        // Push only to devices in the same category as the released item.
+        // Claiming device gets -1 (no selection) because its selectedItemId
+        // was cleared above.
+        final affected = affectedCategory != null ? {affectedCategory} : null;
+        _pushToAllDevices(affectedCategories: affected);
       },
     );
   }
