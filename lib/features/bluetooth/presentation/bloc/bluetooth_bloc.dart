@@ -1650,17 +1650,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   // ========== Claim-Filtered Push Helpers ==========
 
   /// Push claim-filtered items to all connected devices except the specified one.
-  /// Skips devices in a different category than [sourceCategoryId] when provided.
+  /// Skips devices whose cached category differs from [sourceCategoryId].
+  /// When a device's category is unknown (not yet cached), it is also skipped
+  /// to avoid unnecessary pushes — it will get correct data on its next refresh.
   void _pushToOtherDevices(String excludeDeviceId, {String? sourceCategoryId}) {
     for (final entry in state.connectedDevices.entries) {
       if (entry.key == excludeDeviceId) continue;
       if (!entry.value.isOnline) continue;
-      // Skip devices in a different category — their item list is unaffected.
-      final targetCategory = _deviceCategories[entry.key];
-      if (sourceCategoryId != null &&
-          targetCategory != null &&
-          targetCategory != sourceCategoryId) {
-        continue;
+      if (sourceCategoryId != null) {
+        final targetCategory = _deviceCategories[entry.key];
+        if (targetCategory != sourceCategoryId) continue;
       }
       _refreshAndUpdateCategory(entry.key, entry.value.selectedItemId);
     }
