@@ -423,6 +423,11 @@
                     <td>Device has no data yet</td>
                 </tr>
                 <tr>
+                    <td>Re-pairing (<code>in_sync</code> + unknown)</td>
+                    <td><strong>App (empty)</strong></td>
+                    <td>Device was unpaired; treat as fresh setup even though handshake says <code>in_sync</code></td>
+                </tr>
+                <tr>
                     <td>Real-time (connected)</td>
                     <td><strong>Device</strong></td>
                     <td>Immediate feedback on button press</td>
@@ -965,9 +970,10 @@ T10     <span style="color: #4ade80;">[Both in sync at seq=43]</span></div>
 &#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
 &#9474;                                                                      &#9474;
 &#9474;  <span style="color: #60a5fa;">SOURCE OF TRUTH:</span>                                                    &#9474;
-&#9474;    &#8226; <span style="color: #4ade80;">in_sync</span>    &#8594; Device (user may have incremented offline)        &#9474;
-&#9474;    &#8226; <span style="color: #fbbf24;">conflict</span>   &#8594; Firestore (another device synced recently)        &#9474;
-&#9474;    &#8226; <span style="color: #a78bfa;">new device</span> &#8594; Firestore (device has no data)                    &#9474;
+&#9474;    &#8226; <span style="color: #4ade80;">in_sync</span> (known device) &#8594; Device (may have incremented offline) &#9474;
+&#9474;    &#8226; <span style="color: #4ade80;">in_sync</span> (unknown)      &#8594; App empty (re-pair as fresh setup)    &#9474;
+&#9474;    &#8226; <span style="color: #fbbf24;">conflict</span>               &#8594; Firestore (another device synced)     &#9474;
+&#9474;    &#8226; <span style="color: #a78bfa;">new device</span>             &#8594; Firestore (device has no data)        &#9474;
 &#9474;                                                                      &#9474;
 &#9474;  <span style="color: #60a5fa;">SYNC FLOW:</span>                                                          &#9474;
 &#9474;    1. Connect                                                        &#9474;

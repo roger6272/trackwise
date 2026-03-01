@@ -955,6 +955,26 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 ---
 
+### 10.9 "Items pushed to device after unpair and re-pair"
+
+**Symptoms:** After unpairing a device from the app and reconnecting (without factory reset), all items are pushed to the device instead of starting empty.
+
+**Root Cause:** The handshake returned `in_sync` (not `conflict` or `uninitialized`) because the device still had the old UID and a matching `sync_seq`. The `_onHandshakeCompleted` handler for `in_sync` assumed the device was known, ran `RefreshDeviceItemsUseCase`, and pushed all items.
+
+**Three issues found:**
+1. **`in_sync` path:** `_onHandshakeCompleted` didn't check if the device was still in `pairedDevices`. An unpaired device returning `in_sync` was treated as a known device.
+2. **`conflict` path:** `_onConfirmSyncOverride` always sent all Firestore items, even for re-paired devices that should start empty.
+3. **Stale active item chip:** After empty-start re-pairing, the UI showed the previously active item in the pill button due to `appUiState.activeItemId` persisted in SharedPreferences.
+
+**Fix Applied:**
+- `_onHandshakeCompleted`: Added `isKnownDevice` check — if `in_sync` but device NOT in `pairedDevices`, redirect to `DeviceSetupRequired` (empty start)
+- `_onConfirmSyncOverride`: Added `isAlreadyPaired` check with `startEmpty: !isAlreadyPaired`
+- `_buildActiveItemChips`: Added `connectedDevices.isEmpty` guard to the SharedPreferences fallback path
+
+**Key Lesson:** An unpaired device retains its old UID and `sync_seq` in NVS. The handshake compares `sync_seq` values and returns `in_sync` if they match — it doesn't know the app unpaired the device. Always check `pairedDevices` membership before trusting the handshake status.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -997,3 +1017,4 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | Item switch slow / colors flicker | Fire-and-forget claim + reliable `previousItemId` from items list + `claimBeingReleased` suppression for instant same-frame update |
 | Colors vanish on 2nd device connect | `watchNotifications` was returning global stream — per-device `conn.messageController` now used |
 | Claim pushes to other categories | Signature format mismatch + empty affected set → null → unfiltered push — see 10.8 |
+| Items pushed after re-pair | `in_sync` but device not in `pairedDevices` — redirect to DeviceSetupRequired — see 10.9 |

@@ -758,12 +758,57 @@ class _ProfilePageState extends State<ProfilePage> {
     final primaryText = AppColors.primaryText(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
-    // Check for disconnected paired devices to warn user
+    // Check for disconnected paired devices that may have claimed items.
     final btState = context.read<BluetoothBloc>().state;
     final disconnectedDevices = btState.pairedDevices.where((pd) {
       final conn = btState.connectedDevices[pd.deviceInstanceId];
       return conn == null || !conn.isOnline;
     }).toList();
+
+    // Block if any paired device is disconnected — claimed items on those
+    // devices would desync when they reconnect after a cycle reset.
+    if (disconnectedDevices.isNotEmpty) {
+      final count = disconnectedDevices.length;
+      final names = disconnectedDevices.map((d) => d.deviceName).join(', ');
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: primaryBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          title: Text(
+            'Devices Disconnected',
+            style: TextStyle(
+              color: primaryText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            '$count ${count == 1 ? 'device is' : 'devices are'} currently disconnected ($names).\n\n'
+            'To start a new cycle, connect ${count == 1 ? 'this device' : 'all devices'} '
+            'or release ${count == 1 ? 'its' : 'their'} claimed items first.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: primaryText,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
 
     showDialog(
       context: context,
@@ -809,18 +854,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            if (disconnectedDevices.isNotEmpty) ...[
-              const SizedBox(height: 12.0),
-              Text(
-                'Note: ${disconnectedDevices.length == 1 ? '1 device is' : '${disconnectedDevices.length} devices are'} '
-                'currently disconnected. Any unsynced counts on ${disconnectedDevices.length == 1 ? 'that device' : 'those devices'} '
-                'will be discarded when ${disconnectedDevices.length == 1 ? 'it reconnects' : 'they reconnect'}.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.warningText(brightness),
-                  fontSize: 13.0,
-                ),
-              ),
-            ],
           ],
         ),
         actions: [

@@ -97,13 +97,23 @@ See [Connecting Your Device](#3-connecting-your-device) below.
    - Your device will appear in the list (e.g., "Traxelos_One")
 
 5. **Select your device**
-   - Tap the device name to connect
+   - Tap the device name to connect (already-paired devices are hidden from scan results)
    - If this is a new device, you'll see a **"New Device Detected"** setup dialog — tap **"Set Up"** to pair
 
 6. **You're connected!**
    - The device is now paired but starts with **no items and no selection**
    - Go to the **Home** screen and tap an item to claim it for the device — this assigns the device to that item's category
    - The Bluetooth icon in the bottom navigation turns **green** to indicate an active connection
+   - The device is automatically named "Traxelos One (1)", "Traxelos One (2)", etc. based on how many devices you've paired
+
+### Re-pairing a Previously Unpaired Device
+
+If you unpair a device and later reconnect to it (without factory resetting), the app treats it as a fresh setup:
+- The device starts **empty** with no items — same as first-time pairing
+- A new entry is added to your paired devices list with the next auto-numbered name
+- Any items previously on the device are cleared
+
+*To fully reset the device before pairing to a different account, use [Factory Reset](#factory-reset).*
 
 ### Reconnecting
 
@@ -113,7 +123,7 @@ If your device disconnects unexpectedly, the app will automatically try to recon
 
 If auto-reconnect doesn't work:
 1. Go to **Account > Paired Devices** and tap your device to reconnect (no scan needed)
-2. Or go to **Bluetooth > Find Device** and select your device from the scan list
+2. Or go to **Bluetooth > Find Device** and select your device from the scan list (already-paired devices are hidden — use the Paired Devices page instead)
 
 ### Disconnecting
 
@@ -554,12 +564,14 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 
 Reset all your counts to start fresh:
 
-1. Connect your device (required — this option is disabled without a connection)
+1. Connect **all paired devices** (the action is blocked if any device is disconnected)
 2. Go to **Account tab**
 3. Tap **"Start New Cycle"**
 4. Tap **"Start New Cycle"** to confirm
 
-*This resets all counts to 0 on both app and device.*
+*This resets all counts to 0 on both app and all connected devices.*
+
+> **If a device is disconnected:** You'll see a "Devices Disconnected" dialog listing the offline devices. Connect them or release their claimed items first before starting a new cycle.
 
 ### Restoring Deleted Items
 

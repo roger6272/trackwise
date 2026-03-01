@@ -78,6 +78,7 @@
 | Normal sync (`in_sync`) | **Device** | User may have incremented while disconnected |
 | Conflict sync | **Firestore** | Another device synced more recently |
 | New device setup | **App (empty)** | Device starts with no items; user claims one to assign category |
+| Re-pairing (`in_sync` + unknown) | **App (empty)** | Device was unpaired; treat as fresh setup even though handshake says `in_sync` |
 | Real-time (connected) | **Device** | Immediate feedback on button press |
 | Offline (disconnected) | **Device** | Only place tracking increments |
 
@@ -207,19 +208,22 @@ class BluetoothState {
          │                      │                      │
          ▼                      ▼                      ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Device sends    │    │ Device enters   │    │ Device shows    │
-│ prefs + logs    │    │ CONFLICT state  │    │ "AWAITING       │
-│ automatically   │    │ Shows "SEE APP" │    │  SETUP"         │
+│ Is device in    │    │ Device enters   │    │ Device shows    │
+│ pairedDevices?  │    │ CONFLICT state  │    │ "AWAITING       │
+│                 │    │ Shows "SEE APP" │    │  SETUP"         │
 └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
-         │                      │                      │
-         ▼                      ▼                      ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ App uses device │    │ App shows       │    │ App shows       │
-│ counts (source  │    │ conflict dialog │    │ setup wizard    │
-│ of truth)       │    │ User confirms   │    │                 │
-└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
-         │                      │                      │
-         ▼                      └──────────┬───────────┘
+    ┌────┴────┐                 │                      │
+    │YES      │NO               │                      │
+    ▼         ▼                 ▼                      ▼
+┌────────┐ ┌────────┐  ┌─────────────────┐    ┌─────────────────┐
+│ Normal │ │Redirect│  │ App shows       │    │ App shows       │
+│ sync:  │ │to      │  │ conflict dialog │    │ setup wizard    │
+│ prefs  │ │Device  │  │ User confirms   │    │                 │
+│ + logs │ │Setup   │  └────────┬────────┘    └────────┬────────┘
+└───┬────┘ │Required│           │                      │
+    │      │(empty) │           │                      │
+    │      └───┬────┘           │                      │
+    ▼          └────────────────┴──────────┬───────────┘
 ┌─────────────────┐                        │
 │ sync_complete   │                        ▼
 │ Update seq      │             ┌─────────────────┐
@@ -899,9 +903,10 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  SOURCE OF TRUTH:                                                    │
-│    • in_sync    → Device (user may have incremented offline)        │
-│    • conflict   → Firestore (another device synced recently)        │
-│    • new device → Firestore (device has no data)                    │
+│    • in_sync (known device) → Device (may have incremented offline) │
+│    • in_sync (unknown)      → App empty (re-pair as fresh setup)    │
+│    • conflict               → Firestore (another device synced)     │
+│    • new device             → Firestore (device has no data)        │
 │                                                                      │
 │  SYNC FLOW:                                                          │
 │    1. Connect                                                        │
