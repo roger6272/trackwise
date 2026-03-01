@@ -8,7 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 ///
 /// Actions:
 /// - Cancel: Disconnects from device without setting it up
-/// - Set Up: Triggers override flow to pair and sync items to device
+/// - Set Up: Triggers override flow to pair device (starts empty)
 class DeviceSetupDialog extends StatelessWidget {
   /// Called when user confirms the transfer
   final VoidCallback onConfirm;
@@ -60,7 +60,7 @@ class DeviceSetupDialog extends StatelessWidget {
         ),
       ),
       content: Text(
-        'This will pair the device to your account. Your items will sync automatically.',
+        'This will pair the device to your account. The device will start empty — tap an item to assign it.',
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: secondaryText,
         ),
