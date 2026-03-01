@@ -177,6 +177,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<ConfirmSyncOverride>(_onConfirmSyncOverride);
     on<CancelSyncConflict>(_onCancelSyncConflict);
     on<ClearConflictState>(_onClearConflictState);
+    on<ResetBluetoothState>(_onResetBluetoothState);
     on<SyncCompleted>(_onSyncCompleted);
     // Device setup events (uninitialized/factory reset)
     on<DeviceSetupRequired>(_onDeviceSetupRequired);
@@ -1333,6 +1334,55 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       )),
     );
     emit(state.copyWith(connectedDevices: clearedDevices));
+  }
+
+  /// Resets all Bluetooth state for account deletion / sign-out.
+  ///
+  /// Cancels every pending reconnect timer, clears tracking sets, disconnects
+  /// all active connections (at the BLE layer), and resets BLoC state.
+  Future<void> _onResetBluetoothState(
+    ResetBluetoothState event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    // 1. Cancel all pending reconnect timers
+    for (final timer in _reconnectTimers.values) {
+      timer.cancel();
+    }
+    _reconnectTimers.clear();
+    _reconnectAttempts.clear();
+
+    // 2. Clear tracking sets
+    _manualDisconnects.clear();
+    _devicesToReconnect.clear();
+    _claimQueues.clear();
+    _deviceCategories.clear();
+
+    // 3. Cancel all stream subscriptions
+    for (final sub in _connectionSubscriptions.values) {
+      sub.cancel();
+    }
+    _connectionSubscriptions.clear();
+    for (final sub in _messageSubscriptions.values) {
+      sub.cancel();
+    }
+    _messageSubscriptions.clear();
+
+    // 4. Disconnect all active connections at the BLE layer
+    for (final entry in state.connectedDevices.entries) {
+      try {
+        await _disconnectDevice.call(DisconnectDeviceParams(entry.key));
+      } catch (_) {}
+    }
+
+    // 5. Reset BLoC state to initial (keep permissions/adapter booleans)
+    emit(state.copyWith(
+      status: BluetoothStatus.ready,
+      connectedDevices: const {},
+      pairedDevices: const [],
+      discoveredDevices: const [],
+      clearConnectingDeviceId: true,
+      clearErrorMessage: true,
+    ));
   }
 
   /// Handles successful sync completion.

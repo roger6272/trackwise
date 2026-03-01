@@ -669,13 +669,10 @@ class _ProfilePageState extends State<ProfilePage> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              // Disconnect from device if connected (don't clear data, just disconnect)
-              if (bluetoothBloc.state.isConnected) {
-                bluetoothBloc.add(DisconnectFromDevice(
-                  deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
-                ));
-                await Future.delayed(const Duration(milliseconds: 200));
-              }
+              // Reset all BLE state (disconnects devices, cancels timers, clears
+              // tracking). Needed because BluetoothBloc persists across sessions.
+              bluetoothBloc.add(const ResetBluetoothState());
+              await Future.delayed(const Duration(milliseconds: 300));
               authBloc.add(const SignOutEvent());
             },
             child: const Text('Sign Out'),
@@ -998,23 +995,24 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final bluetoothBloc = context.read<BluetoothBloc>();
       final devices = bluetoothBloc.state.connectedDevices;
-      if (devices.isEmpty) return;
-
-      final repository = sl<BluetoothRepository>();
 
       // Send unpair to every connected device so each one factory resets.
-      for (final entry in devices.entries) {
-        final deviceId = entry.value.device.id;
-        await repository.unpairDevice(deviceId);
+      if (devices.isNotEmpty) {
+        final repository = sl<BluetoothRepository>();
+        for (final entry in devices.entries) {
+          final deviceId = entry.value.device.id;
+          await repository.unpairDevice(deviceId);
+        }
+        // Wait for firmware to process and commit NVS on all devices
+        await Future.delayed(const Duration(milliseconds: 500));
       }
 
-      // Wait for firmware to process and commit NVS on all devices
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Disconnect all devices
-      for (final instanceId in devices.keys) {
-        bluetoothBloc.add(DisconnectFromDevice(deviceInstanceId: instanceId));
-      }
+      // Reset ALL Bluetooth state: cancels reconnect timers, clears tracking
+      // sets, disconnects devices, and resets BLoC state. This is necessary
+      // because BluetoothBloc is a lazySingleton that persists across accounts
+      // — without this, pending reconnect timers from the old session would
+      // auto-connect to factory-reset devices on the new account.
+      bluetoothBloc.add(const ResetBluetoothState());
       await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       // Ignore errors during cleanup - account deletion should proceed

@@ -400,6 +400,17 @@ class DismissWrongAccount extends BluetoothEvent {
   const DismissWrongAccount();
 }
 
+/// Reset all Bluetooth state for account deletion / sign-out.
+///
+/// Cancels all pending reconnect timers, clears tracking sets, disconnects
+/// any active connections, and resets BLoC state to initial values.
+/// Must be awaited before navigating away — the handler disconnects devices
+/// and clears in-memory caches that persist across user sessions (since
+/// BluetoothBloc is a lazySingleton).
+class ResetBluetoothState extends BluetoothEvent {
+  const ResetBluetoothState();
+}
+
 // ========== Handshake Events ==========
 
 /// Internal event when handshake completes (success, conflict, setup, or wrongAccount).
