@@ -517,11 +517,17 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showDeleteConfirmation(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final secondaryText = AppColors.secondaryText(brightness);
-    final isConnected = context.read<BluetoothBloc>().state.isConnected;
+    final btState = context.read<BluetoothBloc>().state;
+    final connectedCount = btState.connectedDevices.length;
+    final pairedCount = btState.pairedDevices.length;
+    final offlineCount = pairedCount - connectedCount;
 
-    final deviceMessage = isConnected
-        ? 'Your connected device will be automatically reset and unpaired.'
-        : 'Any paired devices not currently connected will need to be factory reset.\n\nOn device: Hold A+B for 7 seconds.';
+    final deviceMessage = connectedCount == 0
+        ? 'Any paired devices will need to be factory reset.\n\nOn device: Hold A+B for 7 seconds.'
+        : offlineCount > 0
+            ? '$connectedCount connected ${connectedCount == 1 ? 'device' : 'devices'} will be automatically reset. '
+              '$offlineCount offline ${offlineCount == 1 ? 'device' : 'devices'} will need a manual factory reset.\n\nOn device: Hold A+B for 7 seconds.'
+            : 'Your connected ${connectedCount == 1 ? 'device' : 'devices'} will be automatically reset and unpaired.';
 
     showDialog(
       context: context,
@@ -552,7 +558,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Row(
                 children: [
                   Icon(
-                    isConnected ? Icons.bluetooth_connected : Icons.info_outline,
+                    connectedCount > 0 ? Icons.bluetooth_connected : Icons.info_outline,
                     color: AppColors.warning,
                     size: 20,
                   ),
@@ -985,27 +991,30 @@ class _ProfilePageState extends State<ProfilePage> {
     context.go('/login');
   }
 
-  /// Cleans up the Bluetooth device by unpairing and disconnecting.
+  /// Cleans up all connected Bluetooth devices by unpairing and disconnecting.
   /// Called AFTER successful account deletion (in BlocConsumer listener)
-  /// to avoid wiping the device if deletion fails (e.g. re-auth required).
+  /// to avoid wiping devices if deletion fails (e.g. re-auth required).
   Future<void> _cleanupDevice(BuildContext context) async {
     try {
       final bluetoothBloc = context.read<BluetoothBloc>();
-      final deviceId = bluetoothBloc.state.connectedDevice?.id;
-      if (deviceId == null) return;
+      final devices = bluetoothBloc.state.connectedDevices;
+      if (devices.isEmpty) return;
 
-      // Send unpair directly via repository (awaited) to guarantee the
-      // BLE write completes before proceeding to account deletion.
       final repository = sl<BluetoothRepository>();
-      await repository.unpairDevice(deviceId);
 
-      // Wait for firmware to process and commit NVS
+      // Send unpair to every connected device so each one factory resets.
+      for (final entry in devices.entries) {
+        final deviceId = entry.value.device.id;
+        await repository.unpairDevice(deviceId);
+      }
+
+      // Wait for firmware to process and commit NVS on all devices
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Disconnect
-      bluetoothBloc.add(DisconnectFromDevice(
-        deviceInstanceId: bluetoothBloc.state.connectedDeviceInstanceId ?? '',
-      ));
+      // Disconnect all devices
+      for (final instanceId in devices.keys) {
+        bluetoothBloc.add(DisconnectFromDevice(deviceInstanceId: instanceId));
+      }
       await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       // Ignore errors during cleanup - account deletion should proceed
