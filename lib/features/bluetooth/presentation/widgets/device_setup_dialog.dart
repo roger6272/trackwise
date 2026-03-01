@@ -60,7 +60,7 @@ class DeviceSetupDialog extends StatelessWidget {
         ),
       ),
       content: Text(
-        'This will pair the device to your account. The device will start empty — tap an item to assign it.',
+        'This will pair the device to your account. The device will start empty — create or tap an item to assign it.',
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: secondaryText,
         ),
