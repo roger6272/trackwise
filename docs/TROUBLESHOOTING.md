@@ -917,6 +917,18 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 ---
 
+### Wrong items pushed when moving selected item to Uncategorized (multi-device)
+
+**Symptoms:** With 2+ devices connected, dragging a device's selected item to the Uncategorized category pushes the **old** category's items to the device instead of Uncategorized items. Moving between named categories works fine.
+
+**Root Cause:** In `RefreshDeviceItemsUseCase`, the category resolution used `selectedItem?.categoryId ?? params.categoryId ?? ''`. The `?.` + `??` chain treated Uncategorized (`categoryId == null`) the same as "no selected item", falling through to `params.categoryId` — the **cached old category**. For named categories, `categoryId` is non-null so the `??` never triggered.
+
+**Fix:** Changed to an explicit null check: `selectedItem != null ? (selectedItem.categoryId ?? '') : (params.categoryId ?? '')`. Now when a selected item exists, its category is always used — even if null (Uncategorized → `''`).
+
+**Key Lesson:** Dart's `?.` + `??` chain conflates "object is null" with "object exists but field is null". When `null` is a meaningful domain value (Uncategorized), use explicit null checks instead.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -952,6 +964,7 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | Categories stop updating | Stream killed by rethrow — use `onErrorResume` not `handleError` |
 | Email empty after Google sign-in | `getProfile()` missing email in `copyWith()` merge |
 | Sticky header wrong category | `_calculateStickyCategory` ignores empty categories — must match list layout |
+| Wrong items after drag to Uncategorized | `?.` + `??` chain treats null categoryId as "no item" — use explicit null check |
 | Device wiped but account not deleted | Cleanup must run AFTER `user.delete()` — see ADR-004 |
 | Previous cycle shows "Now" after reset | Stale events — `_updateIntervalsFromEvents` patches endTime from `_lastResetTime` |
 | Reset events missing from export | Field name mismatch — `'eventName'` vs `'event_name'` in `resetAllItems()` batch write |

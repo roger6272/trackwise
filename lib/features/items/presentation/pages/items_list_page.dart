@@ -385,7 +385,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                             buildWhen: (previous, current) {
                               // Rebuild on any state change, but also check if we need to sync device
                               if (previous is ItemsLoaded && current is ItemsLoaded) {
-                                _checkDeviceSync(context, current);
+                                _checkDeviceSync(context, previous, current);
                               } else if (current is ItemsLoaded && _lastSyncedSignature == null) {
                                 // Initialize tracking after a non-ItemsLoaded → ItemsLoaded
                                 // transition (e.g., returning from another page, stream reconnect).
@@ -2166,6 +2166,42 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }
   }
 
+  /// Computes which categories were affected by an items state change.
+  /// Returns the set of categoryIds ('' for Uncategorized) that differ
+  /// between [previous] and [current] — either an item moved, was added,
+  /// removed, or had its properties changed within that category.
+  Set<String> _computeAffectedCategories(List<Item> previous, List<Item> current) {
+    final affected = <String>{};
+    final prevMap = {for (final i in previous) i.id: i};
+    final currMap = {for (final i in current) i.id: i};
+
+    for (final item in current) {
+      final prev = prevMap[item.id];
+      if (prev == null) {
+        // New item
+        affected.add(item.categoryId ?? '');
+      } else if ((prev.categoryId ?? '') != (item.categoryId ?? '')) {
+        // Moved between categories
+        affected.add(prev.categoryId ?? '');
+        affected.add(item.categoryId ?? '');
+      } else if (prev.categoryOrder != item.categoryOrder ||
+          prev.name != item.name ||
+          prev.incrementBy != item.incrementBy ||
+          prev.reminder != item.reminder ||
+          prev.reminderValue != item.reminderValue) {
+        // Changed within same category
+        affected.add(item.categoryId ?? '');
+      }
+    }
+    // Deleted items
+    for (final item in previous) {
+      if (!currMap.containsKey(item.id)) {
+        affected.add(item.categoryId ?? '');
+      }
+    }
+    return affected;
+  }
+
   /// Computes a signature string for the given category items.
   /// Used to detect whether the device-relevant item list has changed.
   String _computeCategorySignature(List<Item> categoryItems) {
@@ -2218,7 +2254,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   /// through RefreshDeviceItemsUseCase (which applies claim filtering).
   /// _checkDeviceSync doesn't know about per-device selections or claims,
   /// so it would send unfiltered items with the wrong selection.
-  void _checkDeviceSync(BuildContext context, ItemsLoaded current) {
+  void _checkDeviceSync(BuildContext context, ItemsLoaded previous, ItemsLoaded current) {
     final bluetoothState = context.read<BluetoothBloc>().state;
     if (!bluetoothState.isConnected) return;
 
@@ -2243,7 +2279,10 @@ class _ItemsListContentState extends State<_ItemsListContent>
       if (globalSignature != _lastSyncedSignature) {
         if (!recentlySynced && !justConnected) {
           _lastSyncTime = now;
-          context.read<BluetoothBloc>().add(const RefreshAllDevices());
+          final affected = _computeAffectedCategories(previous.items, current.items);
+          context.read<BluetoothBloc>().add(RefreshAllDevices(
+            affectedCategories: affected.isNotEmpty ? affected : null,
+          ));
         }
         _lastSyncedSignature = globalSignature;
         _lastSyncedCategoryId = null;

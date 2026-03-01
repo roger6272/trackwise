@@ -815,6 +815,8 @@ Single device: uses SendItemsToDevice (legacy path)
 Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
                Each device receives only its claimed items
                in the updated order.
+               Only devices in affected categories get pushed
+               (source + target of the move); others are skipped.
 ```
 
 ---

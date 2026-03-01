@@ -1574,7 +1574,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     RefreshAllDevices event,
     Emitter<BluetoothState> emit,
   ) {
-    _pushToAllDevices();
+    _pushToAllDevices(affectedCategories: event.affectedCategories);
   }
 
   // ========== Claim-Filtered Push Helpers ==========
@@ -1596,10 +1596,18 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     }
   }
 
-  /// Push claim-filtered items to ALL connected devices.
-  void _pushToAllDevices() {
+  /// Push claim-filtered items to connected devices.
+  /// When [affectedCategories] is provided, skips devices whose cached
+  /// category is not in the set (their item list is unaffected).
+  void _pushToAllDevices({Set<String>? affectedCategories}) {
     for (final entry in state.connectedDevices.entries) {
       if (!entry.value.isOnline) continue;
+      if (affectedCategories != null && affectedCategories.isNotEmpty) {
+        final deviceCat = _deviceCategories[entry.key];
+        if (deviceCat != null && !affectedCategories.contains(deviceCat)) {
+          continue;
+        }
+      }
       _refreshAndUpdateCategory(entry.key, entry.value.selectedItemId);
     }
   }

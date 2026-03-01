@@ -453,12 +453,17 @@ class ReleaseItem extends BluetoothEvent {
   List<Object?> get props => [itemId, claimedBy, itemName];
 }
 
-/// Triggers a claim-filtered item push to all connected devices.
+/// Triggers a claim-filtered item push to connected devices.
 /// Used after item reorder/edits in multi-device mode where the UI-layer
 /// sync path (_checkDeviceSync) cannot apply per-device claim filtering.
+///
+/// When [affectedCategories] is provided, only devices whose cached category
+/// is in the set get pushed (optimization to skip unaffected devices).
 class RefreshAllDevices extends BluetoothEvent {
-  const RefreshAllDevices();
+  final Set<String>? affectedCategories;
+
+  const RefreshAllDevices({this.affectedCategories});
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [affectedCategories];
 }

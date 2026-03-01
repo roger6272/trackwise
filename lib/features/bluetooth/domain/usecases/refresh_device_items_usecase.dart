@@ -66,7 +66,11 @@ class RefreshDeviceItemsUseCase {
     );
 
     // 5. Filter by category
-    final categoryId = selectedItem?.categoryId ?? params.categoryId ?? '';
+    // When selectedItem exists, use its categoryId (even if null = Uncategorized).
+    // Only fall back to params.categoryId when there's no selectedItem at all.
+    final categoryId = selectedItem != null
+        ? (selectedItem.categoryId ?? '')
+        : (params.categoryId ?? '');
     var deviceItems = syncedItems.where((i) =>
       (i.categoryId ?? '') == categoryId).toList();
 
