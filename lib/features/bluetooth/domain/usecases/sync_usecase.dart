@@ -531,7 +531,7 @@ class PerformOverrideUseCase {
 
 
     // Step 9: Add device to paired devices (await to ensure it completes before LoadPairedDevices)
-    if (params.deviceInstanceId != null) {
+    {
       // Compute next available color
       final usedColors = user.pairedDevices.map((d) => d.color).toSet();
       var nextColor = 0;
@@ -541,7 +541,7 @@ class PerformOverrideUseCase {
 
       await _userRepository.addPairedDevice(
         PairedDevice(
-          deviceInstanceId: params.deviceInstanceId!,
+          deviceInstanceId: params.deviceInstanceId,
           deviceName: _nextDeviceName(user.pairedDevices),
           pairedAt: DateTime.now(),
           color: nextColor,

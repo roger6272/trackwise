@@ -820,8 +820,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       }
     });
 
-    // Listen for the response on the notification stream
-    subscription = _messageController.stream.listen(
+    // Listen for the response on the per-device notification stream
+    subscription = conn.messageController.stream.listen(
       (message) {
         AppLogger.debug('_sendCommandAndWaitForResponse: Received message type=${message.type}, data=${message.data}');
         // Check if this is a sync protocol response (has 'status' field)
