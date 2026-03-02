@@ -552,7 +552,7 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 
 **Offline claims (break-glass release):**
 - If a device disconnects, its claimed items show a **grayed color** and "· disconnected" subtitle
-- You cannot edit or delete these items until the device reconnects
+- You cannot edit or delete these items until the device reconnects or you release them
 - To force-release: swipe the item and tap **Unlock** — a warning explains that unsynced counts will be lost when the device reconnects
 
 **What happens when a device reconnects after force-release:**
