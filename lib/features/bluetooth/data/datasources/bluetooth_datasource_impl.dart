@@ -686,20 +686,18 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   Future<HandshakeResult> sendHandshake({
     required String deviceId,
     required String uid,
-    required int syncSeq,
   }) async {
     final conn = _getConnection(deviceId);
     if (conn.writeChar == null) {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
 
-    AppLogger.debug('Sending handshake: uid=$uid, syncSeq=$syncSeq');
+    AppLogger.debug('Sending handshake: uid=$uid');
 
     // Build handshake command
     final command = jsonEncode({
       'cmd': 'handshake',
       'uid': uid,
-      'sync_seq': syncSeq,
     });
 
     // Send command and wait for response with timeout
@@ -714,7 +712,6 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   Future<OverrideResult> sendOverrideChunked({
     required String deviceId,
     required String uid,
-    required int syncSeq,
     required int selectedId,
     required List<Item> items,
     Map<String, String> categoryNames = const {},
@@ -724,7 +721,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError('WRITE characteristic not found. Call discoverServices first.');
     }
 
-    AppLogger.debug('Starting override: uid=$uid, syncSeq=$syncSeq, selectedId=$selectedId, itemCount=${items.length}');
+    AppLogger.debug('Starting override: uid=$uid, selectedId=$selectedId, itemCount=${items.length}');
 
     // Chunk items (10 items per chunk)
     final chunks = <List<Map<String, dynamic>>>[];
@@ -744,7 +741,6 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       final startCommand = jsonEncode({
         'cmd': 'override_start',
         'uid': uid,
-        'sync_seq': syncSeq,
         'total_chunks': totalChunks,
       });
       await _enqueueWrite(conn, () => _writeChunked(conn, conn.writeChar!, startCommand));
@@ -778,27 +774,6 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       AppLogger.debug('Override aborted due to error: $e');
       rethrow;
     }
-  }
-
-  @override
-  Future<SyncCompleteResult> sendSyncComplete(String deviceId, int syncSeq) async {
-    final conn = _getConnection(deviceId);
-    if (conn.writeChar == null) {
-      throw StateError('WRITE characteristic not found. Call discoverServices first.');
-    }
-
-    AppLogger.debug('Sending sync_complete: syncSeq=$syncSeq');
-
-    final command = jsonEncode({
-      'cmd': 'sync_complete',
-      'sync_seq': syncSeq,
-    });
-
-    final response = await _sendCommandAndWaitForResponse(conn, command);
-
-    AppLogger.debug('sync_complete response: $response');
-
-    return SyncCompleteResult.fromJson(response);
   }
 
   /// Sends a command and waits for a JSON response via notification.

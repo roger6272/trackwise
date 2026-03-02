@@ -115,28 +115,25 @@ abstract class BluetoothDataSource {
 
   /// Sends handshake command to device and waits for response.
   ///
-  /// The handshake performs both:
-  /// 1. Account lock check (is this device paired to this user?)
-  /// 2. Sync sequence check (is this device in sync or conflicted?)
+  /// The handshake performs account lock check (is this device paired to this user?).
   ///
-  /// Sends: `{"cmd":"handshake","uid":"xxx","sync_seq":42}`
+  /// Sends: `{"cmd":"handshake","uid":"xxx"}`
   ///
   /// Returns [HandshakeResult] with status:
-  /// - [SyncStatus.inSync]: Device sync_seq matches, proceed with normal sync
-  /// - [SyncStatus.conflict]: sync_seq mismatch, app should override device
+  /// - [SyncStatus.inSync]: Device is paired, proceed with normal sync
   /// - [SyncStatus.wrongAccount]: Device paired to different account
+  /// - [SyncStatus.uninitialized]: Device needs setup
   ///
   /// Throws on BLE error or 10-second timeout.
   Future<HandshakeResult> sendHandshake({
     required String deviceId,
     required String uid,
-    required int syncSeq,
   });
 
   /// Sends override data to device using chunked protocol.
   ///
   /// Override flow:
-  /// 1. Send `{"cmd":"override_start","uid":"xxx","sync_seq":N,"total_chunks":M}`
+  /// 1. Send `{"cmd":"override_start","uid":"xxx","total_chunks":M}`
   /// 2. Send `{"cmd":"override_chunk","index":i,"items":[...]}` for each chunk
   /// 3. Send `{"cmd":"override_end","selected_id":X}`
   /// 4. Wait for response
@@ -155,23 +152,10 @@ abstract class BluetoothDataSource {
   Future<OverrideResult> sendOverrideChunked({
     required String deviceId,
     required String uid,
-    required int syncSeq,
     required int selectedId,
     required List<Item> items,
     Map<String, String> categoryNames = const {},
   });
-
-  /// Sends sync_complete command to device and waits for acknowledgment.
-  ///
-  /// Called after normal sync (device -> app) to update device's sync_seq.
-  ///
-  /// Sends: `{"cmd":"sync_complete","sync_seq":N}`
-  ///
-  /// Returns [SyncCompleteResult] with status:
-  /// - 'seq_updated': Device stored the new sync_seq
-  ///
-  /// Throws on BLE error or 10-second timeout.
-  Future<SyncCompleteResult> sendSyncComplete(String deviceId, int syncSeq);
 
   // ========== Permissions & Adapter State ==========
 

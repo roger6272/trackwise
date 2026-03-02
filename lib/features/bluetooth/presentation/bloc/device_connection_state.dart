@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/ble_device.dart';
 
-enum DeviceSyncStatus { handshaking, syncing, synced, conflict, staleClaim, setup, wrongAccount }
+enum DeviceSyncStatus { handshaking, syncing, synced, staleClaim, setup, wrongAccount }
 
 class DeviceConnectionState extends Equatable {
   final BleDevice device;
@@ -9,8 +9,6 @@ class DeviceConnectionState extends Equatable {
   final String? selectedItemId;
   final bool isOverriding;
   final bool hasMoreLogs;
-  final int? conflictAppSyncSeq;
-  final int? conflictDeviceSyncSeq;
 
   bool get isOnline => syncStatus == DeviceSyncStatus.synced;
 
@@ -20,8 +18,6 @@ class DeviceConnectionState extends Equatable {
     this.selectedItemId,
     this.isOverriding = false,
     this.hasMoreLogs = false,
-    this.conflictAppSyncSeq,
-    this.conflictDeviceSyncSeq,
   });
 
   DeviceConnectionState copyWith({
@@ -31,9 +27,6 @@ class DeviceConnectionState extends Equatable {
     bool clearSelectedItemId = false,
     bool? isOverriding,
     bool? hasMoreLogs,
-    int? conflictAppSyncSeq,
-    int? conflictDeviceSyncSeq,
-    bool clearConflict = false,
   }) {
     return DeviceConnectionState(
       device: device ?? this.device,
@@ -41,13 +34,11 @@ class DeviceConnectionState extends Equatable {
       selectedItemId: clearSelectedItemId ? null : (selectedItemId ?? this.selectedItemId),
       isOverriding: isOverriding ?? this.isOverriding,
       hasMoreLogs: hasMoreLogs ?? this.hasMoreLogs,
-      conflictAppSyncSeq: clearConflict ? null : (conflictAppSyncSeq ?? this.conflictAppSyncSeq),
-      conflictDeviceSyncSeq: clearConflict ? null : (conflictDeviceSyncSeq ?? this.conflictDeviceSyncSeq),
     );
   }
 
   @override
-  List<Object?> get props => [device, syncStatus, selectedItemId, isOverriding, hasMoreLogs, conflictAppSyncSeq, conflictDeviceSyncSeq];
+  List<Object?> get props => [device, syncStatus, selectedItemId, isOverriding, hasMoreLogs];
 }
 
 bool isItemEditable(String? claimedBy, Map<String, DeviceConnectionState> connectedDevices) {

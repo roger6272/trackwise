@@ -19,7 +19,6 @@ import 'features/bluetooth/presentation/bloc/bluetooth_event.dart';
 import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import 'features/bluetooth/presentation/widgets/device_setup_dialog.dart';
 import 'features/bluetooth/presentation/widgets/stale_claim_dialog.dart';
-import 'features/bluetooth/presentation/widgets/sync_conflict_dialog.dart';
 import 'features/bluetooth/presentation/widgets/wrong_account_dialog.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 
@@ -186,15 +185,6 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<BluetoothBloc, BluetoothState>(
-      listenWhen: (previous, current) =>
-          !previous.hasConflict && current.hasConflict,
-      listener: (context, state) {
-        if (state.hasConflict) {
-          // Show conflict dialog globally
-          _showConflictDialog(context);
-        }
-      },
-      child: BlocListener<BluetoothBloc, BluetoothState>(
         listenWhen: (previous, current) =>
             !previous.hasStaleClaim && current.hasStaleClaim,
         listener: (context, state) {
@@ -237,7 +227,6 @@ class _MyAppState extends State<MyApp> {
       ),
         ),
       ),
-      ),
     );
   }
 
@@ -271,7 +260,7 @@ class _MyAppState extends State<MyApp> {
           ));
         },
         onCancel: () {
-          context.read<BluetoothBloc>().add(CancelSyncConflict(
+          context.read<BluetoothBloc>().add(CancelSyncDialog(
             deviceInstanceId: capturedInstanceId,
           ));
         },
@@ -279,44 +268,6 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  void _showConflictDialog(BuildContext context) {
-    // Use the router's navigator context for the dialog
-    final navigatorContext = _router.routerDelegate.navigatorKey.currentContext;
-    if (navigatorContext != null) {
-      final btState = context.read<BluetoothBloc>().state;
-      final instanceId = btState.connectedDeviceInstanceId;
-      final pairedDevice = instanceId != null
-          ? btState.pairedDevices.cast<PairedDevice?>().firstWhere(
-                (d) => d!.deviceInstanceId == instanceId,
-                orElse: () => null,
-              )
-          : null;
-      final deviceName = pairedDevice?.deviceName ?? btState.connectedDevice?.name;
-
-      final capturedInstanceId = btState.conflictDeviceInstanceId ?? '';
-
-      SyncConflictDialog.show(
-        context: navigatorContext,
-        deviceName: deviceName,
-        deviceId: instanceId,
-        onConfirm: () {
-          // Pass the currently selected item from AppUiState
-          final appUiState = context.read<AppUiState>();
-          context.read<BluetoothBloc>().add(ConfirmSyncOverride(
-            currentSelectedItemId: appUiState.activeItemId.isNotEmpty
-                ? appUiState.activeItemId
-                : null,
-            deviceInstanceId: capturedInstanceId,
-          ));
-        },
-        onCancel: () {
-          context.read<BluetoothBloc>().add(CancelSyncConflict(
-            deviceInstanceId: capturedInstanceId,
-          ));
-        },
-      );
-    }
-  }
 
   void _showSetupDialog(BuildContext context) {
     // Use the router's navigator context for the dialog

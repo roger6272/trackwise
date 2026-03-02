@@ -30,7 +30,7 @@
 │  │                         FIRESTORE                                  │  │
 │  │                                                                    │  │
 │  │   users/{uid}/items/{itemId}     ← Item definitions + counts      │  │
-│  │   users/{uid}/syncState          ← sync_seq, last sync time       │  │
+│  │   users/{uid}/syncState          ← last sync time                 │  │
 │  │   users/{uid}/deviceMappings     ← deviceItemId ↔ Firestore ID    │  │
 │  │                                                                    │  │
 │  │   Source of truth for: Multi-device consistency                   │  │
@@ -63,7 +63,7 @@
 │  │   NVS:                           RAM:                             │  │
 │  │   • Item data (name, count...)   • Current item counts            │  │
 │  │   • paired_uid                   • Event log buffer (1000)        │  │
-│  │   • sync_seq_no                  • Dirty flags                    │  │
+│  │                                   • Dirty flags                    │  │
 │  │   • selected_did                 • BLE transmit queue             │  │
 │  │                                                                    │  │
 │  │   Source of truth for: Counts during normal sync                  │  │
@@ -76,13 +76,12 @@
 | Scenario | Source of Truth | Why |
 |----------|-----------------|-----|
 | Normal sync (`in_sync`) | **Device → Firestore → Device** | Device counts forwarded to Firestore, then claim-filtered items pushed back |
-| Conflict (old firmware safety net) | **Firestore** | Only occurs with firmware that doesn't understand `sync_seq=-1` |
 | New device setup | **App (empty)** | Device starts with no items; user claims one to assign category |
 | Re-pairing (`in_sync` + unknown) | **App (empty)** | Device was unpaired; treat as fresh setup even though handshake says `in_sync` |
 | Real-time (connected) | **Device** | Immediate feedback on button press |
 | Offline (disconnected) | **Device** | Only place tracking increments |
 
-> **Note:** In multi-device mode, `sync_seq` is obsolete. The app sends `sync_seq=-1` so firmware always returns `in_sync`. After handshake, the app pushes claim-filtered items to the device via `RefreshDeviceItemsUseCase`.
+> **Note:** After handshake, the app pushes claim-filtered items to the device via `RefreshDeviceItemsUseCase`.
 
 ---
 
@@ -95,7 +94,6 @@ users/
 └── {uid}/
     │
     │   ── User document fields ──
-    │   sync_sequence_no: 42                ← Incremented on every sync
     │   last_selected_device_item_id: 3     ← Device slot of last selected item
     │   onboarding_completed: true
     │   onboarding_device_paired: true
@@ -156,9 +154,9 @@ Per-Item (index 0-99):              Global:
 ├── n_<i>     → name                ├── selected_did   → current selection
 ├── cat_<i>  → category            ├── selected_index → index of selection
 ├── c_<i>    → count               ├── paired_uid     → Firebase UID
-├── tc_<i>   → todaycount          ├── sync_seq_no    → last sync sequence
-├── i_<i>    → increment           ├── tz_offset      → minutes from UTC
-├── r_<i>    → reminder type       └── last_reset_date→ "YYYY-MM-DD"
+├── tc_<i>   → todaycount          ├── tz_offset      → minutes from UTC
+├── i_<i>    → increment           └── last_reset_date→ "YYYY-MM-DD"
+├── r_<i>    → reminder type
 ├── rv_<i>   → reminder value
 ├── lr_<i>   → lastResetTime
 └── rn_<i>   → resetNumber
@@ -176,7 +174,7 @@ class BluetoothState {
 
   // Per-device connection state
   // DeviceConnectionState tracks: device info, sync status (handshaking,
-  // synced, staleClaim, conflict, etc.), and the device's selected item
+  // synced, staleClaim, etc.), and the device's selected item
 }
 ```
 
@@ -204,19 +202,17 @@ class BluetoothState {
          │  ④ Subscribe to NOTIFY characteristic         │
          │ ─────────────────────────────────────────────►│
          │                                                │
-         │  ⑤ Fetch sync_seq from Firestore              │
-         │                                                │
-         │  ⑥ Send handshake (FIRST command!)            │
+         │  ⑤ Send handshake (FIRST command!)              │
          │ ─────────────────────────────────────────────►│
-         │  {"cmd":"handshake","uid":"xxx","sync_seq":-1}│
+         │  {"cmd":"handshake","uid":"xxx"}              │
          │                                                │
-         │  ⑦ Receive handshake response                 │
+         │  ⑥ Receive handshake response                 │
          │ ◄─────────────────────────────────────────────│
          │  {"status":"...",                            │
-         │   "protocol_version":2,                      │
-         │   "firmware_version":"1.3.0"}                │
+         │   "protocol_version":3,                      │
+         │   "firmware_version":"2.0.0"}                │
          │                                                │
-         │  ⑧ Branch based on status...                  │
+         │  ⑦ Branch based on status...                  │
          │                                                │
 ```
 
@@ -228,40 +224,40 @@ class BluetoothState {
                         │   RESPONSE       │
                         └────────┬─────────┘
                                  │
-         ┌───────────────────────┼───────────────────────┐
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   "in_sync"     │    │   "conflict"    │    │ "uninitialized" │
-│                 │    │                 │    │                 │
-│ seq=-1 → skip  │    │ Old firmware    │    │ No UID stored   │
-│ (always match)  │    │ safety net     │    │                 │
-└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
-         │                      │                      │
-         ▼                      ▼                      ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Is device in    │    │ Device enters   │    │ Device shows    │
-│ pairedDevices?  │    │ CONFLICT state  │    │ "AWAITING       │
-│                 │    │ Shows "SEE APP" │    │  SETUP"         │
-└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
-    ┌────┴────┐                 │                      │
-    │YES      │NO               │                      │
-    ▼         ▼                 ▼                      ▼
-┌────────┐ ┌────────┐  ┌─────────────────┐    ┌─────────────────┐
-│ Normal │ │Redirect│  │ App shows       │    │ App shows       │
-│ sync:  │ │to      │  │ conflict dialog │    │ setup wizard    │
-│ prefs  │ │Device  │  │ User confirms   │    │                 │
-│ + logs │ │Setup   │  └────────┬────────┘    └────────┬────────┘
-└───┬────┘ │Required│           │                      │
-    │      │(empty) │           │                      │
-    │      └───┬────┘           │                      │
-    ▼          └────────────────┴──────────┬───────────┘
-┌─────────────────┐                        │
-│ sync_complete   │                        ▼
-│ Update seq      │             ┌─────────────────┐
-└─────────────────┘             │ Override        │
-                                │ Protocol        │
-                                │ (App → Device)  │
+         ┌───────────────────────┴───────────────────────┐
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐                            ┌─────────────────┐
+│   "in_sync"     │                            │ "uninitialized" │
+│                 │                            │                 │
+│ Device paired   │                            │ No UID stored   │
+│ to this UID     │                            │                 │
+└────────┬────────┘                            └────────┬────────┘
+         │                                              │
+         ▼                                              ▼
+┌─────────────────┐                            ┌─────────────────┐
+│ Is device in    │                            │ Device shows    │
+│ pairedDevices?  │                            │ "AWAITING       │
+│                 │                            │  SETUP"         │
+└────────┬────────┘                            └────────┬────────┘
+    ┌────┴────┐                                         │
+    │YES      │NO                                       │
+    ▼         ▼                                         ▼
+┌────────┐ ┌────────┐                         ┌─────────────────┐
+│ Normal │ │Redirect│                         │ App shows       │
+│ sync:  │ │to      │                         │ setup wizard    │
+│ prefs  │ │Device  │                         │                 │
+│ + logs │ │Setup   │                         └────────┬────────┘
+└───┬────┘ │Required│                                  │
+    │      │(empty) │                                  │
+    │      └───┬────┘                                  │
+    │          └───────────────────────────┬───────────┘
+    ▼                                      │
+┌─────────────────┐                        ▼
+│ Refresh device  │             ┌─────────────────┐
+│ items (set_items│             │ Override        │
+│ with claims)    │             │ Protocol        │
+└─────────────────┘             │ (App → Device)  │
                                 └─────────────────┘
 
                                          │
@@ -292,10 +288,9 @@ class BluetoothState {
 
 ## 4. Sync Scenarios
 
-### 4.1 Normal Sync (Stateless Handshake)
+### 4.1 Normal Sync
 
-**When:** Any device connects (multi-device mode)
-**How:** App sends `sync_seq=-1` so firmware skips comparison and always returns `in_sync`
+**When:** Any paired device connects
 **Flow:** Device counts → Firestore, then claim-filtered items → Device
 
 ```
@@ -303,13 +298,12 @@ class BluetoothState {
 │FIRESTORE│           │   APP   │           │ DEVICE  │
 └────┬────┘           └────┬────┘           └────┬────┘
      │                     │                     │
-     │                     │ ① handshake(uid,    │
-     │                     │    sync_seq=-1)     │
-     │                     │ ───────────────────►│ -1 → skip comparison
+     │                     │ ① handshake(uid)    │
+     │                     │ ───────────────────►│
      │                     │                     │
      │                     │ ② {status:in_sync,  │
      │                     │    device_instance_id,
-     │                     │    protocol_version:2}
+     │                     │    protocol_version:3}
      │                     │ ◄───────────────────│
      │                     │                     │
      │                     │ ③ prefs (automatic) │
@@ -337,58 +331,9 @@ class BluetoothState {
 Data Flow:
   1. Device counts → App state → Firestore (preserve device's work)
   2. Firestore claimed items → App → Device (push latest assignments)
-
-Why sync_seq=-1?
-  In multi-device mode, sync_seq is obsolete — each device connection
-  would increment the global counter, causing every reconnection to
-  be a "conflict". Sending -1 tells firmware to skip the comparison.
 ```
 
-### 4.2 Conflict Resolution (Old Firmware Safety Net)
-
-**When:** Firmware doesn't understand `sync_seq=-1` and compares against its stored value
-**Trigger:** Only old firmware that predates the stateless model
-**BLoC behavior:** Auto-overrides for already-paired devices (no user dialog)
-
-```
-┌─────────┐           ┌─────────┐           ┌─────────┐
-│FIRESTORE│           │   APP   │           │ DEVICE  │
-└────┬────┘           └────┬────┘           └────┬────┘
-     │                     │                     │
-     │                     │ ① handshake(seq=-1) │
-     │                     │ ───────────────────►│ Old firmware compares
-     │                     │                     │ -1 ≠ stored seq
-     │                     │                     │
-     │                     │ ② {status:conflict, │
-     │                     │    device_seq:N}    │
-     │                     │ ◄───────────────────│ Buttons disabled!
-     │                     │                     │
-     │                     │ ③ BLoC detects      │
-     │                     │   device is paired  │
-     │                     │   → auto-override   │
-     │                     │                     │
-     │ ④ Read claimed items│                     │
-     │ ◄───────────────────│                     │
-     │                     │                     │
-     │                     │ ⑤ override_start    │
-     │                     │ ───────────────────►│ Clears NVS items
-     │                     │                     │
-     │                     │ ⑥ override_chunk ×N │
-     │                     │ ───────────────────►│ Writes to NVS
-     │                     │                     │
-     │                     │ ⑦ override_end      │
-     │                     │ ───────────────────►│ Buttons enabled!
-     │                     │                     │
-     │                     │ ⑧ {override_complete}
-     │                     │ ◄───────────────────│
-     │                     │                     │
-
-Data Flow:
-  Firestore items → App → Device NVS
-  Firestore is source of truth (device data overwritten)
-```
-
-### 4.3 New Device Setup
+### 4.2 New Device Setup
 
 **When:** Device has never been paired (`paired_uid` empty)
 **Source of Truth:** Firestore
@@ -398,12 +343,12 @@ Data Flow:
 │FIRESTORE│           │   APP   │           │ DEVICE  │
 └────┬────┘           └────┬────┘           └────┬────┘
      │                     │                     │
-     │                     │ ① handshake(uid,seq)│
+     │                     │ ① handshake(uid)    │
      │                     │ ───────────────────►│ No UID stored
      │                     │                     │
      │                     │ ② {status:          │
      │                     │    uninitialized,   │
-     │                     │    protocol_version:2}
+     │                     │    protocol_version:3}
      │                     │ ◄───────────────────│ Shows "AWAITING
      │                     │                     │  SETUP"
      │                     │                     │
@@ -411,7 +356,7 @@ Data Flow:
      │                     │                     │
      │                     │ ④ override_start    │
      │                     │ ───────────────────►│
-     │                     │ (uid, seq, 0 items) │ Stores UID!
+     │                     │ (uid, 0 items)      │ Stores UID!
      │                     │                     │ (Pairing complete)
      │                     │                     │
      │                     │ ⑤ override_end      │
@@ -724,23 +669,23 @@ T4      Connect B ────────────────────�
         RefreshDeviceItems ──────────────────────► (B's claimed items)
 
 T5      Connect A ───────────►
-        handshake(seq=-1) ───►
+        handshake(uid) ─────►
                               {in_sync}
                               prefs: count=108 ──►
         Write Firestore ◄──── count=108 (A's items)
         RefreshDeviceItems ──► (A's claimed items)
 
-No conflict! Each device only reports counts for its own items.
-Exclusive leasing (claimed_by) prevents two devices from
-modifying the same item.
+No conflicts by design! Each device only reports counts for its
+own items. Exclusive leasing (claimed_by) prevents two devices
+from modifying the same item.
 ```
 
-### 7.2 Handshake Decision Logic (Stateless)
+### 7.2 Handshake Decision Logic
 
 ```
                 ┌─────────────────────────────┐
                 │   App connects to device     │
-                │   App sends sync_seq = -1    │
+                │   App sends handshake(uid)   │
                 └──────────────┬──────────────┘
                                │
                                ▼
@@ -754,18 +699,16 @@ modifying the same item.
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
 │  UID matches    │ │  No UID stored  │ │  UID mismatch   │
 │                 │ │                 │ │                 │
-│ seq=-1 → skip  │ │ "uninitialized" │ │ "wrong_account" │
-│ comparison      │ │                 │ │                 │
-│                 │ └────────┬────────┘ └────────┬────────┘
-│ "in_sync"       │          │                   │
-└────────┬────────┘          ▼                   ▼
-         │          ┌─────────────────┐ ┌─────────────────┐
-         ▼          │ Override flow:  │ │ Error dialog:   │
-┌─────────────────┐ │ empty setup    │ │ factory reset   │
-│ Normal flow:    │ │ (App → Device) │ │ required        │
-│ prefs/logs      │ └─────────────────┘ └─────────────────┘
-│ then push items │
-└─────────────────┘
+│ "in_sync"       │ │ "uninitialized" │ │ "wrong_account" │
+│                 │ │                 │ │                 │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Normal flow:    │ │ Override flow:  │ │ Error dialog:   │
+│ prefs/logs      │ │ empty setup    │ │ factory reset   │
+│ then push items │ │ (App → Device) │ │ required        │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
 ### 7.3 Cross-Category Push Optimization
@@ -833,7 +776,7 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 | Rule | Description |
 |------|-------------|
 | **Handshake First** | Always send handshake as the first command after connecting |
-| **Stateless Handshake** | Send `sync_seq=-1` to skip comparison (multi-device mode) |
+| **Simple Handshake** | Send `handshake(uid)` — device checks UID and returns status |
 | **Device Counts Forwarded** | After `in_sync`, write device prefs/logs to Firestore |
 | **Push Claimed Items** | After forwarding, push claim-filtered items back to device |
 | **Exclusive Leasing** | Each item claimed by at most one device (`claimed_by` field) |
@@ -853,9 +796,9 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 │   Device → App → Firestore                                          │
 │                                                                      │
 │   ┌──────────────┐                                                  │
-│   │  conflict    │                                                  │
-│   │  or          │                                                  │
-│   │  uninitialized│                                                 │
+│   │  override    │                                                  │
+│   │  (new device │                                                  │
+│   │  or stale)   │                                                  │
 │   └──────┬───────┘                                                  │
 │          │                                                          │
 │          ▼                                                          │
@@ -879,7 +822,7 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 **App Crash Recovery:**
 ```
 1. Next connect → handshake
-2. If conflict → override (Firestore wins)
+2. App detects stale claim → override (Firestore wins)
 3. If in_sync → normal flow (device has correct data)
 ```
 
@@ -893,11 +836,10 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 
 **Network Error Recovery:**
 ```
-1. Device sync completed (sync_complete sent)
-2. Firestore write failed
-3. Next connect → conflict (device has newer seq)
-4. Override with Firestore data
-⚠️ Device increments since last successful Firestore write are lost
+1. Device sync completed, Firestore write failed
+2. Next connect → normal sync (device counts forwarded again)
+3. Firestore write retried
+⚠️ If Firestore write keeps failing, counts may be lost
 ```
 
 ---
@@ -912,12 +854,12 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 │  SOURCE OF TRUTH:                                                    │
 │    • in_sync (known device) → Device counts → Firestore → push back│
 │    • in_sync (unknown)      → App empty (re-pair as fresh setup)    │
-│    • conflict (old firmware) → Firestore (auto-override for paired) │
+│    • stale claim            → Firestore (override device)           │
 │    • new device             → App empty (device starts clean)       │
 │                                                                      │
-│  SYNC FLOW (stateless):                                              │
+│  SYNC FLOW:                                                          │
 │    1. Connect                                                        │
-│    2. handshake(uid, sync_seq=-1) → always in_sync                  │
+│    2. handshake(uid) → in_sync / uninitialized / wrong_account      │
 │    3. Receive prefs/logs → write to Firestore                       │
 │    4. RefreshDeviceItems → push claim-filtered items to device      │
 │                                                                      │
@@ -928,7 +870,7 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 │                                                                      │
 │  CRITICAL:                                                           │
 │    • ALWAYS handshake first after connect                           │
-│    • ALWAYS send sync_seq=-1 (stateless multi-device mode)         │
+│    • ALWAYS send handshake(uid) as first command                   │
 │    • ALWAYS forward device counts to Firestore                     │
 │    • ALWAYS push claim-filtered items after forwarding             │
 │    • NEVER assume app state is current - verify with handshake      │

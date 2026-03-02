@@ -81,7 +81,7 @@ class BleMessageModel extends BleMessage {
     final typeStr = parsed['type'] as String?;
     final type = _parseType(typeStr);
 
-    // For sync protocol responses (handshake, sync_complete, override_complete),
+    // For sync protocol responses (handshake, override_complete),
     // there's no 'type' field but there IS a 'status' field.
     // Store the entire JSON as data so _sendCommandAndWaitForResponse can access it.
     if (type == BleMessageType.unknown && parsed.containsKey('status')) {

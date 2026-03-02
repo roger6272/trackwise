@@ -4,10 +4,9 @@ import 'package:traxelos/features/bluetooth/domain/entities/sync_state.dart';
 
 void main() {
   group('SyncStatus', () {
-    test('should have four values', () {
-      expect(SyncStatus.values.length, 4);
+    test('should have three values', () {
+      expect(SyncStatus.values.length, 3);
       expect(SyncStatus.values, contains(SyncStatus.inSync));
-      expect(SyncStatus.values, contains(SyncStatus.conflict));
       expect(SyncStatus.values, contains(SyncStatus.wrongAccount));
       expect(SyncStatus.values, contains(SyncStatus.uninitialized));
     });
@@ -22,19 +21,6 @@ void main() {
 
       expect(result.status, SyncStatus.inSync);
       expect(result.deviceInstanceId, 'device-uuid-123');
-      expect(result.deviceSyncSeq, isNull);
-    });
-
-    test('should create with deviceSyncSeq for conflict', () {
-      const result = HandshakeResult(
-        status: SyncStatus.conflict,
-        deviceInstanceId: 'device-uuid-456',
-        deviceSyncSeq: 40,
-      );
-
-      expect(result.status, SyncStatus.conflict);
-      expect(result.deviceInstanceId, 'device-uuid-456');
-      expect(result.deviceSyncSeq, 40);
     });
 
     group('fromJson', () {
@@ -48,21 +34,6 @@ void main() {
 
         expect(result.status, SyncStatus.inSync);
         expect(result.deviceInstanceId, 'uuid-123');
-        expect(result.deviceSyncSeq, isNull);
-      });
-
-      test('should parse conflict response with device_seq', () {
-        final json = {
-          'status': 'conflict',
-          'device_instance_id': 'uuid-456',
-          'device_seq': 40,
-        };
-
-        final result = HandshakeResult.fromJson(json);
-
-        expect(result.status, SyncStatus.conflict);
-        expect(result.deviceInstanceId, 'uuid-456');
-        expect(result.deviceSyncSeq, 40);
       });
 
       test('should parse wrong_account response', () {
@@ -75,10 +46,9 @@ void main() {
 
         expect(result.status, SyncStatus.wrongAccount);
         expect(result.deviceInstanceId, 'uuid-789');
-        expect(result.deviceSyncSeq, isNull);
       });
 
-      test('should handle unknown status as conflict', () {
+      test('should handle unknown status as inSync', () {
         final json = {
           'status': 'unknown_status',
           'device_instance_id': 'uuid-000',
@@ -86,7 +56,7 @@ void main() {
 
         final result = HandshakeResult.fromJson(json);
 
-        expect(result.status, SyncStatus.conflict);
+        expect(result.status, SyncStatus.inSync);
       });
 
       test('should handle missing device_instance_id', () {
@@ -106,20 +76,18 @@ void main() {
 
         final result = HandshakeResult.fromJson(json);
 
-        expect(result.status, SyncStatus.conflict); // Default to conflict
+        expect(result.status, SyncStatus.inSync); // Default to inSync
       });
     });
 
     test('should be equal when all fields match', () {
       const result1 = HandshakeResult(
-        status: SyncStatus.conflict,
+        status: SyncStatus.inSync,
         deviceInstanceId: 'uuid-123',
-        deviceSyncSeq: 40,
       );
       const result2 = HandshakeResult(
-        status: SyncStatus.conflict,
+        status: SyncStatus.inSync,
         deviceInstanceId: 'uuid-123',
-        deviceSyncSeq: 40,
       );
 
       expect(result1, equals(result2));
@@ -131,9 +99,8 @@ void main() {
         deviceInstanceId: 'uuid-123',
       );
       const result2 = HandshakeResult(
-        status: SyncStatus.conflict,
+        status: SyncStatus.wrongAccount,
         deviceInstanceId: 'uuid-123',
-        deviceSyncSeq: 40,
       );
 
       expect(result1, isNot(equals(result2)));
@@ -141,16 +108,14 @@ void main() {
 
     test('toString should include all fields', () {
       const result = HandshakeResult(
-        status: SyncStatus.conflict,
+        status: SyncStatus.inSync,
         deviceInstanceId: 'uuid-123',
-        deviceSyncSeq: 40,
       );
 
       final str = result.toString();
 
-      expect(str, contains('conflict'));
+      expect(str, contains('inSync'));
       expect(str, contains('uuid-123'));
-      expect(str, contains('40'));
     });
   });
 
@@ -234,55 +199,4 @@ void main() {
     });
   });
 
-  group('SyncCompleteResult', () {
-    test('should create with status', () {
-      const result = SyncCompleteResult(status: 'seq_updated');
-
-      expect(result.status, 'seq_updated');
-      expect(result.isSuccess, isTrue);
-    });
-
-    test('isSuccess should be false for other statuses', () {
-      const result = SyncCompleteResult(status: 'error');
-
-      expect(result.isSuccess, isFalse);
-    });
-
-    group('fromJson', () {
-      test('should parse seq_updated response', () {
-        final json = {
-          'status': 'seq_updated',
-        };
-
-        final result = SyncCompleteResult.fromJson(json);
-
-        expect(result.status, 'seq_updated');
-        expect(result.isSuccess, isTrue);
-      });
-
-      test('should handle missing status', () {
-        final json = <String, dynamic>{};
-
-        final result = SyncCompleteResult.fromJson(json);
-
-        expect(result.status, '');
-        expect(result.isSuccess, isFalse);
-      });
-    });
-
-    test('should be equal when status matches', () {
-      const result1 = SyncCompleteResult(status: 'seq_updated');
-      const result2 = SyncCompleteResult(status: 'seq_updated');
-
-      expect(result1, equals(result2));
-    });
-
-    test('toString should include status', () {
-      const result = SyncCompleteResult(status: 'seq_updated');
-
-      final str = result.toString();
-
-      expect(str, contains('seq_updated'));
-    });
-  });
 }

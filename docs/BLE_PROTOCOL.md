@@ -1,7 +1,7 @@
 # Traxelos One BLE Protocol Specification
 
-> **Protocol Version:** 2
-> **Last Updated:** 2026-01-27
+> **Protocol Version:** 3
+> **Last Updated:** 2026-03-01
 > **Device:** ESP32 (Traxelos One)
 > **App:** Flutter (Traxelos One)
 
@@ -13,6 +13,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Protocol | Firmware | Changes |
 |----------|----------|---------|
+| v3 | 2.0.0+ | Removed `sync_seq` from handshake/override, removed `sync_complete` command, removed conflict state |
 | v2 | 1.5.0+ | Added `unpair` command for account deletion flow |
 | v2 | 1.4.0+ | Added `delete_item` command for single-item deletion |
 | v2 | 1.3.0+ | Added numeric `error_code` to all error notifications |
@@ -71,8 +72,8 @@ This document defines the Bluetooth Low Energy communication protocol between th
 | Principle | Description | Rationale |
 |-----------|-------------|-----------|
 | **Device is source of truth for counts** | During normal sync, device preserves its counts | Prevents losing increments made while disconnected |
-| **App is source of truth on conflict** | When sync_seq mismatch, app overrides device | Ensures multi-device consistency via Firestore |
-| **Handshake-first protocol** | All connections start with handshake | Enables account lock and conflict detection |
+| **App is source of truth on override** | App pushes Firestore data to device | Ensures multi-device consistency via Firestore |
+| **Handshake-first protocol** | All connections start with handshake | Enables account verification and sync routing |
 | **JSON protocol** | All messages are JSON strings | Human-readable, easy debugging |
 | **Newline delimiter** | Messages terminate with `\n` | Enables reliable chunk reassembly |
 | **Chunked transfer** | Large payloads split into ~180 byte chunks | Works within BLE MTU limits |
@@ -496,8 +497,7 @@ Unpair the device from the current account. Used when user deletes their account
 
 **Device Behavior:**
 1. Clears `paired_uid` from NVS
-2. Clears `sync_seq_no` from NVS
-3. Resets selection state
+2. Resets selection state
 4. Sets device to pairing mode (`isPairingMode = true`)
 5. Sends success response
 6. Display shows "AWAITING SETUP"
@@ -524,29 +524,28 @@ App: Disconnects
 
 ## 4. Multi-Device Sync Protocol
 
-The multi-device sync protocol enables a single user account to sync with multiple physical devices while maintaining data consistency via Firestore. This protocol uses a handshake-first approach with sync sequence numbers for conflict detection.
+The multi-device sync protocol enables a single user account to sync with multiple physical devices while maintaining data consistency via Firestore. This protocol uses a handshake-first approach with exclusive device leasing (`claimed_by`) to prevent conflicts by design.
 
-> **Implementation note:** All sync protocol commands (`handshake`, `override_start/chunk/end`, `sync_complete`) are routed to a specific device via `deviceId`, ensuring that concurrent device connections don't interfere with each other. The BLoC passes `deviceId` through the use case and repository layers down to the datasource, which looks up the correct `DeviceConnection` for BLE writes.
+> **Implementation note:** All sync protocol commands (`handshake`, `override_start/chunk/end`) are routed to a specific device via `deviceId`, ensuring that concurrent device connections don't interfere with each other. The BLoC passes `deviceId` through the use case and repository layers down to the datasource, which looks up the correct `DeviceConnection` for BLE writes.
 
 ### 4.1 Protocol Overview
 
 | Scenario | Source of Truth | Protocol Flow |
 |----------|-----------------|---------------|
-| Normal sync (in_sync) | Device | handshake → device sends prefs/logs → sync_complete |
-| Conflict (sync_seq mismatch) | App (Firestore) | handshake → override_start → override_chunk(s) → override_end |
+| Normal sync (in_sync) | Device | handshake → device sends prefs/logs → app syncs to Firestore |
 | New device setup | App (empty list) | handshake → override_start (0 items) → override_end (selected_id: -1) |
+| Stale claim override | App (Firestore) | handshake → override_start → override_chunk(s) → override_end |
 | Wrong account | N/A | handshake → disconnect |
 
 ### 4.2 handshake
 
-**Purpose:** Account lock check and sync sequence comparison. **Must be the first command sent after connection.**
+**Purpose:** Account verification and sync routing. **Must be the first command sent after connection.**
 
 **Request:**
 ```json
 {
   "cmd": "handshake",
-  "uid": "firebase_user_id",
-  "sync_seq": 42
+  "uid": "firebase_user_id"
 }
 ```
 
@@ -556,7 +555,6 @@ The multi-device sync protocol enables a single user account to sync with multip
 |-------|------|----------|-------------|
 | `cmd` | string | Yes | Always `"handshake"` |
 | `uid` | string | Yes | Firebase user ID |
-| `sync_seq` | int | Yes | App's current sync sequence number from Firestore |
 
 **Response Variants:**
 
@@ -564,10 +562,9 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 
 | Status | Condition | Response Format |
 |--------|-----------|-----------------|
-| `in_sync` | Device sync_seq == App sync_seq | `{"status":"in_sync","device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
-| `conflict` | Device sync_seq != App sync_seq | `{"status":"conflict","device_seq":N,"device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
-| `wrong_account` | Device paired to different UID | `{"status":"wrong_account","device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
-| `uninitialized` | Device has no UID (new/reset) | `{"status":"uninitialized","device_instance_id":"MAC","protocol_version":2,"firmware_version":"1.1.0"}` |
+| `in_sync` | Device paired to this UID | `{"status":"in_sync","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.0.0"}` |
+| `wrong_account` | Device paired to different UID | `{"status":"wrong_account","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.0.0"}` |
+| `uninitialized` | Device has no UID (new/reset) | `{"status":"uninitialized","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.0.0"}` |
 
 **Response Fields:**
 
@@ -575,7 +572,6 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 |-------|------|-------------|
 | `status` | string | Handshake result (see table above) |
 | `device_instance_id` | string | Device BLE MAC address |
-| `device_seq` | int | Device's sync sequence (only in `conflict` response) |
 | `protocol_version` | int | BLE protocol version (for compatibility checking) |
 | `firmware_version` | string | Device firmware version (semantic versioning) |
 
@@ -583,33 +579,29 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 
 | Status | Device Action | App Action |
 |--------|---------------|------------|
-| `in_sync` | Automatically sends prefs + logs via NOTIFY | Process prefs, sync to Firestore, send `sync_complete` |
-| `conflict` | Enters conflict state (buttons disabled, shows "SEE APP") | Show conflict dialog, send override or disconnect |
+| `in_sync` | Automatically sends prefs + logs via NOTIFY | Process prefs, sync to Firestore |
 | `wrong_account` | Shows "PAIRED TO OTHER ACCOUNT" | Show error dialog, disconnect |
 | `uninitialized` | Shows "AWAITING SETUP" | Show setup dialog, send override on user confirm |
 
 **Example Flow (in_sync):**
 ```
-App: {"cmd": "handshake", "uid": "abc123", "sync_seq": 42}
-Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF", "protocol_version": 2, "firmware_version": "1.1.0"}
+App: {"cmd": "handshake", "uid": "abc123"}
+Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF", "protocol_version": 3, "firmware_version": "2.0.0"}
 Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic)
 Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic)
-App: {"cmd": "sync_complete", "sync_seq": 43}
-Device: {"status": "seq_updated"}
 ```
 
 ---
 
 ### 4.3 override_start
 
-**Purpose:** Begin chunked data override from app to device. Used when app is source of truth (conflict or new device setup).
+**Purpose:** Begin chunked data override from app to device. Used when app is source of truth (new device setup or stale claim override).
 
 **Request:**
 ```json
 {
   "cmd": "override_start",
   "uid": "firebase_user_id",
-  "sync_seq": 43,
   "total_chunks": 5
 }
 ```
@@ -620,12 +612,11 @@ Device: {"status": "seq_updated"}
 |-------|------|----------|-------------|
 | `cmd` | string | Yes | Always `"override_start"` |
 | `uid` | string | Yes | Firebase user ID (stored if device uninitialized) |
-| `sync_seq` | int | Yes | New sync sequence number |
 | `total_chunks` | int | Yes | Total number of override_chunk commands to expect |
 
 **Device Behavior:**
 1. If device uninitialized, stores UID (completes device pairing)
-2. Stores override state variables (sync_seq, total_chunks, counters)
+2. Stores override state variables (total_chunks, counters)
 3. **Clears all existing item slots in NVS**
 4. Ready to receive chunks
 
@@ -718,9 +709,7 @@ Device: {"status": "seq_updated"}
 1. Validates all chunks received (received count == expected count)
 2. Sets `item_total` in NVS to number of items saved
 3. Sets selected item (with fallback to first item if ID not found)
-4. Updates `sync_seq_no` in NVS
-5. Exits conflict state (re-enables buttons)
-6. Displays "SYNCED" message
+4. Displays "SYNCED" message
 
 **Response (Success):**
 ```json
@@ -734,41 +723,7 @@ Device: {"status": "seq_updated"}
 
 ---
 
-### 4.6 sync_complete
-
-**Purpose:** Update device's sync sequence after normal sync (when device was source of truth).
-
-**Request:**
-```json
-{
-  "cmd": "sync_complete",
-  "sync_seq": 43
-}
-```
-
-**Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `cmd` | string | Yes | Always `"sync_complete"` |
-| `sync_seq` | int | Yes | New sync sequence number |
-
-**Device Behavior:**
-1. Stores new sync_seq in NVS (`sync_seq_no` key)
-
-**Response:**
-```json
-{"status":"seq_updated"}
-```
-
-**When to Use:** Call this after:
-1. Receiving and processing prefs from device
-2. Syncing counts to Firestore
-3. Incrementing sync_seq in Firestore
-
----
-
-### 4.7 Comparison: set_items vs override_chunk
+### 4.6 Comparison: set_items vs override_chunk
 
 | Aspect | set_items (Legacy) | override_chunk |
 |--------|-------------------|----------------|
@@ -778,7 +733,7 @@ Device: {"status": "seq_updated"}
 | Response | Error notification only | override_end response |
 | Field name | `id` | `device_item_id` |
 | Selection | No change | Set at override_end |
-| Use case | Normal sync | Conflict resolution, new device setup |
+| Use case | Normal sync | New device setup, stale claim override |
 
 ---
 
@@ -1013,16 +968,11 @@ Paginated historical events from RAM buffer.
 
 ### 5.5 sync_response (Sync Protocol Response)
 
-Sent in response to multi-device sync commands (handshake, override_end, sync_complete).
+Sent in response to multi-device sync commands (handshake, override_end).
 
 **Format (handshake - in_sync):**
 ```json
 {"status":"in_sync","device_instance_id":"AA:BB:CC:DD:EE:FF"}
-```
-
-**Format (handshake - conflict):**
-```json
-{"status":"conflict","device_seq":40,"device_instance_id":"AA:BB:CC:DD:EE:FF"}
 ```
 
 **Format (handshake - wrong_account):**
@@ -1045,18 +995,12 @@ Sent in response to multi-device sync commands (handshake, override_end, sync_co
 {"status":"error","message":"missing_chunks"}
 ```
 
-**Format (sync_complete):**
-```json
-{"status":"seq_updated"}
-```
-
 **Fields:**
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `status` | string | Response status (varies by command) |
 | `device_instance_id` | string | BLE MAC address (handshake responses only) |
-| `device_seq` | int | Device's sync_seq (conflict status only) |
 | `message` | string | Error details (error status only) |
 
 ---
@@ -1100,7 +1044,6 @@ Sent when device encounters an error processing a command.
 | 302 | `ERR_UNKNOWN_COMMAND` | Unrecognized command | Check command spelling |
 | **4xx** | **State Errors** | | |
 | 401 | `ERR_NO_ITEM_SELECTED` | Operation requires selected item | Select an item first |
-| 402 | `ERR_CONFLICT_STATE` | Device in conflict state | Complete override or disconnect |
 | 403 | `ERR_ITEM_NOT_FOUND` | Item with deviceItemId not found | Verify item exists |
 
 **App-side Error Handling:**
@@ -1311,51 +1254,7 @@ Performed after connection established. The sync flow depends on the handshake r
 
 #### Normal Sync (in_sync)
 
-When device and app sync sequences match, device is source of truth:
-
-```
-┌─────┐                                              ┌────────┐
-│ App │                                              │ Device │
-└──┬──┘                                              └───┬────┘
-   │                                                     │
-   │  1. Fetch sync_seq from Firestore                   │
-   │                                                     │
-   │  2. Send handshake                                  │
-   │ ───────────────────────────────────────────────────►│
-   │     {"cmd":"handshake","uid":"xxx","sync_seq":42}   │
-   │                                                     │
-   │  3. Receive handshake response                      │
-   │ ◄───────────────────────────────────────────────────│
-   │     {"status":"in_sync","device_instance_id":"MAC"} │
-   │                                                     │
-   │  4. Device automatically sends prefs                │
-   │ ◄───────────────────────────────────────────────────│
-   │     {"type":"prefs","data":[...],"selected_id":0}   │
-   │                                                     │
-   │  5. Device automatically sends logs                 │
-   │ ◄───────────────────────────────────────────────────│
-   │     {"type":"logs","page":0,"hasMore":false,...}    │
-   │                                                     │
-   │  6. Update app state with device counts             │
-   │     (Device counts are source of truth)             │
-   │                                                     │
-   │  7. Sync counts to Firestore                        │
-   │                                                     │
-   │  8. Send sync_complete                              │
-   │ ───────────────────────────────────────────────────►│
-   │     {"cmd":"sync_complete","sync_seq":43}           │
-   │                                                     │
-   │  9. Receive acknowledgment                          │
-   │ ◄───────────────────────────────────────────────────│
-   │     {"status":"seq_updated"}                        │
-   │                                                     │
-   │ 10. Update Firestore sync_seq to 43                 │
-   │                                                     │
-```
-
-#### Conflict Resolution (conflict)
-
-When sync sequences differ, app (Firestore) is source of truth:
+When the device is paired to this user, device is source of truth for counts:
 
 ```
 ┌─────┐                                              ┌────────┐
@@ -1364,44 +1263,70 @@ When sync sequences differ, app (Firestore) is source of truth:
    │                                                     │
    │  1. Send handshake                                  │
    │ ───────────────────────────────────────────────────►│
-   │     {"cmd":"handshake","uid":"xxx","sync_seq":42}   │
+   │     {"cmd":"handshake","uid":"xxx"}                 │
    │                                                     │
-   │  2. Receive conflict response                       │
+   │  2. Receive handshake response                      │
    │ ◄───────────────────────────────────────────────────│
-   │     {"status":"conflict","device_seq":40,...}       │
+   │     {"status":"in_sync","device_instance_id":"MAC"} │
    │                                                     │
-   │                    Device enters conflict state     │
-   │                    Device disables buttons          │
-   │                    Device shows "SEE APP"           │
+   │  3. Device automatically sends prefs                │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"type":"prefs","data":[...],"selected_id":0}   │
    │                                                     │
-   │  3. Show conflict dialog to user                    │
+   │  4. Device automatically sends logs                 │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"type":"logs","page":0,"hasMore":false,...}    │
    │                                                     │
-   │  4. User confirms override                          │
+   │  5. Update app state with device counts             │
+   │     (Device counts are source of truth)             │
    │                                                     │
-   │  5. Send override_start                             │
+   │  6. Sync counts to Firestore                        │
+   │                                                     │
+   │  7. Refresh device items (push claim-filtered       │
+   │     items from Firestore via set_items)             │
+   │                                                     │
+```
+
+#### Override Flow (New Device / Stale Claim)
+
+When app needs to push data to device (new device setup or stale claim override):
+
+```
+┌─────┐                                              ┌────────┐
+│ App │                                              │ Device │
+└──┬──┘                                              └───┬────┘
+   │                                                     │
+   │  1. Send handshake                                  │
+   │ ───────────────────────────────────────────────────►│
+   │     {"cmd":"handshake","uid":"xxx"}                 │
+   │                                                     │
+   │  2. Receive handshake response                      │
+   │ ◄───────────────────────────────────────────────────│
+   │     {"status":"in_sync"/"uninitialized",...}        │
+   │                                                     │
+   │  3. App determines override is needed               │
+   │     (stale claim or new device setup)               │
+   │                                                     │
+   │  4. Send override_start                             │
    │ ───────────────────────────────────────────────────►│
    │     {"cmd":"override_start","uid":"xxx",            │
-   │      "sync_seq":43,"total_chunks":3}                │
+   │      "total_chunks":3}                              │
    │                                                     │
-   │  6. Send override_chunk(s)                          │
+   │  5. Send override_chunk(s)                          │
    │ ───────────────────────────────────────────────────►│
    │     {"cmd":"override_chunk","index":0,"items":[...]}│
    │     {"cmd":"override_chunk","index":1,"items":[...]}│
    │     {"cmd":"override_chunk","index":2,"items":[...]}│
    │                                                     │
-   │  7. Send override_end                               │
+   │  6. Send override_end                               │
    │ ───────────────────────────────────────────────────►│
    │     {"cmd":"override_end","selected_id":5}          │
    │                                                     │
-   │  8. Receive override result                         │
+   │  7. Receive override result                         │
    │ ◄───────────────────────────────────────────────────│
    │     {"status":"override_complete"}                  │
    │                                                     │
-   │                    Device exits conflict state      │
-   │                    Device re-enables buttons        │
    │                    Device shows "SYNCED"            │
-   │                                                     │
-   │  9. Update Firestore sync_seq to 43                 │
    │                                                     │
 ```
 
@@ -1601,7 +1526,6 @@ Index-based storage where `<i>` = 0 to 99:
 | `tz_offset` | int | Minutes offset from UTC |
 | `last_reset_date` | string | "YYYY-MM-DD" of last daily reset |
 | `paired_uid` | string | Firebase user ID this device is paired to (empty = unpaired) |
-| `sync_seq_no` | int | Last sync sequence number (0 = never synced) |
 
 ### 11.4 Flash Wear Optimization
 
@@ -1664,28 +1588,13 @@ The device operates in one of several states that affect its behavior and user i
                            └───────────────────────────┘
 ```
 
-### 12.3 Conflict State Details
-
-**Entry Conditions:**
-- Handshake returns `conflict` status (device sync_seq != app sync_seq)
-
-**Behavior:**
-- Physical buttons are disabled (presses ignored)
-- Display shows "SEE APP" message
-- Device waits for app to send override commands or disconnect
-
-**Exit Conditions:**
-- `override_end` command completes successfully
-- BLE disconnect (returns to normal mode)
-
-### 12.4 Disconnect Behavior
+### 12.3 Disconnect Behavior
 
 On BLE disconnect, the device:
 1. Flushes pending NVS writes (prevents count loss)
-2. Exits conflict state (returns to normal mode)
-3. Clears sync state flags
-4. Clears BLE transmit queue
-5. Restarts BLE advertising
+2. Clears sync state flags
+3. Clears BLE transmit queue
+4. Restarts BLE advertising
 
 ---
 
@@ -1950,7 +1859,6 @@ for (final uuid in required) {
 | Multi-device NVS keys | Lines ~47-51 |
 | Handshake handler | `handleHandshake()` |
 | Override handlers | `handleOverrideStart/Chunk/End()` |
-| Sync complete handler | `handleSyncComplete()` |
 | SetItemsCallback | `class SetItemsCallback` |
 | WriteCallback | `class WriteCallback` |
 | ServerCallbacks | `class ServerCallbacks` |
@@ -2102,6 +2010,7 @@ The device instance ID uniquely identifies each physical device. It is returned 
 |---------|------|--------|---------|
 | 1.0 | 2025-01-24 | Generated from codebase | Initial specification |
 | 2.0 | 2026-01-27 | Multi-device update | Added handshake, override, sync_complete commands; device states; updated sync flows |
+| 3.0 | 2026-03-01 | sync_seq removal | Removed sync_seq from handshake/override, removed sync_complete command, removed conflict state |
 
 ---
 
@@ -2119,14 +2028,12 @@ The device instance ID uniquely identifies each physical device. It is returned 
 │   WRITE   ...010  → Commands (handshake, set_selected...)  │
 │   SET_ITEMS ...008 → Legacy item list (JSON array)         │
 ├─────────────────────────────────────────────────────────────┤
-│ MULTI-DEVICE SYNC (v2.0):                                   │
-│   {"cmd":"handshake","uid":"...","sync_seq":N}             │
+│ MULTI-DEVICE SYNC (v3.0):                                   │
+│   {"cmd":"handshake","uid":"..."}                          │
 │     → FIRST command after connect!                         │
-│   {"cmd":"override_start","uid":"...","sync_seq":N,        │
-│    "total_chunks":M}                                       │
+│   {"cmd":"override_start","uid":"...","total_chunks":M}    │
 │   {"cmd":"override_chunk","index":I,"items":[...]}         │
 │   {"cmd":"override_end","selected_id":X}                   │
-│   {"cmd":"sync_complete","sync_seq":N}                     │
 ├─────────────────────────────────────────────────────────────┤
 │ LEGACY COMMANDS:                                            │
 │   {"cmd":"set_selected","id":N}      Select item 0-99      │
@@ -2135,7 +2042,7 @@ The device instance ID uniquely identifies each physical device. It is returned 
 │   {"cmd":"clear_logs"}               After syncing logs    │
 ├─────────────────────────────────────────────────────────────┤
 │ NOTIFICATIONS (Device → App):                               │
-│   {"status":"in_sync|conflict|wrong_account|uninitialized"}│
+│   {"status":"in_sync|wrong_account|uninitialized"}         │
 │   {"type":"prefs",...}     Full item list + selected_id    │
 │   {"type":"event",...}     Button press (increment/reset)  │
 │   {"type":"item_delta",...} Single item count update       │
@@ -2144,14 +2051,13 @@ The device instance ID uniquely identifies each physical device. It is returned 
 ├─────────────────────────────────────────────────────────────┤
 │ SYNC FLOW:                                                  │
 │   1. Connect → handshake                                   │
-│   2a. in_sync → device sends prefs/logs → sync_complete    │
-│   2b. conflict → override_start → chunks → override_end    │
-│   2c. uninitialized → override (includes UID pairing)      │
+│   2a. in_sync → device sends prefs/logs → app syncs        │
+│   2b. uninitialized → override (includes UID pairing)      │
 ├─────────────────────────────────────────────────────────────┤
 │ GOLDEN RULES:                                               │
 │   - ALWAYS send handshake first after connect              │
-│   - in_sync: Device is source of truth                     │
-│   - conflict: App (Firestore) is source of truth           │
+│   - in_sync: Device is source of truth for counts          │
+│   - Stale claims: App (Firestore) overrides device         │
 │   - set_items preserves device counts                      │
 │   - override_chunk overwrites with app counts              │
 └─────────────────────────────────────────────────────────────┘

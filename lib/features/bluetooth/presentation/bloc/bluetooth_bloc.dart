@@ -45,7 +45,7 @@ import 'device_connection_state.dart';
 /// - Connection management with auto-reconnect
 /// - Data sending/receiving with ESP32
 /// - Message stream processing
-/// - Multi-device sync and conflict resolution
+/// - Multi-device sync
 @lazySingleton
 class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final ScanDevicesUseCase _scanDevices;
@@ -173,10 +173,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<UpdateDeviceName>(_onUpdateDeviceName);
     on<UpdateDeviceColor>(_onUpdateDeviceColor);
     on<RemovePairedDevice>(_onRemovePairedDevice);
-    on<SyncConflictDetected>(_onSyncConflictDetected);
     on<ConfirmSyncOverride>(_onConfirmSyncOverride);
-    on<CancelSyncConflict>(_onCancelSyncConflict);
-    on<ClearConflictState>(_onClearConflictState);
+    on<CancelSyncDialog>(_onCancelSyncDialog);
     on<ResetBluetoothState>(_onResetBluetoothState);
     on<SyncCompleted>(_onSyncCompleted);
     // Device setup events (uninitialized/factory reset)
@@ -662,27 +660,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
     syncResult.fold(
       (failure) {
-        if (failure is SyncConflictFailure) {
-          final conflictDeviceId = failure.deviceInstanceId ?? deviceInstanceId;
-          final isAlreadyPaired = state.pairedDevices.any(
-            (d) => d.deviceInstanceId.toUpperCase() == conflictDeviceId.toUpperCase(),
-          );
-          if (isAlreadyPaired) {
-            // Already-paired device with stale sync_seq — auto-override silently
-            AppLogger.debug('Sync conflict for paired device $conflictDeviceId — auto-overriding');
-            add(ConfirmSyncOverride(
-              deviceInstanceId: conflictDeviceId,
-            ));
-          } else {
-            // New device or genuinely dangerous conflict — show dialog
-            AppLogger.debug('Sync conflict detected: app=${failure.appSyncSeq}, device=${failure.deviceSyncSeq}, deviceInstanceId=$conflictDeviceId');
-            add(SyncConflictDetected(
-              appSyncSeq: failure.appSyncSeq,
-              deviceSyncSeq: failure.deviceSyncSeq,
-              deviceInstanceId: conflictDeviceId,
-            ));
-          }
-        } else if (failure is DeviceUninitializedFailure) {
+        if (failure is DeviceUninitializedFailure) {
           // Device needs setup (factory reset or new device)
           AppLogger.debug('Device uninitialized: deviceInstanceId=${failure.deviceInstanceId}');
           add(DeviceSetupRequired(deviceInstanceId: failure.deviceInstanceId));
@@ -905,7 +883,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceInstanceId = event.deviceInstanceId;
 
     // Only process device messages once the device is fully synced.
-    // During handshaking/staleClaim/conflict, firmware may send prefs with
+    // During handshaking/staleClaim, firmware may send prefs with
     // stale counts (e.g. counts for items released while device was offline).
     final deviceState = state.connectedDevices[deviceInstanceId];
     if (deviceState != null && !deviceState.isOnline) {
@@ -1129,38 +1107,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     );
   }
 
-  // ========== Sync Conflict Handlers ==========
-
-  /// Handles sync conflict detection - UI should show the dialog.
-  Future<void> _onSyncConflictDetected(
-    SyncConflictDetected event,
-    Emitter<BluetoothState> emit,
-  ) async {
-    final deviceInstanceId = event.deviceInstanceId;
-    AppLogger.debug('BluetoothBloc: Setting conflict, deviceInstanceId=$deviceInstanceId');
-    if (deviceInstanceId.isEmpty) return;
-
-    // If we have a device in the map, update its status
-    // If not yet in map (handshake just completed), add it
-    final existing = state.connectedDevices[deviceInstanceId];
-    final updated = existing != null
-        ? _updateDevice(deviceInstanceId, (d) => d.copyWith(
-            syncStatus: DeviceSyncStatus.conflict,
-            conflictAppSyncSeq: event.appSyncSeq,
-            conflictDeviceSyncSeq: event.deviceSyncSeq,
-          ))
-        : {
-            ...state.connectedDevices,
-            deviceInstanceId: DeviceConnectionState(
-              device: state.connectedDevice ?? BleDevice(id: deviceInstanceId, name: 'Traxelos Device', rssi: 0),
-              syncStatus: DeviceSyncStatus.conflict,
-              conflictAppSyncSeq: event.appSyncSeq,
-              conflictDeviceSyncSeq: event.deviceSyncSeq,
-            ),
-          };
-
-    emit(state.copyWith(connectedDevices: updated));
-  }
+  // ========== Sync Dialog Handlers ==========
 
   /// User confirmed override - perform the override sync.
   Future<void> _onConfirmSyncOverride(
@@ -1190,12 +1137,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       (d) => d.deviceInstanceId.toUpperCase() == deviceId.toUpperCase(),
     );
 
-    // Clear conflict and set isOverriding
+    // Set isOverriding
     emit(state.copyWith(
       connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
         isOverriding: true,
         syncStatus: DeviceSyncStatus.syncing,
-        clearConflict: true,
       )),
     ));
 
@@ -1246,7 +1192,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     emit(state.copyWith(
       connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
         syncStatus: DeviceSyncStatus.syncing,
-        clearConflict: true,
       )),
     ));
 
@@ -1291,18 +1236,17 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     AppLogger.debug('Stale claim reset complete — device $deviceId has empty items');
   }
 
-  /// User cancelled conflict/staleClaim dialog - disconnect from the device.
-  Future<void> _onCancelSyncConflict(
-    CancelSyncConflict event,
+  /// User cancelled sync dialog (stale claim, etc) - disconnect from the device.
+  Future<void> _onCancelSyncDialog(
+    CancelSyncDialog event,
     Emitter<BluetoothState> emit,
   ) async {
     final deviceId = event.deviceInstanceId;
 
-    // Clear conflict/staleClaim state for this specific device
+    // Clear staleClaim state for this specific device
     emit(state.copyWith(
       connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
         syncStatus: DeviceSyncStatus.handshaking,
-        clearConflict: true,
       )),
     ));
 
@@ -1317,23 +1261,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
       connectedDevices: _removeDevice(deviceId),
     ));
-  }
-
-  /// Clears conflict state after it's been handled.
-  Future<void> _onClearConflictState(
-    ClearConflictState event,
-    Emitter<BluetoothState> emit,
-  ) async {
-    // Clear conflict from all devices that have it
-    final clearedDevices = Map.fromEntries(
-      state.connectedDevices.entries.map((e) => MapEntry(
-        e.key,
-        e.value.syncStatus == DeviceSyncStatus.conflict
-            ? e.value.copyWith(syncStatus: DeviceSyncStatus.handshaking, clearConflict: true)
-            : e.value,
-      )),
-    );
-    emit(state.copyWith(connectedDevices: clearedDevices));
   }
 
   /// Resets all Bluetooth state for account deletion / sign-out.

@@ -373,13 +373,11 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   Future<Either<Failure, HandshakeResult>> sendHandshake({
     required String deviceId,
     required String uid,
-    required int syncSeq,
   }) async {
     try {
       final result = await dataSource.sendHandshake(
         deviceId: deviceId,
         uid: uid,
-        syncSeq: syncSeq,
       );
       return Right(result);
     } on TimeoutException catch (e) {
@@ -401,7 +399,6 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   Future<Either<Failure, OverrideResult>> sendOverrideChunked({
     required String deviceId,
     required String uid,
-    required int syncSeq,
     required int selectedId,
     required List<Item> items,
     Map<String, String> categoryNames = const {},
@@ -410,7 +407,6 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       final result = await dataSource.sendOverrideChunked(
         deviceId: deviceId,
         uid: uid,
-        syncSeq: syncSeq,
         selectedId: selectedId,
         items: items,
         categoryNames: categoryNames,
@@ -431,23 +427,4 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, SyncCompleteResult>> sendSyncComplete(String deviceId, int syncSeq) async {
-    try {
-      final result = await dataSource.sendSyncComplete(deviceId, syncSeq);
-      return Right(result);
-    } on TimeoutException catch (e) {
-      AppLogger.error('sync_complete timed out', e);
-      return Left(BluetoothFailure('sync_complete timed out: ${e.message}'));
-    } on StateError catch (e) {
-      AppLogger.error('sync_complete failed', e);
-      return Left(BluetoothFailure('sync_complete failed: ${e.message}'));
-    } on FlutterBluePlusException catch (e) {
-      AppLogger.error('sync_complete failed', e);
-      return Left(BluetoothFailure('sync_complete failed: ${e.description}'));
-    } catch (e) {
-      AppLogger.error('sync_complete failed', e);
-      return Left(BluetoothFailure('sync_complete failed: $e'));
-    }
-  }
 }

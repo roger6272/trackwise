@@ -75,7 +75,6 @@ void main() {
           .thenAnswer((_) async => mockUserDocSnapshot);
       when(() => mockUserDocSnapshot.exists).thenReturn(true);
       when(() => mockUserDocSnapshot.data()).thenReturn({
-        'sync_sequence_no': 5,
         'last_selected_device_item_id': 3,
         'paired_devices': [
           {
@@ -96,7 +95,6 @@ void main() {
         (user) {
           expect(user.id, testUserId);
           expect(user.email, testEmail);
-          expect(user.syncSequenceNo, 5);
           expect(user.lastSelectedDeviceItemId, 3);
           expect(user.pairedDevices.length, 1);
           expect(user.pairedDevices[0].deviceInstanceId, 'device-123');
@@ -122,7 +120,6 @@ void main() {
         (failure) => fail('Should not return failure'),
         (user) {
           expect(user.id, testUserId);
-          expect(user.syncSequenceNo, 0);
           expect(user.lastSelectedDeviceItemId, -1);
           expect(user.pairedDevices, isEmpty);
         },
@@ -148,90 +145,14 @@ void main() {
     });
   });
 
-  group('fetchSyncSequenceFromServer', () {
-    test('should return sync sequence from Firestore with server source',
-        () async {
-      // Arrange
-      when(() => mockUserDocRef.get(any()))
-          .thenAnswer((_) async => mockUserDocSnapshot);
-      when(() => mockUserDocSnapshot.exists).thenReturn(true);
-      when(() => mockUserDocSnapshot.data())
-          .thenReturn({'sync_sequence_no': 42});
-
-      // Act
-      final result = await repository.fetchSyncSequenceFromServer();
-
-      // Assert
-      expect(result, isA<Right<Failure, int>>());
-      result.fold(
-        (failure) => fail('Should not return failure'),
-        (syncSeq) => expect(syncSeq, 42),
-      );
-
-      // Verify server source was used
-      verify(() => mockUserDocRef.get(any())).called(1);
-    });
-
-    test('should return 0 when user document does not exist', () async {
-      // Arrange
-      when(() => mockUserDocRef.get(any()))
-          .thenAnswer((_) async => mockUserDocSnapshot);
-      when(() => mockUserDocSnapshot.exists).thenReturn(false);
-
-      // Act
-      final result = await repository.fetchSyncSequenceFromServer();
-
-      // Assert
-      expect(result, isA<Right<Failure, int>>());
-      result.fold(
-        (failure) => fail('Should not return failure'),
-        (syncSeq) => expect(syncSeq, 0),
-      );
-    });
-
-    test('should return 0 when sync_sequence_no field is missing', () async {
-      // Arrange
-      when(() => mockUserDocRef.get(any()))
-          .thenAnswer((_) async => mockUserDocSnapshot);
-      when(() => mockUserDocSnapshot.exists).thenReturn(true);
-      when(() => mockUserDocSnapshot.data()).thenReturn({});
-
-      // Act
-      final result = await repository.fetchSyncSequenceFromServer();
-
-      // Assert
-      expect(result, isA<Right<Failure, int>>());
-      result.fold(
-        (failure) => fail('Should not return failure'),
-        (syncSeq) => expect(syncSeq, 0),
-      );
-    });
-
-    test('should return AuthFailure when not authenticated', () async {
-      // Arrange
-      when(() => mockAuth.currentUser).thenReturn(null);
-
-      // Act
-      final result = await repository.fetchSyncSequenceFromServer();
-
-      // Assert
-      expect(result, isA<Left<Failure, int>>());
-      result.fold(
-        (failure) => expect(failure, isA<AuthFailure>()),
-        (syncSeq) => fail('Should not return sync sequence'),
-      );
-    });
-  });
-
-  group('updateSyncState', () {
-    test('should update sync state in Firestore', () async {
+  group('updateLastSelectedItem', () {
+    test('should update last selected item in Firestore', () async {
       // Arrange
       when(() => mockUserDocRef.set(any(), any()))
           .thenAnswer((_) async => {});
 
       // Act
-      final result = await repository.updateSyncState(
-        syncSequenceNo: 10,
+      final result = await repository.updateLastSelectedItem(
         lastSelectedDeviceItemId: 5,
       );
 
@@ -239,7 +160,6 @@ void main() {
       expect(result, isA<Right<Failure, void>>());
       verify(() => mockUserDocRef.set(
             {
-              'sync_sequence_no': 10,
               'last_selected_device_item_id': 5,
             },
             any(),
@@ -251,8 +171,7 @@ void main() {
       when(() => mockAuth.currentUser).thenReturn(null);
 
       // Act
-      final result = await repository.updateSyncState(
-        syncSequenceNo: 10,
+      final result = await repository.updateLastSelectedItem(
         lastSelectedDeviceItemId: 5,
       );
 

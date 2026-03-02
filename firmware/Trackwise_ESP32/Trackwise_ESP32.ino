@@ -60,7 +60,8 @@ static const esp_task_wdt_config_t wdtConfig = {
 // Protocol version: Increment when changing command/response formats or behavior
 // - v1: Initial protocol
 // - v2: Added multi-device sync with handshake-first approach
-#define PROTOCOL_VERSION 2
+// - v3: Removed sync_seq (conflict prevention via claimed_by leasing)
+#define PROTOCOL_VERSION 3
 
 // Firmware version: Semantic versioning (major.minor.patch)
 #define FIRMWARE_VERSION "1.5.0"
@@ -68,16 +69,13 @@ static const esp_task_wdt_config_t wdtConfig = {
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
 #define NVS_KEY_PAIRED_UID "paired_uid"           // String: Firebase uid (empty = unpaired)
-#define NVS_KEY_SYNC_SEQ_NO "sync_seq_no"         // int32: Last sync sequence number (default: 0)
 // Note: Device Instance ID is now the BLE MAC address (no NVS storage needed)
 
 // ============== MULTI-DEVICE STATE ==============
 bool isPairingMode = false;  // True when device is unpaired and waiting for pairing
-bool inConflictState = false;  // True when sync_seq mismatch detected, waiting for app override
 
 // ============== OVERRIDE PROTOCOL STATE ==============
 // State tracking for chunked override protocol (app pushing data to device)
-int overrideSyncSeq = 0;        // Sync sequence number for this override
 int overrideTotalChunks = 0;    // Total number of chunks expected
 int overrideReceivedChunks = 0; // Number of chunks received so far
 int overrideNextSlot = 0;       // Next sequential slot index for saving items
@@ -109,7 +107,6 @@ int overrideNextSlot = 0;       // Next sequential slot index for saving items
 
 // 4xx: State errors
 #define ERR_NO_ITEM_SELECTED    401  // Operation requires selected item
-#define ERR_CONFLICT_STATE      402  // Device in conflict state
 #define ERR_ITEM_NOT_FOUND      403  // Item with given deviceItemId not found
 
 // Convert event type to string for JSON serialization
@@ -319,23 +316,6 @@ void setPairedUid(const String& uid) {
   DEBUG_LOG("🔗 Paired to UID: %s\n", uid.c_str());
 }
 
-// Get the sync sequence number from NVS
-int getSyncSeqNo() {
-  int seq = 0;
-  if (!nvsBeginSafe("counter", true)) return seq;
-  seq = prefs.getInt(NVS_KEY_SYNC_SEQ_NO, 0);
-  nvsEndSafe();
-  return seq;
-}
-
-// Set the sync sequence number in NVS
-void setSyncSeqNo(int seq) {
-  if (!nvsBeginSafe("counter", false)) return;
-  prefs.putInt(NVS_KEY_SYNC_SEQ_NO, seq);
-  nvsEndSafe();
-  DEBUG_LOG("📊 Sync sequence updated: %d\n", seq);
-}
-
 // Check if the device is paired (has a paired_uid set)
 bool isDevicePaired() {
   String uid = getPairedUid();
@@ -370,26 +350,6 @@ void displayWelcomeScreen() {
 // See docs/plans/2026-02-24-phase5-firmware.md Tasks 1-2.
 void displayMessage(const char* msg) {
   DEBUG_LOG("📺 DISPLAY: %s\n", msg);
-}
-
-// ============== CONFLICT STATE HANDLING ==============
-
-// Enter conflict state - device shows "SEE APP" and disables buttons
-// Called when handshake detects sync_seq mismatch
-void enterConflictState() {
-  inConflictState = true;
-  displayMessage("SEE APP");
-  DEBUG_PRINTLN("⚠️ Entered conflict state - buttons disabled, waiting for app override");
-}
-
-// Exit conflict state - restore normal operation
-// Called on BLE disconnect or after successful override
-void exitConflictState() {
-  if (!inConflictState) return;  // Already not in conflict
-  inConflictState = false;
-  DEBUG_PRINTLN("✅ Exited conflict state - buttons re-enabled");
-  // Clear display message (actual implementation depends on hardware)
-  displayMessage("");  // Clear the "SEE APP" message
 }
 
 // Forward declaration for BLE transmit queue check
@@ -433,15 +393,15 @@ void sendAckIfRequested(JsonDocument& doc, const char* cmd, bool success = true,
 }
 
 // Handle handshake command from app
-// Performs account lock check and sync sequence comparison
-// App sends: { "cmd": "handshake", "uid": "xxx", "sync_seq": 42 }
-void handleHandshake(const String& uid, int appSyncSeq) {
+// Performs account lock check and returns device status
+// App sends: { "cmd": "handshake", "uid": "xxx" }
+void handleHandshake(const String& uid) {
   String pairedUid = getPairedUid();
   String deviceInstanceId = getDeviceInstanceId();
 
-  DEBUG_LOG("🤝 Handshake: uid=%s, app_sync_seq=%d\n", uid.c_str(), appSyncSeq);
-  DEBUG_LOG("   Device paired_uid=%s, device_sync_seq=%d\n",
-                pairedUid.isEmpty() ? "(empty)" : pairedUid.c_str(), getSyncSeqNo());
+  DEBUG_LOG("🤝 Handshake: uid=%s\n", uid.c_str());
+  DEBUG_LOG("   Device paired_uid=%s\n",
+                pairedUid.isEmpty() ? "(empty)" : pairedUid.c_str());
 
   // Step 1: Account lock check
   if (!pairedUid.isEmpty() && pairedUid != uid) {
@@ -485,48 +445,25 @@ void handleHandshake(const String& uid, int appSyncSeq) {
     return;
   }
 
-  // Step 3: Sync sequence check (device is already paired)
-  int deviceSyncSeq = getSyncSeqNo();  // 0 = never synced
+  // Step 3: Paired device - always in sync (conflict prevention via claimed_by leasing)
+  StaticJsonDocument<256> doc;
+  doc["status"] = "in_sync";
+  doc["device_instance_id"] = deviceInstanceId;
+  doc["protocol_version"] = PROTOCOL_VERSION;
+  doc["firmware_version"] = FIRMWARE_VERSION;
 
-  // App sends -1 to skip sync_seq comparison (multi-device mode).
-  // This avoids false conflicts when multiple devices each increment sync_seq.
-  if (appSyncSeq == -1 || appSyncSeq == deviceSyncSeq) {
-    // In sync - device is Source of Truth, proceed with normal sync
-    StaticJsonDocument<256> doc;
-    doc["status"] = "in_sync";
-    doc["device_instance_id"] = deviceInstanceId;
-    doc["protocol_version"] = PROTOCOL_VERSION;
-    doc["firmware_version"] = FIRMWARE_VERSION;
+  String response;
+  serializeJson(doc, response);
+  sendJsonResponse(response);
 
-    String response;
-    serializeJson(doc, response);
-    sendJsonResponse(response);
+  DEBUG_PRINTLN("✅ Handshake: in_sync");
 
-    DEBUG_LOG("✅ Handshake: in_sync (seq=%d)\n", deviceSyncSeq);
-
-    // Automatically send prefs+logs after successful handshake
-    // (App expects these to arrive via notification stream)
-    // Note: We set a flag here, the actual sending happens in loop()
-    // to avoid blocking the BLE callback
-    needsSendSyncData = true;  // Flag to trigger prefs+logs send in loop()
-    syncDataRequestedAt = millis();  // Record time to allow handshake response to send first
-  } else {
-    // Out of sync - app is Source of Truth, enter conflict state
-    StaticJsonDocument<256> doc;
-    doc["status"] = "conflict";
-    doc["device_seq"] = deviceSyncSeq;
-    doc["device_instance_id"] = deviceInstanceId;
-    doc["protocol_version"] = PROTOCOL_VERSION;
-    doc["firmware_version"] = FIRMWARE_VERSION;
-
-    String response;
-    serializeJson(doc, response);
-    sendJsonResponse(response);
-
-    enterConflictState();
-
-    DEBUG_LOG("⚠️ Handshake: conflict (device_seq=%d, app_seq=%d)\n", deviceSyncSeq, appSyncSeq);
-  }
+  // Automatically send prefs+logs after successful handshake
+  // (App expects these to arrive via notification stream)
+  // Note: We set a flag here, the actual sending happens in loop()
+  // to avoid blocking the BLE callback
+  needsSendSyncData = true;  // Flag to trigger prefs+logs send in loop()
+  syncDataRequestedAt = millis();  // Record time to allow handshake response to send first
 }
 
 // Clear a single item slot from NVS
@@ -743,13 +680,13 @@ void setSelectedItem(int selectedId) {
 // ============== OVERRIDE PROTOCOL HANDLERS ==============
 
 // Handle override_start command from app
-// App sends: { "cmd": "override_start", "uid": "xxx", "sync_seq": 43, "total_chunks": N }
+// App sends: { "cmd": "override_start", "uid": "xxx", "total_chunks": N }
 // Prepares device for receiving chunked item data
 // Stores UID if device is uninitialized (user confirmed setup)
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
-void handleOverrideStart(const String& uid, int syncSeq, int totalChunks) {
-  DEBUG_LOG("📥 Override start: uid=%s, sync_seq=%d, total_chunks=%d\n",
-                uid.c_str(), syncSeq, totalChunks);
+void handleOverrideStart(const String& uid, int totalChunks) {
+  DEBUG_LOG("📥 Override start: uid=%s, total_chunks=%d\n",
+                uid.c_str(), totalChunks);
 
   // Store UID if not already paired (user confirmed device setup)
   String pairedUid = prefs.getString(NVS_KEY_PAIRED_UID, "");
@@ -760,7 +697,6 @@ void handleOverrideStart(const String& uid, int syncSeq, int totalChunks) {
   }
 
   // Store override state
-  overrideSyncSeq = syncSeq;
   overrideTotalChunks = totalChunks;
   overrideReceivedChunks = 0;
   overrideNextSlot = 0;  // Reset sequential slot counter
@@ -806,7 +742,7 @@ void handleOverrideChunk(int chunkIndex, JsonArray items) {
 
 // Handle override_end command from app
 // App sends: { "cmd": "override_end", "selected_id": 2 }
-// Validates all chunks received, sets selected item, updates sync_seq
+// Validates all chunks received, sets selected item
 // NOTE: Caller must hold NVS lock - this function does NOT call nvsBeginSafe/nvsEndSafe
 void handleOverrideEnd(int selectedId) {
   DEBUG_LOG("📥 Override end: selected_id=%d\n", selectedId);
@@ -828,13 +764,6 @@ void handleOverrideEnd(int selectedId) {
   // NOTE: setSelectedItem reads from prefs which is already open
   setSelectedItem(selectedId);
 
-  // Update sync sequence number directly (we already hold NVS lock)
-  prefs.putInt(NVS_KEY_SYNC_SEQ_NO, overrideSyncSeq);
-  DEBUG_LOG("📊 Sync sequence updated: %d\n", overrideSyncSeq);
-
-  // Exit conflict state
-  exitConflictState();
-
   // Send success response
   sendJsonResponse("{\"status\":\"override_complete\"}");
 
@@ -842,28 +771,11 @@ void handleOverrideEnd(int selectedId) {
   displayMessage("SYNCED");
 
   // Reset override state
-  overrideSyncSeq = 0;
   overrideTotalChunks = 0;
   overrideReceivedChunks = 0;
   overrideNextSlot = 0;
 
   DEBUG_PRINTLN("✅ Override complete - device synced with app");
-}
-
-// Handle sync_complete command from app
-// App sends: { "cmd": "sync_complete", "sync_seq": 43 }
-// Called after normal sync (device was source of truth) to update sync_seq
-void handleSyncComplete(int newSyncSeq) {
-  DEBUG_LOG("📥 Sync complete: new_sync_seq=%d\n", newSyncSeq);
-
-  // Update sync sequence number in NVS
-  setSyncSeqNo(newSyncSeq);
-
-  // Send acknowledgment so app knows it's safe to update Firestore
-  sendJsonResponse("{\"status\":\"seq_updated\"}");
-
-  // No display change - normal operation continues
-  DEBUG_PRINTLN("✅ Sync complete - sequence number updated");
 }
 
 // Clear BLE bonding table
@@ -909,7 +821,7 @@ bool waitForConfirmation(char expectedKey, unsigned long timeoutMs) {
 }
 
 // Handle factory reset with confirmation
-// Clears: pairing, sync_seq, all items, BLE bonding
+// Clears: pairing, all items, BLE bonding
 // Keeps: device_instance_id (persistent device identity)
 void handleFactoryReset() {
   displayMessage("FACTORY RESET?");
@@ -924,7 +836,6 @@ void handleFactoryReset() {
 
     // Clear pairing data
     prefs.remove(NVS_KEY_PAIRED_UID);
-    prefs.remove(NVS_KEY_SYNC_SEQ_NO);
     DEBUG_PRINTLN("🗑️ Cleared pairing data");
 
     // Clear all item slots
@@ -1666,16 +1577,15 @@ void processWriteCommand(const String& jsonStr) {
     cmd.trim();
 
     if (cmd == "handshake") {  //////////////////// multi-device handshake
-      // App sends: { "cmd": "handshake", "uid": "xxx", "sync_seq": 42 }
+      // App sends: { "cmd": "handshake", "uid": "xxx" }
       String uid = doc["uid"] | "";
-      int syncSeq = doc["sync_seq"] | 0;
 
       if (uid.isEmpty()) {
         notifyError("handshake", "Missing uid parameter", ERR_MISSING_FIELD);
         return;
       }
 
-      handleHandshake(uid, syncSeq);
+      handleHandshake(uid);
 
     } else if (cmd == "clear_logs") {  //////////////////// clear all event logs
       // Format: {"cmd": "clear_logs"} or {"cmd": "clear_logs", "ack": true}
@@ -1749,9 +1659,8 @@ void processWriteCommand(const String& jsonStr) {
       nvsEndSafe();
 
     } else if (cmd == "override_start") {  //////////////////// multi-device override start
-      // App sends: { "cmd": "override_start", "uid": "xxx", "sync_seq": N, "total_chunks": M }
+      // App sends: { "cmd": "override_start", "uid": "xxx", "total_chunks": M }
       String uid = doc["uid"] | "";
-      int syncSeq = doc["sync_seq"] | 0;
       int totalChunks = doc["total_chunks"] | 0;
 
       // Acquire NVS lock for the override operation
@@ -1759,7 +1668,7 @@ void processWriteCommand(const String& jsonStr) {
         notifyError("override_start", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
         return;
       }
-      handleOverrideStart(uid, syncSeq, totalChunks);
+      handleOverrideStart(uid, totalChunks);
       nvsEndSafe();
 
     } else if (cmd == "override_end") {  //////////////////// multi-device override end
@@ -1773,11 +1682,6 @@ void processWriteCommand(const String& jsonStr) {
       }
       handleOverrideEnd(selectedId);
       nvsEndSafe();
-
-    } else if (cmd == "sync_complete") {  //////////////////// multi-device sync complete
-      // App sends: { "cmd": "sync_complete", "sync_seq": N }
-      int syncSeq = doc["sync_seq"] | 0;
-      handleSyncComplete(syncSeq);
 
     } else if (cmd == "delete_item") {  //////////////////// delete single item
       // App sends: { "cmd": "delete_item", "deviceItemId": N }
@@ -1941,7 +1845,6 @@ void processWriteCommand(const String& jsonStr) {
 
       // Clear pairing data
       prefs.remove(NVS_KEY_PAIRED_UID);
-      prefs.remove(NVS_KEY_SYNC_SEQ_NO);
 
       // Reset selection state
       prefs.putInt("selected_index", 0);
@@ -1951,7 +1854,6 @@ void processWriteCommand(const String& jsonStr) {
 
       // Set device to pairing mode
       isPairingMode = true;
-      inConflictState = false;
 
       // Clear runtime state
       currentDeviceItemId = -1;
@@ -2065,12 +1967,6 @@ class ServerCallbacks : public BLEServerCallbacks {
   void onDisconnect(BLEServer* p) override {
     // Flush any pending NVS writes before disconnecting to prevent data loss
     flushPendingNvsWrites();
-
-    // Exit conflict state on disconnect - device returns to normal operation
-    // User can reconnect to retry sync
-    if (inConflictState) {
-      exitConflictState();
-    }
 
     // Clear sync state flags to avoid stale state on next connection
     needsSendSyncData = false;
@@ -2253,14 +2149,6 @@ void notifyEvent(String event, int resetNum = -1) {
 // Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
 void handleCommand(char cmd) {
   recordActivity();  // Wake from low power mode on button press
-
-  // ============== CONFLICT STATE CHECK ==============
-  // In conflict state, all buttons are disabled - user must resolve via app
-  if (inConflictState) {
-    displayMessage("SEE APP");  // Remind user to check app
-    DEBUG_LOG("⛔ Button '%c' ignored - device in conflict state (SEE APP)\n", cmd);
-    return;
-  }
 
   if (!nvsBeginSafe("counter", false)) {
     DEBUG_PRINTLN("⚠️ NVS mutex timeout in handleCommand");
@@ -2559,9 +2447,7 @@ void setup() {
   // ============== MULTI-DEVICE: Pairing Mode Detection ==============
   // Check if device is paired (has a paired_uid set)
   String pairedUid = prefs.getString(NVS_KEY_PAIRED_UID, "");
-  int syncSeqNo = prefs.getInt(NVS_KEY_SYNC_SEQ_NO, 0);
   DEBUG_LOG("🔗 Paired UID: %s\n", pairedUid.isEmpty() ? "(unpaired)" : pairedUid.c_str());
-  DEBUG_LOG("📊 Sync Sequence: %d\n", syncSeqNo);
 
   // ✅ Verify and store item_total
   int verifiedTotal = 0;

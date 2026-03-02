@@ -66,39 +66,7 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
-  Future<Either<Failure, int>> fetchSyncSequenceFromServer() async {
-    try {
-      final firebaseUser = _requireCurrentUser();
-
-      // CRITICAL: Use GetOptions.serverAndCache with Source.server
-      // to ensure we always get fresh data from Firestore, not cached.
-      // This is essential for multi-device sync correctness.
-      final userDoc = await _userDocRef(firebaseUser.uid).get(
-        const GetOptions(source: Source.server),
-      );
-
-      if (!userDoc.exists) {
-        // User document doesn't exist yet - return default
-        return const Right(0);
-      }
-
-      final data = userDoc.data() as Map<String, dynamic>?;
-      final syncSeq = data?['sync_sequence_no'] as int? ?? 0;
-
-      return Right(syncSeq);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on FirebaseException catch (e) {
-      return Left(ServerFailure('Failed to fetch sync sequence: ${e.message}'));
-    } catch (e) {
-      return Left(
-          ServerFailure('Unexpected error fetching sync sequence: $e'));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> updateSyncState({
-    required int syncSequenceNo,
+  Future<Either<Failure, void>> updateLastSelectedItem({
     required int lastSelectedDeviceItemId,
   }) async {
     try {
@@ -106,7 +74,6 @@ class UserRepositoryImpl implements UserRepository {
 
       await _userDocRef(firebaseUser.uid).set(
         {
-          'sync_sequence_no': syncSequenceNo,
           'last_selected_device_item_id': lastSelectedDeviceItemId,
         },
         SetOptions(merge: true),
@@ -116,9 +83,9 @@ class UserRepositoryImpl implements UserRepository {
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
     } on FirebaseException catch (e) {
-      return Left(ServerFailure('Failed to update sync state: ${e.message}'));
+      return Left(ServerFailure('Failed to update last selected item: ${e.message}'));
     } catch (e) {
-      return Left(ServerFailure('Unexpected error updating sync state: $e'));
+      return Left(ServerFailure('Unexpected error updating last selected item: $e'));
     }
   }
 

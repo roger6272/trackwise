@@ -4,7 +4,7 @@ import '../../../bluetooth/domain/entities/paired_device.dart';
 
 /// Domain entity representing an authenticated user.
 ///
-/// Contains authentication info from Firebase Auth plus sync state fields
+/// Contains authentication info from Firebase Auth plus device-related fields
 /// stored in the Firestore users collection for multi-device support.
 class User extends Equatable {
   /// Firebase UID
@@ -21,14 +21,6 @@ class User extends Equatable {
 
   /// Whether email has been verified
   final bool emailVerified;
-
-  /// Global sync sequence number.
-  ///
-  /// Incremented on every successful sync with any device.
-  /// Used for conflict detection: if device's sync_seq differs from app's,
-  /// the app is source of truth and device needs override.
-  /// Default: 0 (never synced)
-  final int syncSequenceNo;
 
   /// The device_item_id of the last selected item on any device.
   ///
@@ -67,7 +59,6 @@ class User extends Equatable {
     this.displayName,
     this.photoUrl,
     this.emailVerified = false,
-    this.syncSequenceNo = 0,
     this.lastSelectedDeviceItemId = -1,
     this.pairedDevices = const [],
     this.onboardingCompleted = false,
@@ -84,7 +75,6 @@ class User extends Equatable {
     String? displayName,
     String? photoUrl,
     bool? emailVerified,
-    int? syncSequenceNo,
     int? lastSelectedDeviceItemId,
     List<PairedDevice>? pairedDevices,
     bool? onboardingCompleted,
@@ -99,7 +89,6 @@ class User extends Equatable {
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
       emailVerified: emailVerified ?? this.emailVerified,
-      syncSequenceNo: syncSequenceNo ?? this.syncSequenceNo,
       lastSelectedDeviceItemId:
           lastSelectedDeviceItemId ?? this.lastSelectedDeviceItemId,
       pairedDevices: pairedDevices ?? this.pairedDevices,
@@ -120,7 +109,6 @@ class User extends Equatable {
         displayName,
         photoUrl,
         emailVerified,
-        syncSequenceNo,
         lastSelectedDeviceItemId,
         pairedDevices,
         onboardingCompleted,

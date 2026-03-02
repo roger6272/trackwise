@@ -56,7 +56,6 @@ void main() {
         DeviceSyncStatus.handshaking,
         DeviceSyncStatus.syncing,
         DeviceSyncStatus.synced,
-        DeviceSyncStatus.conflict,
         DeviceSyncStatus.setup,
         DeviceSyncStatus.wrongAccount,
       ]));

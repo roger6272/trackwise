@@ -10,7 +10,6 @@ import '../entities/user.dart';
 /// Separate from [AuthRepository] which handles Firebase Auth operations.
 ///
 /// Key responsibilities:
-/// - Sync sequence number management
 /// - Paired devices list management
 /// - User document data access
 abstract class UserRepository {
@@ -21,28 +20,13 @@ abstract class UserRepository {
   /// Returns [ServerFailure] if Firestore operation fails.
   Future<Either<Failure, User>> getCurrentUser();
 
-  /// Fetches the sync sequence number fresh from Firestore.
+  /// Updates the last selected item after successful sync or override.
   ///
-  /// CRITICAL: This method ALWAYS fetches directly from Firestore server,
-  /// bypassing any cache. This is essential for multi-device sync because:
-  /// - User may have synced from another app instance (phone + tablet)
-  /// - Cached value could be stale, causing false conflicts
-  ///
-  /// Returns the current sync_sequence_no value (0 if never synced).
-  /// Returns [AuthFailure] if not authenticated.
-  /// Returns [ServerFailure] if Firestore operation fails.
-  Future<Either<Failure, int>> fetchSyncSequenceFromServer();
-
-  /// Updates sync state after successful sync.
-  ///
-  /// Called after device acknowledges sync_complete to update:
-  /// - [syncSequenceNo]: The new sequence number (incremented by caller)
-  /// - [lastSelectedDeviceItemId]: The selected item from the synced device
+  /// [lastSelectedDeviceItemId]: The selected item from the synced device
   ///
   /// Returns [AuthFailure] if not authenticated.
   /// Returns [ServerFailure] if Firestore operation fails.
-  Future<Either<Failure, void>> updateSyncState({
-    required int syncSequenceNo,
+  Future<Either<Failure, void>> updateLastSelectedItem({
     required int lastSelectedDeviceItemId,
   });
 

@@ -566,7 +566,7 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 **CSV export with device info:**
 - Raw exports automatically include a **Device** column showing which device logged each event
 
-> **Important:** If you force-release an item while its device is offline, any counts on that device since last sync will be discarded when it reconnects. The app will show a sync conflict dialog — choose "Sync Now" to overwrite the device.
+> **Important:** If you force-release an item while its device is offline, any counts on that device since last sync will be discarded when it reconnects. The app will show a stale claim dialog — choose "Sync Now" to overwrite the device.
 
 ### Starting a New Cycle
 

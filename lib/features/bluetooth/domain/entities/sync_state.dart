@@ -2,16 +2,12 @@ import 'package:equatable/equatable.dart';
 
 /// Sync status returned by device during handshake.
 ///
-/// - [inSync]: Device sync_seq matches app sync_seq - proceed with normal sync
-/// - [conflict]: Device sync_seq differs from app sync_seq - app is source of truth
+/// - [inSync]: Device is paired to this account - proceed with normal sync
 /// - [wrongAccount]: Device is paired to a different Firebase uid
 /// - [uninitialized]: Device has no UID - needs setup (factory reset or new device)
 enum SyncStatus {
   /// Device is in sync with app - proceed with normal sync (device is SOT)
   inSync,
-
-  /// Sync sequence mismatch - app data should override device
-  conflict,
 
   /// Device is paired to a different account - cannot sync
   wrongAccount,
@@ -33,10 +29,6 @@ class HandshakeResult extends Equatable {
   /// Generated as UUID on device's first boot, regenerated on factory reset.
   final String deviceInstanceId;
 
-  /// Device's current sync sequence number.
-  /// Only present when status is [SyncStatus.conflict].
-  final int? deviceSyncSeq;
-
   /// BLE protocol version reported by device.
   final int? protocolVersion;
 
@@ -46,7 +38,6 @@ class HandshakeResult extends Equatable {
   const HandshakeResult({
     required this.status,
     required this.deviceInstanceId,
-    this.deviceSyncSeq,
     this.protocolVersion,
     this.firmwareVersion,
   });
@@ -55,7 +46,6 @@ class HandshakeResult extends Equatable {
   ///
   /// Expected formats:
   /// - `{"status":"in_sync","device_instance_id":"uuid"}`
-  /// - `{"status":"conflict","device_seq":40,"device_instance_id":"uuid"}`
   /// - `{"status":"wrong_account","device_instance_id":"uuid"}`
   /// - `{"status":"uninitialized","device_instance_id":"uuid"}`
   factory HandshakeResult.fromJson(Map<String, dynamic> json) {
@@ -63,24 +53,20 @@ class HandshakeResult extends Equatable {
     SyncStatus status;
 
     switch (statusStr) {
-      case 'in_sync':
-        status = SyncStatus.inSync;
-        break;
       case 'wrong_account':
         status = SyncStatus.wrongAccount;
         break;
       case 'uninitialized':
         status = SyncStatus.uninitialized;
         break;
-      case 'conflict':
+      case 'in_sync':
       default:
-        status = SyncStatus.conflict;
+        status = SyncStatus.inSync;
     }
 
     return HandshakeResult(
       status: status,
       deviceInstanceId: json['device_instance_id'] as String? ?? '',
-      deviceSyncSeq: json['device_seq'] as int?,
       protocolVersion: json['protocol_version'] as int?,
       firmwareVersion: json['firmware_version'] as String?,
     );
@@ -90,7 +76,6 @@ class HandshakeResult extends Equatable {
   List<Object?> get props => [
         status,
         deviceInstanceId,
-        deviceSyncSeq,
         protocolVersion,
         firmwareVersion,
       ];
@@ -98,8 +83,7 @@ class HandshakeResult extends Equatable {
   @override
   String toString() {
     return 'HandshakeResult(status: $status, deviceInstanceId: $deviceInstanceId, '
-        'deviceSyncSeq: $deviceSyncSeq, protocolVersion: $protocolVersion, '
-        'firmwareVersion: $firmwareVersion)';
+        'protocolVersion: $protocolVersion, firmwareVersion: $firmwareVersion)';
   }
 }
 
@@ -142,38 +126,5 @@ class OverrideResult extends Equatable {
   @override
   String toString() {
     return 'OverrideResult(status: $status, message: $message)';
-  }
-}
-
-/// Result of sync_complete command sent to device.
-///
-/// Confirms that the device has stored the new sync sequence number.
-class SyncCompleteResult extends Equatable {
-  /// Status returned by device.
-  /// - 'seq_updated': Device stored the new sync_seq
-  final String status;
-
-  const SyncCompleteResult({
-    required this.status,
-  });
-
-  /// Whether the sync_seq was successfully stored.
-  bool get isSuccess => status == 'seq_updated';
-
-  /// Creates a SyncCompleteResult from device JSON response.
-  ///
-  /// Expected format: `{"status":"seq_updated"}`
-  factory SyncCompleteResult.fromJson(Map<String, dynamic> json) {
-    return SyncCompleteResult(
-      status: json['status'] as String? ?? '',
-    );
-  }
-
-  @override
-  List<Object?> get props => [status];
-
-  @override
-  String toString() {
-    return 'SyncCompleteResult(status: $status)';
   }
 }
