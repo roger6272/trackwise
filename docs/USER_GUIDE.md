@@ -481,8 +481,9 @@ Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).
 
 ### What's in the Export?
 
-**Raw export** columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count
+**Raw export** columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count, Device
 - Every event (increment, reset, created) as a separate row
+- **Device** column shows which device logged each event
 - **Timezone offset** — timestamps include your local UTC offset (e.g., `+05:30`, `-08:00`) so the data is unambiguous when shared
 
 **By Day export** columns: Item Name, Category, Event Type, Date, Event Count
@@ -562,7 +563,7 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 - This is expected — the break-glass warning explains this consequence before you release
 
 **CSV export with device info:**
-- When exporting raw data, toggle **"Include Device Column"** to add a Device column showing which device logged each event
+- Raw exports automatically include a **Device** column showing which device logged each event
 
 > **Important:** If you force-release an item while its device is offline, any counts on that device since last sync will be discarded when it reconnects. The app will show a sync conflict dialog — choose "Sync Now" to overwrite the device.
 

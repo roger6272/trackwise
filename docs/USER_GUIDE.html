@@ -783,7 +783,7 @@
     </table>
 
     <h3>What's in the Export?</h3>
-    <p><strong>Raw export</strong> columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count</p>
+    <p><strong>Raw export</strong> columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count, Device</p>
     <ul>
         <li>Every event (increment, reset, created) as a separate row</li>
         <li><strong>Timezone offset</strong> &mdash; timestamps include your local UTC offset (e.g., <code>+05:30</code>, <code>-08:00</code>) so the data is unambiguous when shared</li>
@@ -883,7 +883,7 @@
 
     <p><strong>CSV export with device info:</strong></p>
     <ul>
-        <li>When exporting raw data, toggle <strong>"Include Device Column"</strong> to add a Device column showing which device logged each event</li>
+        <li>Raw exports automatically include a <strong>Device</strong> column showing which device logged each event</li>
     </ul>
 
     <div class="danger">
