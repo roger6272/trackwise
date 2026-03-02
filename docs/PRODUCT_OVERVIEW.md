@@ -75,9 +75,15 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
   - **By Day** — button presses per day (resets and initial counts not included)
   - **By Cycle** — total button presses per reset cycle (initial counts not included)
 
-### 8. Cloud Backup
+### 8. Multi-Device Support
+- Pair **multiple Traxelos One devices** to a single account
+- **Exclusive leasing** — each item is assigned to one device at a time, preventing conflicts
+- **Device color coding** — each device gets a distinct color for visual identification
+- Seamlessly reassign items between devices as workflows change
+
+### 9. Cloud Backup
 - All data stored in Firebase Firestore
-- Multi-device access with same account
+- Data syncs across devices automatically
 - 30-day soft delete recovery period
 
 ---
