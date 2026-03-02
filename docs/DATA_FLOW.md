@@ -6,6 +6,20 @@
 
 ---
 
+## Glossary
+
+| Term | Meaning |
+|------|---------|
+| **Activate** | User action: swipe item → tap Pin icon → select device. Creates a claim in Firestore. |
+| **Claim** | Firestore mechanism: `claimed_by` field on an Item document set to a `deviceInstanceId`. At most one device can claim an item at a time. |
+| **Exclusive Leasing** | The multi-device feature: each device "leases" items exclusively. Enforced by claims in Firestore + filtered item lists sent to devices. Active when 2+ devices are connected. |
+| **atomicClaimSwap** | Firestore transaction that atomically releases the previous claim and creates the new one. Prevents partial states. |
+| **Stale Claim** | A claim left behind when a device disconnects. The device still believes it owns the item, but the user may have force-released it. Detected on reconnect; override dialog shown. |
+| **Force-Release** | Break-glass action: swipe item → tap Unlock → confirm warning. Clears `claimed_by` for an offline device's item. Unsynced counts on the device will be lost on next sync. |
+| **Global Claim Queue** | Single `Future<void>` that serializes all claim operations across all devices. Prevents concurrent Firestore transactions from reading stale `claimed_by` state. See [ADR-005](decisions/ADR-005-global-claim-queue.md). |
+
+---
+
 ## Table of Contents
 
 1. [System Overview](#1-system-overview)
@@ -387,7 +401,7 @@ Data Flow:
      │                     │                     │
      │                     │ ② {status:          │
      │                     │    wrong_account,   │
-     │                     │    protocol_version:2}
+     │                     │    protocol_version:3}
      │                     │ ◄───────────────────│ Shows "PAIRED TO
      │                     │                     │  OTHER ACCOUNT"
      │                     │                     │
@@ -598,7 +612,7 @@ Key points:
      │                     │                     │
      │                     │ ③ {status:in_sync, │
      │                     │    device_instance_id,
-     │                     │    protocol_version:2}
+     │                     │    protocol_version:3}
      │                     │ ◄───────────────────│
      │                     │                     │
      │                     │ ④ Check stale claims│
@@ -765,6 +779,113 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
                in the updated order.
                Only devices in affected categories get pushed
                (source + target of the move); others are skipped.
+```
+
+### 7.5 Item Claim Sequence (Multi-Device)
+
+When a user activates (claims) an item for a device, the following sequence runs. Claiming is entirely app-side — no BLE "claim" command exists. The device learns about claims when the app sends filtered item lists.
+
+```
+User              App (BLoC)           Firestore              Device A        Device B
+│                 │                    │                      │               │
+│ ① Swipe item,  │                    │                      │               │
+│   tap Activate, │                    │                      │               │
+│   select Dev A  │                    │                      │               │
+│ ───────────────►│                    │                      │               │
+│                 │                    │                      │               │
+│                 │ ② Optimistic       │                      │               │
+│                 │   selectedItemId   │                      │               │
+│                 │   = item X         │                      │               │
+│                 │   (instant UI)     │                      │               │
+│                 │                    │                      │               │
+│                 │ ③ ClaimItem enters │                      │               │
+│                 │   global queue     │                      │               │
+│                 │   ─────────────────┤                      │               │
+│                 │                    │                      │               │
+│                 │ ④ atomicClaimSwap  │                      │               │
+│                 │ ───────────────────►                      │               │
+│                 │   (transaction:    │                      │               │
+│                 │    release prev,   │                      │               │
+│                 │    claim new)      │                      │               │
+│                 │                    │                      │               │
+│                 │ ⑤ watchItems       │                      │               │
+│                 │ ◄──────────────────┤ stream confirms      │               │
+│                 │   claimed_by = A   │                      │               │
+│                 │                    │                      │               │
+│                 │ ⑥ RefreshDeviceItems                      │               │
+│                 │ ──────────────────────────────────────────►               │
+│                 │   (A gets: unclaimed + A's claimed items)  │               │
+│                 │                    │                      │               │
+│                 │ ⑦ Push to other devices (same category)   │               │
+│                 │ ──────────────────────────────────────────────────────────►
+│                 │   (B gets: unclaimed + B's claimed items — item X removed)│
+│                 │                    │                      │               │
+
+On claim FAILURE (item already claimed by another device):
+│                 │ ④' ClaimConflict   │                      │               │
+│                 │ ◄──────────────────┤                      │               │
+│                 │                    │                      │               │
+│                 │ ⑤' Corrective push │                      │               │
+│                 │ ──────────────────────────────────────────►               │
+│                 │   (revert device   │                      │               │
+│                 │    to correct list)│                      │               │
+│                 │                    │                      │               │
+│                 │ ⑥' Revert BLoC     │                      │               │
+│                 │   selectedItemId   │                      │               │
+│                 │   = previousItemId │                      │               │
+```
+
+**Device-filtered item lists:** When the app sends items to a device via `set_items`, it filters:
+- `claimedBy == null` (unclaimed) OR `claimedBy == thisDevice`
+- Within the selected item's category only
+
+Each device sees only its own items. Devices in different categories don't affect each other.
+
+### 7.6 atomicClaimSwap Internals
+
+The claim transaction (`item_remote_datasource_impl.dart`) runs inside the global claim queue (see [ADR-005](decisions/ADR-005-global-claim-queue.md)):
+
+```
+atomicClaimSwap(newItemId, deviceInstanceId, previousItemId):
+
+  ┌─────────────────────────────────────────────────┐
+  │ 1. PRE-QUERY (outside transaction)              │
+  │    Query: WHERE claimed_by == deviceInstanceId   │
+  │    Result: actualPrevId (real claim, not stale   │
+  │    BLoC state)                                   │
+  └──────────────────────┬──────────────────────────┘
+                         │
+  ┌──────────────────────▼──────────────────────────┐
+  │ 2. FIRESTORE TRANSACTION                        │
+  │                                                  │
+  │  a) Read newItem document                       │
+  │  b) Read actualPrevItem document (if different) │
+  │     (all reads before any writes — Firestore    │
+  │      requirement)                                │
+  │                                                  │
+  │  c) Validate newItem:                           │
+  │     - claimed_by == deviceInstanceId? → no-op   │
+  │     - claimed_by == someOtherDevice?            │
+  │       → ClaimConflictException                  │
+  │     - claimed_by == null? → proceed             │
+  │                                                  │
+  │  d) Release previous (if we still own it):      │
+  │     UPDATE actualPrevItem                       │
+  │       SET claimed_by = null, claimed_at = null  │
+  │     (ownership check: only if                   │
+  │      prevItem.claimed_by == deviceInstanceId)   │
+  │                                                  │
+  │  e) Claim new:                                  │
+  │     UPDATE newItem                              │
+  │       SET claimed_by = deviceInstanceId         │
+  │           claimed_at = serverTimestamp()         │
+  └─────────────────────────────────────────────────┘
+
+Key properties:
+  - Atomic: release + claim happen in one transaction (no partial states)
+  - Ownership-checked: only releases items we actually own
+  - Idempotent: re-claiming our own item is a no-op
+  - Serialized: global claim queue ensures no concurrent transactions
 ```
 
 ---

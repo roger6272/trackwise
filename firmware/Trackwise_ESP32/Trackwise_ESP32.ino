@@ -2165,6 +2165,16 @@ void handleCommand(char cmd) {
       nvsEndSafe();
       return;
     }
+    // Guard against stale index after set_items removed the selected item.
+    // The app sends set_selected immediately after set_items, but in the
+    // brief window between the two commands, currentItemIndex may point
+    // to a different item's NVS slot — writing here would corrupt data.
+    if (currentItemIndex >= total) {
+      DEBUG_PRINTLN("⚠️ Stale item index — waiting for set_selected");
+      notifyError("increment", "Item index stale", ERR_NO_ITEM_SELECTED);
+      nvsEndSafe();
+      return;
+    }
     // Clamp check: already at max count
     if (itemCount >= MAX_COUNT) {
       triggerVibrationPattern(2);  // Double vibrate for max reached
@@ -2232,6 +2242,12 @@ void handleCommand(char cmd) {
     if (currentDeviceItemId < 0) {
       DEBUG_PRINTLN("No Item Selected");
       notifyError("reset", "No item selected", ERR_NO_ITEM_SELECTED);
+      nvsEndSafe();
+      return;
+    }
+    if (currentItemIndex >= total) {
+      DEBUG_PRINTLN("⚠️ Stale item index — waiting for set_selected");
+      notifyError("reset", "Item index stale", ERR_NO_ITEM_SELECTED);
       nvsEndSafe();
       return;
     }
