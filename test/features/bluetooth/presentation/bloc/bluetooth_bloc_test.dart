@@ -517,4 +517,74 @@ void main() {
       expect(state.isConnecting, true);
     });
   });
+
+  group('UpdateSelectedItemFromDevice', () {
+    const tDevice = BleDevice(id: 'ble-1', name: 'Test', rssi: -65);
+    const tDeviceId = 'device-1';
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'sets selectedItemId when itemId is non-empty',
+      seed: () => BluetoothState(
+        connectedDevices: {
+          tDeviceId: DeviceConnectionState(
+            device: tDevice,
+            syncStatus: DeviceSyncStatus.synced,
+          ),
+        },
+      ),
+      build: () => bloc,
+      act: (bloc) => bloc.add(
+        const UpdateSelectedItemFromDevice('item-42', deviceInstanceId: tDeviceId),
+      ),
+      expect: () => [
+        BluetoothState(
+          connectedDevices: {
+            tDeviceId: DeviceConnectionState(
+              device: tDevice,
+              syncStatus: DeviceSyncStatus.synced,
+              selectedItemId: 'item-42',
+            ),
+          },
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'clears selectedItemId when itemId is empty string',
+      seed: () => BluetoothState(
+        connectedDevices: {
+          tDeviceId: DeviceConnectionState(
+            device: tDevice,
+            syncStatus: DeviceSyncStatus.synced,
+            selectedItemId: 'item-42',
+          ),
+        },
+      ),
+      build: () => bloc,
+      act: (bloc) => bloc.add(
+        const UpdateSelectedItemFromDevice('', deviceInstanceId: tDeviceId),
+      ),
+      expect: () => [
+        BluetoothState(
+          connectedDevices: {
+            tDeviceId: DeviceConnectionState(
+              device: tDevice,
+              syncStatus: DeviceSyncStatus.synced,
+              // selectedItemId cleared to null
+            ),
+          },
+        ),
+      ],
+    );
+
+    blocTest<BluetoothBloc, BluetoothState>(
+      'is a no-op when deviceInstanceId is empty',
+      seed: () => const BluetoothState(),
+      build: () => bloc,
+      act: (bloc) => bloc.add(
+        const UpdateSelectedItemFromDevice('item-42', deviceInstanceId: ''),
+      ),
+      expect: () => [],
+    );
+  });
 }

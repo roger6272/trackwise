@@ -1599,9 +1599,18 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         _pushToOtherDevices(deviceInstanceId,
             sourceCategoryId: _deviceCategories[deviceInstanceId]);
       }
+    }).catchError((Object e) {
+      // Prevent queue poisoning: if an unexpected error occurs, log it and
+      // let the queue recover so subsequent claims aren't permanently blocked.
+      AppLogger.error('Claim queue error: $e');
     });
   }
 
+  // Not serialized through _claimQueue: release is a simple single-field
+  // write (claimed_by → null), not a read-then-write like atomicClaimSwap.
+  // If a concurrent claim overwrites the release, watchItems corrects on
+  // the next stream event. The break-glass UI also requires manual confirmation,
+  // making simultaneous release+claim practically impossible.
   Future<void> _onReleaseItem(
     ReleaseItem event,
     Emitter<BluetoothState> emit,
