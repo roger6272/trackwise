@@ -541,7 +541,7 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 **Multiple devices connected (exclusive leasing):**
 - Swipe an item and tap **Activate** to assign it to a device. If multiple devices are online, a **device selector sheet** appears — tap the device you want
 - Assigned items show a **colored left border** and the **device name** below the item name
-- Each device only sees its own assigned items on the physical buttons
+- The physical device's switch button only cycles through items assigned to it
 - To reassign an item, swipe it and tap **Unlock** to release it, then Activate on a different device
 - **Per-device active item pills** appear at the top of the items list — one colored pill per connected device showing each device's currently selected item. Tap a pill to filter to that item's category
 
