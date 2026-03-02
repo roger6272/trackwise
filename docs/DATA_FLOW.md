@@ -46,8 +46,8 @@
 │  │                                                                    │  │
 │  │   • Item list with counts                                         │  │
 │  │   • Selected item                                                 │  │
-│  │   • Connection state                                              │  │
-│  │   • sync_seq (from Firestore)                                     │  │
+│  │   • Connection state (per-device)                                 │  │
+│  │   • Paired devices list + claim state                             │  │
 │  │                                                                    │  │
 │  │   Source of truth for: UI state, sync orchestration               │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
@@ -75,12 +75,14 @@
 
 | Scenario | Source of Truth | Why |
 |----------|-----------------|-----|
-| Normal sync (`in_sync`) | **Device** | User may have incremented while disconnected |
-| Conflict sync | **Firestore** | Another device synced more recently |
+| Normal sync (`in_sync`) | **Device → Firestore → Device** | Device counts forwarded to Firestore, then claim-filtered items pushed back |
+| Conflict (old firmware safety net) | **Firestore** | Only occurs with firmware that doesn't understand `sync_seq=-1` |
 | New device setup | **App (empty)** | Device starts with no items; user claims one to assign category |
 | Re-pairing (`in_sync` + unknown) | **App (empty)** | Device was unpaired; treat as fresh setup even though handshake says `in_sync` |
 | Real-time (connected) | **Device** | Immediate feedback on button press |
 | Offline (disconnected) | **Device** | Only place tracking increments |
+
+> **Note:** In multi-device mode, `sync_seq` is obsolete. The app sends `sync_seq=-1` so firmware always returns `in_sync`. After handshake, the app pushes claim-filtered items to the device via `RefreshDeviceItemsUseCase`.
 
 ---
 
@@ -91,27 +93,57 @@
 ```
 users/
 └── {uid}/
+    │
+    │   ── User document fields ──
+    │   sync_sequence_no: 42                ← Incremented on every sync
+    │   last_selected_device_item_id: 3     ← Device slot of last selected item
+    │   onboarding_completed: true
+    │   onboarding_device_paired: true
+    │   onboarding_item_created: true
+    │   primary_use_case: "habit_tracking"  ← Optional
+    │   referral_source: "friend"           ← Optional
+    │
+    │   paired_devices: [                   ← Array of paired device objects
+    │     {
+    │       device_instance_id: "AA:BB:CC:DD:EE:FF"
+    │       device_name: "Traxelos One (1)"
+    │       paired_at: Timestamp
+    │       color: 0                        ← Palette index (0-9)
+    │       stale_claims: ["Water"]         ← Items released while offline
+    │     }
+    │   ]
+    │
     ├── items/
     │   └── {itemId}/
-    │       ├── name: "Push-ups"
-    │       ├── category: "Exercise"
+    │       ├── item_name: "Push-ups"       ← Note: "item_name" not "name"
     │       ├── count: 1523
-    │       ├── todaycount: 75
-    │       ├── increment: 1
-    │       ├── reminder: 1
-    │       ├── reminderValue: 100
-    │       ├── lastResetTime: Timestamp
-    │       ├── resetNumber: 15
-    │       └── deviceItemId: 0          ← Maps to device slot
+    │       ├── todaycount: 75              ← Note: lowercase, no underscore
+    │       ├── increment_by: 1
+    │       ├── reminder: "NONE"            ← "NONE" | "TARGET" | "INTERVAL"
+    │       ├── reminder_value: 100
+    │       ├── lastResetTime: int (ms)     ← Milliseconds since epoch
+    │       ├── reset_number: 15
+    │       ├── lastUpdated: int (ms)
+    │       ├── uid: DocumentReference      ← Reference to users/{uid}
+    │       ├── user_id: "abc123"           ← String copy of uid
+    │       ├── order: 0                    ← Global sort order
+    │       ├── initial_count: 0            ← Count at start of current cycle
+    │       ├── goal: 100                   ← Optional daily goal
+    │       ├── category_id: "cat123"       ← Optional category reference
+    │       ├── category_order: 0           ← Sort order within category
+    │       ├── device_item_id: 0           ← Maps to device slot (0-99)
+    │       ├── cycle_names: {              ← Optional per-cycle labels
+    │       │     "1": "Week 1", "2": "Week 2"
+    │       │   }
+    │       ├── cycle_notes: {              ← Optional per-cycle notes
+    │       │     "1": "Started strong"
+    │       │   }
+    │       ├── claimed_by: "AA:BB:CC:DD:EE:FF"  ← Device instance ID
+    │       ├── claimed_at: Timestamp       ← When claimed
+    │       └── deletedAt: int (ms)         ← Soft-delete timestamp
     │
-    ├── syncState/
-    │   ├── syncSeq: 42                  ← Incremented on every sync
-    │   └── lastSyncTime: Timestamp
-    │
-    └── devices/
-        └── {deviceInstanceId}/
-            ├── lastSeen: Timestamp
-            └── syncSeq: 42              ← Last sync_seq this device saw
+    └── (No separate syncState or devices subcollection —
+         sync state and paired devices are fields on the user document)
 ```
 
 ### 2.2 Device NVS Schema
@@ -161,7 +193,7 @@ class BluetoothState {
 │       APP       │                              │     DEVICE      │
 └────────┬────────┘                              └────────┬────────┘
          │                                                │
-         │  ① BLE Scan (filter: "Traxelos")              │
+         │  ① BLE Scan (filter: service UUID)              │
          │ ─────────────────────────────────────────────►│
          │                                                │
          │  ② Stop scan + wait 2s (GATT 133 prevention)  │
@@ -176,7 +208,7 @@ class BluetoothState {
          │                                                │
          │  ⑥ Send handshake (FIRST command!)            │
          │ ─────────────────────────────────────────────►│
-         │  {"cmd":"handshake","uid":"xxx","sync_seq":42}│
+         │  {"cmd":"handshake","uid":"xxx","sync_seq":-1}│
          │                                                │
          │  ⑦ Receive handshake response                 │
          │ ◄─────────────────────────────────────────────│
@@ -202,7 +234,8 @@ class BluetoothState {
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   "in_sync"     │    │   "conflict"    │    │ "uninitialized" │
 │                 │    │                 │    │                 │
-│ sync_seq match  │    │ sync_seq differ │    │ No UID stored   │
+│ seq=-1 → skip  │    │ Old firmware    │    │ No UID stored   │
+│ (always match)  │    │ safety net     │    │                 │
 └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
          │                      │                      │
          ▼                      ▼                      ▼
@@ -259,104 +292,100 @@ class BluetoothState {
 
 ## 4. Sync Scenarios
 
-### 4.1 Normal Sync (in_sync)
+### 4.1 Normal Sync (Stateless Handshake)
 
-**When:** Device and Firestore have matching `sync_seq`
-**Source of Truth:** Device
+**When:** Any device connects (multi-device mode)
+**How:** App sends `sync_seq=-1` so firmware skips comparison and always returns `in_sync`
+**Flow:** Device counts → Firestore, then claim-filtered items → Device
 
 ```
 ┌─────────┐           ┌─────────┐           ┌─────────┐
 │FIRESTORE│           │   APP   │           │ DEVICE  │
 └────┬────┘           └────┬────┘           └────┬────┘
      │                     │                     │
-     │ ① Read sync_seq=42  │                     │
-     │ ◄───────────────────│                     │
+     │                     │ ① handshake(uid,    │
+     │                     │    sync_seq=-1)     │
+     │                     │ ───────────────────►│ -1 → skip comparison
      │                     │                     │
-     │                     │ ② handshake(seq=42) │
-     │                     │ ───────────────────►│
-     │                     │                     │
-     │                     │ ③ {status:in_sync,  │
+     │                     │ ② {status:in_sync,  │
+     │                     │    device_instance_id,
      │                     │    protocol_version:2}
      │                     │ ◄───────────────────│
      │                     │                     │
-     │                     │ ④ prefs (automatic) │
+     │                     │ ③ prefs (automatic) │
      │                     │ ◄───────────────────│
      │                     │   [Device counts!]  │
      │                     │                     │
-     │                     │ ⑤ logs (automatic)  │
+     │                     │ ④ logs (automatic)  │
      │                     │ ◄───────────────────│
      │                     │                     │
-     │ ⑥ Write counts      │                     │
+     │ ⑤ Write counts      │                     │
      │ ◄───────────────────│                     │
      │   (from device)     │                     │
      │                     │                     │
-     │ ⑦ Increment seq→43  │                     │
+     │ ⑥ Read claimed items│                     │
      │ ◄───────────────────│                     │
+     │   (for this device) │                     │
      │                     │                     │
-     │                     │ ⑧ sync_complete(43) │
+     │                     │ ⑦ RefreshDeviceItems │
+     │                     │   (claim-filtered)  │
      │                     │ ───────────────────►│
-     │                     │                     │
-     │                     │ ⑨ {seq_updated}     │
-     │                     │ ◄───────────────────│
+     │                     │                     │ Updates NVS with
+     │                     │                     │ claimed items only
      │                     │                     │
 
 Data Flow:
-  Device counts → App state → Firestore
-  Device is source of truth
+  1. Device counts → App state → Firestore (preserve device's work)
+  2. Firestore claimed items → App → Device (push latest assignments)
+
+Why sync_seq=-1?
+  In multi-device mode, sync_seq is obsolete — each device connection
+  would increment the global counter, causing every reconnection to
+  be a "conflict". Sending -1 tells firmware to skip the comparison.
 ```
 
-### 4.2 Conflict Resolution
+### 4.2 Conflict Resolution (Old Firmware Safety Net)
 
-**When:** Device has `sync_seq=40`, Firestore has `sync_seq=42`
-**Source of Truth:** Firestore (another device synced more recently)
+**When:** Firmware doesn't understand `sync_seq=-1` and compares against its stored value
+**Trigger:** Only old firmware that predates the stateless model
+**BLoC behavior:** Auto-overrides for already-paired devices (no user dialog)
 
 ```
 ┌─────────┐           ┌─────────┐           ┌─────────┐
 │FIRESTORE│           │   APP   │           │ DEVICE  │
 └────┬────┘           └────┬────┘           └────┬────┘
      │                     │                     │
-     │ ① Read seq=42       │                     │
-     │ ◄───────────────────│                     │
+     │                     │ ① handshake(seq=-1) │
+     │                     │ ───────────────────►│ Old firmware compares
+     │                     │                     │ -1 ≠ stored seq
      │                     │                     │
-     │                     │ ② handshake(seq=42) │
-     │                     │ ───────────────────►│ Device has seq=40
-     │                     │                     │
-     │                     │ ③ {status:conflict, │
-     │                     │    device_seq:40,   │
-     │                     │    protocol_version:2}
+     │                     │ ② {status:conflict, │
+     │                     │    device_seq:N}    │
      │                     │ ◄───────────────────│ Buttons disabled!
-     │                     │                     │ Shows "SEE APP"
      │                     │                     │
-     │ ④ Read all items    │                     │
+     │                     │ ③ BLoC detects      │
+     │                     │   device is paired  │
+     │                     │   → auto-override   │
+     │                     │                     │
+     │ ④ Read claimed items│                     │
      │ ◄───────────────────│                     │
-     │   (Firestore data)  │                     │
      │                     │                     │
-     │                     │ ⑤ Show conflict UI  │
-     │                     │   User confirms     │
+     │                     │ ⑤ override_start    │
+     │                     │ ───────────────────►│ Clears NVS items
      │                     │                     │
-     │                     │ ⑥ override_start    │
-     │                     │ ───────────────────►│
-     │                     │ (uid, seq=43, N chunks)
-     │                     │                     │ Clears NVS items
+     │                     │ ⑥ override_chunk ×N │
+     │                     │ ───────────────────►│ Writes to NVS
      │                     │                     │
-     │                     │ ⑦ override_chunk ×N │
-     │                     │ ───────────────────►│
-     │                     │ (Firestore items)   │ Writes to NVS
+     │                     │ ⑦ override_end      │
+     │                     │ ───────────────────►│ Buttons enabled!
      │                     │                     │
-     │                     │ ⑧ override_end      │
-     │                     │ ───────────────────►│
-     │                     │ (selected_id)       │
-     │                     │                     │ Buttons enabled!
-     │                     │ ⑨ {override_complete}│ Shows "SYNCED"
+     │                     │ ⑧ {override_complete}
      │                     │ ◄───────────────────│
-     │                     │                     │
-     │ ⑩ Update seq→43     │                     │
-     │ ◄───────────────────│                     │
      │                     │                     │
 
 Data Flow:
   Firestore items → App → Device NVS
-  Firestore is source of truth
+  Firestore is source of truth (device data overwritten)
 ```
 
 ### 4.3 New Device Setup
@@ -619,146 +648,124 @@ Key points:
      │                     │ ① Connect          │
      │                     │ ───────────────────►│
      │                     │                     │
-     │                     │ ② handshake(seq=42)│
-     │                     │ ───────────────────►│ (Device has seq=42)
+     │                     │ ② handshake(seq=-1)│
+     │                     │ ───────────────────►│
      │                     │                     │
      │                     │ ③ {status:in_sync, │
+     │                     │    device_instance_id,
      │                     │    protocol_version:2}
      │                     │ ◄───────────────────│
      │                     │                     │
-     │                     │ ④ prefs             │ Includes offline
+     │                     │ ④ Check stale claims│
+     │                     │   (from paired_devices
+     │                     │    staleClaims list) │
+     │                     │                     │
+     │                     │ ⑤ prefs             │ Includes offline
      │                     │ ◄───────────────────│ increments!
      │                     │ [count: 1598]       │
      │                     │                     │
-     │                     │ ⑤ logs              │ Includes offline
+     │                     │ ⑥ logs              │ Includes offline
      │                     │ ◄───────────────────│ events!
      │                     │ [15 events...]      │
      │                     │                     │
-     │ ⑥ Write new counts  │                     │
+     │ ⑦ Write new counts  │                     │
      │ ◄───────────────────│                     │
      │   1523 → 1598       │                     │
      │                     │                     │
-     │ ⑦ Write events      │                     │
+     │ ⑧ Write events      │                     │
      │ ◄───────────────────│                     │
      │   (to activity log) │                     │
      │                     │                     │
-     │ ⑧ Increment seq     │                     │
-     │ ◄───────────────────│                     │
-     │                     │                     │
-     │                     │ ⑨ sync_complete     │
-     │                     │ ───────────────────►│
+     │                     │ ⑨ RefreshDeviceItems│
+     │                     │ ───────────────────►│ Push claim-filtered
+     │                     │   (claimed items)   │ items to device
      │                     │                     │
      │                     │ ⑩ clear_logs        │
      │                     │ ───────────────────►│ Prevent duplicates
      │                     │                     │
 
 Key insight: Device accumulated counts while offline
-             → App uses device counts (source of truth)
-             → Firestore gets updated with new counts
+             → App forwards device counts to Firestore
+             → App pushes claim-filtered items back to device
+             → If stale claims detected, "Items Released" dialog shown first
 ```
 
 ---
 
 ## 7. Multi-Device Sync
 
-### 7.1 Two Devices, Same Account
+### 7.1 Two Devices, Same Account (Stateless Model)
 
 ```
-Timeline showing Phone A and Phone B syncing with Device:
+Timeline showing Device A and Device B connecting to same account:
 
-Time    Phone A              Device               Phone B
-────    ───────              ──────               ───────
-T0      [Firestore: seq=40]
-        [count=100]
+Time    App                  Device A              Device B
+────    ───────              ────────              ────────
+T0      [Firestore: item "Water" claimed by A]
 
-T1      Connect ─────────────►
-        handshake(seq=40) ───►
+T1      Connect A ───────────►
+        handshake(seq=-1) ───►
                               {in_sync}
-                              prefs: count=105 ───►
+                              prefs: count=105 ──►
+        Write Firestore ◄──── count=105
+        RefreshDeviceItems ──► (A's claimed items)
 
-T2      Update Firestore ◄───
-        [count=105, seq=41]
-        sync_complete(41) ───►
+T2      Disconnect A ◄────────
 
-T3      Disconnect ◄──────────
-
-T4                            User increments
-                              count → 106
-                              count → 107
+T3                            User increments
                               count → 108
                               (offline)
 
-T5                                                Connect ────────────►
-                                                  handshake(seq=41) ──►
+T4      Connect B ────────────────────────────────►
+        handshake(seq=-1) ───────────────────────►
+                                                   {in_sync}
+                                                   prefs: count=200 ─►
+        Write Firestore ◄──── count=200 (B's items)
+        RefreshDeviceItems ──────────────────────► (B's claimed items)
 
-                              🔴 Device seq=41
-                                 Phone seq=41
-                                 MATCH!           {in_sync} ──────────►
-                                                  prefs: count=108 ───►
+T5      Connect A ───────────►
+        handshake(seq=-1) ───►
+                              {in_sync}
+                              prefs: count=108 ──►
+        Write Firestore ◄──── count=108 (A's items)
+        RefreshDeviceItems ──► (A's claimed items)
 
-T6                                                Update Firestore ◄──
-                                                  [count=108, seq=42]
-                                                  sync_complete(42) ──►
-
-T7      (offline)             [seq now 42]        Disconnect ◄─────────
-
-T8      Connect ─────────────►
-        handshake(seq=41) ───►
-
-                              🔴 Device seq=42
-                                 Phone seq=41
-                                 MISMATCH!
-                              {conflict,
-                               device_seq=42} ───►
-
-T9      Fetch Firestore ◄─────
-        [count=108, seq=42]
-
-        Show conflict dialog
-        User confirms "Use
-        cloud data"
-
-        override_start ──────►
-        override_chunks ─────►  (count=108)
-        override_end ────────►
-                              {override_complete}
-
-T10     [Both in sync at seq=43]
+No conflict! Each device only reports counts for its own items.
+Exclusive leasing (claimed_by) prevents two devices from
+modifying the same item.
 ```
 
-### 7.2 Conflict Decision Logic
+### 7.2 Handshake Decision Logic (Stateless)
 
 ```
                 ┌─────────────────────────────┐
                 │   App connects to device     │
-                │   App has sync_seq = A       │
-                │   Device has sync_seq = D    │
+                │   App sends sync_seq = -1    │
                 └──────────────┬──────────────┘
                                │
                                ▼
-                        ┌──────────────┐
-                        │    A == D?   │
-                        └──────┬───────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │ YES            │                │ NO
-              ▼                │                ▼
-    ┌─────────────────┐        │      ┌─────────────────┐
-    │    in_sync      │        │      │    conflict     │
-    │                 │        │      │                 │
-    │ Device is       │        │      │ Firestore is    │
-    │ source of truth │        │      │ source of truth │
-    └─────────────────┘        │      └─────────────────┘
-                               │
-                               │ (D == 0)
-                               ▼
-                     ┌─────────────────┐
-                     │  uninitialized  │
-                     │                 │
-                     │ Firestore is    │
-                     │ source of truth │
-                     │ (new device)    │
-                     └─────────────────┘
+                  ┌────────────────────────┐
+                  │ Device checks UID      │
+                  └──────────┬─────────────┘
+                             │
+         ┌───────────────────┼───────────────────┐
+         │                   │                   │
+         ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│  UID matches    │ │  No UID stored  │ │  UID mismatch   │
+│                 │ │                 │ │                 │
+│ seq=-1 → skip  │ │ "uninitialized" │ │ "wrong_account" │
+│ comparison      │ │                 │ │                 │
+│                 │ └────────┬────────┘ └────────┬────────┘
+│ "in_sync"       │          │                   │
+└────────┬────────┘          ▼                   ▼
+         │          ┌─────────────────┐ ┌─────────────────┐
+         ▼          │ Override flow:  │ │ Error dialog:   │
+┌─────────────────┐ │ empty setup    │ │ factory reset   │
+│ Normal flow:    │ │ (App → Device) │ │ required        │
+│ prefs/logs      │ └─────────────────┘ └─────────────────┘
+│ then push items │
+└─────────────────┘
 ```
 
 ### 7.3 Cross-Category Push Optimization
@@ -826,9 +833,10 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 | Rule | Description |
 |------|-------------|
 | **Handshake First** | Always send handshake as the first command after connecting |
-| **Device Wins (in_sync)** | When sequences match, trust device counts |
-| **Cloud Wins (conflict)** | When sequences differ, trust Firestore |
-| **Increment sync_seq** | Always increment after every successful sync |
+| **Stateless Handshake** | Send `sync_seq=-1` to skip comparison (multi-device mode) |
+| **Device Counts Forwarded** | After `in_sync`, write device prefs/logs to Firestore |
+| **Push Claimed Items** | After forwarding, push claim-filtered items back to device |
+| **Exclusive Leasing** | Each item claimed by at most one device (`claimed_by` field) |
 | **Atomic Override** | Override is all-or-nothing (start → chunks → end) |
 | **Log Before Clear** | Retrieve all log pages before calling clear_logs |
 
@@ -902,16 +910,16 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  SOURCE OF TRUTH:                                                    │
-│    • in_sync (known device) → Device (may have incremented offline) │
+│    • in_sync (known device) → Device counts → Firestore → push back│
 │    • in_sync (unknown)      → App empty (re-pair as fresh setup)    │
-│    • conflict               → Firestore (another device synced)     │
-│    • new device             → Firestore (device has no data)        │
+│    • conflict (old firmware) → Firestore (auto-override for paired) │
+│    • new device             → App empty (device starts clean)       │
 │                                                                      │
-│  SYNC FLOW:                                                          │
+│  SYNC FLOW (stateless):                                              │
 │    1. Connect                                                        │
-│    2. handshake(uid, sync_seq)                                      │
-│    3a. in_sync → receive prefs/logs → sync_complete                 │
-│    3b. conflict → override_start → chunks → override_end            │
+│    2. handshake(uid, sync_seq=-1) → always in_sync                  │
+│    3. Receive prefs/logs → write to Firestore                       │
+│    4. RefreshDeviceItems → push claim-filtered items to device      │
 │                                                                      │
 │  NOTIFICATIONS:                                                      │
 │    • event      = what happened (history)                           │
@@ -920,8 +928,9 @@ Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
 │                                                                      │
 │  CRITICAL:                                                           │
 │    • ALWAYS handshake first after connect                           │
-│    • ALWAYS use device counts when in_sync                          │
-│    • ALWAYS increment sync_seq after sync                           │
+│    • ALWAYS send sync_seq=-1 (stateless multi-device mode)         │
+│    • ALWAYS forward device counts to Firestore                     │
+│    • ALWAYS push claim-filtered items after forwarding             │
 │    • NEVER assume app state is current - verify with handshake      │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘

@@ -175,13 +175,14 @@ You can track up to **100 items**.
 
 ### Swipe Actions
 
-Swiping left on any item reveals three actions:
+Swiping left on an item reveals actions depending on context:
 
-| Icon | Action | Description |
-|------|--------|-------------|
-| **Pin** | Activate | Set as the active item on your physical device |
-| **Pencil** | Edit | Open the item edit form |
-| **Trash** | Delete | Delete the item (with confirmation) |
+| Icon | Action | When Shown | Description |
+|------|--------|------------|-------------|
+| **Pin** | Activate | Device connected, item unclaimed | Assign item to a connected device |
+| **Lock** | Unlock | Item claimed by a device | Release the item from its device |
+| **Pencil** | Edit | Item editable (not locked by offline device) | Open the item edit form |
+| **Trash** | Delete | Item editable (not locked by offline device) | Delete the item (with confirmation) |
 
 ### Searching Items
 
