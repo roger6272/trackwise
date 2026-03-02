@@ -557,7 +557,7 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 
 **What happens when a device reconnects after force-release:**
 - An **"Items Released"** dialog appears listing the items that were released while the device was away
-- Tap **"Sync Now"** to overwrite the device with current app data — any unsynced counts on the device are discarded and the released items are removed from the device
+- Tap **"Sync Now"** — the released items are removed from the device and any unsynced counts on them are discarded
 - Or tap **"Keep Offline"** to disconnect without syncing (the device retains its local data)
 - This is expected — the break-glass warning explains this consequence before you release
 
