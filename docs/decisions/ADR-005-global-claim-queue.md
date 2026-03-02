@@ -27,6 +27,10 @@ Move claim logic to a Cloud Function with server-side locking. Rejected because:
 
 ## Consequences
 
-- **Positive:** Eliminates all cross-device claim race conditions
+- **Positive:** Eliminates all cross-device claim race conditions. On failure, optimistic state reverts cleanly — no UI desync.
 - **Negative:** Adds ~50ms latency per claim when multiple devices claim simultaneously (one waits for the other). Acceptable because item switching is infrequent (~seconds apart) and the latency is imperceptible.
 - **Neutral:** Per-device cleanup (`_claimQueues.remove(deviceId)`) is no longer needed on disconnect/unpair, simplifying cleanup code.
+
+## Known Limitation
+
+Queue order is determined by BLE notification arrival, not physical button press order. If Device B presses first but Device A's notification arrives at the app first, A's claim runs first against B's still-held item and fails. A reverts cleanly; B succeeds. The user retaps on A and it works (item is now free). This is inherent to BLE latency variation and not worth solving — it's a sub-second retry for an edge case requiring near-simultaneous presses.

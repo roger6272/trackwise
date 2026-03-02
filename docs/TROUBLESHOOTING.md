@@ -944,7 +944,9 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 **Fix:** Global claim queue serializes ALL claim operations across devices (adds ~50ms latency per claim but prevents all cross-device races). On claim failure, `UpdateSelectedItemFromDevice` reverts the optimistic `selectedItemId` to `previousItemId`.
 
-**Key Lesson:** Fire-and-forget operations with optimistic updates must handle rollback on failure. Per-device queues only serialize within one device — cross-device races require a global queue.
+**Known edge case:** Even with the global queue, BLE notification latency varies per device. If Device B presses switch first but Device A's BLE notification arrives at the app first, A's claim enters the queue before B's. A fails (item still claimed by B), reverts cleanly, then B succeeds. The user just taps again on Device A — the item is now free. This is a sub-second retry for near-simultaneous button presses, not a desync.
+
+**Key Lesson:** Fire-and-forget operations with optimistic updates must handle rollback on failure. Per-device queues only serialize within one device — cross-device races require a global queue. BLE notification arrival order is not guaranteed to match physical button press order.
 
 ---
 
