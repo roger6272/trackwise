@@ -76,14 +76,12 @@ class PerformSyncParams extends Equatable {
 /// This is the main entry point after BLE connection is established.
 /// Handles:
 /// 1. Internet connectivity check
-/// 2. Handshake with device (sync_seq=-1 to skip comparison)
+/// 2. Handshake with device
 /// 3. Wrong account / uninitialized detection
-/// 4. Conflict fallback (old firmware that doesn't understand -1)
-/// 5. New device registration (with limit check)
+/// 4. New device registration (with limit check)
 ///
 /// After success, the BLoC pushes claim-filtered items via
-/// [RefreshDeviceItemsUseCase]. No sync_complete or sync_seq update
-/// is needed — sync_seq is obsolete in multi-device mode.
+/// [RefreshDeviceItemsUseCase].
 @lazySingleton
 class PerformSyncUseCase {
   final BluetoothRepository _bluetoothRepository;
@@ -103,16 +101,10 @@ class PerformSyncUseCase {
   ///
   /// Steps:
   /// 1. Check internet connectivity
-  /// 2. Send handshake to device (sync_seq=-1 to skip comparison)
+  /// 2. Send handshake to device
   /// 3. Handle wrong account / uninitialized (return error)
-  /// 4. Handle conflict (safety net for old firmware)
-  /// 5. Add to paired_devices if new (check limit)
-  /// 6. Return success — BLoC pushes items via RefreshDeviceItemsUseCase
-  ///
-  /// In multi-device mode, sync_seq serves no purpose: each device connection
-  /// would increment the global counter, causing every reconnection to be a
-  /// "conflict". Instead we send -1 so firmware skips the comparison and
-  /// always returns in_sync. Items are pushed after handshake completes.
+  /// 4. Add to paired_devices if new (check limit)
+  /// 5. Return success — BLoC pushes items via RefreshDeviceItemsUseCase
   Future<Either<Failure, SyncResult>> call(PerformSyncParams params) async {
     // Step 1: Check internet connectivity FIRST
     final hasInternet = await _connectivityService.hasInternetConnection();
@@ -131,12 +123,9 @@ class PerformSyncUseCase {
     final user = userResult.getOrElse(() => throw StateError('User should exist'));
 
     // Step 3: Send handshake to device
-    // Send sync_seq=-1 to skip sync_seq comparison on firmware side.
-    // This eliminates false conflicts in multi-device mode.
     final handshakeResult = await _bluetoothRepository.sendHandshake(
       deviceId: params.deviceId,
       uid: user.id,
-      syncSeq: -1,
     );
 
     if (handshakeResult.isLeft()) {
@@ -165,17 +154,7 @@ class PerformSyncUseCase {
       ));
     }
 
-    // Step 6: Safety net — old firmware that doesn't understand sync_seq=-1
-    // will return conflict. BLoC auto-overrides for paired devices.
-    if (handshake.status == SyncStatus.conflict) {
-      return Left(SyncConflictFailure(
-        deviceSyncSeq: handshake.deviceSyncSeq,
-        appSyncSeq: 0,
-        deviceInstanceId: deviceInstanceId,
-      ));
-    }
-
-    // Step 7: Device is in sync - add to paired devices if new
+    // Step 6: Device is in sync - add to paired devices if new
     final isNewDevice = !user.pairedDevices.any(
       (d) => d.deviceInstanceId.toUpperCase() == deviceInstanceId,
     );
@@ -203,7 +182,7 @@ class PerformSyncUseCase {
       );
     }
 
-    // Step 8: Check for stale claims (items released while device was offline).
+    // Step 7: Check for stale claims (items released while device was offline).
     // Include them in the result so the BLoC can guard synchronously —
     // avoids an async gap where firmware prefs/logs could slip through.
     final pairedDevice = user.pairedDevices.cast<PairedDevice?>().firstWhere(
@@ -212,7 +191,7 @@ class PerformSyncUseCase {
     );
     final staleClaims = pairedDevice?.staleClaims ?? const [];
 
-    // Step 9: Return success — no sync_complete or sync_seq update needed.
+    // Step 8: Return success.
     // BLoC handles item push in _onHandshakeCompleted via RefreshDeviceItemsUseCase.
     // Firmware sends prefs+logs automatically after in_sync handshake.
     return Right(SyncResult(
@@ -275,7 +254,7 @@ class PerformOverrideParams extends Equatable {
 /// 2. Fetches items from Firestore
 /// 3. Validates item count (max 100)
 /// 4. Sends override to device
-/// 5. Updates Firestore sync_seq (with retry)
+/// 5. Updates Firestore last selected item (with retry)
 @lazySingleton
 class PerformOverrideUseCase {
   final BluetoothRepository _bluetoothRepository;
@@ -325,14 +304,11 @@ class PerformOverrideUseCase {
     }
     final user = userResult.getOrElse(() => throw StateError('User should exist'));
 
-    final newSyncSeq = user.syncSequenceNo + 1;
-
     // Start empty: send no items, no selection. Device gets paired but stays clean.
     if (params.startEmpty) {
       return _sendEmptyOverride(
         params: params,
         user: user,
-        newSyncSeq: newSyncSeq,
       );
     }
 
@@ -494,7 +470,6 @@ class PerformOverrideUseCase {
     final overrideResult = await _bluetoothRepository.sendOverrideChunked(
       deviceId: params.deviceId,
       uid: user.id,
-      syncSeq: newSyncSeq,
       selectedId: selectedItemId,
       items: deviceItems,
       categoryNames: categoryNames,
@@ -516,9 +491,8 @@ class PerformOverrideUseCase {
     }
 
 
-    // Step 8: Update Firestore sync_seq (with retry)
-    final updateResult = await _updateSyncStateWithRetry(
-      syncSequenceNo: newSyncSeq,
+    // Step 9: Update Firestore last selected item (with retry)
+    final updateResult = await _updateLastSelectedItemWithRetry(
       lastSelectedDeviceItemId: selectedItemId,
     );
 
@@ -571,12 +545,10 @@ class PerformOverrideUseCase {
   Future<Either<Failure, SyncResult>> _sendEmptyOverride({
     required PerformOverrideParams params,
     required User user,
-    required int newSyncSeq,
   }) async {
     final overrideResult = await _bluetoothRepository.sendOverrideChunked(
       deviceId: params.deviceId,
       uid: user.id,
-      syncSeq: newSyncSeq,
       selectedId: -1,
       items: [],
     );
@@ -596,9 +568,8 @@ class PerformOverrideUseCase {
       return Left(OverrideFailure(deviceMessage: result.message));
     }
 
-    // Update Firestore sync_seq
-    final updateResult = await _updateSyncStateWithRetry(
-      syncSequenceNo: newSyncSeq,
+    // Update Firestore last selected item
+    final updateResult = await _updateLastSelectedItemWithRetry(
       lastSelectedDeviceItemId: -1,
     );
 
@@ -654,14 +625,12 @@ class PerformOverrideUseCase {
     );
   }
 
-  /// Updates Firestore sync state with retry logic.
-  Future<Either<Failure, void>> _updateSyncStateWithRetry({
-    required int syncSequenceNo,
+  /// Updates Firestore last selected item with retry logic.
+  Future<Either<Failure, void>> _updateLastSelectedItemWithRetry({
     required int lastSelectedDeviceItemId,
   }) async {
     for (var attempt = 1; attempt <= maxRetries; attempt++) {
-      final result = await _userRepository.updateSyncState(
-        syncSequenceNo: syncSequenceNo,
+      final result = await _userRepository.updateLastSelectedItem(
         lastSelectedDeviceItemId: lastSelectedDeviceItemId,
       );
 

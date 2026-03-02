@@ -275,26 +275,9 @@ class RemovePairedDevice extends BluetoothEvent {
   List<Object?> get props => [deviceInstanceId];
 }
 
-// ========== Sync Conflict Events ==========
+// ========== Sync Dialog Events ==========
 
-/// Internal event when a sync conflict is detected.
-/// UI should show the conflict dialog.
-class SyncConflictDetected extends BluetoothEvent {
-  final int? deviceSyncSeq;
-  final int appSyncSeq;
-  final String deviceInstanceId;
-
-  const SyncConflictDetected({
-    this.deviceSyncSeq,
-    required this.appSyncSeq,
-    required this.deviceInstanceId,
-  });
-
-  @override
-  List<Object?> get props => [deviceSyncSeq, appSyncSeq, deviceInstanceId];
-}
-
-/// User confirmed override in conflict dialog.
+/// User confirmed override in sync dialog.
 /// Triggers PerformOverrideUseCase.
 class ConfirmSyncOverride extends BluetoothEvent {
   /// The currently selected item ID from the app UI.
@@ -312,20 +295,15 @@ class ConfirmSyncOverride extends BluetoothEvent {
   List<Object?> get props => [currentSelectedItemId, deviceInstanceId];
 }
 
-/// User cancelled conflict dialog.
+/// User cancelled sync dialog (stale claim, device setup, etc).
 /// Disconnects from device.
-class CancelSyncConflict extends BluetoothEvent {
+class CancelSyncDialog extends BluetoothEvent {
   final String deviceInstanceId;
 
-  const CancelSyncConflict({required this.deviceInstanceId});
+  const CancelSyncDialog({required this.deviceInstanceId});
 
   @override
   List<Object?> get props => [deviceInstanceId];
-}
-
-/// Clear conflict state after it's been handled.
-class ClearConflictState extends BluetoothEvent {
-  const ClearConflictState();
 }
 
 // ========== Device Setup Events (for uninitialized/factory reset devices) ==========

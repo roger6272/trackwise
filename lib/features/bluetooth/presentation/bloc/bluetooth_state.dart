@@ -141,10 +141,6 @@ class BluetoothState extends Equatable {
   String? get selectedItemId =>
       connectedDevices.isNotEmpty ? connectedDevices.values.first.selectedItemId : null;
 
-  /// Whether a sync conflict was detected.
-  bool get hasConflict =>
-      connectedDevices.values.any((d) => d.syncStatus == DeviceSyncStatus.conflict);
-
   /// Whether a stale claim was detected (items released while device was offline).
   bool get hasStaleClaim =>
       connectedDevices.values.any((d) => d.syncStatus == DeviceSyncStatus.staleClaim);
@@ -177,30 +173,6 @@ class BluetoothState extends Equatable {
 
   /// Whether more log pages are available.
   bool get hasMoreLogs => connectedDevices.values.any((d) => d.hasMoreLogs);
-
-  /// App's sync sequence number (from first conflicting device).
-  int? get conflictAppSyncSeq {
-    for (final d in connectedDevices.values) {
-      if (d.syncStatus == DeviceSyncStatus.conflict) return d.conflictAppSyncSeq;
-    }
-    return null;
-  }
-
-  /// Device's sync sequence number (from first conflicting device).
-  int? get conflictDeviceSyncSeq {
-    for (final d in connectedDevices.values) {
-      if (d.syncStatus == DeviceSyncStatus.conflict) return d.conflictDeviceSyncSeq;
-    }
-    return null;
-  }
-
-  /// Device instance ID of the device in conflict state.
-  String? get conflictDeviceInstanceId {
-    for (final entry in connectedDevices.entries) {
-      if (entry.value.syncStatus == DeviceSyncStatus.conflict) return entry.key;
-    }
-    return null;
-  }
 
   /// Device instance ID of the device needing setup.
   String? get setupDeviceInstanceId {

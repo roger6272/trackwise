@@ -12,7 +12,7 @@ abstract class SyncFailure extends Failure {
 
 /// No internet connection available.
 ///
-/// Sync operations require internet to fetch fresh sync_seq from Firestore.
+/// Sync operations require internet to verify account state from Firestore.
 /// User should be shown a message to check their connection.
 class NoInternetFailure extends SyncFailure {
   const NoInternetFailure([String message = 'Internet connection required to sync.'])
@@ -63,45 +63,9 @@ class DeviceUninitializedFailure extends SyncFailure {
   String toString() => 'DeviceUninitializedFailure(deviceInstanceId: $deviceInstanceId)';
 }
 
-/// Sync sequence mismatch detected - app data should override device.
+/// Firestore update failed after successful device sync.
 ///
-/// Contains both sequence numbers so the UI can show appropriate
-/// conflict resolution options.
-///
-/// When this failure is returned, the UI should:
-/// 1. Show conflict dialog explaining the situation
-/// 2. Allow user to confirm override (proceed with app data)
-/// 3. Allow user to cancel (disconnect from device)
-class SyncConflictFailure extends SyncFailure {
-  /// Device's current sync sequence number.
-  final int? deviceSyncSeq;
-
-  /// App's current sync sequence number (from Firestore).
-  final int appSyncSeq;
-
-  /// Device instance ID (needed to add device after successful override).
-  final String? deviceInstanceId;
-
-  const SyncConflictFailure({
-    this.deviceSyncSeq,
-    required this.appSyncSeq,
-    this.deviceInstanceId,
-    String message = 'Device needs to be updated to match your app.',
-  }) : super(message);
-
-  @override
-  List<Object> get props => [message, appSyncSeq, if (deviceSyncSeq != null) deviceSyncSeq!, if (deviceInstanceId != null) deviceInstanceId!];
-
-  @override
-  String toString() => 'SyncConflictFailure(message: $message, '
-      'deviceSyncSeq: $deviceSyncSeq, appSyncSeq: $appSyncSeq, deviceInstanceId: $deviceInstanceId)';
-}
-
-/// Firestore update failed after device acknowledged sync.
-///
-/// This is a critical failure - the device has the new sync_seq but
-/// Firestore doesn't. Retry was attempted but failed.
-/// On reconnect, conflict will be detected and user must resolve.
+/// Retry was attempted but failed. User should ensure internet connection.
 class FirestoreUpdateFailure extends SyncFailure {
   const FirestoreUpdateFailure([
     String message = 'Sync incomplete. Please ensure internet connection and try again.',
@@ -125,21 +89,10 @@ class TooManyItemsFailure extends SyncFailure {
   List<Object> get props => [message, itemCount];
 }
 
-/// Device did not acknowledge sync_complete command.
-///
-/// The device's sync_seq was not updated. On reconnect, it will
-/// still be in sync (if it was before) and sync will proceed normally.
-class SyncCompleteNotAcknowledgedFailure extends SyncFailure {
-  const SyncCompleteNotAcknowledgedFailure([
-    String message = 'Device did not confirm sync completion. Please try again.',
-  ]) : super(message);
-}
-
 /// Override operation failed on the device.
 ///
 /// This includes missing chunks or other device-side errors.
-/// The device's sync_seq was NOT updated, so on reconnect conflict
-/// will be detected again and user can retry the override.
+/// User can retry the override on reconnect.
 class OverrideFailure extends SyncFailure {
   /// Device-reported error message.
   final String? deviceMessage;

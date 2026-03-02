@@ -8,7 +8,7 @@ import '../../domain/entities/user.dart';
 ///
 /// Combines data from:
 /// - Firebase Auth (id, email, displayName, photoUrl, emailVerified)
-/// - Firestore users collection (syncSequenceNo, lastSelectedDeviceItemId, pairedDevices)
+/// - Firestore users collection (lastSelectedDeviceItemId, pairedDevices)
 class UserModel extends User {
   const UserModel({
     required super.id,
@@ -16,7 +16,6 @@ class UserModel extends User {
     super.displayName,
     super.photoUrl,
     super.emailVerified,
-    super.syncSequenceNo,
     super.lastSelectedDeviceItemId,
     super.pairedDevices,
     super.onboardingCompleted,
@@ -29,8 +28,8 @@ class UserModel extends User {
   /// Create UserModel from Firebase Auth User.
   ///
   /// Note: This only populates Firebase Auth fields. Firestore fields
-  /// (syncSequenceNo, lastSelectedDeviceItemId, pairedDevices) will have
-  /// default values. Use [fromFirebaseUserAndFirestore] for complete data.
+  /// (lastSelectedDeviceItemId, pairedDevices) will have default values.
+  /// Use [fromFirebaseUserAndFirestore] for complete data.
   factory UserModel.fromFirebaseUser(firebase.User firebaseUser) {
     return UserModel(
       id: firebaseUser.uid,
@@ -65,7 +64,6 @@ class UserModel extends User {
       displayName: firebaseUser.displayName,
       photoUrl: firebaseUser.photoURL,
       emailVerified: firebaseUser.emailVerified,
-      syncSequenceNo: data['sync_sequence_no'] as int? ?? 0,
       lastSelectedDeviceItemId:
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
@@ -100,7 +98,6 @@ class UserModel extends User {
       displayName: data['display_name'] as String?,
       photoUrl: data['photo_url'] as String?,
       emailVerified: data['email_verified'] as bool? ?? false,
-      syncSequenceNo: data['sync_sequence_no'] as int? ?? 0,
       lastSelectedDeviceItemId:
           data['last_selected_device_item_id'] as int? ?? -1,
       pairedDevices: pairedDevices,
@@ -120,7 +117,6 @@ class UserModel extends User {
   /// (email, displayName, etc.) are managed by Firebase Auth, not Firestore.
   Map<String, dynamic> toFirestore() {
     return {
-      'sync_sequence_no': syncSequenceNo,
       'last_selected_device_item_id': lastSelectedDeviceItemId,
       'paired_devices': pairedDevices.map((d) => d.toFirestore()).toList(),
       'onboarding_completed': onboardingCompleted,
@@ -139,7 +135,6 @@ class UserModel extends User {
       displayName: displayName,
       photoUrl: photoUrl,
       emailVerified: emailVerified,
-      syncSequenceNo: syncSequenceNo,
       lastSelectedDeviceItemId: lastSelectedDeviceItemId,
       pairedDevices: pairedDevices,
       onboardingCompleted: onboardingCompleted,
@@ -158,7 +153,6 @@ class UserModel extends User {
     String? displayName,
     String? photoUrl,
     bool? emailVerified,
-    int? syncSequenceNo,
     int? lastSelectedDeviceItemId,
     List<PairedDevice>? pairedDevices,
     bool? onboardingCompleted,
@@ -173,7 +167,6 @@ class UserModel extends User {
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
       emailVerified: emailVerified ?? this.emailVerified,
-      syncSequenceNo: syncSequenceNo ?? this.syncSequenceNo,
       lastSelectedDeviceItemId:
           lastSelectedDeviceItemId ?? this.lastSelectedDeviceItemId,
       pairedDevices: pairedDevices ?? this.pairedDevices,

@@ -46,51 +46,6 @@ void main() {
       });
     });
 
-    group('SyncConflictFailure', () {
-      test('should extend SyncFailure', () {
-        const failure = SyncConflictFailure(appSyncSeq: 5);
-        expect(failure, isA<SyncFailure>());
-      });
-
-      test('should contain sync sequence numbers', () {
-        const failure = SyncConflictFailure(
-          deviceSyncSeq: 3,
-          appSyncSeq: 5,
-        );
-        expect(failure.deviceSyncSeq, 3);
-        expect(failure.appSyncSeq, 5);
-      });
-
-      test('should support null deviceSyncSeq', () {
-        const failure = SyncConflictFailure(appSyncSeq: 5);
-        expect(failure.deviceSyncSeq, isNull);
-      });
-
-      test('should implement Equatable', () {
-        const failure1 = SyncConflictFailure(deviceSyncSeq: 3, appSyncSeq: 5);
-        const failure2 = SyncConflictFailure(deviceSyncSeq: 3, appSyncSeq: 5);
-        expect(failure1, equals(failure2));
-      });
-
-      test('should have correct props', () {
-        const failure = SyncConflictFailure(
-          deviceSyncSeq: 3,
-          appSyncSeq: 5,
-          message: 'test',
-        );
-        expect(failure.props, contains('test'));
-        expect(failure.props, contains(5));
-        // deviceSyncSeq is included when not null
-        expect(failure.props, contains(3));
-      });
-
-      test('should not include null deviceSyncSeq in props', () {
-        const failure = SyncConflictFailure(appSyncSeq: 5);
-        // props should only have message and appSyncSeq
-        expect(failure.props.length, 2);
-      });
-    });
-
     group('FirestoreUpdateFailure', () {
       test('should extend SyncFailure', () {
         const failure = FirestoreUpdateFailure();
@@ -122,18 +77,6 @@ void main() {
       test('should have correct props', () {
         const failure = TooManyItemsFailure(itemCount: 150);
         expect(failure.props, contains(150));
-      });
-    });
-
-    group('SyncCompleteNotAcknowledgedFailure', () {
-      test('should extend SyncFailure', () {
-        const failure = SyncCompleteNotAcknowledgedFailure();
-        expect(failure, isA<SyncFailure>());
-      });
-
-      test('should have default message', () {
-        const failure = SyncCompleteNotAcknowledgedFailure();
-        expect(failure.message, contains('did not confirm'));
       });
     });
 

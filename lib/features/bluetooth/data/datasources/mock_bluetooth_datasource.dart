@@ -62,17 +62,11 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   /// Mock device instance ID returned by handshake
   String mockDeviceInstanceId = 'mock-device-instance-001';
 
-  /// Mock device sync sequence (for conflict scenarios)
-  int? mockDeviceSyncSeq;
-
   /// Mock override response status
   String mockOverrideStatus = 'override_complete';
 
   /// Mock override error message
   String? mockOverrideMessage;
-
-  /// Mock sync_complete response status
-  String mockSyncCompleteStatus = 'seq_updated';
 
   // ========== Internal State ==========
 
@@ -263,7 +257,6 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   Future<HandshakeResult> sendHandshake({
     required String deviceId,
     required String uid,
-    required int syncSeq,
   }) async {
     // Simulate network delay
     await Future.delayed(const Duration(milliseconds: 100));
@@ -271,7 +264,6 @@ class MockBluetoothDataSource implements BluetoothDataSource {
     return HandshakeResult(
       status: mockHandshakeStatus,
       deviceInstanceId: mockDeviceInstanceId,
-      deviceSyncSeq: mockDeviceSyncSeq,
     );
   }
 
@@ -279,7 +271,6 @@ class MockBluetoothDataSource implements BluetoothDataSource {
   Future<OverrideResult> sendOverrideChunked({
     required String deviceId,
     required String uid,
-    required int syncSeq,
     required int selectedId,
     required List<Item> items,
     Map<String, String> categoryNames = const {},
@@ -290,16 +281,6 @@ class MockBluetoothDataSource implements BluetoothDataSource {
     return OverrideResult(
       status: mockOverrideStatus,
       message: mockOverrideMessage,
-    );
-  }
-
-  @override
-  Future<SyncCompleteResult> sendSyncComplete(String deviceId, int syncSeq) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    return SyncCompleteResult(
-      status: mockSyncCompleteStatus,
     );
   }
 
@@ -393,27 +374,17 @@ class MockBluetoothDataSource implements BluetoothDataSource {
     // Multi-device sync defaults
     mockHandshakeStatus = SyncStatus.inSync;
     mockDeviceInstanceId = 'mock-device-instance-001';
-    mockDeviceSyncSeq = null;
     mockOverrideStatus = 'override_complete';
     mockOverrideMessage = null;
-    mockSyncCompleteStatus = 'seq_updated';
-  }
-
-  /// Configures mock for a conflict scenario.
-  void configureConflict({required int deviceSyncSeq}) {
-    mockHandshakeStatus = SyncStatus.conflict;
-    mockDeviceSyncSeq = deviceSyncSeq;
   }
 
   /// Configures mock for a wrong account scenario.
   void configureWrongAccount() {
     mockHandshakeStatus = SyncStatus.wrongAccount;
-    mockDeviceSyncSeq = null;
   }
 
   /// Configures mock for a successful in-sync scenario.
   void configureInSync() {
     mockHandshakeStatus = SyncStatus.inSync;
-    mockDeviceSyncSeq = null;
   }
 }

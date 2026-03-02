@@ -123,31 +123,7 @@ await connect(device);
 
 ## 2. Sync Issues
 
-### 2.1 "Handshake returns 'conflict'"
-
-**Symptoms:** Device shows "SEE APP", buttons disabled
-
-**This is expected behavior when:**
-- Device was used with a different phone
-- App was reinstalled
-- Firestore sync_seq differs from device sync_seq
-
-**Resolution Flow:**
-1. App receives `{"status":"conflict","device_seq":N}`
-2. App shows conflict dialog to user (includes device name and ID for multi-device identification)
-3. User confirms override ("Sync Now") or cancels (disconnects)
-4. App sends: `override_start` → `override_chunk(s)` → `override_end`
-5. Device responds: `{"status":"override_complete"}`
-6. Device shows "SYNCED", buttons re-enabled
-
-**If override fails:**
-- Check `override_end` response for `"missing_chunks"` error
-- Verify all chunks were sent with correct indices
-- Check BLE connection didn't drop mid-transfer
-
----
-
-### 2.2 "Handshake returns 'wrong_account'"
+### 2.1 "Handshake returns 'wrong_account'"
 
 **Symptoms:** Device paired to different user
 
@@ -162,7 +138,7 @@ await connect(device);
 
 ---
 
-### 2.3 "Handshake returns 'uninitialized'"
+### 2.2 "Handshake returns 'uninitialized'"
 
 **Symptoms:** New device or after factory reset
 
@@ -179,24 +155,6 @@ await connect(device);
 
 ---
 
-### 2.4 "sync_complete not acknowledged"
-
-**Symptoms:** App sends `sync_complete` but doesn't receive `{"status":"seq_updated"}`
-
-**Diagnostic Steps:**
-1. Check BLE connection still active
-2. Check NOTIFY subscription still active
-3. Check for error notifications
-
-**Common Causes:**
-| Cause | Solution |
-|-------|----------|
-| Connection dropped | Reconnect and re-sync |
-| Notification missed | Check message buffer for pending data |
-| Command malformed | Verify JSON format and newline terminator |
-
----
-
 ## 3. Count Mismatch Issues
 
 ### 3.1 "App count differs from device count"
@@ -208,7 +166,7 @@ await connect(device);
 **Diagnostic Steps:**
 1. What was handshake result?
    - `in_sync`: Device counts should be used
-   - `conflict`: Firestore counts were pushed to device
+   - Override (stale claim): Firestore counts were pushed to device
 2. Did app update state from `prefs` notification?
 3. Did app update Firestore from device counts?
 
@@ -420,25 +378,7 @@ final offset = DateTime.now().timeZoneOffset.inMinutes;
 
 ## 6. Device State Issues
 
-### 6.1 "Device stuck showing 'SEE APP'"
-
-**Symptoms:** Device in conflict state, buttons don't work
-
-**Root Cause:** Handshake detected sync_seq mismatch
-
-**Resolution:**
-1. Complete the override protocol in app
-2. OR disconnect (device will exit conflict state on disconnect)
-3. Reconnect to retry sync
-
-**If app can't complete override:**
-- Check BLE connection stable
-- Check all override_chunks sent
-- Check override_end response
-
----
-
-### 6.2 "Device stuck showing 'AWAITING SETUP'"
+### 6.1 "Device stuck showing 'AWAITING SETUP'"
 
 **Symptoms:** Device unpaired, waiting for initial setup
 
@@ -448,12 +388,12 @@ final offset = DateTime.now().timeZoneOffset.inMinutes;
 
 ---
 
-### 6.3 "Device not responding to commands"
+### 6.2 "Device not responding to commands"
 
 **Symptoms:** Commands sent but no response/action
 
 **Diagnostic Steps:**
-1. Is device in conflict state? (buttons disabled)
+1. Is an override in progress?
 2. Is command sent to correct characteristic?
    - Commands → CHAR_WRITE (`...010`)
    - Item array → CHAR_SET_ITEMS (`...008`)
@@ -466,7 +406,7 @@ final offset = DateTime.now().timeZoneOffset.inMinutes;
 | Wrong characteristic | Route to correct UUID |
 | Missing newline | Append `\n` to command |
 | Invalid JSON | Validate before sending |
-| Conflict state | Complete override or disconnect |
+| Override in progress | Wait for override to complete or disconnect |
 
 ---
 
@@ -604,7 +544,7 @@ If all 5 work, BLE communication is healthy.
 
 ### 9.3 "Override selects wrong item"
 
-**Symptoms:** After conflict override, device shows different item than app
+**Symptoms:** After override, device shows different item than app
 
 **Root Cause:** Multiple "selected item" sources with different staleness.
 
@@ -616,7 +556,7 @@ If all 5 work, BLE communication is healthy.
 
 **Common issue:** If step 1 is null/empty (e.g., dialog didn't pass it), falls through to stale values from previous sessions.
 
-**Fix Applied:** All conflict dialog paths now pass `AppUiState.activeItemId`.
+**Fix Applied:** All override dialog paths now pass `AppUiState.activeItemId`.
 
 **Key Lesson:** When multiple state sources exist for the same concept, always trace which one is used. Add debug logging at the resolution point.
 
@@ -649,7 +589,7 @@ If all 5 work, BLE communication is healthy.
 - `AppUiState.activeItemId` (SharedPreferences, Firestore ID string) — set only on manual pin swipe
 - `BluetoothState.selectedItemId` (BLoC, Firestore ID string) — set from device prefs notifications
 
-When the device changes selection (e.g., via button press), only `BluetoothState.selectedItemId` updates. `AppUiState.activeItemId` stays stale. On reconnect → conflict → override, the dialog reads `AppUiState.activeItemId`, sending the wrong item to the device.
+When the device changes selection (e.g., via button press), only `BluetoothState.selectedItemId` updates. `AppUiState.activeItemId` stays stale. On reconnect → override, the dialog reads `AppUiState.activeItemId`, sending the wrong item to the device.
 
 **Fix Applied:** Added a `BlocListener` that syncs `AppUiState.activeItemId` whenever `BluetoothState.selectedItemId` changes (from prefs, override, or any source).
 
@@ -789,13 +729,13 @@ When items aren't syncing correctly, check in this order:
 
 ---
 
-### 9.15 "Wrong account / sync conflict dialog shows twice during onboarding"
+### 9.15 "Wrong account dialog shows twice during onboarding"
 
-**Symptoms:** During onboarding device pairing, the "Wrong Account" or "Sync Conflict" dialog appears twice, stacked on top of each other.
+**Symptoms:** During onboarding device pairing, the "Wrong Account" dialog appears twice, stacked on top of each other.
 
-**Root Cause:** Two independent listeners were both showing the same dialog. `main.dart` has global `BlocListener`s (with proper `listenWhen` guards) for `hasWrongAccount`, `hasConflict`, and `needsSetup`. `onboarding_step_device.dart` had its own duplicate listeners for wrong account and conflict, with inline dialog implementations. During onboarding, both widgets are in the tree, so both fired.
+**Root Cause:** Two independent listeners were both showing the same dialog. `main.dart` has global `BlocListener`s (with proper `listenWhen` guards) for `hasWrongAccount` and `needsSetup`. `onboarding_step_device.dart` had its own duplicate listeners for wrong account, with inline dialog implementations. During onboarding, both widgets are in the tree, so both fired.
 
-**Fix Applied:** Removed the duplicate wrong account and conflict dialog handling from `onboarding_step_device.dart`. The global listeners in `main.dart` already handle these for all pages, including onboarding.
+**Fix Applied:** Removed the duplicate wrong account dialog handling from `onboarding_step_device.dart`. The global listeners in `main.dart` already handle these for all pages, including onboarding.
 
 **Key Lesson:** When `main.dart` has global `BlocListener`s for a state flag, don't add page-level listeners for the same flag. Check `main.dart` first before adding dialog-showing listeners to individual pages/widgets.
 
@@ -865,11 +805,11 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 
 **Resolution:** Connect a second device. Color tinting and claim UI appear automatically.
 
-### 10.3 "Force-released item — device reconnects and shows conflict"
+### 10.3 "Force-released item — device reconnects and gets stale claim override"
 
-**Symptoms:** After break-glass releasing an item and its device reconnects, the sync conflict dialog appears.
+**Symptoms:** After break-glass releasing an item, its device reconnects and app shows stale claim dialog.
 
-**This is expected behavior.** The device's `sync_seq` no longer matches the app. Choose:
+**This is expected behavior.** The app detects the device has a stale claim and offers to override. Choose:
 - **Sync Now** — overwrites device with app data (unsynced counts are lost, as warned in the break-glass dialog)
 - **Cancel** — disconnects without syncing
 
@@ -960,11 +900,11 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 **Symptoms:** After unpairing a device from the app and reconnecting (without factory reset), all items are pushed to the device instead of starting empty.
 
-**Root Cause:** The handshake returned `in_sync` (not `conflict` or `uninitialized`) because the device still had the old UID and a matching `sync_seq`. The `_onHandshakeCompleted` handler for `in_sync` assumed the device was known, ran `RefreshDeviceItemsUseCase`, and pushed all items.
+**Root Cause:** The handshake returned `in_sync` (not `uninitialized`) because the device still had the old UID. The `_onHandshakeCompleted` handler for `in_sync` assumed the device was known, ran `RefreshDeviceItemsUseCase`, and pushed all items.
 
 **Three issues found:**
 1. **`in_sync` path:** `_onHandshakeCompleted` didn't check if the device was still in `pairedDevices`. An unpaired device returning `in_sync` was treated as a known device.
-2. **`conflict` path:** `_onConfirmSyncOverride` always sent all Firestore items, even for re-paired devices that should start empty.
+2. **Override path:** `_onConfirmSyncOverride` always sent all Firestore items, even for re-paired devices that should start empty.
 3. **Stale active item chip:** After empty-start re-pairing, the UI showed the previously active item in the pill button due to `appUiState.activeItemId` persisted in SharedPreferences.
 
 **Fix Applied:**
@@ -972,7 +912,7 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 - `_onConfirmSyncOverride`: Added `isAlreadyPaired` check with `startEmpty: !isAlreadyPaired`
 - `_buildActiveItemChips`: Added `connectedDevices.isEmpty` guard to the SharedPreferences fallback path
 
-**Key Lesson:** An unpaired device retains its old UID and `sync_seq` in NVS. The handshake compares `sync_seq` values and returns `in_sync` if they match — it doesn't know the app unpaired the device. Always check `pairedDevices` membership before trusting the handshake status.
+**Key Lesson:** An unpaired device retains its old UID in NVS. The handshake returns `in_sync` if the UID matches — it doesn't know the app unpaired the device. Always check `pairedDevices` membership before trusting the handshake status.
 
 ---
 
@@ -1005,18 +945,18 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | Can't find device | Is it powered on? Already connected elsewhere? |
 | Unknown Device name | Connecting without scan - check paired devices lookup |
 | GATT 133 | Stop scan, wait 2s, then connect |
-| Conflict status | Expected - complete override protocol |
+| Stale claim dialog | Expected - choose Sync Now to override device |
 | Wrong account | Factory reset device or use correct account |
 | Counts don't match | Device is source of truth - use prefs response |
 | set_items didn't update | By design - use override for count changes |
 | No notifications | Check NOTIFY subscription |
 | Garbled JSON | Check chunk reassembly and newline delimiter |
 | Daily reset wrong time | Check timezone offset |
-| Device not responding | Check conflict state and command format |
+| Device not responding | Check override state and command format |
 | New item not on device | Firestore stream timing - check includeItem path |
 | Edit/Delete grayed out | Item claimed by offline device - reconnect or force-release |
 | No device colors showing | Need 2+ devices connected simultaneously |
-| Conflict after force-release | Expected - choose Sync Now to overwrite device |
+| Stale claim after force-release | Expected - choose Sync Now to overwrite device |
 | Override selects wrong item | Check AppUiState vs BluetoothState selectedItemId sync |
 | Wrong category after drag | Check `_lastSyncedSignature` null after `ItemsLoading` transition |
 | Wrong category after reset | Ensure sync goes through `syncItemsToDevice()`, not raw `SendItemsToDevice` |
