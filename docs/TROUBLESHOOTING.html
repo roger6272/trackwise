@@ -1166,7 +1166,7 @@ AppLogger.debug('BLE TX: $command');</code></pre>
 
     <p><strong>Root Cause:</strong> <code>BluetoothBloc</code> is a <code>@lazySingleton</code> &mdash; it persists across account deletion and creation, never recreated by DI. The previous account's <code>_cleanupDevice</code> only iterated <code>state.connectedDevices</code> (currently connected devices). If a device had already disconnected but had a pending reconnect timer in <code>_devicesToReconnect</code>, that timer survived account deletion and fired on the new account.</p>
 
-    <p><strong>Fix Applied:</strong> Added <code>ResetBluetoothState</code> event that comprehensively clears all in-memory BLoC state: <code>_reconnectTimers</code>, <code>_reconnectAttempts</code>, <code>_manualDisconnects</code>, <code>_devicesToReconnect</code>, <code>_claimQueues</code>, <code>_deviceCategories</code>, <code>_connectionSubscriptions</code>, <code>_messageSubscriptions</code>, and disconnects all active connections. Both account deletion and sign-out flows now dispatch <code>ResetBluetoothState</code> instead of per-device <code>DisconnectFromDevice</code>.</p>
+    <p><strong>Fix Applied:</strong> Added <code>ResetBluetoothState</code> event that comprehensively clears all in-memory BLoC state: <code>_reconnectTimers</code>, <code>_reconnectAttempts</code>, <code>_manualDisconnects</code>, <code>_devicesToReconnect</code>, <code>_claimQueue</code>, <code>_deviceCategories</code>, <code>_connectionSubscriptions</code>, <code>_messageSubscriptions</code>, and disconnects all active connections. Both account deletion and sign-out flows now dispatch <code>ResetBluetoothState</code> instead of per-device <code>DisconnectFromDevice</code>.</p>
 
     <div class="lesson">
         <strong>Key Lesson:</strong> Singletons that manage timers, subscriptions, or reconnect state must be fully reset on account lifecycle events. Cleaning up only "currently connected" state misses pending timers and queued reconnects for devices that disconnected before the cleanup ran.
@@ -1183,6 +1183,17 @@ AppLogger.debug('BLE TX: $command');</code></pre>
 
     <div class="lesson">
         <strong>Key Lesson:</strong> Always filter BLE scans by service UUID when targeting specific peripherals. OS-level filtering is more efficient than post-scan name filtering and prevents user confusion.
+    </div>
+
+    <h3>10.12 "Multi-device switch causes item color to disappear"</h3>
+    <p class="symptom">Two devices switch items nearly simultaneously; one device's claim color disappears and increments don't sync</p>
+
+    <p><strong>Root Cause:</strong> Per-device claim queues allowed concurrent Firestore transactions to read stale <code>claimed_by</code>. Device B releases item X while Device A tries to claim it &mdash; A reads stale <code>claimedBy=DevB</code> and fails with <code>ClaimConflictException</code>. The optimistic BLoC <code>selectedItemId</code> was never reverted on failure, leaving the UI out of sync with both Firestore and firmware.</p>
+
+    <p><strong>Fix:</strong> Global claim queue serializes ALL claim operations across devices (adds ~50ms latency per claim but prevents all cross-device races). On claim failure, <code>UpdateSelectedItemFromDevice</code> reverts the optimistic <code>selectedItemId</code> to <code>previousItemId</code>.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Fire-and-forget operations with optimistic updates must handle rollback on failure. Per-device queues only serialize within one device &mdash; cross-device races require a global queue.
     </div>
 
     <!-- Quick Reference -->
@@ -1232,6 +1243,7 @@ AppLogger.debug('BLE TX: $command');</code></pre>
             <tr><td>Items pushed after re-pair</td><td><code>in_sync</code> but device not in <code>pairedDevices</code> &mdash; redirect to DeviceSetupRequired &mdash; see 10.9</td></tr>
             <tr><td>Auto-connect after account change</td><td>Stale reconnect timers in singleton BLoC &mdash; <code>ResetBluetoothState</code> clears all timers &mdash; see 10.10</td></tr>
             <tr><td>Scan shows non-Traxelos devices</td><td>Missing service UUID filter on <code>startScan()</code> &mdash; add <code>withServices</code> &mdash; see 10.11</td></tr>
+            <tr><td>Multi-device switch loses claim color</td><td>Per-device claim queues raced &mdash; global <code>_claimQueue</code> + optimistic rollback &mdash; see 10.12</td></tr>
         </tbody>
     </table>
 

@@ -83,9 +83,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   bool _wasBluetoothOff = false; // Keep global — adapter state is global
   final Map<String, int> _reconnectAttempts = {};
 
-  // Per-device claim queue: serializes fire-and-forget atomicClaimSwap calls
-  // so they execute in order, preventing stale-release race conditions.
-  final Map<String, Future<void>> _claimQueues = {};
+  // Global claim queue: serializes ALL claim operations across devices
+  // to prevent concurrent Firestore transactions from reading stale claim state.
+  Future<void> _claimQueue = Future.value();
 
   // Per-device category cache: used to skip cross-category pushes.
   final Map<String, String> _deviceCategories = {};
@@ -523,7 +523,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     _reconnectTimers[deviceId]?.cancel();
     _reconnectTimers.remove(deviceId);
     _reconnectAttempts.remove(deviceId);
-    _claimQueues.remove(deviceId);
     _deviceCategories.remove(deviceId);
 
     // Don't await these - they can hang if the stream is mid-emission
@@ -967,7 +966,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     }
   }
 
-  /// Updates selected item ID from device prefs during initial sync.
+  /// Updates selected item ID from device prefs during initial sync,
+  /// or reverts optimistic selection on claim failure (empty string = clear).
   Future<void> _onUpdateSelectedItemFromDevice(
     UpdateSelectedItemFromDevice event,
     Emitter<BluetoothState> emit,
@@ -975,7 +975,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final deviceId = event.deviceInstanceId;
     if (deviceId.isNotEmpty) {
       emit(state.copyWith(
-        connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(selectedItemId: event.itemId)),
+        connectedDevices: _updateDevice(deviceId, (d) => event.itemId.isEmpty
+            ? d.copyWith(clearSelectedItemId: true)
+            : d.copyWith(selectedItemId: event.itemId)),
       ));
     }
   }
@@ -1075,7 +1077,6 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       _reconnectTimers[event.deviceInstanceId]?.cancel();
       _reconnectTimers.remove(event.deviceInstanceId);
       _reconnectAttempts.remove(event.deviceInstanceId);
-      _claimQueues.remove(event.deviceInstanceId);
       _deviceCategories.remove(event.deviceInstanceId);
 
       await _bluetoothRepository.disconnect(deviceState.device.id);
@@ -1281,7 +1282,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // 2. Clear tracking sets
     _manualDisconnects.clear();
     _devicesToReconnect.clear();
-    _claimQueues.clear();
+    _claimQueue = Future.value();
     _deviceCategories.clear();
 
     // 3. Cancel all stream subscriptions
@@ -1549,17 +1550,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   ) async {
     if (state.connectedDevices[event.deviceInstanceId] == null) return;
 
-    // Fire-and-forget but SERIALIZED per device: each claim waits for the
-    // previous one to complete before starting, preventing out-of-order
-    // Firestore transactions that would leave stale claims behind.
+    // Fire-and-forget but SERIALIZED globally: each claim waits for the
+    // previous one to complete, preventing concurrent Firestore transactions
+    // across devices from reading stale claim state.
     final previousItemId = event.previousItemId;
     final deviceInstanceId = event.deviceInstanceId;
     final fromDeviceEcho = event.fromDeviceEcho;
     final itemId = event.itemId;
     final eventCategoryId = event.categoryId;
 
-    final previous = _claimQueues[deviceInstanceId] ?? Future.value();
-    _claimQueues[deviceInstanceId] = previous.then((_) async {
+    _claimQueue = _claimQueue.then((_) async {
       final result = await _itemRepository.atomicClaimSwap(
         itemId, deviceInstanceId, previousItemId,
       );
@@ -1568,6 +1568,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         AppLogger.debug('Claim failed for $itemId: ${failure.message}');
         // Corrective push: revert device to the correct item list + selection.
         _refreshAndUpdateCategory(deviceInstanceId, previousItemId);
+        // Revert optimistic selectedItemId in BLoC state.
+        // Uses add() since emit isn't available in fire-and-forget closure.
+        add(UpdateSelectedItemFromDevice(
+          previousItemId ?? '',
+          deviceInstanceId: deviceInstanceId,
+        ));
         return;
       }
       AppLogger.debug('Claimed item $itemId for device $deviceInstanceId'

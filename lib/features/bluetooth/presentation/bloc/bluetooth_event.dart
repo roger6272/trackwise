@@ -208,8 +208,8 @@ class ScanResultsUpdated extends BluetoothEvent {
   List<Object?> get props => [devices];
 }
 
-/// Internal event to update selected item ID from device prefs during initial sync.
-/// Used during initial sync when device reports its currently selected item.
+/// Internal event to update selected item ID from device prefs during initial sync,
+/// or to revert optimistic selection on claim failure (empty string = clear).
 class UpdateSelectedItemFromDevice extends BluetoothEvent {
   final String itemId;
   final String deviceInstanceId;

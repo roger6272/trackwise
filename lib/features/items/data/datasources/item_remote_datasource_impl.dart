@@ -871,8 +871,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
   Future<void> atomicClaimSwap(String newItemId, String deviceInstanceId, String? previousItemId) async {
     // Query for this device's ACTUAL current claim in Firestore.
     // The previousItemId from BLoC dispatch can be stale after conflicts,
-    // so we always use the real Firestore state. Safe because per-device
-    // claim queue serializes calls — no concurrent modifications.
+    // so we always use the real Firestore state. Safe because the global
+    // claim queue serializes all calls — no concurrent modifications.
     final currentClaimQuery = await firestore.collection('Item')
         .where('claimed_by', isEqualTo: deviceInstanceId)
         .limit(1)

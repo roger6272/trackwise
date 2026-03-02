@@ -922,7 +922,7 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 **Root Cause:** `BluetoothBloc` is a `@lazySingleton` — it persists across account deletion and creation, never recreated by DI. The previous account's `_cleanupDevice` only iterated `state.connectedDevices` (currently connected devices). If a device had already disconnected but had a pending reconnect timer in `_devicesToReconnect`, that timer survived account deletion and fired on the new account.
 
-**Fix Applied:** Added `ResetBluetoothState` event that comprehensively clears all in-memory BLoC state: `_reconnectTimers`, `_reconnectAttempts`, `_manualDisconnects`, `_devicesToReconnect`, `_claimQueues`, `_deviceCategories`, `_connectionSubscriptions`, `_messageSubscriptions`, and disconnects all active connections. Both account deletion and sign-out flows now dispatch `ResetBluetoothState` instead of per-device `DisconnectFromDevice`.
+**Fix Applied:** Added `ResetBluetoothState` event that comprehensively clears all in-memory BLoC state: `_reconnectTimers`, `_reconnectAttempts`, `_manualDisconnects`, `_devicesToReconnect`, `_claimQueue`, `_deviceCategories`, `_connectionSubscriptions`, `_messageSubscriptions`, and disconnects all active connections. Both account deletion and sign-out flows now dispatch `ResetBluetoothState` instead of per-device `DisconnectFromDevice`.
 
 **Key Lesson:** Singletons that manage timers, subscriptions, or reconnect state must be fully reset on account lifecycle events. Cleaning up only "currently connected" state misses pending timers and queued reconnects for devices that disconnected before the cleanup ran.
 
@@ -935,6 +935,16 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 **Fix Applied:** Added `withServices: [Guid(BluetoothConstants.serviceUUID)]` to `startScan()`. The OS-level filter only returns devices advertising the Traxelos service UUID, eliminating non-Traxelos devices from results.
 
 **Key Lesson:** Always filter BLE scans by service UUID when targeting specific peripherals. OS-level filtering is more efficient than post-scan name filtering and prevents user confusion.
+
+### 10.12 "Multi-device switch causes item color to disappear"
+
+**Symptoms:** Two devices switch items nearly simultaneously; one device's claim color disappears and increments don't sync.
+
+**Root Cause:** Per-device claim queues allowed concurrent Firestore transactions to read stale `claimed_by`. Device B releases item X while Device A tries to claim it — A reads stale `claimedBy=DevB` and fails with `ClaimConflictException`. The optimistic BLoC `selectedItemId` was never reverted on failure, leaving the UI out of sync with both Firestore and firmware.
+
+**Fix:** Global claim queue serializes ALL claim operations across devices (adds ~50ms latency per claim but prevents all cross-device races). On claim failure, `UpdateSelectedItemFromDevice` reverts the optimistic `selectedItemId` to `previousItemId`.
+
+**Key Lesson:** Fire-and-forget operations with optimistic updates must handle rollback on failure. Per-device queues only serialize within one device — cross-device races require a global queue.
 
 ---
 
