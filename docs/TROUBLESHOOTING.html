@@ -222,6 +222,7 @@
             <li><a href="#performance">Performance Issues</a></li>
             <li><a href="#diagnostic-tools">Diagnostic Tools</a></li>
             <li><a href="#app-sync-pitfalls">App-Side Sync Pitfalls</a></li>
+            <li><a href="#multi-device">Multi-Device / Exclusive Leasing Issues</a></li>
         </ol>
     </div>
 
@@ -244,7 +245,7 @@
         <tbody>
             <tr><td>Device in low power mode</td><td>Press any button to wake it</td></tr>
             <tr><td>Already connected elsewhere</td><td>Disconnect from other phone first</td></tr>
-            <tr><td>Device name filter wrong</td><td>Should be <code>"Traxelos"</code></td></tr>
+            <tr><td>Device not advertising as expected</td><td>Device advertises as <code>"Traxelos_One"</code></td></tr>
             <tr><td>Android location permission</td><td>Request <code>ACCESS_FINE_LOCATION</code></td></tr>
         </tbody>
     </table>
@@ -285,7 +286,20 @@ await connect(device);</code></pre>
 
     <hr>
 
-    <h3>1.4 "Missing characteristics"</h3>
+    <h3>1.4 "Device shows as Unknown Device"</h3>
+    <p class="symptom">Connected device displays "Unknown Device" instead of its name in the Bluetooth page</p>
+
+    <p><strong>Root Cause:</strong> Connection happened without a prior BLE scan (auto-reconnect or connecting from Paired Devices page). The device wasn't in the <code>discoveredDevices</code> list, so the fallback name was used.</p>
+
+    <p><strong>Fix Applied:</strong> The bloc now checks <code>pairedDevices</code> for the user-assigned name before falling back to a generic name. This covers auto-reconnect and Paired Devices page connections.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Any connection path that skips scanning (direct connect by MAC address) won't have scan result data. Always check alternative name sources (paired devices, cached names) before using a fallback.
+    </div>
+
+    <hr>
+
+    <h3>1.5 "Missing characteristics"</h3>
     <p class="symptom">Service discovery succeeds but can't find expected characteristics</p>
 
     <p><strong>Verify these UUIDs:</strong></p>
@@ -319,8 +333,8 @@ await connect(device);</code></pre>
     <p><strong>Resolution Flow:</strong></p>
     <ol>
         <li>App receives <code>{"status":"conflict","device_seq":N}</code></li>
-        <li>App shows conflict dialog to user</li>
-        <li>User confirms override</li>
+        <li>App shows conflict dialog to user (includes device name and ID for multi-device identification)</li>
+        <li>User confirms override ("Sync Now") or cancels (disconnects)</li>
         <li>App sends: <code>override_start</code> &rarr; <code>override_chunk(s)</code> &rarr; <code>override_end</code></li>
         <li>Device responds: <code>{"status":"override_complete"}</code></li>
         <li>Device shows "SYNCED", buttons re-enabled</li>
@@ -432,6 +446,19 @@ For new items (deviceItemId not found):
 
     <p><strong>Potential data loss:</strong> If power is cut suddenly, up to 9 increments may be lost.</p>
     <p><strong>Mitigation:</strong> The 5-minute periodic flush reduces this window.</p>
+
+    <hr>
+
+    <h3>3.4 "Released item counts restored after reconnect"</h3>
+    <p class="symptom">Device disconnects, item is released from app, device reconnects &mdash; the released item's count in Firestore gets overwritten with the device's stale count</p>
+
+    <p><strong>Root Cause:</strong> The <code>_onMessageReceived</code> guard only blocked messages during <code>staleClaim</code> status. Firmware sends prefs automatically 100ms after handshake (during <code>handshaking</code> status), before the BLoC processes <code>HandshakeCompleted</code> and detects stale claims. The prefs &mdash; containing stale counts for the released item &mdash; were written to Firestore before the stale claim guard was set.</p>
+
+    <p><strong>Fix Applied:</strong> Changed the message guard from checking specifically for <code>staleClaim</code> to checking <code>!isOnline</code> (only <code>synced</code> status allows messages through). This ensures no device data is processed until the handshake is fully complete and stale claims are resolved.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Guards on specific enum values are fragile &mdash; guard on the positive condition (<code>isOnline</code>) rather than individual negative states. New states added later (e.g., <code>setup</code>, <code>wrongAccount</code>) get protection automatically.
+    </div>
 
     <!-- ===== Section 4: Notification Issues ===== -->
     <h2 id="notification-issues">4. Notification Issues</h2>
@@ -654,19 +681,27 @@ if (buffer.contains('\n')) {
     <h2 id="diagnostic-tools">8. Diagnostic Tools</h2>
 
     <h3>8.1 App-side Logging</h3>
+    <p>Use <code>AppLogger</code> from <code>core/utils/logger.dart</code> (never raw <code>print</code>/<code>debugPrint</code>):</p>
     <pre><code>// Log raw received bytes
 notifyStream.listen((data) {
-  debugPrint('BLE RX (${data.length} bytes): ${String.fromCharCodes(data)}');
+  AppLogger.debug('BLE RX (${data.length} bytes): ${String.fromCharCodes(data)}');
 });
 
 // Log parsed messages
-debugPrint('BLE MSG: ${message.type} - ${jsonEncode(message.data)}');
+AppLogger.debug('BLE MSG: ${message.type} - ${jsonEncode(message.data)}');
 
 // Log commands sent
-debugPrint('BLE TX: $command');</code></pre>
+AppLogger.debug('BLE TX: $command');</code></pre>
+    <p>All <code>AppLogger</code> output is compiled out in release builds (guarded by <code>kDebugMode</code>).</p>
 
     <h3>8.2 Device-side Logging</h3>
-    <p>Connect serial monitor at 115200 baud. Firmware logs:</p>
+    <p>Firmware serial logging is <strong>off by default</strong>. To enable:</p>
+    <ol>
+        <li>Uncomment <code>#define DEBUG</code> at the top of <code>Trackwise_ESP32.ino</code></li>
+        <li>Flash firmware</li>
+        <li>Connect serial monitor at 115200 baud</li>
+    </ol>
+    <p>Firmware logs (when DEBUG enabled):</p>
     <ul>
         <li>All BLE events</li>
         <li>Command parsing</li>
@@ -713,15 +748,17 @@ debugPrint('BLE TX: $command');</code></pre>
 
     <hr>
 
-    <h3>9.2 "Sync debounce swallows changes"</h3>
-    <p class="symptom">Item config changed but device never updates</p>
+    <h3>9.2 "Duplicate prefs sent after item move"</h3>
+    <p class="symptom">Moving an item out of the selected item's category sends prefs correctly, but the next count increment triggers another unnecessary prefs send</p>
 
-    <p><strong>Root Cause:</strong> Debounce logic updated the signature even when skipping the sync.</p>
+    <p><strong>Root Cause:</strong> Debounce logic skipped the sync <strong>and</strong> skipped updating the signature. The Firestore stream confirmation arrived within 500ms (debounced), but with slightly different <code>categoryOrder</code> values than the optimistic state. The stale <code>_lastSyncedSignature</code> persisted, and the next unrelated state change (count increment) saw a mismatch and triggered a duplicate sync.</p>
 
-    <p><strong>Fix Applied:</strong> Only update <code>_lastSyncedSignature</code> after a successful sync, never during debounce.</p>
+    <p><strong>Pattern:</strong> Move triggers sync (signature updated) &rarr; Firestore confirms within 500ms with reordered <code>categoryOrder</code> &rarr; debounce skips sync AND skips signature update &rarr; next <code>buildWhen</code> (from count increment) sees stale signature mismatch &rarr; unnecessary duplicate sync.</p>
+
+    <p><strong>Fix Applied:</strong> Always update <code>_lastSyncedSignature</code> and <code>_lastSyncedCategoryId</code> regardless of debounce. Only the actual send is debounced.</p>
 
     <div class="lesson">
-        <strong>Key Lesson:</strong> Debounce should defer work, not discard it. Never mark state as "done" when you skipped the work.
+        <strong>Key Lesson:</strong> Debounce should defer sending, not defer acknowledging state. Always update the baseline signature so future comparisons are against the latest known state.
     </div>
 
     <hr>
@@ -960,6 +997,194 @@ debugPrint('BLE TX: $command');</code></pre>
         <strong>Note:</strong> Existing reset events already in Firestore with the wrong field names will still not appear. They would need a Firestore migration or manual fix.
     </div>
 
+    <!-- ===== Section 10: Multi-Device / Exclusive Leasing Issues ===== -->
+    <h2 id="multi-device">10. Multi-Device / Exclusive Leasing Issues</h2>
+
+    <h3>10.1 "Can't edit or delete an item &mdash; actions are grayed out"</h3>
+    <p class="symptom">Swipe actions for Edit and Delete are gray and unresponsive</p>
+
+    <p><strong>Root Cause:</strong> The item is claimed by a device that is currently offline. In multi-device mode, offline-claimed items are locked to prevent conflicts.</p>
+
+    <p><strong>Resolution:</strong></p>
+    <ol>
+        <li>Reconnect the claiming device &mdash; edit/delete become available</li>
+        <li>Or force-release: swipe the item, tap <strong>Unlock</strong>, confirm the break-glass warning (unsynced counts will be lost)</li>
+    </ol>
+
+    <hr>
+
+    <h3>10.2 "No device colors or name subtitles showing"</h3>
+    <p class="symptom">Items show no colored left border and no device name subtitle, even though multiple devices are paired</p>
+
+    <p><strong>Root Cause:</strong> Multi-device UI only activates when <strong>2+ devices are simultaneously connected</strong> (<code>connectedDevices.length >= 2</code>). Having 2 paired devices but only 1 connected = single-device mode.</p>
+
+    <p><strong>Resolution:</strong> Connect a second device. Color tinting and claim UI appear automatically.</p>
+
+    <hr>
+
+    <h3>10.3 "Force-released item &mdash; device reconnects and shows conflict"</h3>
+    <p class="symptom">After break-glass releasing an item and its device reconnects, the sync conflict dialog appears</p>
+
+    <div class="note">
+        <strong>This is expected behavior.</strong> The device's <code>sync_seq</code> no longer matches the app. Choose:
+    </div>
+    <ul>
+        <li><strong>Sync Now</strong> &mdash; overwrites device with app data (unsynced counts are lost, as warned in the break-glass dialog)</li>
+        <li><strong>Cancel</strong> &mdash; disconnects without syncing</li>
+    </ul>
+
+    <hr>
+
+    <h3>10.4 "Device only shows some items after claiming"</h3>
+    <p class="symptom">After activating an item on a device, the device only shows items from that category that are unclaimed or claimed by this device</p>
+
+    <div class="note">
+        <strong>This is by design.</strong> In multi-device mode, <code>SendItemsToDevice</code> filters to <code>claimedBy == null || claimedBy == thisDevice</code> within the category. Each device only sees its own items.
+    </div>
+
+    <hr>
+
+    <h3>10.5 "Item switch is slow / claim colors update sequentially"</h3>
+    <p class="symptom">When tapping a different item to switch the device's active item, the UI feels slow. The new item gets the claim color first, then the old item loses its color a moment later (or vice versa). Multiple unclaimed items may also show device colors.</p>
+
+    <p><strong>Root Cause (slowness):</strong> <code>_onClaimItem</code> in <code>bluetooth_bloc.dart</code> was <code>await</code>ing the <code>atomicClaimSwap</code> Firestore transaction (~200&ndash;500ms network round-trip), blocking the entire BLoC event queue.</p>
+
+    <p><strong>Root Cause (sequential colors):</strong> During a switch A&rarr;B, BLoC <code>selectedItemId</code> updates instantly but Firestore <code>claimedBy</code> takes 200&ndash;500ms. Without suppression, both old item (via <code>claimedBy</code>) and new item (via <code>selectedItemId</code>) show color simultaneously during that window.</p>
+
+    <p><strong>Root Cause (stale claims on multiple items):</strong> <code>_claimForDevice</code> sourced <code>previousItemId</code> from BLoC <code>selectedItemId</code>, which can be null on first activation after reconnect. When null, <code>atomicClaimSwap</code> claimed the new item but never released the old one, causing <code>claimedBy</code> to accumulate on multiple items.</p>
+
+    <p><strong>Fix Applied (3 layers):</strong></p>
+    <ol>
+        <li><strong>Fire-and-forget claim:</strong> <code>_onClaimItem</code> no longer awaits the Firestore transaction. The <code>SendSelectedItem</code> optimistic emit updates BLoC state instantly. Firestore writes run in the background; <code>watchItems</code> confirms when done. On failure, a corrective <code>RefreshDeviceItems</code> push reverts the device.</li>
+        <li><strong>Reliable <code>previousItemId</code>:</strong> <code>_claimForDevice</code> now finds the previous claim from the in-memory items list (<code>itemsState.items.firstWhere(i.claimedBy == deviceId)</code>) instead of BLoC <code>selectedItemId</code>. This is an O(n) in-memory scan with zero network cost, and always reflects actual Firestore state from the <code>watchItems</code> stream.</li>
+        <li><strong>Stale claim suppression:</strong> <code>items_list_page.dart</code> suppresses the old item's <code>claimedBy</code> color when the claiming device is online and has actively selected a different item (<code>claimBeingReleased</code>). Safe because:
+            <ul>
+                <li><strong>Offline devices:</strong> suppression doesn't apply (gated on <code>isOnline</code>)</li>
+                <li><strong>No selection yet:</strong> suppression doesn't apply (gated on <code>selectedItemId != null</code>)</li>
+                <li><strong>Matching selection:</strong> suppression doesn't apply (<code>selectedItemId == item.id</code>)</li>
+            </ul>
+        </li>
+    </ol>
+
+    <p>Both items re-render in the same frame: new item gains color via <code>isActivated</code>, old item loses color via <code>claimBeingReleased</code>.</p>
+
+    <p><strong>Ownership check in <code>atomicClaimSwap</code>:</strong> The transaction reads <code>previousItemId</code> and verifies <code>claimed_by == deviceInstanceId</code> before releasing. Prevents releasing another device's claim on the failure-recovery path (corrective push &rarr; device echo &rarr; re-claim with stale <code>previousItemId</code>).</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When using optimistic local state to suppress server-authoritative UI, gate the suppression on connection status. <code>selectedItemId</code> and <code>claimedBy</code> diverge when devices go offline &mdash; suppression must only apply to online devices with an active selection. Separately, always source <code>previousItemId</code> from the actual data (items list), not from derived BLoC state that may be null or stale.
+    </div>
+
+    <hr>
+
+    <h3>10.6 "Claim color disappears when second device connects"</h3>
+    <p class="symptom">Device 1 has a claimed item with color. Connect device 2 &rarr; device 1's item list updates but claimed item loses its color.</p>
+
+    <p><strong>Root Cause:</strong> <code>watchNotifications(deviceId)</code> in <code>BluetoothDataSourceImpl</code> returned the global <code>_messageController.stream</code>, <strong>ignoring the deviceId parameter</strong>. All BLE notifications from all devices went through a single shared stream. When device 2's ESP32 sent prefs during handshake, device 1's <code>_subscribeToMessages</code> subscription also received the message and attributed it to device 1. Device 2's selected item overwrote device 1's <code>selectedItemId</code> in BLoC state, which triggered <code>claimBeingReleased</code> on device 1's claimed item.</p>
+
+    <p><strong>Fix Applied:</strong> Route parsed BLE messages to <code>conn.messageController</code> (per-device stream, already existed on <code>DeviceConnection</code> but was unused). <code>watchNotifications(deviceId)</code> now returns the per-device stream. The global <code>_messageController</code> is still populated for the handshake command-response listener.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When multiplexing BLE connections through a shared datasource singleton, ensure each device's notification stream is isolated. A single shared stream works fine for single-device mode but silently breaks in multi-device &mdash; every device's subscription fires for every other device's messages.
+    </div>
+
+    <hr>
+
+    <h3>10.7 "Drag-and-drop reorder doesn't update devices in multi-device mode"</h3>
+    <p class="symptom">Reordering items via drag-and-drop works for a single device, but when 2+ devices are connected, the new order is not pushed to any device</p>
+
+    <p><strong>Root Cause:</strong> <code>_checkDeviceSync</code> in <code>items_list_page.dart</code> had <code>if (connectedDevices.length > 1) return;</code> &mdash; it bailed out entirely in multi-device mode. A comment stated "BLoC handles all pushes via RefreshDeviceItemsUseCase" but nothing actually triggered a push after reorder.</p>
+
+    <p><strong>Fix Applied:</strong> Added <code>RefreshAllDevices</code> event. In multi-device mode, <code>_checkDeviceSync</code> dispatches <code>RefreshAllDevices</code> instead of the single-device <code>SendItemsToDevice</code> path. <code>_onRefreshAllDevices</code> calls <code>_pushToAllDevices()</code>, which sends each device its claim-filtered item list in the updated order.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When guarding a code path with "handled elsewhere", verify something actually invokes that other path. The comment was aspirational &mdash; the BLoC had no trigger for reorder-driven pushes in multi-device mode.
+    </div>
+
+    <hr>
+
+    <h3>Wrong items pushed when moving selected item to Uncategorized (multi-device)</h3>
+    <p class="symptom">With 2+ devices connected, dragging a device's selected item to the Uncategorized category pushes the <strong>old</strong> category's items to the device instead of Uncategorized items. Moving between named categories works fine.</p>
+
+    <p><strong>Root Cause:</strong> In <code>RefreshDeviceItemsUseCase</code>, the category resolution used <code>selectedItem?.categoryId ?? params.categoryId ?? ''</code>. The <code>?.</code> + <code>??</code> chain treated Uncategorized (<code>categoryId == null</code>) the same as "no selected item", falling through to <code>params.categoryId</code> &mdash; the <strong>cached old category</strong>.</p>
+
+    <p><strong>Fix Applied:</strong> Changed to an explicit null check: <code>selectedItem != null ? (selectedItem.categoryId ?? '') : (params.categoryId ?? '')</code>. Now when a selected item exists, its category is always used &mdash; even if null (Uncategorized &rarr; <code>''</code>).</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Dart's <code>?.</code> + <code>??</code> chain conflates "object is null" with "object exists but field is null". When <code>null</code> is a meaningful domain value (Uncategorized), use explicit null checks instead.
+    </div>
+
+    <hr>
+
+    <h3>10.8 "Claiming an item pushes to devices in other categories"</h3>
+    <p class="symptom">With 2+ devices connected to different categories, claiming an item for device A also sends a BLE item push to device B (different category). Device B flickers or re-renders unnecessarily.</p>
+
+    <p><strong>Root Cause (two bugs):</strong></p>
+    <ol>
+        <li><strong>Signature format mismatch.</strong> <code>_claimForDevice</code> in <code>items_list_page.dart</code> set <code>_lastSyncedSignature</code> using only the claiming device's <strong>category items sorted by <code>categoryOrder</code></strong>. But <code>_checkDeviceSync</code> in multi-device mode computes a <strong>global signature</strong> (ALL items sorted by <code>id</code>). These are fundamentally different strings, so the Firestore echo after <code>atomicClaimSwap</code> still triggered a "signature changed" detection.</li>
+        <li><strong>Empty affected set treated as "push all".</strong> <code>_computeAffectedCategories</code> correctly found zero affected categories. But the code passed <code>affected.isNotEmpty ? affected : null</code>, turning the empty set into <code>null</code>. <code>_pushToAllDevices(affectedCategories: null)</code> has no filter &rarr; pushes to every device.</li>
+    </ol>
+
+    <p><strong>Fix Applied:</strong></p>
+    <ul>
+        <li><code>_claimForDevice</code> now sets <code>_lastSyncedSignature</code> using the same global format (all items sorted by <code>id</code>) in multi-device mode, preventing false signature mismatches</li>
+        <li><code>_checkDeviceSync</code> now skips the push entirely when <code>affected</code> is empty &mdash; no affected categories means nothing to send</li>
+    </ul>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> When multiple code paths maintain a shared variable (<code>_lastSyncedSignature</code>), they must use the <strong>same format</strong>. A category-scoped signature and a global signature will always disagree. Separately, when converting an empty set to null for "no filter" semantics, question whether "no categories affected" should mean "push everything" or "push nothing".
+    </div>
+
+    <hr>
+
+    <h3>10.9 "Items pushed to device after unpair and re-pair"</h3>
+    <p class="symptom">After unpairing a device from the app and reconnecting (without factory reset), all items are pushed to the device instead of starting empty</p>
+
+    <p><strong>Root Cause:</strong> The handshake returned <code>in_sync</code> (not <code>conflict</code> or <code>uninitialized</code>) because the device still had the old UID and a matching <code>sync_seq</code>. The <code>_onHandshakeCompleted</code> handler for <code>in_sync</code> assumed the device was known.</p>
+
+    <p><strong>Three issues found:</strong></p>
+    <ol>
+        <li><strong><code>in_sync</code> path:</strong> <code>_onHandshakeCompleted</code> didn't check if the device was still in <code>pairedDevices</code>. An unpaired device returning <code>in_sync</code> was treated as a known device.</li>
+        <li><strong><code>conflict</code> path:</strong> <code>_onConfirmSyncOverride</code> always sent all Firestore items, even for re-paired devices that should start empty.</li>
+        <li><strong>Stale active item chip:</strong> After empty-start re-pairing, the UI showed the previously active item in the pill button due to <code>appUiState.activeItemId</code> persisted in SharedPreferences.</li>
+    </ol>
+
+    <p><strong>Fix Applied:</strong></p>
+    <ul>
+        <li><code>_onHandshakeCompleted</code>: Added <code>isKnownDevice</code> check &mdash; if <code>in_sync</code> but device NOT in <code>pairedDevices</code>, redirect to <code>DeviceSetupRequired</code> (empty start)</li>
+        <li><code>_onConfirmSyncOverride</code>: Added <code>isAlreadyPaired</code> check with <code>startEmpty: !isAlreadyPaired</code></li>
+        <li><code>_buildActiveItemChips</code>: Added <code>connectedDevices.isEmpty</code> guard to the SharedPreferences fallback path</li>
+    </ul>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> An unpaired device retains its old UID and <code>sync_seq</code> in NVS. The handshake compares <code>sync_seq</code> values and returns <code>in_sync</code> if they match &mdash; it doesn't know the app unpaired the device. Always check <code>pairedDevices</code> membership before trusting the handshake status.
+    </div>
+
+    <hr>
+
+    <h3>10.10 "New account auto-connects to factory reset device"</h3>
+    <p class="symptom">User deletes their account, creates a new account, and the app automatically connects to a nearby factory-reset device without user action</p>
+
+    <p><strong>Root Cause:</strong> <code>BluetoothBloc</code> is a <code>@lazySingleton</code> &mdash; it persists across account deletion and creation, never recreated by DI. The previous account's <code>_cleanupDevice</code> only iterated <code>state.connectedDevices</code> (currently connected devices). If a device had already disconnected but had a pending reconnect timer in <code>_devicesToReconnect</code>, that timer survived account deletion and fired on the new account.</p>
+
+    <p><strong>Fix Applied:</strong> Added <code>ResetBluetoothState</code> event that comprehensively clears all in-memory BLoC state: <code>_reconnectTimers</code>, <code>_reconnectAttempts</code>, <code>_manualDisconnects</code>, <code>_devicesToReconnect</code>, <code>_claimQueues</code>, <code>_deviceCategories</code>, <code>_connectionSubscriptions</code>, <code>_messageSubscriptions</code>, and disconnects all active connections. Both account deletion and sign-out flows now dispatch <code>ResetBluetoothState</code> instead of per-device <code>DisconnectFromDevice</code>.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Singletons that manage timers, subscriptions, or reconnect state must be fully reset on account lifecycle events. Cleaning up only "currently connected" state misses pending timers and queued reconnects for devices that disconnected before the cleanup ran.
+    </div>
+
+    <hr>
+
+    <h3>10.11 "Scan results show non-Traxelos devices"</h3>
+    <p class="symptom">The BLE scan page shows unrelated Bluetooth devices (headphones, speakers, etc.) alongside Traxelos devices</p>
+
+    <p><strong>Root Cause:</strong> <code>FlutterBluePlus.startScan()</code> was called without a service UUID filter, so it returned all advertising BLE devices.</p>
+
+    <p><strong>Fix Applied:</strong> Added <code>withServices: [Guid(BluetoothConstants.serviceUUID)]</code> to <code>startScan()</code>. The OS-level filter only returns devices advertising the Traxelos service UUID, eliminating non-Traxelos devices from results.</p>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Always filter BLE scans by service UUID when targeting specific peripherals. OS-level filtering is more efficient than post-scan name filtering and prevents user confusion.
+    </div>
+
     <!-- Quick Reference -->
     <h2>Quick Reference: Error &rarr; Solution</h2>
 
@@ -967,6 +1192,7 @@ debugPrint('BLE TX: $command');</code></pre>
         <thead><tr><th>Error/Symptom</th><th>First Thing to Check</th></tr></thead>
         <tbody>
             <tr><td>Can't find device</td><td>Is it powered on? Already connected elsewhere?</td></tr>
+            <tr><td>Unknown Device name</td><td>Connecting without scan &mdash; check paired devices lookup</td></tr>
             <tr><td>GATT 133</td><td>Stop scan, wait 2s, then connect</td></tr>
             <tr><td>Conflict status</td><td>Expected &mdash; complete override protocol</td></tr>
             <tr><td>Wrong account</td><td>Factory reset device or use correct account</td></tr>
@@ -977,24 +1203,35 @@ debugPrint('BLE TX: $command');</code></pre>
             <tr><td>Daily reset wrong time</td><td>Check timezone offset</td></tr>
             <tr><td>Device not responding</td><td>Check conflict state and command format</td></tr>
             <tr><td>New item not on device</td><td>Firestore stream timing &mdash; check includeItem path</td></tr>
+            <tr><td>Edit/Delete grayed out</td><td>Item claimed by offline device &mdash; reconnect or force-release</td></tr>
+            <tr><td>No device colors showing</td><td>Need 2+ devices connected simultaneously</td></tr>
+            <tr><td>Conflict after force-release</td><td>Expected &mdash; choose Sync Now to overwrite device</td></tr>
             <tr><td>Override selects wrong item</td><td>Check AppUiState vs BluetoothState selectedItemId sync</td></tr>
-            <tr><td>Wrong category after drag</td><td>Check <code>_lastSyncedSignature</code> null after <code>ItemsLoading</code></td></tr>
-            <tr><td>Wrong category after reset</td><td>Ensure sync goes through <code>syncItemsToDevice()</code></td></tr>
-            <tr><td>Items missing deviceItemId</td><td>Use <code>fromFirestore</code> + <code>copyWith</code></td></tr>
+            <tr><td>Wrong category after drag</td><td>Check <code>_lastSyncedSignature</code> null after <code>ItemsLoading</code> transition</td></tr>
+            <tr><td>Wrong category after reset</td><td>Ensure sync goes through <code>syncItemsToDevice()</code>, not raw <code>SendItemsToDevice</code></td></tr>
+            <tr><td>Dialog shows twice</td><td>Guard <code>BlocConsumer.listener</code> with <code>listenWhen</code> or tracking boolean</td></tr>
+            <tr><td>Items missing deviceItemId</td><td>Use <code>fromFirestore</code> + <code>copyWith</code>, not manual <code>ItemModel(...)</code></td></tr>
             <tr><td>Multiple items with id=0</td><td>Check device_item_id in Firestore (null?)</td></tr>
-            <tr><td>Unnecessary sync after navigation</td><td><code>_lastSyncedSignature</code> null &mdash; needs <code>_initSyncTracking</code></td></tr>
-            <tr><td>Device stale after category deletion</td><td>Sync from <code>manage_categories_page</code></td></tr>
-            <tr><td>Empty list after deleting viewed category</td><td>Reset BLoC filter with <code>FilterByCategoryEvent(null)</code></td></tr>
-            <tr><td>Duplicate device sync</td><td>Explicit sync missing tracking update</td></tr>
+            <tr><td>Drag reorder not updating devices</td><td>Multi-device needs <code>RefreshAllDevices</code>, not <code>SendItemsToDevice</code></td></tr>
+            <tr><td>Unnecessary sync after navigation</td><td><code>_lastSyncedSignature</code> null after <code>ItemsLoading</code> &mdash; needs <code>_initSyncTracking</code></td></tr>
+            <tr><td>Device stale after category deletion</td><td>Sync from <code>manage_categories_page</code>, not <code>buildWhen</code> (page disposed on tab switch)</td></tr>
+            <tr><td>Empty list after deleting viewed category</td><td>Reset BLoC filter with <code>FilterByCategoryEvent(null)</code> when category is gone</td></tr>
+            <tr><td>Duplicate device sync</td><td>Explicit sync missing tracking update &mdash; <code>buildWhen</code> re-syncs on stream</td></tr>
             <tr><td>Sync silently lost</td><td>Check debounce signature update logic</td></tr>
             <tr><td>S button crosses categories</td><td>Check if sync path filters by selected category</td></tr>
             <tr><td>Categories stop updating</td><td>Stream killed by rethrow &mdash; use <code>onErrorResume</code> not <code>handleError</code></td></tr>
             <tr><td>Email empty after Google sign-in</td><td><code>getProfile()</code> missing email in <code>copyWith()</code> merge</td></tr>
             <tr><td>Sticky header wrong category</td><td><code>_calculateStickyCategory</code> ignores empty categories &mdash; must match list layout</td></tr>
-            <tr><td>Dialog shows twice</td><td>Guard <code>BlocConsumer.listener</code> with <code>listenWhen</code> or tracking boolean</td></tr>
+            <tr><td>Wrong items after drag to Uncategorized</td><td><code>?.</code> + <code>??</code> chain treats null categoryId as "no item" &mdash; use explicit null check</td></tr>
             <tr><td>Device wiped but account not deleted</td><td>Cleanup must run AFTER <code>user.delete()</code> &mdash; see ADR-004</td></tr>
             <tr><td>Previous cycle shows "Now" after reset</td><td>Stale events &mdash; <code>_updateIntervalsFromEvents</code> patches endTime from <code>_lastResetTime</code></td></tr>
             <tr><td>Reset events missing from export</td><td>Field name mismatch &mdash; <code>'eventName'</code> vs <code>'event_name'</code> in <code>resetAllItems()</code> batch write</td></tr>
+            <tr><td>Item switch slow / colors flicker</td><td>Fire-and-forget claim + reliable <code>previousItemId</code> from items list + <code>claimBeingReleased</code> suppression</td></tr>
+            <tr><td>Colors vanish on 2nd device connect</td><td><code>watchNotifications</code> was returning global stream &mdash; per-device <code>conn.messageController</code> now used</td></tr>
+            <tr><td>Claim pushes to other categories</td><td>Signature format mismatch + empty affected set &rarr; null &rarr; unfiltered push &mdash; see 10.8</td></tr>
+            <tr><td>Items pushed after re-pair</td><td><code>in_sync</code> but device not in <code>pairedDevices</code> &mdash; redirect to DeviceSetupRequired &mdash; see 10.9</td></tr>
+            <tr><td>Auto-connect after account change</td><td>Stale reconnect timers in singleton BLoC &mdash; <code>ResetBluetoothState</code> clears all timers &mdash; see 10.10</td></tr>
+            <tr><td>Scan shows non-Traxelos devices</td><td>Missing service UUID filter on <code>startScan()</code> &mdash; add <code>withServices</code> &mdash; see 10.11</td></tr>
         </tbody>
     </table>
 

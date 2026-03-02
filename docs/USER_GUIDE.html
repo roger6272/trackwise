@@ -284,16 +284,16 @@
     <p class="tip">You can also sign in with Google (or Apple on iOS) for faster setup.</p>
 
     <h3>Step 3: Complete Onboarding</h3>
-    <p>After creating your account, you'll see a welcome screen:</p>
+    <p>After creating your account, a guided setup walks you through four steps:</p>
     <div class="steps">
         <ol>
-            <li>Enter your name (optional)</li>
-            <li>Select your primary use case (e.g., Habit Tracking, Inventory)</li>
-            <li>Indicate how you heard about us (optional)</li>
-            <li>Tap <span class="ui">Complete</span></li>
+            <li><strong>Your Profile</strong> &mdash; Enter your name, select your primary use case (e.g., Habit Tracking, Inventory), and how you heard about us. All fields are optional.</li>
+            <li><strong>Welcome to Traxelos One</strong> &mdash; A quick overview of how it works, what you need, and what comes next.</li>
+            <li><strong>Find Your Device</strong> &mdash; The app scans for your Traxelos One via Bluetooth. Tap your device in the list to connect and pair it. <em>(Tap "I don't have a device yet" to skip.)</em></li>
+            <li><strong>You're All Set!</strong> &mdash; A confirmation screen showing your paired device. Tap <span class="ui">Get Started</span> to enter the app. <em>(Only shown if you paired a device in the previous step.)</em></li>
         </ol>
     </div>
-    <p class="tip">You can skip this step and go straight to the app.</p>
+    <p class="tip">You can skip any step &mdash; tap "Skip for now" to move on or finish early.</p>
 
     <h3>Step 4: Sign In</h3>
     <p>If you already have an account:</p>
@@ -333,26 +333,41 @@
             </li>
             <li><strong>Select your device</strong>
                 <ul>
-                    <li>Tap the device name to connect</li>
+                    <li>Tap the device name to connect (already-paired devices are hidden from scan results)</li>
                     <li>If this is a new device, you'll see a <strong>"New Device Detected"</strong> setup dialog &mdash; tap <span class="ui">Set Up</span> to pair</li>
                 </ul>
             </li>
             <li><strong>You're connected!</strong>
                 <ul>
-                    <li>The app returns to the home screen</li>
-                    <li>Check the Bluetooth tab to verify &mdash; it will show "Connected"</li>
+                    <li>The device is now paired but starts with <strong>no items and no selection</strong></li>
+                    <li>Go to the <strong>Home</strong> screen and tap an item to claim it for the device &mdash; this assigns the device to that item's category</li>
+                    <li>The Bluetooth icon in the bottom navigation turns <strong>green</strong> to indicate an active connection</li>
+                    <li>The device is automatically named "Traxelos One (1)", "Traxelos One (2)", etc. based on how many devices you've paired</li>
                 </ul>
             </li>
         </ol>
     </div>
 
+    <h3>Re-pairing a Previously Unpaired Device</h3>
+    <p>If you unpair a device and later reconnect to it (without factory resetting), the app treats it as a fresh setup:</p>
+    <ul>
+        <li>The device starts <strong>empty</strong> with no items &mdash; same as first-time pairing</li>
+        <li>A new entry is added to your paired devices list with the next auto-numbered name</li>
+        <li>Any items previously on the device are cleared</li>
+    </ul>
+    <p class="tip">To fully reset the device before pairing to a different account, use <a href="#factory-reset">Factory Reset</a>.</p>
+
     <h3>Reconnecting</h3>
-    <p>If your device disconnects unexpectedly during a session, the app will automatically try to reconnect. If it doesn't reconnect:</p>
+    <p>If your device disconnects unexpectedly, the app will automatically try to reconnect with increasing intervals. You'll see:</p>
+    <ul>
+        <li><strong>"Device disconnected. Reconnecting..."</strong> notification when the connection drops</li>
+        <li><strong>"Reconnected to device"</strong> notification when it reconnects successfully</li>
+    </ul>
+    <p>If auto-reconnect doesn't work:</p>
     <div class="steps">
         <ol>
-            <li>Go to the <strong>Bluetooth tab</strong></li>
-            <li>Tap <span class="ui">Find Device</span></li>
-            <li>Select your device from the list</li>
+            <li>Go to <strong>Account &gt; Paired Devices</strong> and tap your device to reconnect (no scan needed)</li>
+            <li>Or go to <strong>Bluetooth &gt; Find Device</strong> and select your device from the scan list (already-paired devices are hidden &mdash; use the Paired Devices page instead)</li>
         </ol>
     </div>
 
@@ -360,8 +375,8 @@
     <p>To manually disconnect:</p>
     <div class="steps">
         <ol>
-            <li>Go to the <strong>Bluetooth tab</strong></li>
-            <li>Tap <span class="ui">Disconnect</span></li>
+            <li>Go to <strong>Account &gt; Paired Devices</strong> and tap the three-dot menu &gt; <strong>Disconnect</strong></li>
+            <li>Or go to the <strong>Bluetooth tab</strong> and tap <span class="ui">Disconnect</span></li>
         </ol>
     </div>
 
@@ -455,7 +470,11 @@
             <li>The app updates automatically</li>
         </ol>
     </div>
+    <div class="note">
+        When you first connect, a brief <strong>"Syncing..."</strong> indicator appears on the items list while your counts update from the device. This disappears once sync is complete.
+    </div>
     <p class="tip">You'll feel a triple vibration when you reach an item's goal, or a single vibration when a reminder condition is met (see <a href="#setting-reminders">Setting Reminders</a>).</p>
+    <p class="tip">The maximum count for any item is <strong>9,999</strong>. When you reach this limit, the device will display "MAX REACHED" and give a double vibration on each press. Reset the item to continue counting.</p>
 
     <h3>Device Buttons</h3>
 
@@ -652,34 +671,49 @@
     <h3>Item Detail Page</h3>
     <p>Tap any item to see detailed analytics (the page title shows the item name):</p>
     <ul>
-        <li><strong>Current Count</strong> &mdash; Your total and today's count</li>
-        <li><strong>Goal Progress</strong> &mdash; Visual progress ring (if goal set)</li>
-        <li><strong>Charts</strong> &mdash; Visual trends over time</li>
-        <li><strong>Statistics</strong> &mdash; Period total, percent change vs prior period</li>
-        <li><strong>Reset History</strong> &mdash; All your tracking periods (cycles)</li>
+        <li><strong>Count Card</strong> &mdash; Large count with goal progress ring, date info, and config stats (Per Press, Reminder)</li>
+        <li><strong>Cycle Note</strong> &mdash; Optional text note for each cycle (tap to edit, 250 character limit)</li>
+        <li><strong>Activity</strong> &mdash; Charts showing visual trends over time</li>
+        <li><strong>Cycle History</strong> &mdash; Table of all your tracking periods with counts and durations</li>
+        <li><strong>Export shortcut</strong> &mdash; Tap the export icon in the top right to jump directly to the Export page with this item pre-selected</li>
     </ul>
+    <p class="tip">When viewing a historical cycle, the count card shows that cycle's total and date range. Config stats (Per Press, Reminder) appear grayed out since they only apply to the current cycle.</p>
 
     <h3>Understanding Reset Cycles</h3>
     <p>Every time you reset an item's count, a new <strong>cycle</strong> begins. This lets you track progress in separate periods.</p>
-    <p><strong>Example:</strong> If you track push-ups and reset weekly:</p>
+    <p><strong>Example:</strong> If you track push-ups and reset weekly, you'll have:</p>
     <ul>
         <li>Cycle 1: Week 1 counts</li>
         <li>Cycle 2: Week 2 counts</li>
         <li>Current Cycle: This week's counts</li>
     </ul>
+    <p>You can <strong>name your cycles</strong> and <strong>add notes</strong> to remember what each period was about (e.g., "Training block A" or "Started new routine").</p>
 
     <h3>Filtering by Reset Cycle</h3>
-    <p>Use the <span class="ui">Filter by Reset Cycle</span> dropdown to view specific periods:</p>
+    <p>Tap the <strong>cycle selector chip</strong> at the top of the item detail page to open a bottom sheet where you can:</p>
+    <ul>
+        <li><strong>Select a cycle</strong> to view its data</li>
+        <li><strong>Rename cycles</strong> by tapping the edit icon next to any cycle name</li>
+        <li><strong>See All Time</strong> summary across all cycles</li>
+    </ul>
     <table>
         <thead><tr><th>Option</th><th>What It Shows</th></tr></thead>
         <tbody>
             <tr><td><strong>All Time</strong></td><td>Complete history across all cycles</td></tr>
             <tr><td><strong>Current Cycle</strong></td><td>Only counts since your last reset</td></tr>
-            <tr><td><strong>Previous Cycle</strong></td><td>The cycle before current</td></tr>
-            <tr><td><strong>Cycle #</strong></td><td>A specific numbered cycle</td></tr>
+            <tr><td><strong>Previous cycles</strong></td><td>A specific named or numbered cycle</td></tr>
         </tbody>
     </table>
-    <p>The charts and statistics update based on your selected cycle.</p>
+    <p>The charts, statistics, and cycle note update based on your selected cycle.</p>
+
+    <h3>Cycle Notes</h3>
+    <p>Each cycle can have an optional text note (up to 250 characters). Use notes to record context like why you started a new cycle or what changed.</p>
+    <ul>
+        <li>Tap the <strong>"Add a note..."</strong> area below the count card to start writing</li>
+        <li>Tap <strong>Done</strong> or tap outside the text field to save</li>
+        <li>Notes are saved per-cycle and hidden when viewing All Time</li>
+        <li>Notes sync with your account and persist across devices</li>
+    </ul>
 
     <h3>Understanding the Charts</h3>
     <p><strong>Bar Chart</strong> (Activity)</p>
@@ -721,8 +755,8 @@
             <li>Choose an <strong>Aggregation Level</strong>:
                 <ul>
                     <li><strong>Raw</strong> &mdash; every single count event</li>
-                    <li><strong>By Day</strong> &mdash; totals per item per day</li>
-                    <li><strong>By Cycle</strong> &mdash; totals per item per reset cycle</li>
+                    <li><strong>By Day</strong> &mdash; button presses per item per day (resets and initial counts not included)</li>
+                    <li><strong>By Cycle</strong> &mdash; total button presses per item per reset cycle (initial counts not included)</li>
                 </ul>
             </li>
             <li>Configure additional options:
@@ -743,8 +777,8 @@
         <thead><tr><th>Level</th><th>What You Get</th><th>Extra Options</th></tr></thead>
         <tbody>
             <tr><td><strong>Raw</strong></td><td>Every single count event with full timestamp</td><td>Date range picker</td></tr>
-            <tr><td><strong>By Day</strong></td><td>Totals per item per day (reset/created events excluded)</td><td>Date range picker</td></tr>
-            <tr><td><strong>By Cycle</strong></td><td>Totals per item per reset cycle</td><td>All Cycles / Latest Cycle toggle</td></tr>
+            <tr><td><strong>By Day</strong></td><td>Button presses per item per day (resets and initial counts not included)</td><td>Date range picker</td></tr>
+            <tr><td><strong>By Cycle</strong></td><td>Total button presses per item per reset cycle (initial counts not included)</td><td>All Cycles / Latest Cycle toggle</td></tr>
         </tbody>
     </table>
 
@@ -768,6 +802,16 @@
     <!-- Section 11 -->
     <h2 id="managing-your-account">11. Managing Your Account</h2>
 
+    <h3>Dark Mode</h3>
+    <p>Toggle between light and dark themes:</p>
+    <div class="steps">
+        <ol>
+            <li>Go to <strong>Account tab</strong></li>
+            <li>Tap the <strong>Dark Mode</strong> switch</li>
+        </ol>
+    </div>
+    <p>Your preference is saved automatically.</p>
+
     <h3>Editing Your Profile</h3>
     <div class="steps">
         <ol>
@@ -790,34 +834,76 @@
     <ul>
         <li>See all paired devices and their pairing date</li>
         <li>Identify the currently connected device (green indicator)</li>
+        <li><strong>Connect to a device</strong> &mdash; Tap the device tile, or use the three-dot menu &gt; Connect (no scan needed)</li>
+        <li><strong>Disconnect a device</strong> &mdash; Tap the three-dot menu &gt; Disconnect (only shown for connected device)</li>
         <li><strong>Rename a device</strong> &mdash; Tap the three-dot menu &gt; Rename</li>
         <li><strong>Unpair a device</strong> &mdash; Tap the three-dot menu &gt; Unpair</li>
     </ul>
     <p class="tip">After unpairing, factory reset the device before pairing it to another account.</p>
 
     <h3>How Multi-Device Works</h3>
-    <p>You can pair multiple Traxelos One devices to your account, but only <strong>one device can be connected at a time</strong>.</p>
-    <p><strong>Key points:</strong></p>
+    <p>You can pair multiple Traxelos One devices to your account. When <strong>two or more devices are connected simultaneously</strong>, exclusive leasing activates automatically &mdash; each item is assigned to one device at a time.</p>
+
+    <p><strong>Single device connected (classic mode):</strong></p>
     <ul>
-        <li>All your items automatically sync to whichever device is currently connected</li>
-        <li>Items are tied to your <strong>account</strong>, not to a specific device &mdash; switching devices gives you the same items</li>
-        <li>When you connect a different device, it receives the latest data from the app</li>
+        <li>All your items sync to the connected device</li>
+        <li>No color indicators or claim UI &mdash; works exactly as before</li>
     </ul>
+
+    <p><strong>Multiple devices connected (exclusive leasing):</strong></p>
+    <ul>
+        <li>Swipe an item and tap <strong>Activate</strong> to assign it to a device. If multiple devices are online, a <strong>device selector sheet</strong> appears &mdash; tap the device you want</li>
+        <li>Assigned items show a <strong>colored left border</strong> and the <strong>device name</strong> below the item name</li>
+        <li>Each device only sees its own assigned items on the physical buttons</li>
+        <li>To reassign an item, swipe it and tap <strong>Unlock</strong> to release it, then Activate on a different device</li>
+        <li><strong>Per-device active item pills</strong> appear at the top of the items list &mdash; one colored pill per connected device showing each device's currently selected item. Tap a pill to filter to that item's category</li>
+    </ul>
+
+    <p><strong>Changing device colors:</strong></p>
+    <ul>
+        <li>Go to <strong>Paired Devices</strong> page</li>
+        <li>Tap the three-dot menu on a device &gt; <strong>Change Color</strong></li>
+        <li>Pick from 10 colors &mdash; this color appears on item tiles assigned to that device</li>
+    </ul>
+
+    <p><strong>Offline claims (break-glass release):</strong></p>
+    <ul>
+        <li>If a device disconnects, its claimed items show a <strong>grayed color</strong> and "&#183; disconnected" subtitle</li>
+        <li>You cannot edit or delete these items until the device reconnects</li>
+        <li>To force-release: swipe the item and tap <strong>Unlock</strong> &mdash; a warning explains that unsynced counts will be lost when the device reconnects</li>
+    </ul>
+
+    <p><strong>What happens when a device reconnects after force-release:</strong></p>
+    <ul>
+        <li>If you released items while a device was offline, the device reconnects with stale data</li>
+        <li>A <strong>"Stale Claims"</strong> dialog appears listing the items that were released while the device was away</li>
+        <li>Tap <span class="ui">Sync Now</span> to overwrite the device with current app data (any unsynced counts on the device are discarded)</li>
+        <li>This is expected &mdash; the break-glass warning explains this consequence before you release</li>
+    </ul>
+
+    <p><strong>CSV export with device info:</strong></p>
+    <ul>
+        <li>When exporting raw data, toggle <strong>"Include Device Column"</strong> to add a Device column showing which device logged each event</li>
+    </ul>
+
     <div class="danger">
-        <strong>Important:</strong> If you count on Device A while offline, then connect Device B instead, Device A's offline counts become stale. The next time Device A connects, the app's data will overwrite Device A's local data. To avoid losing counts, always <strong>sync your current device before switching to another one</strong>.
+        <strong>Important:</strong> If you force-release an item while its device is offline, any counts on that device since last sync will be discarded when it reconnects. The app will show a sync conflict dialog &mdash; choose "Sync Now" to overwrite the device.
     </div>
 
     <h3>Starting a New Cycle</h3>
     <p>Reset all your counts to start fresh:</p>
     <div class="steps">
         <ol>
-            <li>Connect your device (required &mdash; this option is disabled without a connection)</li>
+            <li>Connect <strong>all paired devices</strong> (the action is blocked if any device is disconnected)</li>
             <li>Go to <strong>Account tab</strong></li>
             <li>Tap <span class="ui">Start New Cycle</span></li>
             <li>Tap <span class="ui">Start New Cycle</span> to confirm</li>
         </ol>
     </div>
-    <p class="tip">This resets all counts to 0 on both app and device.</p>
+    <p class="tip">This resets all counts to 0 on both app and all connected devices.</p>
+    <div class="note">
+        <strong>If a device is disconnected:</strong> You'll see a "Devices Disconnected" dialog listing the offline devices. Connect them or release their claimed items first before starting a new cycle.
+    </div>
 
     <h3>Restoring Deleted Items</h3>
     <div class="steps">
@@ -840,7 +926,7 @@
     </div>
     <p>On this page you can:</p>
     <ul>
-        <li>Review <strong>Quick Tips</strong> for getting the most out of your device</li>
+        <li>Browse <strong>Frequently Asked Questions</strong> about using your device</li>
         <li>Tap <span class="ui">Email Support</span> to contact us directly</li>
     </ul>
     <p><strong>Support Email:</strong> support@digi1st.com</p>
@@ -892,7 +978,7 @@
     <p>Your device has two power modes:</p>
     <ul>
         <li><strong>Active</strong> &mdash; Fast response when you're counting</li>
-        <li><strong>Low Power</strong> &mdash; Saves battery when idle for 30+ seconds</li>
+        <li><strong>Low Power</strong> &mdash; Saves battery when idle for 5+ minutes</li>
     </ul>
     <p>The device switches automatically &mdash; no action needed!</p>
 
@@ -915,10 +1001,11 @@
         <li>Close other Bluetooth-heavy apps</li>
         <li>On Android: Disable battery optimization for Traxelos One</li>
     </ol>
+    <p class="tip">The app will automatically try to reconnect. Watch for the "Reconnecting..." notification and the bottom nav Bluetooth icon (green = connected).</p>
 
     <h3>"My counts aren't syncing"</h3>
     <ol>
-        <li>Check connection status in the Bluetooth tab</li>
+        <li>Check the bottom nav Bluetooth icon &mdash; green means connected</li>
         <li>Disconnect and reconnect your device to trigger a fresh sync</li>
         <li>Pull-to-refresh on the Items page</li>
     </ol>
@@ -956,7 +1043,7 @@
     <h3>Still Need Help?</h3>
     <ol>
         <li>Go to <strong>Account &gt; Help &amp; Support</strong></li>
-        <li>Review the Quick Tips section</li>
+        <li>Browse the FAQ section</li>
         <li>Tap <span class="ui">Email Support</span> to contact us</li>
     </ol>
     <p><strong>Support Email:</strong> support@digi1st.com</p>
@@ -970,7 +1057,7 @@
             <thead><tr><th>Tab</th><th>Icon</th><th>What It Does</th></tr></thead>
             <tbody>
                 <tr><td><strong>Home</strong></td><td>House</td><td>View and manage all items</td></tr>
-                <tr><td><strong>Bluetooth</strong></td><td>Bluetooth</td><td>Connect and manage your device</td></tr>
+                <tr><td><strong>Bluetooth</strong></td><td>Bluetooth (green when connected, default when not)</td><td>Connect and manage your device</td></tr>
                 <tr><td><strong>Account</strong></td><td>Person</td><td>Account, settings, export, support</td></tr>
             </tbody>
         </table>
@@ -1010,9 +1097,9 @@
                 <tr><td>Reorder</td><td>Long press &amp; drag</td></tr>
                 <tr><td>Categories</td><td>Account &gt; Manage Categories</td></tr>
                 <tr><td>Paired Devices</td><td>Account &gt; Paired Devices</td></tr>
-                <tr><td>Export</td><td>Account &gt; Export My Data</td></tr>
+                <tr><td>Export</td><td>Account &gt; Export My Data, or Item Detail &gt; Export icon</td></tr>
                 <tr><td>Restore deleted</td><td>Account &gt; Recently Deleted (requires device)</td></tr>
-                <tr><td>Connect device</td><td>Bluetooth &gt; Find Device</td></tr>
+                <tr><td>Connect device</td><td>Bluetooth &gt; Find Device, or Account &gt; Paired Devices &gt; tap device</td></tr>
                 <tr><td>Sync time</td><td>Automatic on device connect</td></tr>
             </tbody>
         </table>
