@@ -17,6 +17,7 @@
 7. [Performance Issues](#7-performance-issues)
 8. [Diagnostic Tools](#8-diagnostic-tools)
 9. [App-Side Sync Pitfalls](#9-app-side-sync-pitfalls)
+10. [Multi-Device / Exclusive Leasing Issues](#10-multi-device--exclusive-leasing-issues)
 
 ---
 
@@ -975,6 +976,28 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 ---
 
+### 10.10 "New account auto-connects to factory reset device"
+
+**Symptoms:** User deletes their account, creates a new account, and the app automatically connects to a nearby factory-reset device without user action.
+
+**Root Cause:** `BluetoothBloc` is a `@lazySingleton` — it persists across account deletion and creation, never recreated by DI. The previous account's `_cleanupDevice` only iterated `state.connectedDevices` (currently connected devices). If a device had already disconnected but had a pending reconnect timer in `_devicesToReconnect`, that timer survived account deletion and fired on the new account.
+
+**Fix Applied:** Added `ResetBluetoothState` event that comprehensively clears all in-memory BLoC state: `_reconnectTimers`, `_reconnectAttempts`, `_manualDisconnects`, `_devicesToReconnect`, `_claimQueues`, `_deviceCategories`, `_connectionSubscriptions`, `_messageSubscriptions`, and disconnects all active connections. Both account deletion and sign-out flows now dispatch `ResetBluetoothState` instead of per-device `DisconnectFromDevice`.
+
+**Key Lesson:** Singletons that manage timers, subscriptions, or reconnect state must be fully reset on account lifecycle events. Cleaning up only "currently connected" state misses pending timers and queued reconnects for devices that disconnected before the cleanup ran.
+
+### 10.11 "Scan results show non-Traxelos devices"
+
+**Symptoms:** The BLE scan page shows unrelated Bluetooth devices (headphones, speakers, etc.) alongside Traxelos devices.
+
+**Root Cause:** `FlutterBluePlus.startScan()` was called without a service UUID filter, so it returned all advertising BLE devices.
+
+**Fix Applied:** Added `withServices: [Guid(BluetoothConstants.serviceUUID)]` to `startScan()`. The OS-level filter only returns devices advertising the Traxelos service UUID, eliminating non-Traxelos devices from results.
+
+**Key Lesson:** Always filter BLE scans by service UUID when targeting specific peripherals. OS-level filtering is more efficient than post-scan name filtering and prevents user confusion.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -1018,3 +1041,5 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | Colors vanish on 2nd device connect | `watchNotifications` was returning global stream — per-device `conn.messageController` now used |
 | Claim pushes to other categories | Signature format mismatch + empty affected set → null → unfiltered push — see 10.8 |
 | Items pushed after re-pair | `in_sync` but device not in `pairedDevices` — redirect to DeviceSetupRequired — see 10.9 |
+| Auto-connect after account change | Stale reconnect timers in singleton BLoC — `ResetBluetoothState` clears all timers — see 10.10 |
+| Scan shows non-Traxelos devices | Missing service UUID filter on `startScan()` — add `withServices` — see 10.11 |

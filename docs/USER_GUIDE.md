@@ -555,6 +555,12 @@ You can pair multiple Traxelos One devices to your account. When **two or more d
 - You cannot edit or delete these items until the device reconnects
 - To force-release: swipe the item and tap **Unlock** — a warning explains that unsynced counts will be lost when the device reconnects
 
+**What happens when a device reconnects after force-release:**
+- If you released items while a device was offline, the device reconnects with stale data
+- A **"Stale Claims"** dialog appears listing the items that were released while the device was away
+- Tap **"Sync Now"** to overwrite the device with current app data (any unsynced counts on the device are discarded)
+- This is expected — the break-glass warning explains this consequence before you release
+
 **CSV export with device info:**
 - When exporting raw data, toggle **"Include Device Column"** to add a Device column showing which device logged each event
 

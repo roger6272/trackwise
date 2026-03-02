@@ -489,19 +489,18 @@ Per-Item (index 0-99):              Global:
         <h3>2.3 App State (BLoC)</h3>
 
         <pre><code>class BluetoothState {
-  // Connection
-  BluetoothConnectionStatus status;
-  BleDeviceEntity? connectedDevice;
+  // Connection (multi-device)
+  BluetoothStatus status;                              // ready, scanning, etc.
+  Map&lt;String, DeviceConnectionState&gt; connectedDevices;  // instanceId → state
+  List&lt;PairedDevice&gt; pairedDevices;                      // all paired devices
+  String? connectingDeviceId;                           // device currently connecting
 
-  // Items (from device during sync, from Firestore otherwise)
-  List&lt;ItemEntity&gt; items;
-  int? selectedItemId;
-
-  // Sync tracking
-  int syncSeq;              // From Firestore
-  int? deviceSyncSeq;       // From handshake response
-  SyncStatus syncStatus;    // in_sync, conflict, etc.
+  // Per-device connection state
+  // DeviceConnectionState tracks: device info, sync status (handshaking,
+  // synced, staleClaim, conflict, etc.), and the device's selected item
 }</code></pre>
+
+        <p><strong>Single-device vs multi-device:</strong> When <code>connectedDevices.length &lt; 2</code>, the app operates in classic single-device mode — no color tinting, no claim UI. When <code>&gt;= 2</code>, exclusive leasing activates: each item can be claimed by one device at a time, and devices only see their claimed items.</p>
 
         <hr>
 

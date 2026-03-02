@@ -1232,12 +1232,15 @@ Formula: `100ms × 2^(attempt+2)` (capped at 3 attempts)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  1. Start BLE scan                                          │
-│  2. Filter by device name: "Traxelos_One"                          │
+│  1. Start BLE scan with service UUID filter                 │
+│     (withServices: [serviceUUID])                           │
+│  2. OS returns only devices advertising Traxelos service    │
 │  3. Collect discovered devices                              │
 │  4. Stop scan after 15s or user selection                   │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+> **Note:** The scan filters by service UUID at the OS level, not by device name. This is more reliable and eliminates non-Traxelos devices from results.
 
 ### 8.2 Connection Sequence
 

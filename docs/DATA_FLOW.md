@@ -136,20 +136,19 @@ Per-Item (index 0-99):              Global:
 
 ```dart
 class BluetoothState {
-  // Connection
-  BluetoothConnectionStatus status;
-  BleDeviceEntity? connectedDevice;
+  // Connection (multi-device)
+  BluetoothStatus status;                              // ready, scanning, etc.
+  Map<String, DeviceConnectionState> connectedDevices;  // instanceId → state
+  List<PairedDevice> pairedDevices;                      // all paired devices
+  String? connectingDeviceId;                           // device currently connecting
 
-  // Items (from device during sync, from Firestore otherwise)
-  List<ItemEntity> items;
-  int? selectedItemId;
-
-  // Sync tracking
-  int syncSeq;              // From Firestore
-  int? deviceSyncSeq;       // From handshake response
-  SyncStatus syncStatus;    // in_sync, conflict, etc.
+  // Per-device connection state
+  // DeviceConnectionState tracks: device info, sync status (handshaking,
+  // synced, staleClaim, conflict, etc.), and the device's selected item
 }
 ```
+
+> **Single-device vs multi-device:** When `connectedDevices.length < 2`, the app operates in classic single-device mode — no color tinting, no claim UI. When `>= 2`, exclusive leasing activates: each item can be claimed by one device at a time, and devices only see their claimed items.
 
 ---
 
