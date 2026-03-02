@@ -180,7 +180,7 @@ Swiping left on an item reveals actions depending on context:
 | Icon | Action | When Shown | Description |
 |------|--------|------------|-------------|
 | **Pin** | Activate | Device connected, item unclaimed | Assign item to a connected device |
-| **Lock** | Unlock | Item claimed by a device | Release the item from its device |
+| **Open lock** | Unlock | Item claimed by a device | Release the item from its device |
 | **Pencil** | Edit | Item editable (not locked by offline device) | Open the item edit form |
 | **Trash** | Delete | Item editable (not locked by offline device) | Delete the item (with confirmation) |
 
