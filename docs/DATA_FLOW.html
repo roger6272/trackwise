@@ -339,7 +339,7 @@
                 <tr><td><strong>atomicClaimSwap</strong></td><td>Firestore transaction that atomically releases the previous claim and creates the new one. Prevents partial states.</td></tr>
                 <tr><td><strong>Stale Claim</strong></td><td>A claim left behind when a device disconnects. The device still believes it owns the item, but the user may have force-released it. Detected on reconnect; override dialog shown.</td></tr>
                 <tr><td><strong>Force-Release</strong></td><td>Break-glass action: swipe item &rarr; tap Unlock &rarr; confirm warning. Clears <code>claimed_by</code> for an offline device&rsquo;s item. Unsynced counts on the device will be lost on next sync.</td></tr>
-                <tr><td><strong>Global Claim Queue</strong></td><td>Single <code>Future&lt;void&gt;</code> that serializes all claim operations across all devices. Prevents concurrent Firestore transactions from reading stale <code>claimed_by</code> state. See ADR-005.</td></tr>
+                <tr><td><strong>Global Claim Queue</strong></td><td>Single <code>Future&lt;void&gt;</code> that serializes all claim operations across all devices. Prevents concurrent Firestore transactions from reading stale <code>claimed_by</code> state. See <a href="decisions/ADR-005-global-claim-queue.md">ADR-005</a>.</td></tr>
             </tbody>
         </table>
 
@@ -956,11 +956,12 @@ User              App (BLoC)           Firestore              Device A        De
 &#9474;                 &#9474; &larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&#9474; stream confirms      &#9474;               &#9474;
 &#9474;                 &#9474;   claimed_by = A   &#9474;                      &#9474;               &#9474;
 &#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9317; RefreshDeviceItems (A: unclaimed + A's)  &#9474;               &#9474;
-&#9474;                 &#9474; &rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&#9474;               &#9474;
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9318; Push to B (same category: B's items, X removed)            &#9474;
+&#9474;                 &#9474; &#9317; _pushToOtherDevices (skips Device A)    &#9474;               &#9474;
 &#9474;                 &#9474; &rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&#9474;
+&#9474;                 &#9474;   (B gets: unclaimed + B's items, X removed)                  &#9474;
+&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
+&#9474;                 &#9474; &#9318; watchItems stream updates A's local state                  &#9474;
+&#9474;                 &#9474;   (A sees confirmed claim; no direct BLE push needed)           &#9474;
 &#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
 
 On claim FAILURE (item claimed by another device):
@@ -972,7 +973,7 @@ On claim FAILURE (item claimed by another device):
 
         <h3>7.6 atomicClaimSwap Internals</h3>
 
-        <p>The claim transaction (<code>item_remote_datasource_impl.dart</code>) runs inside the global claim queue (see ADR-005):</p>
+        <p>The claim transaction (<code>item_remote_datasource_impl.dart</code>) runs inside the global claim queue (see <a href="decisions/ADR-005-global-claim-queue.md">ADR-005</a>):</p>
 
         <div class="diagram">
 atomicClaimSwap(newItemId, deviceInstanceId, previousItemId):

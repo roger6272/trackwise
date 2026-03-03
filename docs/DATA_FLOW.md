@@ -809,16 +809,15 @@ User              App (BLoC)           Firestore              Device A        De
 │                 │    claim new)      │                      │               │
 │                 │                    │                      │               │
 │                 │ ⑤ watchItems       │                      │               │
-│                 │ ◄──────────────────┤ stream confirms      │               │
+│                 │ ◄──────────────────┤ stream fires         │               │
 │                 │   claimed_by = A   │                      │               │
 │                 │                    │                      │               │
-│                 │ ⑥ RefreshDeviceItems                      │               │
-│                 │ ──────────────────────────────────────────►               │
-│                 │   (A gets: unclaimed + A's claimed items)  │               │
-│                 │                    │                      │               │
-│                 │ ⑦ Push to other devices (same category)   │               │
+│                 │ ⑥ _pushToOtherDevices (skips Device A)    │               │
 │                 │ ──────────────────────────────────────────────────────────►
-│                 │   (B gets: unclaimed + B's claimed items — item X removed)│
+│                 │   (B gets: unclaimed + B's items — item X removed)        │
+│                 │                    │                      │               │
+│                 │ ⑦ watchItems stream updates Device A's local state        │
+│                 │   (A sees confirmed claim; no direct BLE push needed)     │
 │                 │                    │                      │               │
 
 On claim FAILURE (item already claimed by another device):
