@@ -294,7 +294,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
                   top: true,
                   child: Column(
                         mainAxisSize: MainAxisSize.max,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Category Filter Row (only when categories exist)
                           BlocSelector<CategoriesBloc, CategoriesState, List<cat.Category>>(
