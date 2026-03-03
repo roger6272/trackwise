@@ -292,12 +292,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
                 ),
                 body: SafeArea(
                   top: true,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 600.0),
-                      child: Column(
+                  child: Column(
                         mainAxisSize: MainAxisSize.max,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Category Filter Row (only when categories exist)
                           BlocSelector<CategoriesBloc, CategoriesState, List<cat.Category>>(
@@ -830,8 +827,6 @@ class _ItemsListContentState extends State<_ItemsListContent>
                       ),
                         ],
                       ),
-                    ),
-                  ),
                 ),
               ),
             );
@@ -860,7 +855,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
           GestureDetector(
             onTap: () => appUiState.isTodayToggle = !isToday,
             child: Container(
-              width: 78.0, // Fixed width to prevent layout shift
+              width: 84.0, // Fixed width to prevent layout shift
               padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
               decoration: BoxDecoration(
                 border: Border.all(
