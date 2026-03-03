@@ -953,12 +953,12 @@ User              App (BLoC)           Firestore              Device A        De
 &#9474;                 &#9474;    claim new)      &#9474;                      &#9474;               &#9474;
 &#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
 &#9474;                 &#9474; &#9316; watchItems       &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&#9474; stream confirms      &#9474;               &#9474;
+&#9474;                 &#9474; &larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&#9474; stream fires         &#9474;               &#9474;
 &#9474;                 &#9474;   claimed_by = A   &#9474;                      &#9474;               &#9474;
 &#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
 &#9474;                 &#9474; &#9317; _pushToOtherDevices (skips Device A)    &#9474;               &#9474;
 &#9474;                 &#9474; &rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&#9474;
-&#9474;                 &#9474;   (B gets: unclaimed + B's items, X removed)                  &#9474;
+&#9474;                 &#9474;   (B gets: unclaimed + B's items &mdash; item X removed)                  &#9474;
 &#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
 &#9474;                 &#9474; &#9318; watchItems stream updates A's local state                  &#9474;
 &#9474;                 &#9474;   (A sees confirmed claim; no direct BLE push needed)           &#9474;
