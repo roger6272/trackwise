@@ -226,7 +226,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     final stepSize = ((maxY / divisions).ceil()).clamp(1, double.infinity).toInt();
     final adjustedMaxY = stepSize * divisions;
 
-    final barAreaHeight = usableHeight - barAreaVerticalPadding - 32;
+    final barAreaHeight = usableHeight - barAreaVerticalPadding - 34;
 
     // Get initial count from chart data
     final initialCount = state.chartData.initialCount;
@@ -290,7 +290,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                 ),
                 // X-axis labels
                 SizedBox(
-                  height: 32,
+                  height: 34,
                   child: Column(
                     children: [
                       SizedBox(
@@ -325,7 +325,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                       ),
                       // X-axis label (Hour/Day)
                       SizedBox(
-                        height: 16,
+                        height: 18,
                         child: Center(
                           child: Text(
                             widget.range == '1D' ? 'Hour' : 'Day',

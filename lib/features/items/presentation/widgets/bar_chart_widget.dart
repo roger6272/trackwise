@@ -226,7 +226,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     final stepSize = ((maxY / divisions).ceil()).clamp(1, double.infinity).toInt();
     final adjustedMaxY = stepSize * divisions;
 
-    final barAreaHeight = usableHeight - barAreaVerticalPadding - 32;
+    final barAreaHeight = usableHeight - barAreaVerticalPadding - 34;
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
@@ -289,7 +289,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                 ),
                 // X-axis labels
                 SizedBox(
-                  height: 32,
+                  height: 34,
                   child: Column(
                     children: [
                       SizedBox(
@@ -324,7 +324,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                       ),
                       // X-axis label (Hour/Day)
                       SizedBox(
-                        height: 16,
+                        height: 18,
                         child: Center(
                           child: Text(
                             widget.range == '1D' ? 'Hour' : 'Day',
