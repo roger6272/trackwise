@@ -1,7 +1,7 @@
 ---
 name: multi-device-enablement
 description: Enable users to pair multiple physical Trackwise devices to a single account with sync and conflict resolution
-status: backlog
+status: completed
 created: 2026-01-25T22:41:31Z
 ---
 

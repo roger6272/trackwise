@@ -32,10 +32,16 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
 
   ItemRemoteDataSourceImpl(this.firestore);
 
+  /// Cached userId to avoid redundant Firestore reads on every createItem call.
+  /// Scoped to userId so cache is invalidated on account switch.
+  String? _verifiedUserId;
+
   /// Ensures user document exists in Firestore.
   /// This handles the case where a user was authenticated via cached session
   /// and the user document was never created.
   Future<void> _ensureUserDocument(String userId) async {
+    if (_verifiedUserId == userId) return;
+
     AppLogger.debug('_ensureUserDocument: checking for $userId');
     final userDoc = firestore.collection('users').doc(userId);
     final docSnapshot = await userDoc.get();
@@ -72,6 +78,8 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
     } else {
       AppLogger.debug('_ensureUserDocument: document EXISTS');
     }
+
+    _verifiedUserId = userId;
   }
 
   @override

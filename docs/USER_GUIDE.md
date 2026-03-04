@@ -214,15 +214,6 @@ Your custom order is saved and synced to your device.
 
 ### Device Buttons
 
-#### Arduino IDE (Serial Monitor)
-
-| Key | Action |
-|-----|--------|
-| **U** | Increment — Add to your current item's count |
-| **S** | Switch — Change to the next item |
-| **R** | Reset — Reset current item to zero and start a new tracking cycle |
-| **F** | Factory Reset — Erase all data and restore device to factory settings |
-
 #### Traxelos One Device
 
 **Button A**
@@ -723,15 +714,6 @@ Time syncs automatically when your device connects via Bluetooth. If the time se
 | **Home** | House | View and manage all items |
 | **Bluetooth** | Bluetooth (green when connected, default when not) | Connect and manage your device |
 | **Account** | Person | Account, settings, export, support |
-
-### Device Buttons — Arduino IDE (Serial Monitor)
-
-| Key | Action |
-|-----|--------|
-| U | Increment — Add to count |
-| S | Switch — Change item |
-| R | Reset — Reset to zero, start new cycle |
-| F | Factory Reset — Restore to factory settings |
 
 ### Device Buttons — Traxelos One Device
 

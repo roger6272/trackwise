@@ -175,9 +175,9 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
           .where('uid', isEqualTo: userRef);
 
       if (categoryId == null) {
-        // Count uncategorized items (where category_id doesn't exist or is null)
-        // Firestore doesn't support "field doesn't exist" directly,
-        // so we'll need to fetch and filter
+        // Firestore limitation: no "field is null OR missing" query exists.
+        // Must fetch all user items and filter client-side. Not fixable without
+        // a schema migration to ensure every item has a non-null category_id.
         final snapshot = await query.get();
         return snapshot.docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;

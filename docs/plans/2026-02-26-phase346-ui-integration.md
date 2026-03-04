@@ -8,6 +8,8 @@
 
 **Tech Stack:** Flutter Slidable, BLoC, AppColors, showModalBottomSheet, AlertDialog, mocktail
 
+> **⚠️ Note:** References to `sync_seq` in this document are outdated — `sync_seq` and `sync_complete` were removed in protocol v3.
+
 **Spec:** `docs/EXCLUSIVE_LEASING_SPEC.md` Sections 4, 8.4, 10, 12
 
 ---

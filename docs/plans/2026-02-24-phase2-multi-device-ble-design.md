@@ -3,6 +3,8 @@
 > **Status:** Approved
 > **Date:** 2026-02-24
 > **Parent Spec:** [EXCLUSIVE_LEASING_SPEC.md](../EXCLUSIVE_LEASING_SPEC.md) — Section 12, Phase 2
+>
+> **⚠️ Note:** References to `sync_seq` and `sync_complete` in this document are outdated — both were removed in protocol v3. The handshake now uses a simplified hash-based comparison.
 
 ---
 

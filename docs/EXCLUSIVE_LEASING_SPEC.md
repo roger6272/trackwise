@@ -299,12 +299,11 @@ When a claim changes (item claimed or released), the app pushes an updated `set_
 
 ### 6.3 Sync Sequence Compatibility
 
-The existing `sync_seq` mechanism is **retained** as a secondary safeguard:
+> **Note:** `sync_seq` and `sync_complete` were **removed in protocol v3** (see ADR for details). The handshake now uses a simplified hash-based comparison. The description below reflects the original design intent and is retained for historical context only.
 
 - Exclusive Leasing handles the common case (no conflicts by design).
-- `sync_seq` catches edge cases where Firestore state changed between handshake and sync.
-- If `sync_seq` mismatch is detected despite leasing, fall back to current override flow.
-- Claim-triggered `set_items` pushes do **not** update `sync_seq` — only `sync_complete`/`override_end` do. This is acceptable because the next handshake will reconcile any discrepancies.
+- The handshake detects state mismatches and triggers the existing override flow when needed.
+- Claim-triggered `set_items` pushes do **not** trigger override flows — the next handshake will reconcile any discrepancies.
 
 ---
 

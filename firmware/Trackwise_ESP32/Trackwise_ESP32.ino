@@ -163,7 +163,8 @@ unsigned long lastResetCheck = 0;
 static int incrementsSinceWrite = 0;
 static bool countsDirty = false;
 
-String incomingJsonBuffer = "";       // Buffer for SET_ITEMS characteristic (chunked item list)
+static char incomingJsonBuf[32001];   // Fixed buffer for SET_ITEMS characteristic (chunked item list)
+static int incomingJsonLen = 0;       // Current length of data in incomingJsonBuf
 String writeCommandBuffer = "";       // Buffer for WRITE characteristic (chunked commands like override_chunk)
 unsigned long lastChunkReceived = 0;  // Timestamp of last chunk for timeout detection
 const unsigned long CHUNK_TIMEOUT_MS = 5000;  // 5 second timeout for incomplete transfers
@@ -466,33 +467,21 @@ void handleHandshake(const String& uid) {
   syncDataRequestedAt = millis();  // Record time to allow handshake response to send first
 }
 
+// NVS key prefixes for each item field (used by clearItemSlot and set_items clear loop)
+static const char* ITEM_KEY_PREFIXES[] = {
+  "did_", "n_", "cat_", "c_", "tc_", "i_", "r_", "rv_", "g_", "lr_", "rn_"
+};
+static const int NUM_ITEM_KEYS = sizeof(ITEM_KEY_PREFIXES) / sizeof(ITEM_KEY_PREFIXES[0]);
+
 // Clear a single item slot from NVS
 void clearItemSlot(int index) {
   if (index < 0 || index >= maxPrefsSlots) return;
 
   char key[16];
-  snprintf(key, sizeof(key), "did_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "n_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "cat_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "c_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "tc_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "i_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "r_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "rv_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "g_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "lr_%d", index);
-  prefs.remove(key);
-  snprintf(key, sizeof(key), "rn_%d", index);
-  prefs.remove(key);
+  for (int k = 0; k < NUM_ITEM_KEYS; k++) {
+    snprintf(key, sizeof(key), "%s%d", ITEM_KEY_PREFIXES[k], index);
+    prefs.remove(key);
+  }
 }
 
 // Clear all item slots from NVS
@@ -1252,36 +1241,47 @@ void clearLogs() {
 // Handle app updating the full list of items
 class SetItemsCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) override {
-    String chunk = String(c->getValue().c_str());
+    std::string val = c->getValue();
+    const char* chunk = val.c_str();
+    int chunkLen = val.length();
     DEBUG_PRINTLN("Received raw chunk:");
     DEBUG_PRINTLN(chunk);
 
     // Update timestamp for chunk timeout detection
     lastChunkReceived = millis();
 
-    incomingJsonBuffer.trim();
-    incomingJsonBuffer += chunk;
+    // Trim trailing whitespace from existing buffer before appending
+    while (incomingJsonLen > 0 && (incomingJsonBuf[incomingJsonLen - 1] == ' ' ||
+           incomingJsonBuf[incomingJsonLen - 1] == '\n' || incomingJsonBuf[incomingJsonLen - 1] == '\r')) {
+      incomingJsonLen--;
+    }
 
-    // Input validation: check payload size before parsing
-    if (incomingJsonBuffer.length() > 32000) {
+    // Input validation: check payload size before copying
+    if (incomingJsonLen + chunkLen >= 32000) {
       DEBUG_PRINTLN("❌ Payload too large (>32KB)");
       notifyError("set_items", "Payload too large", ERR_PAYLOAD_TOO_LARGE);
-      incomingJsonBuffer = "";
+      incomingJsonLen = 0;
       return;
     }
 
+    memcpy(incomingJsonBuf + incomingJsonLen, chunk, chunkLen);
+    incomingJsonLen += chunkLen;
+
     // Trim trailing whitespace/newlines before checking for end of JSON
-    // (App sends newline delimiter after the JSON array)
-    incomingJsonBuffer.trim();
+    while (incomingJsonLen > 0 && (incomingJsonBuf[incomingJsonLen - 1] == ' ' ||
+           incomingJsonBuf[incomingJsonLen - 1] == '\n' || incomingJsonBuf[incomingJsonLen - 1] == '\r')) {
+      incomingJsonLen--;
+    }
+    incomingJsonBuf[incomingJsonLen] = '\0';
 
     // Check if buffer ends with ']' (simple heuristic for end of JSON array)
-    if (incomingJsonBuffer.endsWith("]")) {
+    if (incomingJsonLen > 0 && incomingJsonBuf[incomingJsonLen - 1] == ']') {
       StaticJsonDocument<24576> doc;  // 100 items × ~200 bytes = 20KB + headroom
-      DeserializationError err = deserializeJson(doc, incomingJsonBuffer);
+      DeserializationError err = deserializeJson(doc, incomingJsonBuf);
       if (err) {
         DEBUG_LOG("JSON parse failed: %s\n", err.c_str());
         notifyError("set_items", err.c_str(), ERR_INVALID_JSON);
-        incomingJsonBuffer = "";  // clear buffer on failure
+        incomingJsonLen = 0;  // clear buffer on failure
         return;
       }
 
@@ -1291,7 +1291,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
 
       if (!nvsBeginSafe("counter", false)) {
         notifyError("set_items", "NVS mutex timeout", ERR_NVS_MUTEX_TIMEOUT);
-        incomingJsonBuffer = "";
+        incomingJsonLen = 0;
         return;
       }
 
@@ -1303,9 +1303,15 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       int existingResetNumbers[maxPrefsSlots];
       unsigned long existingLastResetTimes[maxPrefsSlots];
       char key[16];  // Buffer for preference keys
+      // O(1) lookup: idToSlot[deviceItemId] = slot index, 255 = not found
+      uint8_t idToSlot[256];
+      memset(idToSlot, 255, sizeof(idToSlot));
       for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
         snprintf(key, sizeof(key), "did_%d", i);
         existingDeviceIds[i] = prefs.getUChar(key, 255);  // 255 = invalid
+        if (existingDeviceIds[i] != 255) {
+          idToSlot[existingDeviceIds[i]] = i;
+        }
         snprintf(key, sizeof(key), "c_%d", i);
         existingCounts[i] = prefs.getInt(key, 0);
         snprintf(key, sizeof(key), "tc_%d", i);
@@ -1316,31 +1322,13 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         existingLastResetTimes[i] = prefs.getULong(key, 0);
       }
 
-      // Clear all slots
+      // Clear all slots using shared key prefix array
       // Note: BLE callbacks run on a separate task, so we can't reset the main loop's watchdog here
       for (int i = 0; i < maxPrefsSlots; i++) {
-        snprintf(key, sizeof(key), "n_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "cat_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "c_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "tc_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "i_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "did_%d", i);  // deviceItemId (was id_)
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "r_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "rv_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "g_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "lr_%d", i);
-        prefs.remove(key);
-        snprintf(key, sizeof(key), "rn_%d", i);
-        prefs.remove(key);
+        for (int k = 0; k < NUM_ITEM_KEYS; k++) {
+          snprintf(key, sizeof(key), "%s%d", ITEM_KEY_PREFIXES[k], i);
+          prefs.remove(key);
+        }
       }
 
       int index = 0;
@@ -1360,23 +1348,21 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
         int reminderValue = clampInt(item["reminder_value"] | 0, 0, 9999);  // 0-9999
         int goal = clampInt(item["goal"] | 0, 0, MAX_COUNT);  // 0 = no goal
 
-        // Find existing data for this deviceItemId (device is source of truth)
+        // Find existing data for this deviceItemId via O(1) lookup (device is source of truth)
         int count = 0;
         int todaycount = 0;
         int resetNumber = 0;
         unsigned long lastResetTime = 0;
         bool isExistingItem = false;
-        for (int i = 0; i < existingTotal && i < maxPrefsSlots; i++) {
-          if (existingDeviceIds[i] == deviceItemId) {
-            count = existingCounts[i];
-            todaycount = existingTodayCounts[i];
-            resetNumber = existingResetNumbers[i];
-            lastResetTime = existingLastResetTimes[i];
-            isExistingItem = true;
-            DEBUG_LOG("🔄 Preserving data for deviceItemId=%d: count=%d, todaycount=%d, resetNumber=%d\n",
-                          deviceItemId, count, todaycount, resetNumber);
-            break;
-          }
+        uint8_t slot = idToSlot[(uint8_t)deviceItemId];
+        if (slot != 255) {
+          count = existingCounts[slot];
+          todaycount = existingTodayCounts[slot];
+          resetNumber = existingResetNumbers[slot];
+          lastResetTime = existingLastResetTimes[slot];
+          isExistingItem = true;
+          DEBUG_LOG("🔄 Preserving data for deviceItemId=%d: count=%d, todaycount=%d, resetNumber=%d\n",
+                        deviceItemId, count, todaycount, resetNumber);
         }
 
         // Override with JSON values ONLY for new items (not existing ones)
@@ -1513,7 +1499,7 @@ class SetItemsCallback : public BLECharacteristicCallbacks {
       incrementsSinceWrite = 0;
 
       clearLogs();
-      incomingJsonBuffer = "";
+      incomingJsonLen = 0;
       DEBUG_PRINTLN("✅ Finished writing to prefs with index-based keys.");
     }
   }
@@ -1720,68 +1706,71 @@ void processWriteCommand(const String& jsonStr) {
 
       // Check if we're deleting the currently selected item
       bool deletingSelected = (currentDeviceItemId == targetDeviceId);
+      int lastIndex = total - 1;
 
-      // Shift all items after foundIndex down by one
-      for (int i = foundIndex; i < total - 1; i++) {
-        // Copy slot i+1 to slot i
-        snprintf(key, sizeof(key), "did_%d", i + 1);
+      // Swap-with-last: copy last slot into deleted slot, then clear last slot.
+      // O(1) NVS ops instead of O(n). Order doesn't matter — set_items
+      // re-establishes order on next sync.
+      if (foundIndex != lastIndex) {
+        // Copy each field from lastIndex to foundIndex
+        snprintf(key, sizeof(key), "did_%d", lastIndex);
         uint8_t did = prefs.getUChar(key, 0);
-        snprintf(key, sizeof(key), "did_%d", i);
+        snprintf(key, sizeof(key), "did_%d", foundIndex);
         prefs.putUChar(key, did);
 
-        snprintf(key, sizeof(key), "n_%d", i + 1);
+        snprintf(key, sizeof(key), "n_%d", lastIndex);
         String name = prefs.getString(key, "");
-        snprintf(key, sizeof(key), "n_%d", i);
+        snprintf(key, sizeof(key), "n_%d", foundIndex);
         prefs.putString(key, name);
 
-        snprintf(key, sizeof(key), "cat_%d", i + 1);
+        snprintf(key, sizeof(key), "cat_%d", lastIndex);
         String cat = prefs.getString(key, "");
-        snprintf(key, sizeof(key), "cat_%d", i);
+        snprintf(key, sizeof(key), "cat_%d", foundIndex);
         prefs.putString(key, cat);
 
-        snprintf(key, sizeof(key), "c_%d", i + 1);
+        snprintf(key, sizeof(key), "c_%d", lastIndex);
         int count = prefs.getInt(key, 0);
-        snprintf(key, sizeof(key), "c_%d", i);
+        snprintf(key, sizeof(key), "c_%d", foundIndex);
         prefs.putInt(key, count);
 
-        snprintf(key, sizeof(key), "tc_%d", i + 1);
+        snprintf(key, sizeof(key), "tc_%d", lastIndex);
         int todayCount = prefs.getInt(key, 0);
-        snprintf(key, sizeof(key), "tc_%d", i);
+        snprintf(key, sizeof(key), "tc_%d", foundIndex);
         prefs.putInt(key, todayCount);
 
-        snprintf(key, sizeof(key), "i_%d", i + 1);
+        snprintf(key, sizeof(key), "i_%d", lastIndex);
         int inc = prefs.getInt(key, 1);
-        snprintf(key, sizeof(key), "i_%d", i);
+        snprintf(key, sizeof(key), "i_%d", foundIndex);
         prefs.putInt(key, inc);
 
-        snprintf(key, sizeof(key), "r_%d", i + 1);
+        snprintf(key, sizeof(key), "r_%d", lastIndex);
         int rem = prefs.getInt(key, 0);
-        snprintf(key, sizeof(key), "r_%d", i);
+        snprintf(key, sizeof(key), "r_%d", foundIndex);
         prefs.putInt(key, rem);
 
-        snprintf(key, sizeof(key), "rv_%d", i + 1);
+        snprintf(key, sizeof(key), "rv_%d", lastIndex);
         int remVal = prefs.getInt(key, 0);
-        snprintf(key, sizeof(key), "rv_%d", i);
+        snprintf(key, sizeof(key), "rv_%d", foundIndex);
         prefs.putInt(key, remVal);
 
-        snprintf(key, sizeof(key), "g_%d", i + 1);
+        snprintf(key, sizeof(key), "g_%d", lastIndex);
         int gl = prefs.getInt(key, 0);
-        snprintf(key, sizeof(key), "g_%d", i);
+        snprintf(key, sizeof(key), "g_%d", foundIndex);
         prefs.putInt(key, gl);
 
-        snprintf(key, sizeof(key), "lr_%d", i + 1);
+        snprintf(key, sizeof(key), "lr_%d", lastIndex);
         unsigned long lr = prefs.getULong(key, 0);
-        snprintf(key, sizeof(key), "lr_%d", i);
+        snprintf(key, sizeof(key), "lr_%d", foundIndex);
         prefs.putULong(key, lr);
 
-        snprintf(key, sizeof(key), "rn_%d", i + 1);
+        snprintf(key, sizeof(key), "rn_%d", lastIndex);
         int rn = prefs.getInt(key, 0);
-        snprintf(key, sizeof(key), "rn_%d", i);
+        snprintf(key, sizeof(key), "rn_%d", foundIndex);
         prefs.putInt(key, rn);
       }
 
-      // Clear the last slot (now a duplicate)
-      clearItemSlot(total - 1);
+      // Clear the last slot
+      clearItemSlot(lastIndex);
 
       // Update item_total
       int newTotal = total - 1;
@@ -1813,9 +1802,9 @@ void processWriteCommand(const String& jsonStr) {
         itemTodayCount = prefs.getInt(key, 0);
         snprintf(key, sizeof(key), "i_%d", 0);
         itemIncrement = prefs.getInt(key, 1);
-      } else if (currentItemIndex > foundIndex) {
-        // Adjust current index if it was after the deleted item
-        currentItemIndex--;
+      } else if (currentItemIndex == lastIndex) {
+        // Selected item was in the last slot and got moved to foundIndex
+        currentItemIndex = foundIndex;
         prefs.putInt("selected_index", currentItemIndex);
       }
 
@@ -2134,16 +2123,8 @@ void notifyEvent(String event, int resetNum = -1) {
   serializeJson(root, s);
   s += "\n";  // 🧩 newline as end-of-message marker
 
-  // Use larger MTU for faster transfers (event JSON is typically ~150 bytes, fits in one chunk)
-  const int mtu = 180;
-  for (int i = 0; i < s.length(); i += mtu) {
-    String chunk = s.substring(i, min(i + mtu, (int)s.length()));  //min to end the loop if empty info detected in the last round
-    NotifyChar->setValue(chunk.c_str());
-    NotifyChar->notify();
-    delay(20);  // Unified 20ms delay for reliable BLE chunk transmission
-  }
-  //DEBUG_PRINTLN("📤 Sent notifyEvent:");
-  //DEBUG_PRINTLN(s);
+  // Use non-blocking queue/state machine instead of inline loop+delay
+  startBleTransmit(s);
 }
 
 // Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
@@ -2228,8 +2209,11 @@ void handleCommand(char cmd) {
     // Only log when disconnected - when connected, real-time events are synced directly
     if (!isConnected) logEvent(EVENT_INCREMENT);
     // Send delta update instead of full prefs (much smaller payload)
+    // No delay needed between these two calls:
+    // - notifyItemDelta: inline setValue+notify (single BLE packet, copied into stack buffer immediately)
+    // - notifyEvent: queued via startBleTransmit, processed on next loop() iteration (≥10ms later)
+    // The loop delay provides sufficient spacing for the BLE stack to flush the delta notification.
     if (isConnected) notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
-    delay(50);  // Brief gap between notifications
     if (isConnected) notifyEvent("increment");
 
     // Debug: print category and item index
@@ -2283,8 +2267,8 @@ void handleCommand(char cmd) {
     nvsEndSafe();  // Close prefs BEFORE notifying to avoid nested prefs.begin() issues
 
     // Send delta update with NEW resetNumber (app needs current state)
+    // No delay needed: delta is inline (single packet), event is queued for next loop() iteration.
     if (isConnected) notifyItemDelta(currentDeviceItemId, itemCount, itemTodayCount, lastResetTime, itemResetNumber);
-    delay(50);  // Brief gap between notifications
     // Send event notification with OLD resetNumber (the reset that ended period N)
     if (isConnected) notifyEvent("reset", oldResetNumber);
     return;  // Already closed prefs, skip the final nvsEndSafe()
@@ -2577,10 +2561,10 @@ void loop() {
   }
 
   // Check for stale incoming JSON buffer (incomplete transfer from app)
-  if (incomingJsonBuffer.length() > 0 && lastChunkReceived > 0) {
+  if (incomingJsonLen > 0 && lastChunkReceived > 0) {
     if (millis() - lastChunkReceived > CHUNK_TIMEOUT_MS) {
-      DEBUG_LOG("⚠️ Chunk timeout - clearing stale buffer (%d bytes)\n", incomingJsonBuffer.length());
-      incomingJsonBuffer = "";
+      DEBUG_LOG("⚠️ Chunk timeout - clearing stale buffer (%d bytes)\n", incomingJsonLen);
+      incomingJsonLen = 0;
       lastChunkReceived = 0;
     }
   }
@@ -2650,5 +2634,8 @@ void loop() {
   }
 
   // Adjust loop delay based on power state
-  delay(powerState.isLowPower ? 100 : 10);
+  // Low-power: 500ms is acceptable since device is idle and not connected;
+  // button presses wake via recordActivity() on next loop iteration.
+  // Not using esp_light_sleep_start() because it stops BLE advertising.
+  delay(powerState.isLowPower ? 500 : 10);
 }

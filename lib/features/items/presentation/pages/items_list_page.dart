@@ -96,6 +96,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
   // Cached category maps (updated via BlocListener when categories change)
   Map<String, String> _cachedCategoryNames = {};
   Map<String, int> _cachedCategoryOrder = {};
+  List<String> _sortedCategoryIds = [];
 
   // Scroll controller for sticky headers
   final _scrollController = ScrollController();
@@ -141,6 +142,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
         for (final category in state.categories)
           category.id: category.order,
       };
+      _sortedCategoryIds = _cachedCategoryOrder.keys.toList()
+        ..sort((a, b) => (_cachedCategoryOrder[a] ?? 0).compareTo(_cachedCategoryOrder[b] ?? 0));
     }
   }
 
@@ -313,6 +316,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                         for (final category in categories)
                                           category.id: category.order,
                                       };
+                                      _sortedCategoryIds = _cachedCategoryOrder.keys.toList()
+                                        ..sort((a, b) => (_cachedCategoryOrder[a] ?? 0).compareTo(_cachedCategoryOrder[b] ?? 0));
                                     });
                                   }
                                 });
@@ -454,12 +459,8 @@ class _ItemsListContentState extends State<_ItemsListContent>
                                       itemsByCategory.putIfAbsent(catId, () => []).add(item);
                                     }
 
-                                    // Get all categories sorted by order
-                                    final sortedCategoryIds = _cachedCategoryOrder.keys.toList()
-                                      ..sort((a, b) => (_cachedCategoryOrder[a] ?? 0).compareTo(_cachedCategoryOrder[b] ?? 0));
-
                                     // Add each category (even if empty) with its items
-                                    for (final catId in sortedCategoryIds) {
+                                    for (final catId in _sortedCategoryIds) {
                                       final labelText = _cachedCategoryNames[catId] ?? 'Unknown';
                                       listEntries.add(_ListEntry.label(catId, labelText));
                                       final catItems = itemsByCategory[catId] ?? [];
@@ -942,13 +943,7 @@ class _ItemsListContentState extends State<_ItemsListContent>
     }
 
     // Build ordered category list matching the actual list layout
-    final orderedCategories = <String>[];
-    final sortedCategoryIds = _cachedCategoryOrder.keys.toList()
-      ..sort((a, b) => (_cachedCategoryOrder[a] ?? 0).compareTo(_cachedCategoryOrder[b] ?? 0));
-    for (final catId in sortedCategoryIds) {
-      orderedCategories.add(catId);
-    }
-    orderedCategories.add(''); // Uncategorized always last
+    final orderedCategories = [..._sortedCategoryIds, '']; // Uncategorized always last
 
     double currentOffset = 0.0;
     String? lastCategory;
