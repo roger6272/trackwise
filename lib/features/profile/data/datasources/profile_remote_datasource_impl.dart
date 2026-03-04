@@ -98,13 +98,14 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
     try {
       // Gather profile data
-      final profileDoc = await _firestore.collection('users').doc(user.uid).get();
+      final userRef = _firestore.collection('users').doc(user.uid);
+      final profileDoc = await userRef.get();
       final profileData = profileDoc.data();
 
-      // Gather items
+      // Gather items (uid stored as DocumentReference, not string)
       final itemsSnapshot = await _firestore
           .collection('Item')
-          .where('user_id', isEqualTo: user.uid)
+          .where('uid', isEqualTo: userRef)
           .get();
       final items = itemsSnapshot.docs.map((doc) {
         final data = doc.data();
@@ -121,10 +122,10 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         };
       }).toList();
 
-      // Gather event logs
+      // Gather event logs (uid stored as DocumentReference, not string)
       final eventsSnapshot = await _firestore
           .collection('EventLog')
-          .where('user_id', isEqualTo: user.uid)
+          .where('uid', isEqualTo: userRef)
           .get();
       final events = eventsSnapshot.docs.map((doc) {
         final data = doc.data();
@@ -196,10 +197,10 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         batch.delete(doc.reference);
       }
 
-      // Delete all event logs (uses string user_id)
+      // Delete all event logs (uid stored as DocumentReference)
       final eventsSnapshot = await _firestore
           .collection('EventLog')
-          .where('user_id', isEqualTo: userId)
+          .where('uid', isEqualTo: userRef)
           .get();
       for (final doc in eventsSnapshot.docs) {
         batch.delete(doc.reference);
