@@ -931,6 +931,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
     const double itemHeight = 76.0; // tile + padding
     const double labelHeight = 28.0; // label widget height
 
+    // Don't show sticky header when first category label is still visible
+    if (scrollOffset < labelHeight) return null;
+
     // Group items by category
     final itemsByCategory = <String, List<Item>>{};
     for (final item in filteredItems) {
@@ -1580,9 +1583,9 @@ class _ItemsListContentState extends State<_ItemsListContent>
     final tileContainer = Container(
           decoration: BoxDecoration(
             color: effectivelyActivated
-                ? (claimedColor?.withValues(alpha: 0.2) ?? activatedColor)
+                ? (claimedColor?.withValues(alpha: brightness == Brightness.dark ? 0.35 : 0.2) ?? activatedColor)
                 : isClaimedOffline
-                    ? (claimedColor?.withValues(alpha: 0.1) ?? alternate)
+                    ? (claimedColor?.withValues(alpha: brightness == Brightness.dark ? 0.2 : 0.1) ?? alternate)
                     : alternate,
             border: effectivelyActivated
                 ? Border(left: BorderSide(color: claimedColor ?? AppColors.actionActivate, width: 4.0))
@@ -1763,12 +1766,15 @@ class _ItemsListContentState extends State<_ItemsListContent>
       return AppColors.deviceColor(pairedDevices[idx].color, brightness);
     }() : null;
 
+    // Count visible actions for consistent per-action width
+    final actionCount = (showUnlock ? 1 : (isConnected ? 1 : 0)) + (editable ? 2 : 0);
+
     Widget result = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Slidable(
           endActionPane: ActionPane(
             motion: const ScrollMotion(),
-            extentRatio: (showUnlock && !editable) ? 0.2 : 0.5,
+            extentRatio: (actionCount * 0.18).clamp(0.18, 0.6),
             children: [
             // Multi-device + claimed → Unlock. Otherwise when connected → Activate.
             if (showUnlock)
