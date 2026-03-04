@@ -1218,6 +1218,7 @@ AppLogger.debug('BLE TX: $command');</code></pre>
             <tr><td>New item not on device</td><td>Firestore stream timing &mdash; check includeItem path</td></tr>
             <tr><td>Edit/Delete grayed out</td><td>Item claimed by offline device &mdash; reconnect or force-release</td></tr>
             <tr><td>No device colors showing</td><td>Need 2+ devices connected simultaneously</td></tr>
+            <tr><td>&ldquo;Maximum 5 devices&rdquo; error</td><td>Disconnect a device before connecting another (5 simultaneous limit)</td></tr>
             <tr><td>Conflict after force-release</td><td>Expected &mdash; choose Sync Now to overwrite device</td></tr>
             <tr><td>Override selects wrong item</td><td>Check AppUiState vs BluetoothState selectedItemId sync</td></tr>
             <tr><td>Wrong category after drag</td><td>Check <code>_lastSyncedSignature</code> null after <code>ItemsLoading</code> transition</td></tr>

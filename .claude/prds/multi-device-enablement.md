@@ -87,7 +87,7 @@ Currently, users can only use one Trackwise device per account. If they want to 
 | Item creation requires BLE connection | Items need device_item_id assigned by device |
 | Maximum 100 items per account | Device has 100 item slots (0-99) |
 | Maximum 10 paired devices | Prevents excessive device registry growth |
-| One BLE connection at a time | BLE hardware limitation |
+| Up to 5 simultaneous BLE connections | BLE reliability degrades beyond 5-6 concurrent connections on most phones |
 | Sync requires internet connection | App must fetch fresh sync_seq from Firestore |
 
 ### Assumptions
@@ -98,7 +98,6 @@ Currently, users can only use one Trackwise device per account. If they want to 
 
 ## Out of Scope
 
-- Simultaneous connections to multiple devices
 - Automatic background sync when not connected
 - Device-to-device direct sync (without app)
 - Cloud-based device management (all via app)

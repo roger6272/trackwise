@@ -1885,6 +1885,7 @@ for (final uuid in required) {
 | Max WRITE command payload | 8KB | CHAR_WRITE buffer |
 | Max message size | 64KB | App buffer limit |
 | Max BLE MTU | 517 bytes | BLE spec |
+| Max simultaneous connections | 5 | `BluetoothState.maxConnectedDevices` |
 
 **Important:** Commands sent via CHAR_WRITE **must** end with `\n` (newline). The firmware accumulates chunks and processes complete messages on newline detection.
 

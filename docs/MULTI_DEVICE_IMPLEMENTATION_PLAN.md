@@ -7,7 +7,7 @@
 Enable users to pair multiple physical Traxelos devices to a single account, with proper synchronization and conflict resolution when switching between devices.
 
 **Key Principles:**
-- One active BLE connection at a time
+- Up to 5 simultaneous BLE connections (reliability limit)
 - Same device reconnects (sync_seq matches) → Device is Source of Truth
 - Different device connects (sync_seq mismatch) → App is Source of Truth
 - New/factory-reset device (uninitialized) → App is Source of Truth
@@ -394,7 +394,7 @@ Maximum 10 paired devices per account.
 | **Item creation requires BLE connection** | Items need `device_item_id` assigned by device. Creating items while disconnected would leave them un-syncable. |
 | **Maximum 100 items per account** | Device has 100 item slots (0-99). Both app and device enforce this limit. |
 | **Maximum 10 paired devices** | Prevents excessive device registry growth. |
-| **One BLE connection at a time** | BLE hardware limitation + simplifies sync logic. |
+| **Up to 5 simultaneous BLE connections** | BLE reliability degrades beyond 5-6 concurrent connections on most phones. |
 | **Sync requires internet connection** | App must fetch fresh sync_seq from Firestore. Show error: "Internet connection required to sync." |
 
 ---

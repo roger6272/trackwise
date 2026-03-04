@@ -231,6 +231,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
             AppLogger.debug('🔄 Auto-reconnect for $deviceId scheduled in ${delay.inSeconds}s (BT re-enabled)');
             _reconnectTimers[deviceId] = Timer(delay, () {
               if (!_manualDisconnects.contains(deviceId) &&
+                  !state.isAtConnectionLimit &&
                   state.status == BluetoothStatus.ready &&
                   !isClosed) {
                 _reconnectAttempts[deviceId] = (_reconnectAttempts[deviceId] ?? 0) + 1;
@@ -441,6 +442,17 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       }
     }
 
+    // Enforce simultaneous connection limit (skip if already connected, e.g. reconnect)
+    if (!state.connectedDevices.containsKey(event.deviceId) &&
+        state.isAtConnectionLimit) {
+      emit(state.copyWith(
+        status: BluetoothStatus.error,
+        errorMessage:
+            'Maximum ${BluetoothState.maxConnectedDevices} devices can be connected at once',
+      ));
+      return;
+    }
+
     _manualDisconnects.remove(event.deviceId);
 
     emit(state.copyWith(
@@ -614,6 +626,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         AppLogger.debug('🔄 Auto-reconnect for $disconnectedId scheduled in ${delay.inSeconds}s (attempt ${(_reconnectAttempts[disconnectedId] ?? 0) + 1})');
         _reconnectTimers[disconnectedId] = Timer(delay, () {
           if (!_manualDisconnects.contains(disconnectedId) &&
+              !state.isAtConnectionLimit &&
               state.status == BluetoothStatus.ready &&
               !isClosed) {
             _reconnectAttempts[disconnectedId] = (_reconnectAttempts[disconnectedId] ?? 0) + 1;

@@ -235,9 +235,11 @@ class _BluetoothSearchPageState extends State<BluetoothSearchPage> {
         return BleDeviceListTile(
           device: device,
           isConnecting: state.connectingDeviceId == device.id,
-          onTap: () {
-            context.read<BluetoothBloc>().add(ConnectToDevice(device.id));
-          },
+          onTap: state.isAtConnectionLimit
+              ? null
+              : () {
+                  context.read<BluetoothBloc>().add(ConnectToDevice(device.id));
+                },
         );
       },
     );

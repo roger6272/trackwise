@@ -33,6 +33,8 @@ enum BluetoothStatus {
 
 /// State for the Bluetooth BLoC.
 class BluetoothState extends Equatable {
+  /// Maximum number of simultaneous BLE connections allowed.
+  static const int maxConnectedDevices = 5;
   /// Current status of the BLoC
   final BluetoothStatus status;
 
@@ -107,6 +109,10 @@ class BluetoothState extends Equatable {
 
   /// Whether any device is connected.
   bool get isConnected => connectedDevices.isNotEmpty;
+
+  /// Whether the maximum simultaneous connection limit has been reached.
+  bool get isAtConnectionLimit =>
+      connectedDevices.length >= maxConnectedDevices;
 
   /// Whether currently scanning.
   bool get isScanning => status == BluetoothStatus.scanning;

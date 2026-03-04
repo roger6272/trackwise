@@ -6,13 +6,13 @@ import '../../domain/entities/ble_device.dart';
 class BleDeviceListTile extends StatelessWidget {
   final BleDevice device;
   final bool isConnecting;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const BleDeviceListTile({
     super.key,
     required this.device,
     required this.isConnecting,
-    required this.onTap,
+    this.onTap,
   });
 
   @override

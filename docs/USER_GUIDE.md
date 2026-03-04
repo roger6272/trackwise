@@ -534,7 +534,7 @@ On this page you can:
 
 ### How Multi-Device Works
 
-You can pair multiple Traxelos One devices to your account. When **two or more devices are connected simultaneously**, exclusive leasing activates automatically — each item is assigned to one device at a time.
+You can pair multiple Traxelos One devices to your account (up to 5 connected simultaneously). When **two or more devices are connected simultaneously**, exclusive leasing activates automatically — each item is assigned to one device at a time.
 
 **Single device connected (classic mode):**
 - All your items sync to the connected device

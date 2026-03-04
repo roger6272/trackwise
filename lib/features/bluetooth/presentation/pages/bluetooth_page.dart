@@ -130,6 +130,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
                 device: device,
                 isConnected: isConnected,
                 isConnecting: isConnecting,
+                isAtConnectionLimit: state.isAtConnectionLimit,
                 onRename: () => _showRenameDialog(context, device),
                 onChangeColor: () => _showColorPickerDialog(context, device),
                 onUnpair: () => _showUnpairDialog(context, device),
@@ -476,8 +477,9 @@ class _SummaryBar extends StatelessWidget {
     final connected = state.connectedDevices.length;
     final total = state.pairedDevices.length;
 
+    final atLimit = state.isAtConnectionLimit;
     final statusText = connected > 0
-        ? '$connected of $total connected'
+        ? '$connected of $total connected${atLimit ? ' (max)' : ''}'
         : 'No devices connected';
 
     return Padding(
@@ -600,6 +602,7 @@ class _DeviceListTile extends StatelessWidget {
   final PairedDevice device;
   final bool isConnected;
   final bool isConnecting;
+  final bool isAtConnectionLimit;
   final VoidCallback onRename;
   final VoidCallback onChangeColor;
   final VoidCallback onUnpair;
@@ -610,6 +613,7 @@ class _DeviceListTile extends StatelessWidget {
     required this.device,
     required this.isConnected,
     this.isConnecting = false,
+    this.isAtConnectionLimit = false,
     required this.onRename,
     required this.onChangeColor,
     required this.onUnpair,
@@ -641,7 +645,7 @@ class _DeviceListTile extends StatelessWidget {
           horizontal: 16.0,
           vertical: 8.0,
         ),
-        onTap: (!isConnected && !isConnecting) ? onConnect : null,
+        onTap: (!isConnected && !isConnecting && !isAtConnectionLimit) ? onConnect : null,
         leading: Container(
           width: 48,
           height: 48,
@@ -744,14 +748,21 @@ class _DeviceListTile extends StatelessWidget {
             if (!isConnected && !isConnecting)
               PopupMenuItem(
                 value: 'connect',
+                enabled: !isAtConnectionLimit,
                 child: Row(
                   children: [
                     Icon(Icons.bluetooth_connected,
-                        size: 20, color: AppColors.primary),
+                        size: 20,
+                        color: isAtConnectionLimit
+                            ? AppColors.secondaryText(Theme.of(context).brightness)
+                            : AppColors.primary),
                     const SizedBox(width: 12),
                     Text(
                       'Connect',
-                      style: TextStyle(color: AppColors.primary),
+                      style: TextStyle(
+                          color: isAtConnectionLimit
+                              ? AppColors.secondaryText(Theme.of(context).brightness)
+                              : AppColors.primary),
                     ),
                   ],
                 ),

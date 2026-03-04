@@ -968,6 +968,7 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | New item not on device | Firestore stream timing - check includeItem path |
 | Edit/Delete grayed out | Item claimed by offline device - reconnect or force-release |
 | No device colors showing | Need 2+ devices connected simultaneously |
+| "Maximum 5 devices" error | Disconnect a device before connecting another (5 simultaneous limit) |
 | Stale claim after force-release | Expected - choose Sync Now to overwrite device |
 | Override selects wrong item | Check AppUiState vs BluetoothState selectedItemId sync |
 | Wrong category after drag | Check `_lastSyncedSignature` null after `ItemsLoading` transition |
