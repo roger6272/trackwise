@@ -972,17 +972,17 @@ Sent in response to multi-device sync commands (handshake, override_end).
 
 **Format (handshake - in_sync):**
 ```json
-{"status":"in_sync","device_instance_id":"AA:BB:CC:DD:EE:FF"}
+{"status":"in_sync","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.0.0"}
 ```
 
 **Format (handshake - wrong_account):**
 ```json
-{"status":"wrong_account","device_instance_id":"AA:BB:CC:DD:EE:FF"}
+{"status":"wrong_account","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.0.0"}
 ```
 
 **Format (handshake - uninitialized):**
 ```json
-{"status":"uninitialized","device_instance_id":"AA:BB:CC:DD:EE:FF"}
+{"status":"uninitialized","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.0.0"}
 ```
 
 **Format (override_end - success):**
@@ -1087,6 +1087,7 @@ When an item has a goal set (`goal > 0`) and the count crosses the goal, the dev
 **Vibration Hardware:**
 - GPIO Pin: 5
 - Single pulse: 300ms (reminders)
+- Double pulse: 2× 150ms with 100ms gap (max reached)
 - Triple pulse: 3× 150ms with 100ms gap (goal reached)
 - Non-blocking (doesn't pause counting)
 - Priority: goal > reminder target > reminder interval
@@ -1521,7 +1522,7 @@ Index-based storage where `<i>` = 0 to 99:
 | Key | Type | Description |
 |-----|------|-------------|
 | `item_total` | int | Number of items (0-100) |
-| `selected_did` | int | Currently selected deviceItemId (-1 if none) |
+| `selected_did` | char (int8) | Currently selected deviceItemId (-1 if none) |
 | `selected_index` | int | Index of currently selected item |
 | `tz_offset` | int | Minutes offset from UTC |
 | `last_reset_date` | string | "YYYY-MM-DD" of last daily reset |
@@ -1544,7 +1545,7 @@ Index-based storage where `<i>` = 0 to 99:
 **RAM Tracking:**
 ```cpp
 bool countsDirty = false;     // Counts modified since last NVS write
-int incrementsSinceFlush = 0; // Counter for batching
+int incrementsSinceWrite = 0; // Counter for batching
 ```
 
 ---

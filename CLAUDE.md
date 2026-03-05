@@ -11,7 +11,7 @@ This is a Flutter app (Traxelos) using clean architecture with BLoC pattern.
 **CRITICAL: Always consider ALL codebases AND documentation when making enhancements, troubleshooting, or doing project reviews/analysis:**
 
 1. **App Code**
-   - Location: `lib/features/`, `lib/core/`, `lib/backend/`
+   - Location: `lib/features/`, `lib/core/`
    - Uses BLoC pattern and clean architecture principles
 
 2. **Firmware** (ESP32)

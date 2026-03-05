@@ -172,6 +172,7 @@ Per-Item (index 0-99):              Global:
 ├── i_<i>    → increment           └── last_reset_date→ "YYYY-MM-DD"
 ├── r_<i>    → reminder type
 ├── rv_<i>   → reminder value
+├── g_<i>    → goal
 ├── lr_<i>   → lastResetTime
 └── rn_<i>   → resetNumber
 ```
@@ -457,7 +458,7 @@ Resolution options:
      │                     │                     │
 
 Timing:
-  Button → Event (immediate) → item_delta (+50ms)
+  Button → item_delta (inline) → Event (queued, ~10ms later)
 
 Why two notifications?
   • event: For history/logging (has timestamp, event type)
@@ -607,7 +608,7 @@ Key points:
      │                     │ ① Connect          │
      │                     │ ───────────────────►│
      │                     │                     │
-     │                     │ ② handshake(seq=-1)│
+     │                     │ ② handshake(uid)   │
      │                     │ ───────────────────►│
      │                     │                     │
      │                     │ ③ {status:in_sync, │
@@ -663,7 +664,7 @@ Time    App                  Device A              Device B
 T0      [Firestore: item "Water" claimed by A]
 
 T1      Connect A ───────────►
-        handshake(seq=-1) ───►
+        handshake(uid) ──────►
                               {in_sync}
                               prefs: count=105 ──►
         Write Firestore ◄──── count=105
@@ -676,7 +677,7 @@ T3                            User increments
                               (offline)
 
 T4      Connect B ────────────────────────────────►
-        handshake(seq=-1) ───────────────────────►
+        handshake(uid) ──────────────────────────►
                                                    {in_sync}
                                                    prefs: count=200 ─►
         Write Firestore ◄──── count=200 (B's items)

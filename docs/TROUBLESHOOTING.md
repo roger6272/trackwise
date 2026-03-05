@@ -298,7 +298,7 @@ if (buffer.contains('\n')) {
 | set_selected command | ✗ | ✓ |
 
 **If missing one:**
-- Check they're being sent 50ms apart (device adds delay)
+- Check they're being sent in rapid succession (item_delta inline, event queued ~10ms later)
 - Check message buffer isn't dropping messages
 - Check notification listener handles multiple rapid notifications
 

@@ -65,7 +65,7 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
 - Works offline - syncs when reconnected
 
 ### 6. Analytics and Charts
-- Bar charts with multiple aggregation levels (Hourly / Daily / Weekly / Monthly)
+- Bar charts with 3 time ranges: 1D (hourly), 7D (daily), 30D (daily)
 - Statistics: period totals, percent change vs prior period
 - View trends and patterns over time
 

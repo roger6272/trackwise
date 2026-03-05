@@ -135,7 +135,7 @@ To manually disconnect:
 
 ## 4. Creating & Managing Items
 
-> **Note:** Your Traxelos One device must be connected via Bluetooth to create, edit, or delete items.
+> **Note:** Creating and editing items can be done without a device connection. A connected device is needed to sync items to the device.
 
 ### Creating Your First Item
 
