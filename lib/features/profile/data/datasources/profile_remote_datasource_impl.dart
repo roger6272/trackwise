@@ -129,12 +129,21 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
           .get();
       final events = eventsSnapshot.docs.map((doc) {
         final data = doc.data();
+        // Extract itemId from DocumentReference (field is 'item', not 'item_id')
+        String? itemId;
+        final itemRef = data['item'];
+        if (itemRef is DocumentReference) {
+          itemId = itemRef.id;
+        } else if (itemRef is String) {
+          itemId = itemRef;
+        }
         return {
           'id': doc.id,
-          'item_id': data['item_id'],
-          'event_name': data['eventName'],
+          'item_id': itemId,
+          'event_name': data['event_name'],
           'increment': data['increment'],
-          'timestamp': data['createdTime'],
+          'timestamp': data['created_time'],
+          'reset_number': data['reset_number'],
         };
       }).toList();
 

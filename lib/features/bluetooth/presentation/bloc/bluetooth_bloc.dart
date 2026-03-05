@@ -894,11 +894,16 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final message = event.message;
     final deviceInstanceId = event.deviceInstanceId;
 
-    // Only process device messages once the device is fully synced.
-    // During handshaking/staleClaim, firmware may send prefs with
-    // stale counts (e.g. counts for items released while device was offline).
+    // Block messages during states where device data is unreliable.
+    // Allow during 'handshaking' — prefs must flow through to complete
+    // legacy sync (sets synced via line below) and to avoid a race where
+    // firmware sends prefs before HandshakeCompleted is processed.
+    // Block during staleClaim (stale counts), setup/wrongAccount (invalid),
+    // and syncing (override in progress).
     final deviceState = state.connectedDevices[deviceInstanceId];
-    if (deviceState != null && !deviceState.isOnline) {
+    if (deviceState != null &&
+        !deviceState.isOnline &&
+        deviceState.syncStatus != DeviceSyncStatus.handshaking) {
       AppLogger.debug('Dropping ${message.type.name} from $deviceInstanceId (status: ${deviceState.syncStatus.name})');
       return;
     }

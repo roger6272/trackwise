@@ -723,7 +723,7 @@ class ItemRemoteDataSourceImpl implements ItemRemoteDataSource {
           'increment': 0,
           'currentcount': 0,
           'reset_number': currentResetNumber,  // snake_case to match EventLogModel.fromFirestore
-          'user_id': itemUserId,
+          'uid': userRef,  // DocumentReference, not string - must match EventLog query/export
         });
 
         // Build updated ItemModel for return — use fromFirestore to capture all

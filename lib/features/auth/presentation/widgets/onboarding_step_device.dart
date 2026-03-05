@@ -79,9 +79,13 @@ class _OnboardingStepDeviceState extends State<OnboardingStepDevice> {
         // by BlocListeners in main.dart — no duplicate handling here.
 
         // Handle successful sync — pairing complete
+        // Block during handshaking/syncing (not yet synced) and wrongAccount
+        // (device locked to different user). Only complete when fully synced.
         if (state.isConnected &&
             state.connectedDeviceInstanceId != null &&
             !state.needsSetup &&
+            !state.hasWrongAccount &&
+            !state.isSyncing &&
             !_pairingCompleted) {
           _completePairing(state);
         }
