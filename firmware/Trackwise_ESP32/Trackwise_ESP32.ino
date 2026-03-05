@@ -64,7 +64,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define PROTOCOL_VERSION 3
 
 // Firmware version: Semantic versioning (major.minor.patch)
-#define FIRMWARE_VERSION "1.5.0"
+#define FIRMWARE_VERSION "2.0.0"
 
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support

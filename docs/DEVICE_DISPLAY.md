@@ -329,7 +329,7 @@ These are brief overlay messages shown on the device display for ~3 seconds befo
 | **Connected** | BLE connection established | Bluetooth icon + "Connected" | 3 seconds |
 | **Disconnected** | BLE connection lost | Crossed-out Bluetooth icon + "Disconnected" | 3 seconds |
 | **Wrong Account** | A different account (not the paired one) connects | "Wrong Account" | 3 seconds |
-| **Conflict / See App** | User presses button while a sync conflict exists | "Conflict" + "See App" (two lines) | 3 seconds |
+| **Switch Disabled** | User presses switch button while device is offline | "SWITCH DISABLED" + "SYNC TO APP" (two lines) | 3 seconds |
 | **Memory almost full** | NVS usage ≥ 90% | "Memory almost full. Please sync." | 3 seconds (once per wake) |
 | **Storage full** | NVS usage = 100% | "Storage full. Sync now." | Shown on every A press (blocks counting) |
 

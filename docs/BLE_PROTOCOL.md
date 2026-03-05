@@ -1559,7 +1559,7 @@ The device operates in one of several states that affect its behavior and user i
 |-------|-------------|-----------------|---------|
 | **Normal** | Device paired and operational | Enabled - increment/reset/switch work | Item name and count |
 | **Pairing** | Device unpaired (new or factory reset) | Enabled | "WELCOME TO TRAXELOS" |
-| **Conflict** | Sync sequence mismatch detected | Disabled - buttons ignored | "SEE APP" |
+| **Offline (fixed-task)** | Device disconnected from app | Increment/reset enabled, **switch disabled** | "SWITCH DISABLED / SYNC TO APP" on switch attempt |
 
 ### 12.2 State Transitions
 
@@ -1576,16 +1576,19 @@ The device operates in one of several states that affect its behavior and user i
                     └──────┬──────┘                     │
                            │ override_start with UID   │
                            ▼                           │
-┌──────────────┐    ┌─────────────┐    ┌───────────┐   │
-│   CONFLICT   │◄───│   NORMAL    │◄───│   IDLE    │   │
-│    STATE     │    │    MODE     │    │   (BLE    │   │
-└──────┬───────┘    └──────┬──────┘    │  advert)  │   │
-       │                   │           └───────────┘   │
-       │ override_end      │                           │
-       │ or disconnect     │                           │
-       └───────────────────┘                           │
+                    ┌─────────────┐    ┌───────────┐   │
+                    │   NORMAL    │◄───│   IDLE    │   │
+                    │    MODE     │    │   (BLE    │   │
+                    └──────┬──────┘    │  advert)  │   │
+                           │           └───────────┘   │
+                           │                           │
                            │ Factory reset             │
                            └───────────────────────────┘
+
+Note: When disconnected (offline), the device enters a "fixed-task"
+mode where increment/reset still work but item switching is blocked.
+This prevents claim conflicts when multiple devices share items.
+See EXCLUSIVE_LEASING_SPEC.md §5.2 for details.
 ```
 
 ### 12.3 Disconnect Behavior

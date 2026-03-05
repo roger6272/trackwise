@@ -235,6 +235,8 @@ Your custom order is saved and synced to your device.
 | Press & Hold | Item Menu View | Rapidly loop through the items in the menu |
 | Press & Hold 3 seconds | Main Item View | Reset the selected item's count (Enter the next cycle) |
 
+> **Note:** When the device is not connected to the app, switching items is disabled. Pressing Button B will show "SWITCH DISABLED — SYNC TO APP". Counting and resetting still work normally. Connect to the app to switch items again.
+
 **Automatic Behaviors**
 
 | Trigger | Location | Action |

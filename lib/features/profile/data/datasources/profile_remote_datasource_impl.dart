@@ -102,13 +102,23 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       final profileDoc = await userRef.get();
       final profileData = profileDoc.data();
 
-      // Gather items (uid stored as DocumentReference, not string)
+      // Gather active items (exclude soft-deleted; uid as DocumentReference)
       final itemsSnapshot = await _firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
-      final items = itemsSnapshot.docs.map((doc) {
+      final items = itemsSnapshot.docs
+          .where((doc) => doc.data()['deletedAt'] == null)
+          .map((doc) {
         final data = doc.data();
+        // Resolve categoryId from DocumentReference or String
+        String? categoryId;
+        final catField = data['category_id'];
+        if (catField is DocumentReference) {
+          categoryId = catField.id;
+        } else if (catField is String) {
+          categoryId = catField.isEmpty ? null : catField;
+        }
         return {
           'id': doc.id,
           'name': data['item_name'],
@@ -117,8 +127,30 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
           'increment_by': data['increment_by'],
           'reminder': data['reminder'],
           'reminder_value': data['reminder_value'],
+          'initial_count': data['initial_count'],
+          'goal': data['goal'],
+          'reset_number': data['reset_number'],
+          'category_id': categoryId,
+          'cycle_names': data['cycle_names'],
+          'cycle_notes': data['cycle_notes'],
           'last_reset_time': data['lastResetTime'],
           'last_updated': data['lastUpdated'],
+        };
+      }).toList();
+
+      // Gather categories (exclude soft-deleted; uid as DocumentReference)
+      final categoriesSnapshot = await _firestore
+          .collection('Category')
+          .where('uid', isEqualTo: userRef)
+          .get();
+      final categories = categoriesSnapshot.docs
+          .where((doc) => doc.data()['deleted_at'] == null)
+          .map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['category_name'],
+          'created_at': data['created_time'],
         };
       }).toList();
 
@@ -150,7 +182,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       // Build export data
       final exportData = {
         'export_date': DateTime.now().toIso8601String(),
-        'export_format_version': '1.0',
+        'export_format_version': '1.1',
         'profile': {
           'user_id': user.uid,
           'email': user.email,
@@ -160,6 +192,8 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         },
         'items': items,
         'items_count': items.length,
+        'categories': categories,
+        'categories_count': categories.length,
         'events': events,
         'events_count': events.length,
       };
@@ -195,40 +229,39 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     // Auth account deleted successfully, now clean up Firestore data
     // Even if this fails, the account is gone and data will be orphaned
     try {
-      final batch = _firestore.batch();
+      // Collect all document references to delete
+      final allRefs = <DocumentReference>[];
 
-      // Delete all items (uses DocumentReference for uid)
       final itemsSnapshot = await _firestore
           .collection('Item')
           .where('uid', isEqualTo: userRef)
           .get();
-      for (final doc in itemsSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
+      allRefs.addAll(itemsSnapshot.docs.map((d) => d.reference));
 
-      // Delete all event logs (uid stored as DocumentReference)
       final eventsSnapshot = await _firestore
           .collection('EventLog')
           .where('uid', isEqualTo: userRef)
           .get();
-      for (final doc in eventsSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
+      allRefs.addAll(eventsSnapshot.docs.map((d) => d.reference));
 
-      // Delete all categories (uses DocumentReference for uid)
       final categoriesSnapshot = await _firestore
           .collection('Category')
           .where('uid', isEqualTo: userRef)
           .get();
-      for (final doc in categoriesSnapshot.docs) {
-        batch.delete(doc.reference);
+      allRefs.addAll(categoriesSnapshot.docs.map((d) => d.reference));
+
+      allRefs.add(userRef);
+
+      // Firestore batch limit is 500 operations — split into chunks
+      const batchLimit = 499;
+      for (var i = 0; i < allRefs.length; i += batchLimit) {
+        final batch = _firestore.batch();
+        final end = (i + batchLimit < allRefs.length) ? i + batchLimit : allRefs.length;
+        for (var j = i; j < end; j++) {
+          batch.delete(allRefs[j]);
+        }
+        await batch.commit();
       }
-
-      // Delete profile document
-      batch.delete(userRef);
-
-      // Commit batch delete
-      await batch.commit();
     } catch (e) {
       // Firestore cleanup failed, but account is already deleted
       // Data will be orphaned but user can't access it anymore

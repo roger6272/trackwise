@@ -972,10 +972,17 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     }
 
     // Handle log pagination - if more pages available, request them
+    // Safety limit: max 50 pages (~750 log entries) to prevent infinite loop
+    // if firmware has a bug where hasMore is always true
     if (message.type == BleMessageType.logs && message.hasMore) {
       final currentPage = message.page ?? 0;
-      await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
-      add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1, deviceInstanceId: deviceInstanceId));
+      if (currentPage < 50) {
+        await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
+        add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1, deviceInstanceId: deviceInstanceId));
+      } else {
+        AppLogger.error('Log pagination safety limit reached (50 pages) for $deviceInstanceId');
+        add(ClearDeviceLogs(deviceInstanceId: deviceInstanceId));
+      }
     }
 
     // Clear logs on device when all pages received
