@@ -173,7 +173,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
         final category = getCategoryName(event.itemId);
         final cycleNote = getCycleNote(event.itemId, event.resetNumber);
         final deviceSuffix = includeDeviceColumn
-            ? ',${_escapeCSV(deviceNameMap[event.deviceInstanceId ?? ''] ?? event.deviceInstanceId ?? '')}'
+            ? ',${_escapeCSV(event.deviceInstanceId == null ? 'App' : (deviceNameMap[event.deviceInstanceId!] ?? event.deviceInstanceId!))}'
             : '';
         buffer.writeln(
           '${_escapeCSV(itemName)},${_escapeCSV(category)},${_escapeCSV(event.eventName)},${event.resetNumber},${_escapeCSV(cycleNote)},${_formatDateTime(event.createdTime)},${event.increment}$deviceSuffix',
