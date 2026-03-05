@@ -976,7 +976,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // if firmware has a bug where hasMore is always true
     if (message.type == BleMessageType.logs && message.hasMore) {
       final currentPage = message.page ?? 0;
-      if (currentPage < 50) {
+      if (currentPage < BluetoothConstants.maxLogPages) {
         await Future.delayed(const Duration(milliseconds: BluetoothConstants.commandIntervalDelayMs));
         add(RequestDeviceData(type: DeviceDataType.logs, page: currentPage + 1, deviceInstanceId: deviceInstanceId));
       } else {

@@ -72,6 +72,11 @@ class BluetoothConstants {
   /// Delay after prepare_read write before reading (ESP32 processing time)
   static const int prepareReadDelayMs = 500;
 
+  /// Maximum number of log pages to request before giving up.
+  /// Prevents infinite pagination if firmware always reports hasMore=true.
+  /// 50 pages × 15 entries/page = 750 log entries max.
+  static const int maxLogPages = 50;
+
   // ========== Retry Configuration ==========
 
   /// Maximum number of connection retry attempts

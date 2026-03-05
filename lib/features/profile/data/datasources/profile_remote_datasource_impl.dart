@@ -176,6 +176,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
           'increment': data['increment'],
           'timestamp': data['created_time'],
           'reset_number': data['reset_number'],
+          'device_instance_id': data['device_instance_id'],
         };
       }).toList();
 

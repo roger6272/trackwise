@@ -785,6 +785,42 @@ The BLE "r" button works because `_subscribeToBluetoothLogs` explicitly triggers
 
 ---
 
+### 9.19 "App stuck at syncing while devices show connected"
+
+**Symptoms:** App shows "syncing" spinner indefinitely. Device display shows connected. Restarting app or device doesn't help.
+
+**Root Cause:** The BLE message gate in `bluetooth_bloc.dart:_onMessageReceived` checked `!deviceState.isOnline` to drop messages. Since `isOnline` is only true when `syncStatus == synced`, this blocked prefs messages during `handshaking` state. But receiving prefs is what transitions the device to `synced` — creating a deadlock. Also affected normal sync when firmware sends prefs before the app finishes processing `HandshakeCompleted`.
+
+**Fix Applied:** Changed the guard to allow messages through during `handshaking` state while still blocking during `staleClaim`, `setup`, `wrongAccount`, and `syncing` (override in progress). See ADR-006 for the design rationale.
+
+**Key Lesson:** When a state machine transition depends on receiving external input, the gate that filters that input must not block the very message that triggers the transition. Trace the full message flow (firmware sends → app receives → state changes) before adding filters.
+
+---
+
+### 9.20 "Onboarding completes pairing with wrong-account device"
+
+**Symptoms:** During onboarding, user pairs with a device that belongs to a different account. The "wrong account" dialog appears briefly but setup completes anyway, advancing to the next onboarding step.
+
+**Root Cause:** The pairing completion guard in `onboarding_step_device.dart` only checked `state.isConnected && !state.needsSetup && !_pairingCompleted`. It did not check `state.hasWrongAccount` or `state.isSyncing`. When a wrong-account device connects, `isConnected` becomes true and `needsSetup` is false (device is already set up for another user), so the guard fired before the `wrongAccount` status was fully processed.
+
+**Fix Applied:** Added `!state.hasWrongAccount` and `!state.isSyncing` to the completion guard. Pairing now only completes when the device is fully synced — not during intermediate states.
+
+**Key Lesson:** Guard conditions for "success" states must explicitly exclude all known "failure" states. Don't rely on a single positive check (`isConnected`) when multiple negative states could be active simultaneously.
+
+---
+
+### 9.21 "Reset-all events missing from GDPR JSON export"
+
+**Symptoms:** After using "Reset All Items", the reset events don't appear in the GDPR JSON export (Profile > Export My Data). They do appear in the CSV export.
+
+**Root Cause:** Two bugs: (1) `resetAllItems()` in `item_remote_datasource_impl.dart` wrote `'user_id': itemUserId` (a plain String) instead of `'uid': userRef` (a DocumentReference). The export queries `where('uid', isEqualTo: userRef)`, so reset events were invisible. (2) The export itself used wrong Firestore field names (`eventName` instead of `event_name`, `createdTime` instead of `created_time`, `item_id` instead of `item` DocumentReference), causing all event fields except `increment` to be null.
+
+**Fix Applied:** Changed `resetAllItems` to write `uid` as DocumentReference. Fixed export field name mappings.
+
+**Key Lesson:** When bypassing a model's `toFirestore()` to write raw Firestore maps, you must match BOTH the field names AND field types that queries expect. The `uid` field convention in this codebase is always a DocumentReference, not a String — use `userRef` not `userId`.
+
+---
+
 ## 10. Multi-Device / Exclusive Leasing Issues
 
 ### 10.1 "Can't edit or delete an item — actions are grayed out"
