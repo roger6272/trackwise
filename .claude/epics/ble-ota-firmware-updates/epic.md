@@ -1,8 +1,8 @@
 ---
 name: ble-ota-firmware-updates
-status: backlog
+status: completed
 created: 2026-03-28T06:33:51Z
-progress: 0%
+progress: 100%
 prd: .claude/prds/ble-ota-firmware-updates.md
 github: https://github.com/roger6272/trackwise/issues/35
 ---
