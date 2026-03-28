@@ -179,9 +179,12 @@ class PerformOtaUpdateUseCase {
           .listenForOtaNotifications()
           .where((data) {
             final status = data['status'] as String?;
-            // Accept expected status OR error responses
+            final reason = data['reason'] as String?;
+            // Accept expected status, explicit error status, or
+            // BleMessageType.error responses (which have reason but no status)
             return status == expectedStatus ||
-                status == 'error';
+                status == 'error' ||
+                reason != null;
           })
           .first
           .timeout(timeout);
