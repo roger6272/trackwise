@@ -7,6 +7,7 @@
 #include <BLE2902.h>      // For BLE notification descriptors
 #include <ArduinoJson.h>  // For encoding/decoding JSON
 #include <RTClib.h>
+#include <Wire.h>         // For I2C communication (MAX17048 battery fuel gauge)
 #include <esp_gap_ble_api.h>  // For connection parameter logging
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -45,6 +46,16 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define CHAR_SET_ITEMS_UUID "12345678-1234-1234-1234-123456789008"  //send list of items from the app to device
 #define CHAR_WRITE_UUID "12345678-1234-1234-1234-123456789010"      //combine clearlogs, setselected, settime
 
+// Standard BLE Battery Service UUIDs
+#define BATTERY_SERVICE_UUID        ((uint16_t)0x180F)
+#define BATTERY_LEVEL_CHAR_UUID     ((uint16_t)0x2A19)
+
+// MAX17048 fuel gauge (I2C)
+#define MAX17048_I2C_ADDR  0x36
+#define MAX17048_SOC_REG   0x04  // State of Charge register (upper byte = integer %)
+
+// Battery level update interval
+#define BATTERY_UPDATE_INTERVAL_MS 30000  // 30 seconds
 
 // RAM-based log buffer setup
 #define MAX_LOG_ENTRIES 1000  // 14KB RAM (1000 × 14 bytes)
@@ -186,6 +197,11 @@ BLECharacteristic* syncChar;
 BLECharacteristic* setItemsChar;
 BLECharacteristic* writeChar;  //combine clearlogs and setselected
 BLECharacteristic* readChar;
+BLECharacteristic* batteryLevelChar;  // Standard Battery Service characteristic
+
+// Battery state
+uint8_t currentBatteryLevel = 0;         // Last read battery percentage (0-100)
+unsigned long lastBatteryUpdate = 0;     // Timestamp of last battery reading
 
 // For Non-Blocking Vibration (handles millis() overflow after ~49 days)
 // Supports multi-pulse patterns (e.g., double vibrate for goal reached)
@@ -2007,6 +2023,42 @@ static void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 }
 
 // BLE peripheral and characteristic setup
+// ============================================================================
+// MAX17048 BATTERY FUEL GAUGE
+// ============================================================================
+// Reads State of Charge (SOC%) from MAX17048 over I2C.
+// Returns 0-100 percentage, or 0 if I2C read fails.
+uint8_t readBatterySOC() {
+  Wire.beginTransmission(MAX17048_I2C_ADDR);
+  Wire.write(MAX17048_SOC_REG);
+  if (Wire.endTransmission(false) != 0) {
+    DEBUG_PRINTLN("⚠️ MAX17048 I2C transmission error");
+    return 0;
+  }
+  uint8_t bytesRead = Wire.requestFrom((uint8_t)MAX17048_I2C_ADDR, (uint8_t)2);
+  if (bytesRead < 2) {
+    DEBUG_PRINTLN("⚠️ MAX17048 I2C read failed");
+    return 0;
+  }
+  uint8_t socInt = Wire.read();   // Upper byte = integer percentage
+  Wire.read();                     // Lower byte = fractional (discard)
+  if (socInt > 100) socInt = 100;  // Clamp to valid BLE range
+  return socInt;
+}
+
+// Update BLE Battery Level characteristic and notify connected clients
+void updateBatteryLevel() {
+  uint8_t soc = readBatterySOC();
+  if (soc != currentBatteryLevel) {
+    currentBatteryLevel = soc;
+    batteryLevelChar->setValue(&currentBatteryLevel, 1);
+    if (isConnected) {
+      batteryLevelChar->notify();
+      DEBUG_LOG("🔋 Battery: %d%%\n", currentBatteryLevel);
+    }
+  }
+}
+
 void setupBLE() {
   BLEDevice::init("Traxelos_One");
 
@@ -2040,6 +2092,19 @@ void setupBLE() {
   readChar->setValue("[]");  // default empty
 
   svc->start();
+
+  // Standard BLE Battery Service (0x180F)
+  BLEService* batterySvc = server->createService(BLEUUID(BATTERY_SERVICE_UUID));
+  batteryLevelChar = batterySvc->createCharacteristic(
+    BLEUUID(BATTERY_LEVEL_CHAR_UUID),
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+  batteryLevelChar->addDescriptor(new BLE2902());
+  currentBatteryLevel = readBatterySOC();
+  batteryLevelChar->setValue(&currentBatteryLevel, 1);
+  batterySvc->start();
+  DEBUG_LOG("🔋 Battery Service started (initial SOC: %d%%)\n", currentBatteryLevel);
+
   BLEDevice::getAdvertising()->addServiceUUID(SERVICE_UUID);
   BLEDevice::getAdvertising()->setScanResponse(true);
 
@@ -2512,6 +2577,10 @@ void setup() {
   pinMode(VIBRATION_PIN, OUTPUT);
   digitalWrite(VIBRATION_PIN, LOW);
 
+  // Initialize I2C for MAX17048 battery fuel gauge (default SDA/SCL pins)
+  Wire.begin();
+  DEBUG_PRINTLN("🔋 I2C initialized for MAX17048");
+
   setupBLE();
 
   // Initialize watchdog timer (30 second timeout, panic on timeout)
@@ -2558,6 +2627,12 @@ void loop() {
   if (countsDirty && (millis() - lastNvsFlush > 300000)) {  // 5 minutes
     flushPendingNvsWrites();
     lastNvsFlush = millis();
+  }
+
+  // Periodic battery level update (every 30 seconds)
+  if (millis() - lastBatteryUpdate > BATTERY_UPDATE_INTERVAL_MS) {
+    updateBatteryLevel();
+    lastBatteryUpdate = millis();
   }
 
   // Check for stale incoming JSON buffer (incomplete transfer from app)
