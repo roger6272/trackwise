@@ -191,6 +191,7 @@ import 'package:traxelos/features/ota/domain/usecases/check_for_update.dart'
     as _i1014;
 import 'package:traxelos/features/ota/domain/usecases/perform_ota_update.dart'
     as _i555;
+import 'package:traxelos/features/ota/presentation/bloc/ota_bloc.dart' as _i301;
 import 'package:traxelos/features/profile/data/datasources/profile_remote_datasource.dart'
     as _i892;
 import 'package:traxelos/features/profile/data/datasources/profile_remote_datasource_impl.dart'
@@ -416,6 +417,10 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i531.CategoryRepository>(),
               gh<_i394.ConnectivityService>(),
             ));
+    gh.factory<_i301.OtaBloc>(() => _i301.OtaBloc(
+          gh<_i1014.CheckForUpdateUseCase>(),
+          gh<_i555.PerformOtaUpdateUseCase>(),
+        ));
     gh.lazySingleton<_i531.BluetoothBloc>(() => _i531.BluetoothBloc(
           gh<_i1033.ScanDevicesUseCase>(),
           gh<_i177.StopScanUseCase>(),

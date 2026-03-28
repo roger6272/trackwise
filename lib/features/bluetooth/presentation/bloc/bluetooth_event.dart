@@ -459,6 +459,20 @@ class BatteryLevelUpdated extends BluetoothEvent {
   List<Object?> get props => [deviceInstanceId, level];
 }
 
+// ========== OTA Events ==========
+
+/// Sets the OTA reboot flag for a device, suppressing disconnect error UI.
+/// Used by OtaBloc when OTA reboot is triggered.
+class SetOtaRebootFlag extends BluetoothEvent {
+  final String deviceInstanceId;
+  final bool awaiting;
+
+  const SetOtaRebootFlag({required this.deviceInstanceId, required this.awaiting});
+
+  @override
+  List<Object?> get props => [deviceInstanceId, awaiting];
+}
+
 /// Triggers a claim-filtered item push to connected devices.
 /// Used after item reorder/edits in multi-device mode where the UI-layer
 /// sync path (_checkDeviceSync) cannot apply per-device claim filtering.

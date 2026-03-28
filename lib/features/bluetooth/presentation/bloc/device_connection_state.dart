@@ -14,6 +14,10 @@ class DeviceConnectionState extends Equatable {
   /// Only populated when the device supports Battery Service (0x180F).
   final int? batteryLevel;
 
+  /// Firmware version reported by device during handshake (e.g., "1.5.0").
+  /// Used by OTA bloc to check for available firmware updates.
+  final String? firmwareVersion;
+
   bool get isOnline => syncStatus == DeviceSyncStatus.synced;
 
   const DeviceConnectionState({
@@ -23,6 +27,7 @@ class DeviceConnectionState extends Equatable {
     this.isOverriding = false,
     this.hasMoreLogs = false,
     this.batteryLevel,
+    this.firmwareVersion,
   });
 
   DeviceConnectionState copyWith({
@@ -33,6 +38,7 @@ class DeviceConnectionState extends Equatable {
     bool? isOverriding,
     bool? hasMoreLogs,
     int? batteryLevel,
+    String? firmwareVersion,
   }) {
     return DeviceConnectionState(
       device: device ?? this.device,
@@ -41,11 +47,12 @@ class DeviceConnectionState extends Equatable {
       isOverriding: isOverriding ?? this.isOverriding,
       hasMoreLogs: hasMoreLogs ?? this.hasMoreLogs,
       batteryLevel: batteryLevel ?? this.batteryLevel,
+      firmwareVersion: firmwareVersion ?? this.firmwareVersion,
     );
   }
 
   @override
-  List<Object?> get props => [device, syncStatus, selectedItemId, isOverriding, hasMoreLogs, batteryLevel];
+  List<Object?> get props => [device, syncStatus, selectedItemId, isOverriding, hasMoreLogs, batteryLevel, firmwareVersion];
 }
 
 bool isItemEditable(String? claimedBy, Map<String, DeviceConnectionState> connectedDevices) {

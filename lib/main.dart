@@ -20,6 +20,7 @@ import 'features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import 'features/bluetooth/presentation/widgets/device_setup_dialog.dart';
 import 'features/bluetooth/presentation/widgets/stale_claim_dialog.dart';
 import 'features/bluetooth/presentation/widgets/wrong_account_dialog.dart';
+import 'features/ota/presentation/bloc/ota_bloc.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -76,6 +77,9 @@ void main() async {
           ),
           BlocProvider<ProfileBloc>(
             create: (_) => di.sl<ProfileBloc>(),
+          ),
+          BlocProvider<OtaBloc>(
+            create: (_) => di.sl<OtaBloc>(),
           ),
           BlocProvider<AuthBloc>(
             create: (_) => di.sl<AuthBloc>()..add(const CheckAuthStatusEvent()),

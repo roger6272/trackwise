@@ -84,6 +84,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   bool _wasBluetoothOff = false; // Keep global — adapter state is global
   final Map<String, int> _reconnectAttempts = {};
 
+  // OTA reboot tracking: suppress disconnect error UI when OTA reboot is in progress
+  final Set<String> _awaitingOtaReboot = {};
+
   // Global claim queue: serializes ALL claim operations across devices
   // to prevent concurrent Firestore transactions from reading stale claim state.
   Future<void> _claimQueue = Future.value();
@@ -194,6 +197,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<RefreshAllDevices>(_onRefreshAllDevices);
     // Battery events
     on<BatteryLevelUpdated>(_onBatteryLevelUpdated);
+    // OTA events
+    on<SetOtaRebootFlag>(_onSetOtaRebootFlag);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -677,6 +682,20 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       ),
     ));
   }
+
+  // ========== OTA Handlers ==========
+
+  void _onSetOtaRebootFlag(SetOtaRebootFlag event, Emitter<BluetoothState> emit) {
+    if (event.awaiting) {
+      _awaitingOtaReboot.add(event.deviceInstanceId);
+    } else {
+      _awaitingOtaReboot.remove(event.deviceInstanceId);
+    }
+  }
+
+  /// Whether a device is awaiting OTA reboot (suppresses disconnect error UI).
+  bool isAwaitingOtaReboot(String deviceInstanceId) =>
+      _awaitingOtaReboot.contains(deviceInstanceId);
 
   Future<void> _performInitialSync(String deviceInstanceId) async {
     // Small delay to let BLE connection stabilize
@@ -1580,6 +1599,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
             syncStatus: DeviceSyncStatus.synced,
             selectedItemId: result.selectedFirestoreId,
+            firmwareVersion: result.firmwareVersion,
           )),
         ));
 

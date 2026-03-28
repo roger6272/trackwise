@@ -5,11 +5,16 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
+import '../../../../core/utils/bluetooth_constants.dart';
 import '../../domain/entities/paired_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
+import '../bloc/device_connection_state.dart';
 import '../widgets/device_color_picker_dialog.dart';
+import '../../../ota/presentation/bloc/ota_bloc.dart';
+import '../../../ota/presentation/bloc/ota_event.dart' as ota_events;
+import '../../../ota/presentation/widgets/update_banner.dart';
 import 'bluetooth_search_page.dart';
 
 /// Main Bluetooth page — unified device management.
@@ -32,6 +37,9 @@ class BluetoothPage extends StatefulWidget {
 class _BluetoothPageState extends State<BluetoothPage> {
   /// The deviceInstanceId we're connecting to from this page (null if not connecting).
   String? _connectingDeviceId;
+
+  /// Tracks which device IDs have already triggered an OTA check this session.
+  final Set<String> _otaCheckedDevices = {};
 
   @override
   void initState() {
@@ -62,6 +70,23 @@ class _BluetoothPageState extends State<BluetoothPage> {
             showErrorSnackBar(context, state.errorMessage!);
           }
         }
+
+        // Trigger OTA update check when a device's firmware version becomes available
+        for (final entry in state.connectedDevices.entries) {
+          final deviceState = entry.value;
+          if (deviceState.firmwareVersion != null &&
+              deviceState.syncStatus == DeviceSyncStatus.synced &&
+              !_otaCheckedDevices.contains(entry.key)) {
+            _otaCheckedDevices.add(entry.key);
+            context.read<OtaBloc>().add(
+                  ota_events.CheckForUpdateRequested(deviceState.firmwareVersion!),
+                );
+            break; // Check for first connected device only
+          }
+        }
+        // Clean up OTA check tracking for disconnected devices
+        _otaCheckedDevices.removeWhere(
+            (id) => !state.connectedDevices.containsKey(id));
       },
       builder: (context, state) {
         final devices = state.pairedDevices;
@@ -179,6 +204,13 @@ class _BluetoothPageState extends State<BluetoothPage> {
               .read<BluetoothBloc>()
               .add(const RequestBluetoothPermissions());
         },
+      ));
+    }
+
+    // OTA update banner (shown when a connected device has a firmware update available)
+    if (state.isConnected) {
+      banners.add(UpdateBanner(
+        negotiatedMtu: BluetoothConstants.defaultMtuLimit,
       ));
     }
 
