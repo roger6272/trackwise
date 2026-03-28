@@ -74,7 +74,7 @@ Over-the-air firmware updates for the Traxelos One ESP32 device, delivered over 
 Existing Service: "12345678-1234-1234-1234-123456789000"
 ├── (existing) Command char  — add ota_start, ota_end, reboot commands
 ├── (existing) Notify char   — OTA responses come here
-└── (new) OTA Data (write-with-response): "12345678-1234-1234-1234-123456789001"
+└── (new) OTA Data (write-with-response): "12345678-1234-1234-1234-123456789011"
     App → Device: raw firmware bytes
 
 Standard Battery Service: 0x180F

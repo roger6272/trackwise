@@ -115,7 +115,8 @@
       "Bash(node:*)",
       "Bash(start:*)",
       "Bash(explorer C:\\\\Users\\\\weich\\\\Documents\\\\FlutterProjects\\\\trackwise\\\\build\\\\app\\\\outputs\\\\flutter-apk:*)",
-      "Bash(explorer:*)"
+      "Bash(explorer:*)",
+      "Skill(pm:epic-decompose)"
     ]
   }
 }
