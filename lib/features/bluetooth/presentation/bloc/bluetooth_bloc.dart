@@ -627,29 +627,43 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       // been queued before _onDisconnect cancelled the subscription).
       final deviceId = event.deviceInstanceId;
       final wasManual = _manualDisconnects.contains(deviceId);
+      final wasOtaReboot = _awaitingOtaReboot.contains(deviceId);
       emit(state.copyWith(
         status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
         connectedDevices: _removeDevice(deviceId),
         clearConnectingDeviceId: true,
-        lastDisconnectWasManual: wasManual,
+        lastDisconnectWasManual: wasManual || wasOtaReboot,
       ));
 
-      // Auto-reconnect if not manual disconnect (with exponential backoff)
+      // Auto-reconnect if not manual disconnect
       final disconnectedId = event.deviceInstanceId;
       if (!_manualDisconnects.contains(disconnectedId)) {
         _devicesToReconnect.add(disconnectedId);
         _reconnectTimers[disconnectedId]?.cancel();
-        final delay = _getReconnectDelay(disconnectedId);
-        AppLogger.debug('🔄 Auto-reconnect for $disconnectedId scheduled in ${delay.inSeconds}s (attempt ${(_reconnectAttempts[disconnectedId] ?? 0) + 1})');
-        _reconnectTimers[disconnectedId] = Timer(delay, () {
-          if (!_manualDisconnects.contains(disconnectedId) &&
-              !state.isAtConnectionLimit &&
-              state.status == BluetoothStatus.ready &&
-              !isClosed) {
-            _reconnectAttempts[disconnectedId] = (_reconnectAttempts[disconnectedId] ?? 0) + 1;
-            add(ConnectToDevice(disconnectedId));
-          }
-        });
+
+        // OTA reboot: skip exponential backoff, use short fixed delay
+        if (_awaitingOtaReboot.contains(disconnectedId)) {
+          _reconnectAttempts.remove(disconnectedId);
+          const otaReconnectDelay = Duration(seconds: 3);
+          AppLogger.debug('OTA reboot disconnect for $disconnectedId — reconnecting in ${otaReconnectDelay.inSeconds}s');
+          _reconnectTimers[disconnectedId] = Timer(otaReconnectDelay, () {
+            if (!_manualDisconnects.contains(disconnectedId) && !isClosed) {
+              add(ConnectToDevice(disconnectedId));
+            }
+          });
+        } else {
+          final delay = _getReconnectDelay(disconnectedId);
+          AppLogger.debug('Auto-reconnect for $disconnectedId scheduled in ${delay.inSeconds}s (attempt ${(_reconnectAttempts[disconnectedId] ?? 0) + 1})');
+          _reconnectTimers[disconnectedId] = Timer(delay, () {
+            if (!_manualDisconnects.contains(disconnectedId) &&
+                !state.isAtConnectionLimit &&
+                state.status == BluetoothStatus.ready &&
+                !isClosed) {
+              _reconnectAttempts[disconnectedId] = (_reconnectAttempts[disconnectedId] ?? 0) + 1;
+              add(ConnectToDevice(disconnectedId));
+            }
+          });
+        }
       }
     }
   }
@@ -1358,6 +1372,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // 2. Clear tracking sets
     _manualDisconnects.clear();
     _devicesToReconnect.clear();
+    _awaitingOtaReboot.clear();
     _claimQueue = Future.value();
     _deviceCategories.clear();
 
@@ -1598,11 +1613,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           return;
         }
 
+        final mtu = _bluetoothRepository.getNegotiatedMtu(deviceId);
         emit(state.copyWith(
           connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
             syncStatus: DeviceSyncStatus.synced,
             selectedItemId: result.selectedFirestoreId,
             firmwareVersion: result.firmwareVersion,
+            negotiatedMtu: mtu,
           )),
         ));
 

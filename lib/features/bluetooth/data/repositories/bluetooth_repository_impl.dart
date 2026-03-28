@@ -7,6 +7,7 @@ import 'package:injectable/injectable.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/error/failures.dart';
+import '../../../../core/utils/bluetooth_constants.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../items/domain/entities/item.dart';
 import '../../domain/entities/ble_connection_state.dart';
@@ -348,6 +349,12 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   @override
   Stream<int> watchBatteryLevel(String deviceId) {
     return dataSource.watchBatteryLevel(deviceId);
+  }
+
+  @override
+  int getNegotiatedMtu(String deviceId) {
+    final conn = dataSource.getConnection(deviceId);
+    return conn?.negotiatedMtu ?? BluetoothConstants.defaultMtuLimit;
   }
 
   @override

@@ -267,6 +267,17 @@ abstract class BluetoothRepository {
   Stream<int> watchBatteryLevel(String deviceId);
 
   // ============================================================
+  // DEVICE INFO
+  // ============================================================
+
+  /// Gets the negotiated MTU payload size for a connected device.
+  ///
+  /// Returns the actual negotiated MTU payload (e.g., 509 for a 512 MTU),
+  /// or [BluetoothConstants.defaultMtuLimit] if the device is not connected
+  /// or MTU negotiation hasn't completed.
+  int getNegotiatedMtu(String deviceId);
+
+  // ============================================================
   // PERMISSIONS & ADAPTER STATE
   // ============================================================
 
