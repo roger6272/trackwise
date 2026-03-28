@@ -439,6 +439,7 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i1014.CheckForUpdateUseCase>(),
           gh<_i555.PerformOtaUpdateUseCase>(),
           gh<_i954.AnalyticsService>(),
+          gh<_i394.ConnectivityService>(),
         ));
     gh.factory<_i868.ResetPasswordUseCase>(
         () => _i868.ResetPasswordUseCase(gh<_i259.AuthRepository>()));

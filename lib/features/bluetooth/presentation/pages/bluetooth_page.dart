@@ -14,6 +14,7 @@ import '../bloc/device_connection_state.dart';
 import '../widgets/device_color_picker_dialog.dart';
 import '../../../ota/presentation/bloc/ota_bloc.dart';
 import '../../../ota/presentation/bloc/ota_event.dart' as ota_events;
+import '../../../ota/presentation/bloc/ota_state.dart';
 import '../../../ota/presentation/widgets/update_banner.dart';
 import 'bluetooth_search_page.dart';
 
@@ -57,7 +58,19 @@ class _BluetoothPageState extends State<BluetoothPage> {
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
-    return BlocConsumer<BluetoothBloc, BluetoothState>(
+    return BlocListener<OtaBloc, OtaBlocState>(
+      listener: (context, otaState) {
+        // When OTA enters rebooting state, tell BluetoothBloc to expect the disconnect
+        if (otaState is OtaBlocRebooting) {
+          final btState = context.read<BluetoothBloc>().state;
+          for (final deviceId in btState.connectedDevices.keys) {
+            context.read<BluetoothBloc>().add(
+              SetOtaRebootFlag(deviceInstanceId: deviceId, awaiting: true),
+            );
+          }
+        }
+      },
+      child: BlocConsumer<BluetoothBloc, BluetoothState>(
       listener: (context, state) {
         // Connection success feedback
         if (_connectingDeviceId != null) {
@@ -78,9 +91,21 @@ class _BluetoothPageState extends State<BluetoothPage> {
               deviceState.syncStatus == DeviceSyncStatus.synced &&
               !_otaCheckedDevices.contains(entry.key)) {
             _otaCheckedDevices.add(entry.key);
-            context.read<OtaBloc>().add(
-                  ota_events.CheckForUpdateRequested(deviceState.firmwareVersion!),
-                );
+            // Check if this device just completed an OTA reboot
+            final bluetoothBloc = context.read<BluetoothBloc>();
+            if (bluetoothBloc.isAwaitingOtaReboot(entry.key)) {
+              // Post-reboot reconnection: notify OtaBloc and clear the flag
+              context.read<OtaBloc>().add(
+                ota_events.OtaRebootCompleted(deviceState.firmwareVersion!),
+              );
+              bluetoothBloc.add(
+                SetOtaRebootFlag(deviceInstanceId: entry.key, awaiting: false),
+              );
+            } else {
+              context.read<OtaBloc>().add(
+                    ota_events.CheckForUpdateRequested(deviceState.firmwareVersion!),
+                  );
+            }
             break; // Check for first connected device only
           }
         }
@@ -127,6 +152,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
               : _buildDeviceList(context, state),
         );
       },
+    ),
     );
   }
 
@@ -209,8 +235,11 @@ class _BluetoothPageState extends State<BluetoothPage> {
 
     // OTA update banner (shown when a connected device has a firmware update available)
     if (state.isConnected) {
+      // Use the actual negotiated MTU from the first connected device
+      final firstDeviceState = state.connectedDevices.values.firstOrNull;
+      final mtu = firstDeviceState?.negotiatedMtu ?? BluetoothConstants.defaultMtuLimit;
       banners.add(UpdateBanner(
-        negotiatedMtu: BluetoothConstants.defaultMtuLimit,
+        negotiatedMtu: mtu,
       ));
     }
 

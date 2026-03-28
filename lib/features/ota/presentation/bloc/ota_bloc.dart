@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/utils/logger.dart';
 import '../../domain/entities/firmware_info.dart';
 import '../../domain/entities/ota_state.dart' as domain;
@@ -25,6 +25,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   final CheckForUpdateUseCase _checkForUpdate;
   final PerformOtaUpdateUseCase _performOtaUpdate;
   final AnalyticsService _analytics;
+  final ConnectivityService _connectivity;
 
   StreamSubscription<domain.OtaState>? _otaSubscription;
   Timer? _rebootTimer;
@@ -35,8 +36,12 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   /// Duration to wait for device reconnect after OTA reboot.
   static const Duration _rebootTimeout = Duration(seconds: 30);
 
-  OtaBloc(this._checkForUpdate, this._performOtaUpdate, this._analytics)
-      : super(const OtaInitial()) {
+  OtaBloc(
+    this._checkForUpdate,
+    this._performOtaUpdate,
+    this._analytics,
+    this._connectivity,
+  ) : super(const OtaInitial()) {
     on<CheckForUpdateRequested>(_onCheckForUpdate);
     on<StartUpdateRequested>(_onStartUpdate);
     on<CancelUpdateRequested>(_onCancelUpdate);
@@ -88,8 +93,8 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     Emitter<OtaBlocState> emit,
   ) async {
     // Check internet connectivity before starting
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.every((r) => r == ConnectivityResult.none)) {
+    final hasInternet = await _connectivity.hasInternetConnection();
+    if (!hasInternet) {
       emit(const OtaBlocError('No internet connection. Connect to Wi-Fi or mobile data and try again.'));
       return;
     }
