@@ -205,7 +205,7 @@ firmware/
 ```json
 {
   "version": "2.1.0",
-  "file": "bins/trackwise_2.1.0.bin",
+  "file_path": "bins/trackwise_2.1.0.bin",
   "sha256": "ab3f9c...full_sha256_hash",
   "min_app_version": "3.0.0",
   "changelog": "Improved battery life, fixed counting bug",
@@ -241,7 +241,7 @@ HASH=$(sha256sum "$FILE" | cut -d' ' -f1)
 cat > latest.json <<EOF
 {
   "version": "$VERSION",
-  "file": "bins/$FILE",
+  "file_path": "bins/$FILE",
   "sha256": "$HASH",
   "min_app_version": "TODO",
   "changelog": "TODO",

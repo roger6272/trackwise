@@ -57,6 +57,21 @@ void main() {
         isNegative,
       );
     });
+
+    test('1.0 == 1.0.0 (missing patch treated as 0)', () {
+      expect(CheckForUpdateUseCase.compareSemver('1.0', '1.0.0'), isZero);
+    });
+
+    test('empty string treated as 0.0.0 (less than 1.0.0)', () {
+      expect(CheckForUpdateUseCase.compareSemver('', '1.0.0'), isNegative);
+    });
+
+    test('non-numeric parts treated as 0.0.0 (less than 1.0.0)', () {
+      expect(
+        CheckForUpdateUseCase.compareSemver('abc.def.ghi', '1.0.0'),
+        isNegative,
+      );
+    });
   });
 
   group('CheckForUpdateUseCase', () {
