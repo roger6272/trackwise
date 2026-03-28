@@ -435,7 +435,7 @@ extension GetItInjectableX on _i174.GetIt {
           exportUserData: gh<_i524.ExportUserDataUseCase>(),
           deleteAccount: gh<_i833.DeleteAccountUseCase>(),
         ));
-    gh.factory<_i301.OtaBloc>(() => _i301.OtaBloc(
+    gh.lazySingleton<_i301.OtaBloc>(() => _i301.OtaBloc(
           gh<_i1014.CheckForUpdateUseCase>(),
           gh<_i555.PerformOtaUpdateUseCase>(),
           gh<_i954.AnalyticsService>(),

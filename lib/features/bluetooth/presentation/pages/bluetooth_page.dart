@@ -69,6 +69,21 @@ class _BluetoothPageState extends State<BluetoothPage> {
             );
           }
         }
+        // If OTA was cancelled or errored during reboot, clear the flag
+        // (Normal completion clears it via OtaRebootCompleted handler below)
+        if (otaState is OtaUpdateAvailable ||
+            otaState is OtaBlocError ||
+            otaState is OtaInitial) {
+          final bluetoothBloc = context.read<BluetoothBloc>();
+          final btState = bluetoothBloc.state;
+          for (final deviceId in btState.connectedDevices.keys) {
+            if (bluetoothBloc.isAwaitingOtaReboot(deviceId)) {
+              bluetoothBloc.add(
+                SetOtaRebootFlag(deviceInstanceId: deviceId, awaiting: false),
+              );
+            }
+          }
+        }
       },
       child: BlocConsumer<BluetoothBloc, BluetoothState>(
       listener: (context, state) {

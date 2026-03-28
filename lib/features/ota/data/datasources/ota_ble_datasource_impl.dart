@@ -94,11 +94,30 @@ class OtaBleDatasourceImpl implements OtaBleDatasource {
   Stream<Map<String, dynamic>> listenForOtaNotifications() {
     final deviceId = _deviceId;
 
-    // Filter the existing notification stream for OTA-related messages
+    // Filter the existing notification stream for OTA-related messages only.
+    // syncResponse type is shared with sync protocol, so we apply a secondary
+    // filter to avoid consuming stale sync responses as OTA notifications.
     return _bluetoothDataSource.watchNotifications(deviceId).where((message) {
-      // OTA responses use {"status": "..."} format, parsed as syncResponse type
-      return message.type == BleMessageType.syncResponse ||
-          message.type == BleMessageType.error;
+      if (message.type == BleMessageType.error) {
+        // Only include errors related to OTA commands
+        final data = message.data;
+        if (data is Map<String, dynamic>) {
+          final cmd = data['cmd'] as String?;
+          return cmd != null &&
+              (cmd.startsWith('ota_') || cmd == 'reboot');
+        }
+        return false;
+      }
+      if (message.type == BleMessageType.syncResponse) {
+        // Only include responses with OTA-related status values
+        final data = message.data;
+        if (data is Map<String, dynamic>) {
+          final status = data['status'] as String?;
+          return status != null && status.startsWith('ota_');
+        }
+        return false;
+      }
+      return false;
     }).map((message) {
       final data = message.data;
       if (data is Map<String, dynamic>) {

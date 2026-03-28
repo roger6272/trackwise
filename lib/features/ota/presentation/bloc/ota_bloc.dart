@@ -20,7 +20,7 @@ import 'ota_state.dart';
 /// - Download, transfer, verify, reboot flow via PerformOtaUpdate
 /// - Cancel support
 /// - Post-reboot verification
-@injectable
+@lazySingleton
 class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   final CheckForUpdateUseCase _checkForUpdate;
   final PerformOtaUpdateUseCase _performOtaUpdate;
@@ -194,15 +194,9 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
           }
         });
       case domain.OtaComplete():
-        // Use case stream completed — device is rebooting.
+        // OtaRebooting already started the reboot timer — nothing to do here.
         // Wait for reconnect + version verification via OtaRebootCompleted event.
-        emit(OtaBlocRebooting(info: info));
-        _rebootTimer?.cancel();
-        _rebootTimer = Timer(_rebootTimeout, () {
-          if (!isClosed) {
-            add(const OtaRebootTimedOut());
-          }
-        });
+        break;
       case domain.OtaError():
         _analytics.logOtaFailed(
           reason: progress.message,
