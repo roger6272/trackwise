@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "file_path": "firmware/bins/trackwise_1.0.0.bin",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "min_app_version": "1.0.0",
+  "changelog": "Initial firmware release",
+  "released_at": "2026-03-28T00:00:00Z"
+}
