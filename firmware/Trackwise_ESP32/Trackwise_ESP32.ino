@@ -236,9 +236,11 @@ size_t otaExpectedSize = 0;                         // Expected firmware size in
 size_t otaReceivedSize = 0;                         // Bytes received so far
 char otaExpectedHash[65] = {0};                     // Expected SHA256 hex string (64 chars + null)
 mbedtls_sha256_context otaShaCtx;                   // Incremental SHA256 context
+bool otaShaCtxInitialized = false;                   // True when otaShaCtx has been initialized
 unsigned long otaLastChunkTime = 0;                 // Timestamp of last received chunk
 unsigned long otaVerifiedTime = 0;                  // Timestamp when VERIFIED state entered
 BLECharacteristic* otaDataChar = nullptr;           // OTA Data characteristic pointer
+bool pendingOtaEnd = false;                          // Deferred ota_end processing (avoid blocking BLE callback)
 
 // For Non-Blocking Vibration (handles millis() overflow after ~49 days)
 // Supports multi-pulse patterns (e.g., double vibrate for goal reached)
@@ -1157,7 +1159,11 @@ void otaAbort(const char* reason) {
   otaExpectedSize = 0;
   otaReceivedSize = 0;
   otaExpectedHash[0] = '\0';
-  mbedtls_sha256_free(&otaShaCtx);
+  pendingOtaEnd = false;
+  if (otaShaCtxInitialized) {
+    mbedtls_sha256_free(&otaShaCtx);
+    otaShaCtxInitialized = false;
+  }
 
   // Notify app of the error (use "status" key to match sync protocol convention)
   StaticJsonDocument<128> doc;
@@ -1169,8 +1175,37 @@ void otaAbort(const char* reason) {
   sendJsonResponse(response);
 }
 
+// Simple semver comparison: returns true if versionA > versionB
+// Splits on '.' and compares up to 3 integer components
+bool isNewerVersion(const char* versionA, const char* versionB) {
+  int a[3] = {0, 0, 0};
+  int b[3] = {0, 0, 0};
+  sscanf(versionA, "%d.%d.%d", &a[0], &a[1], &a[2]);
+  sscanf(versionB, "%d.%d.%d", &b[0], &b[1], &b[2]);
+  for (int i = 0; i < 3; i++) {
+    if (a[i] > b[i]) return true;
+    if (a[i] < b[i]) return false;
+  }
+  return false;  // Equal versions are not "newer"
+}
+
 // Handle ota_start command
-void handleOtaStart(size_t expectedSize, const char* expectedHash) {
+void handleOtaStart(size_t expectedSize, const char* expectedHash, const char* version) {
+  // Check: version is newer (skip if version field missing for backwards compatibility)
+  if (version != nullptr && strlen(version) > 0) {
+    if (!isNewerVersion(version, FIRMWARE_VERSION)) {
+      DEBUG_LOG("❌ OTA rejected: version %s is not newer than %s\n", version, FIRMWARE_VERSION);
+      StaticJsonDocument<128> doc;
+      doc["status"] = "error";
+      doc["cmd"] = "ota_start";
+      doc["reason"] = "invalid_version";
+      String response;
+      serializeJson(doc, response);
+      sendJsonResponse(response);
+      return;
+    }
+  }
+
   // Check: not already in OTA
   if (otaState != OTA_IDLE) {
     DEBUG_PRINTLN("❌ OTA already in progress");
@@ -1231,6 +1266,7 @@ void handleOtaStart(size_t expectedSize, const char* expectedHash) {
   // Initialize SHA256 context
   mbedtls_sha256_init(&otaShaCtx);
   mbedtls_sha256_starts(&otaShaCtx, 0);  // 0 = SHA256 (not SHA224)
+  otaShaCtxInitialized = true;
 
   // Store expected values
   otaExpectedSize = expectedSize;
@@ -1276,6 +1312,7 @@ void handleOtaEnd() {
   unsigned char shaHash[32];
   mbedtls_sha256_finish(&otaShaCtx, shaHash);
   mbedtls_sha256_free(&otaShaCtx);
+  otaShaCtxInitialized = false;
 
   // Convert to hex string
   char computedHash[65];
@@ -2201,16 +2238,19 @@ void processWriteCommand(const String& jsonStr) {
       size_t expectedSize = doc["size"] | 0;
       const char* expectedHash = doc["sha256"] | "";
 
+      const char* version = doc["version"] | (const char*)nullptr;
+
       if (expectedSize == 0 || strlen(expectedHash) != 64) {
         notifyError("ota_start", "Missing or invalid size/sha256", ERR_MISSING_FIELD);
         return;
       }
 
-      handleOtaStart(expectedSize, expectedHash);
+      handleOtaStart(expectedSize, expectedHash, version);
 
     } else if (cmd == "ota_end") {  //////////////////// OTA firmware update end/verify
       // App sends: { "cmd": "ota_end" }
-      handleOtaEnd();
+      // Defer to loop() — esp_ota_end() can block for hundreds of ms (flash flush)
+      pendingOtaEnd = true;
 
     } else if (cmd == "reboot") {  //////////////////// OTA reboot into new firmware
       // App sends: { "cmd": "reboot" }
@@ -2308,13 +2348,7 @@ class ServerCallbacks : public BLEServerCallbacks {
     // Abort OTA if in progress (app disconnected mid-transfer)
     if (otaState != OTA_IDLE && otaState != OTA_REBOOTING) {
       DEBUG_PRINTLN("⚠️ Disconnect during OTA - aborting");
-      if (otaHandle != 0) {
-        esp_ota_abort(otaHandle);
-        otaHandle = 0;
-      }
-      otaState = OTA_IDLE;
-      otaNextPartition = nullptr;
-      mbedtls_sha256_free(&otaShaCtx);
+      otaAbort("disconnect");
     }
 
     // Flush any pending NVS writes before disconnecting to prevent data loss
@@ -2395,6 +2429,7 @@ uint8_t readBatterySOC() {
 
 // Update BLE Battery Level characteristic and notify connected clients
 void updateBatteryLevel() {
+  if (batteryLevelChar == nullptr) return;
   uint8_t soc = readBatterySOC();
   if (soc != currentBatteryLevel) {
     currentBatteryLevel = soc;
@@ -3002,9 +3037,17 @@ void loop() {
     lastBatteryUpdate = millis();
   }
 
+  // ============== DEFERRED OTA END ==============
+  // Process ota_end outside BLE callback to avoid blocking the BLE stack
+  // (esp_ota_end() flushes flash and can take hundreds of milliseconds)
+  if (pendingOtaEnd) {
+    pendingOtaEnd = false;
+    handleOtaEnd();
+  }
+
   // ============== OTA TIMEOUT CHECKS ==============
   // 30s inactivity timeout in RECEIVING state
-  if (otaState == OTA_RECEIVING && otaLastChunkTime > 0) {
+  if (otaState == OTA_RECEIVING) {
     if (millis() - otaLastChunkTime > OTA_RECEIVE_TIMEOUT_MS) {
       otaAbort("timeout");
       displayMessage("UPDATE TIMEOUT");
@@ -3012,7 +3055,7 @@ void loop() {
   }
 
   // 10s auto-reboot timeout in VERIFIED state
-  if (otaState == OTA_VERIFIED && otaVerifiedTime > 0) {
+  if (otaState == OTA_VERIFIED) {
     if (millis() - otaVerifiedTime > OTA_VERIFIED_TIMEOUT_MS) {
       DEBUG_PRINTLN("⏰ OTA auto-reboot after 10s timeout");
       otaState = OTA_REBOOTING;
