@@ -13,6 +13,8 @@
 #include <freertos/semphr.h>
 #include <esp_task_wdt.h>
 #include <esp_bt.h>           // For BLE bonding table access
+#include <esp_ota_ops.h>      // For OTA firmware update operations
+#include "mbedtls/sha256.h"   // For incremental SHA256 hash verification
 
 // Debug logging macro - compiles out when DEBUG is not defined
 // To enable: add -DDEBUG to build flags (Arduino IDE: Tools > Compiler Warnings)
@@ -45,6 +47,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define CHAR_NOTIFY_UUID "12345678-1234-1234-1234-123456789002"     // Reusing CHAR_NOTIFY_UUID for both real-time events and log syncs to reduce BLE characteristics.
 #define CHAR_SET_ITEMS_UUID "12345678-1234-1234-1234-123456789008"  //send list of items from the app to device
 #define CHAR_WRITE_UUID "12345678-1234-1234-1234-123456789010"      //combine clearlogs, setselected, settime
+#define CHAR_OTA_DATA_UUID "12345678-1234-1234-1234-123456789011"  // OTA firmware binary chunks (write-with-response)
 
 // Standard BLE Battery Service UUIDs
 #define BATTERY_SERVICE_UUID        ((uint16_t)0x180F)
@@ -119,6 +122,15 @@ int overrideNextSlot = 0;       // Next sequential slot index for saving items
 // 4xx: State errors
 #define ERR_NO_ITEM_SELECTED    401  // Operation requires selected item
 #define ERR_ITEM_NOT_FOUND      403  // Item with given deviceItemId not found
+
+// 5xx: OTA errors
+#define ERR_OTA_LOW_BATTERY     501  // Battery too low for OTA update
+#define ERR_OTA_ALREADY_ACTIVE  502  // OTA session already in progress
+#define ERR_OTA_BEGIN_FAILED    503  // esp_ota_begin() failed
+#define ERR_OTA_WRITE_FAILED    504  // esp_ota_write() failed
+#define ERR_OTA_HASH_MISMATCH   505  // SHA256 hash mismatch after transfer
+#define ERR_OTA_END_FAILED      506  // esp_ota_end() failed
+#define ERR_OTA_NOT_IN_STATE    507  // Command not valid in current OTA state
 
 // Convert event type to string for JSON serialization
 const char* eventTypeToString(uint8_t eventType) {
@@ -202,6 +214,31 @@ BLECharacteristic* batteryLevelChar;  // Standard Battery Service characteristic
 // Battery state
 uint8_t currentBatteryLevel = 0;         // Last read battery percentage (0-100)
 unsigned long lastBatteryUpdate = 0;     // Timestamp of last battery reading
+
+// ============== OTA FIRMWARE UPDATE STATE ==============
+// OTA state machine: IDLE → RECEIVING → VERIFYING → VERIFIED → REBOOTING
+enum OtaState {
+  OTA_IDLE,
+  OTA_RECEIVING,
+  OTA_VERIFYING,
+  OTA_VERIFIED,
+  OTA_REBOOTING
+};
+
+#define OTA_MIN_BATTERY_PCT     20       // Minimum battery % to start OTA
+#define OTA_RECEIVE_TIMEOUT_MS  30000    // 30s inactivity timeout in RECEIVING
+#define OTA_VERIFIED_TIMEOUT_MS 10000    // 10s auto-reboot timeout in VERIFIED
+
+OtaState otaState = OTA_IDLE;
+esp_ota_handle_t otaHandle = 0;                    // Handle for esp_ota_write()
+const esp_partition_t* otaNextPartition = nullptr;  // Target OTA partition
+size_t otaExpectedSize = 0;                         // Expected firmware size in bytes
+size_t otaReceivedSize = 0;                         // Bytes received so far
+char otaExpectedHash[65] = {0};                     // Expected SHA256 hex string (64 chars + null)
+mbedtls_sha256_context otaShaCtx;                   // Incremental SHA256 context
+unsigned long otaLastChunkTime = 0;                 // Timestamp of last received chunk
+unsigned long otaVerifiedTime = 0;                  // Timestamp when VERIFIED state entered
+BLECharacteristic* otaDataChar = nullptr;           // OTA Data characteristic pointer
 
 // For Non-Blocking Vibration (handles millis() overflow after ~49 days)
 // Supports multi-pulse patterns (e.g., double vibrate for goal reached)
@@ -1106,6 +1143,238 @@ void notifyError(const char* cmd, const char* reason, int error_code = 0) {
   DEBUG_LOG("📤 Error notification: cmd=%s, code=%d, reason=%s\n", cmd, error_code, reason);
 }
 
+// ============== OTA HELPER FUNCTIONS ==============
+
+// Abort an in-progress OTA session and return to IDLE
+void otaAbort(const char* reason) {
+  DEBUG_LOG("❌ OTA abort: %s\n", reason);
+  if (otaHandle != 0) {
+    esp_ota_abort(otaHandle);
+    otaHandle = 0;
+  }
+  otaState = OTA_IDLE;
+  otaNextPartition = nullptr;
+  otaExpectedSize = 0;
+  otaReceivedSize = 0;
+  otaExpectedHash[0] = '\0';
+  mbedtls_sha256_free(&otaShaCtx);
+
+  // Notify app of the error
+  StaticJsonDocument<128> doc;
+  doc["type"] = "ota_error";
+  doc["reason"] = reason;
+  String response;
+  serializeJson(doc, response);
+  sendJsonResponse(response);
+}
+
+// Handle ota_start command
+void handleOtaStart(size_t expectedSize, const char* expectedHash) {
+  // Check: not already in OTA
+  if (otaState != OTA_IDLE) {
+    DEBUG_PRINTLN("❌ OTA already in progress");
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "already_in_progress";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  // Check: battery level
+  uint8_t battery = readBatterySOC();
+  if (battery < OTA_MIN_BATTERY_PCT) {
+    DEBUG_LOG("❌ OTA rejected: battery too low (%d%%)\n", battery);
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "low_battery";
+    doc["battery"] = battery;
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  // Find next OTA partition
+  otaNextPartition = esp_ota_get_next_update_partition(NULL);
+  if (otaNextPartition == nullptr) {
+    DEBUG_PRINTLN("❌ OTA: no update partition found");
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "no_partition";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  // Begin OTA write
+  esp_err_t err = esp_ota_begin(otaNextPartition, expectedSize, &otaHandle);
+  if (err != ESP_OK) {
+    DEBUG_LOG("❌ esp_ota_begin failed: %s\n", esp_err_to_name(err));
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "ota_begin_failed";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    otaNextPartition = nullptr;
+    return;
+  }
+
+  // Initialize SHA256 context
+  mbedtls_sha256_init(&otaShaCtx);
+  mbedtls_sha256_starts(&otaShaCtx, 0);  // 0 = SHA256 (not SHA224)
+
+  // Store expected values
+  otaExpectedSize = expectedSize;
+  otaReceivedSize = 0;
+  strncpy(otaExpectedHash, expectedHash, sizeof(otaExpectedHash) - 1);
+  otaExpectedHash[sizeof(otaExpectedHash) - 1] = '\0';
+
+  // Transition to RECEIVING
+  otaState = OTA_RECEIVING;
+  otaLastChunkTime = millis();
+
+  // Flush any pending NVS writes before OTA to prevent data loss
+  flushPendingNvsWrites();
+
+  displayMessage("UPDATING...");
+  DEBUG_LOG("✅ OTA started: expecting %u bytes, hash=%s\n", expectedSize, expectedHash);
+
+  // Notify app
+  StaticJsonDocument<64> doc;
+  doc["type"] = "ota_ready";
+  String response;
+  serializeJson(doc, response);
+  sendJsonResponse(response);
+}
+
+// Handle ota_end command - finalize and verify
+void handleOtaEnd() {
+  if (otaState != OTA_RECEIVING) {
+    DEBUG_PRINTLN("❌ ota_end: not in RECEIVING state");
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "not_receiving";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  otaState = OTA_VERIFYING;
+
+  // Finalize SHA256
+  unsigned char shaHash[32];
+  mbedtls_sha256_finish(&otaShaCtx, shaHash);
+  mbedtls_sha256_free(&otaShaCtx);
+
+  // Convert to hex string
+  char computedHash[65];
+  for (int i = 0; i < 32; i++) {
+    sprintf(computedHash + (i * 2), "%02x", shaHash[i]);
+  }
+  computedHash[64] = '\0';
+
+  DEBUG_LOG("🔍 OTA hash check: computed=%s\n", computedHash);
+  DEBUG_LOG("🔍 OTA hash check: expected=%s\n", otaExpectedHash);
+
+  // Compare hashes
+  if (strncmp(computedHash, otaExpectedHash, 64) != 0) {
+    DEBUG_PRINTLN("❌ OTA hash mismatch!");
+    esp_ota_abort(otaHandle);
+    otaHandle = 0;
+    otaState = OTA_IDLE;
+    otaNextPartition = nullptr;
+
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "hash_mismatch";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  // Hash matches - finalize OTA
+  esp_err_t err = esp_ota_end(otaHandle);
+  otaHandle = 0;
+  if (err != ESP_OK) {
+    DEBUG_LOG("❌ esp_ota_end failed: %s\n", esp_err_to_name(err));
+    otaState = OTA_IDLE;
+    otaNextPartition = nullptr;
+
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "ota_end_failed";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  // Set the new partition as bootable
+  err = esp_ota_set_boot_partition(otaNextPartition);
+  if (err != ESP_OK) {
+    DEBUG_LOG("❌ esp_ota_set_boot_partition failed: %s\n", esp_err_to_name(err));
+    otaState = OTA_IDLE;
+    otaNextPartition = nullptr;
+
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "set_boot_failed";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  // Transition to VERIFIED
+  otaState = OTA_VERIFIED;
+  otaVerifiedTime = millis();
+
+  displayMessage("UPDATE VERIFIED");
+  DEBUG_LOG("✅ OTA verified: %u bytes written, hash matches\n", otaReceivedSize);
+
+  StaticJsonDocument<64> doc;
+  doc["type"] = "ota_verified";
+  String response;
+  serializeJson(doc, response);
+  sendJsonResponse(response);
+}
+
+// Handle reboot command
+void handleOtaReboot() {
+  if (otaState != OTA_VERIFIED) {
+    DEBUG_PRINTLN("❌ reboot: not in VERIFIED state");
+    StaticJsonDocument<128> doc;
+    doc["type"] = "ota_error";
+    doc["reason"] = "not_verified";
+    String response;
+    serializeJson(doc, response);
+    sendJsonResponse(response);
+    return;
+  }
+
+  otaState = OTA_REBOOTING;
+  displayMessage("REBOOTING...");
+  DEBUG_PRINTLN("🔄 OTA reboot initiated");
+
+  // Notify app before reboot
+  StaticJsonDocument<64> doc;
+  doc["type"] = "ota_rebooting";
+  String response;
+  serializeJson(doc, response);
+  sendJsonResponse(response);
+
+  // Small delay to let notification send
+  delay(500);
+
+  esp_restart();
+}
+
 // ============================================================================
 // ITEM_DELTA NOTIFICATION - Current State
 // ============================================================================
@@ -1917,6 +2186,26 @@ void processWriteCommand(const String& jsonStr) {
       }
       // Note: Actual sending happens in loop() when currentReadMode is set
 
+    } else if (cmd == "ota_start") {  //////////////////// OTA firmware update start
+      // App sends: { "cmd": "ota_start", "expected_size": N, "expected_hash": "sha256hex" }
+      size_t expectedSize = doc["expected_size"] | 0;
+      const char* expectedHash = doc["expected_hash"] | "";
+
+      if (expectedSize == 0 || strlen(expectedHash) != 64) {
+        notifyError("ota_start", "Missing or invalid expected_size/expected_hash", ERR_MISSING_FIELD);
+        return;
+      }
+
+      handleOtaStart(expectedSize, expectedHash);
+
+    } else if (cmd == "ota_end") {  //////////////////// OTA firmware update end/verify
+      // App sends: { "cmd": "ota_end" }
+      handleOtaEnd();
+
+    } else if (cmd == "reboot") {  //////////////////// OTA reboot into new firmware
+      // App sends: { "cmd": "reboot" }
+      handleOtaReboot();
+
     } else {
       DEBUG_LOG("⚠️ Unknown command: %s\n", cmd.c_str());
     }
@@ -1962,6 +2251,42 @@ class WriteCallback : public BLECharacteristicCallbacks {
 };
 
 
+// Handle OTA binary data chunks (write-with-response)
+class OtaDataCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) override {
+    if (otaState != OTA_RECEIVING) {
+      DEBUG_PRINTLN("⚠️ OTA data received but not in RECEIVING state");
+      return;
+    }
+
+    std::string val = c->getValue();
+    const uint8_t* data = (const uint8_t*)val.data();
+    size_t len = val.length();
+
+    if (len == 0) return;
+
+    // Write chunk to flash
+    esp_err_t err = esp_ota_write(otaHandle, data, len);
+    if (err != ESP_OK) {
+      DEBUG_LOG("❌ esp_ota_write failed: %s\n", esp_err_to_name(err));
+      otaAbort("write_failed");
+      return;
+    }
+
+    // Update incremental SHA256
+    mbedtls_sha256_update(&otaShaCtx, data, len);
+
+    otaReceivedSize += len;
+    otaLastChunkTime = millis();
+
+    // Progress logging every ~10% or every 10KB
+    if (otaExpectedSize > 0 && (otaReceivedSize % 10240 < len)) {
+      int pct = (int)((otaReceivedSize * 100) / otaExpectedSize);
+      DEBUG_LOG("📦 OTA progress: %u/%u bytes (%d%%)\n", otaReceivedSize, otaExpectedSize, pct);
+    }
+  }
+};
+
 // Track BLE connection state
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* p) override {
@@ -1970,6 +2295,18 @@ class ServerCallbacks : public BLEServerCallbacks {
     DEBUG_PRINTLN("✅ Connected!");
   }
   void onDisconnect(BLEServer* p) override {
+    // Abort OTA if in progress (app disconnected mid-transfer)
+    if (otaState != OTA_IDLE && otaState != OTA_REBOOTING) {
+      DEBUG_PRINTLN("⚠️ Disconnect during OTA - aborting");
+      if (otaHandle != 0) {
+        esp_ota_abort(otaHandle);
+        otaHandle = 0;
+      }
+      otaState = OTA_IDLE;
+      otaNextPartition = nullptr;
+      mbedtls_sha256_free(&otaShaCtx);
+    }
+
     // Flush any pending NVS writes before disconnecting to prevent data loss
     flushPendingNvsWrites();
 
@@ -2091,6 +2428,12 @@ void setupBLE() {
   readChar = svc->createCharacteristic(CHAR_READ_UUID, BLECharacteristic::PROPERTY_READ);
   readChar->setValue("[]");  // default empty
 
+  // OTA Data characteristic (write-with-response for receiving firmware binary chunks)
+  otaDataChar = svc->createCharacteristic(CHAR_OTA_DATA_UUID,
+    BLECharacteristic::PROPERTY_WRITE);
+  otaDataChar->setCallbacks(new OtaDataCallback());
+  DEBUG_PRINTLN("📦 OTA Data characteristic added");
+
   svc->start();
 
   // Standard BLE Battery Service (0x180F)
@@ -2195,6 +2538,12 @@ void notifyEvent(String event, int resetNum = -1) {
 // Handle local commands: 'u' (up), 'r' (reset), 's' (switch item)
 void handleCommand(char cmd) {
   recordActivity();  // Wake from low power mode on button press
+
+  // Ignore button presses during OTA update
+  if (otaState != OTA_IDLE) {
+    DEBUG_PRINTLN("⚠️ Button ignored during OTA update");
+    return;
+  }
 
   if (!nvsBeginSafe("counter", false)) {
     DEBUG_PRINTLN("⚠️ NVS mutex timeout in handleCommand");
@@ -2601,6 +2950,14 @@ void setup() {
     // Paired device - normal operation
     enterNormalMode();
   }
+
+  // ============== OTA ROLLBACK PROTECTION ==============
+  // Mark the running firmware as valid AFTER all peripherals are confirmed working.
+  // If the firmware crashes before reaching this point (e.g., BLE init fails,
+  // display fails, etc.), the bootloader automatically rolls back to the
+  // previous firmware on next power-up.
+  esp_ota_mark_app_valid_cancel_rollback();
+  DEBUG_PRINTLN("✅ Firmware marked as valid (rollback cancelled)");
 }
 
 
@@ -2633,6 +2990,26 @@ void loop() {
   if (millis() - lastBatteryUpdate > BATTERY_UPDATE_INTERVAL_MS) {
     updateBatteryLevel();
     lastBatteryUpdate = millis();
+  }
+
+  // ============== OTA TIMEOUT CHECKS ==============
+  // 30s inactivity timeout in RECEIVING state
+  if (otaState == OTA_RECEIVING && otaLastChunkTime > 0) {
+    if (millis() - otaLastChunkTime > OTA_RECEIVE_TIMEOUT_MS) {
+      otaAbort("timeout");
+      displayMessage("UPDATE TIMEOUT");
+    }
+  }
+
+  // 10s auto-reboot timeout in VERIFIED state
+  if (otaState == OTA_VERIFIED && otaVerifiedTime > 0) {
+    if (millis() - otaVerifiedTime > OTA_VERIFIED_TIMEOUT_MS) {
+      DEBUG_PRINTLN("⏰ OTA auto-reboot after 10s timeout");
+      otaState = OTA_REBOOTING;
+      displayMessage("REBOOTING...");
+      delay(500);
+      esp_restart();
+    }
   }
 
   // Check for stale incoming JSON buffer (incomplete transfer from app)
