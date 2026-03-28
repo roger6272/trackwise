@@ -13,6 +13,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Protocol | Firmware | Changes |
 |----------|----------|---------|
+| v3 | 2.1.0+ | Added OTA firmware update commands (`ota_start`, `ota_end`, `reboot`), OTA Data characteristic, Battery Service |
 | v3 | 2.0.0+ | Removed `sync_seq` from handshake/override, removed `sync_complete` command, removed conflict state |
 | v2 | 1.5.0+ | Added `unpair` command for account deletion flow |
 | v2 | 1.4.0+ | Added `delete_item` command for single-item deletion |
@@ -42,7 +43,9 @@ This document defines the Bluetooth Low Energy communication protocol between th
 14. [Error Handling](#14-error-handling)
 15. [Edge Cases & Gotchas](#15-edge-cases--gotchas)
 16. [Troubleshooting](#16-troubleshooting)
-17. [Appendices](#appendices)
+17. [Battery Service](#17-battery-service)
+18. [OTA Firmware Updates](#18-ota-firmware-updates)
+19. [Appendices](#appendices)
 
 ---
 
@@ -110,6 +113,15 @@ This document defines the Bluetooth Low Energy communication protocol between th
 | **CHAR_NOTIFY** | `12345678-1234-1234-1234-123456789002` | NOTIFY | Device → App | Streaming notifications |
 | **CHAR_SET_ITEMS** | `12345678-1234-1234-1234-123456789008` | WRITE | App → Device | Send item list |
 | **CHAR_WRITE** | `12345678-1234-1234-1234-123456789010` | WRITE | App → Device | Send commands |
+| **CHAR_OTA_DATA** | `12345678-1234-1234-1234-123456789011` | WRITE | App → Device | OTA firmware binary data (optional) |
+
+**Additional Service — Battery (optional, firmware v2+):**
+
+| Name | Full UUID | Properties | Direction | Purpose |
+|------|-----------|------------|-----------|---------|
+| **Battery Level** | `00002a19-0000-1000-8000-00805f9b34fb` | READ, NOTIFY | Device → App | Battery percentage (0-100) |
+
+> Battery Level is part of the standard BLE Battery Service (`0x180F` / `0000180f-0000-1000-8000-00805f9b34fb`), separate from the main Traxelos service.
 
 ### 2.3 Characteristic Usage Matrix
 
@@ -119,6 +131,8 @@ This document defines the Bluetooth Low Energy communication protocol between th
 | Send item list | CHAR_SET_ITEMS | JSON array, chunked |
 | Receive notifications | CHAR_NOTIFY | Subscribe on connect |
 | Read data (legacy) | CHAR_READ | Prefer NOTIFY pattern |
+| Send OTA firmware data | CHAR_OTA_DATA | Raw binary, write-with-response (optional) |
+| Read battery level | Battery Level (0x2A19) | Initial read + notify subscription (optional) |
 
 ---
 
@@ -1837,6 +1851,248 @@ for (final uuid in required) {
 
 ---
 
+## 17. Battery Service
+
+### 17.1 Service Overview
+
+The device optionally exposes the standard BLE **Battery Service** for reporting battery level to the app.
+
+| Property | Value |
+|----------|-------|
+| **Service UUID** | `0x180F` (`0000180f-0000-1000-8000-00805f9b34fb`) |
+| **Characteristic** | Battery Level `0x2A19` (`00002a19-0000-1000-8000-00805f9b34fb`) |
+| **Properties** | READ, NOTIFY |
+| **Value** | `uint8` — battery percentage 0-100 |
+
+### 17.2 Behavior
+
+- The app performs an initial **read** on connect to get the current battery level
+- The app subscribes to **notify** to receive updates when battery level changes
+- Battery level is displayed on the Bluetooth page with an icon and percentage
+- This service is **optional** — older firmware versions may not expose it. The app fails silently if the characteristic is not found
+
+### 17.3 Battery Icons
+
+| Level | Icon | Color |
+|-------|------|-------|
+| > 75% | Full battery | Green |
+| 26-75% | 3-bar battery | Default |
+| 11-25% | 1-bar battery | Warning |
+| ≤ 10% | Battery alert | Error/Red |
+| Unknown | Battery unknown | Muted |
+
+---
+
+## 18. OTA Firmware Updates
+
+### 18.1 Overview
+
+Over-the-Air (OTA) firmware updates allow the app to push new firmware to the ESP32 device over BLE. The update process uses the existing command/notify characteristics for control messages and a dedicated OTA Data characteristic for binary transfer.
+
+**Metadata source:** The app checks `firmware/latest.json` in Firebase Storage for the latest firmware version, SHA256 hash, download path, changelog, and minimum app version. A separate Remote Config value (`min_firmware_version`) determines whether an update is required or optional.
+
+### 18.2 OTA Data Characteristic
+
+| Property | Value |
+|----------|-------|
+| **UUID** | `12345678-1234-1234-1234-123456789011` |
+| **Properties** | WRITE (with response) |
+| **Direction** | App → Device |
+| **Purpose** | Send raw firmware binary data chunks |
+| **Chunk size** | Negotiated MTU minus ATT overhead (3 bytes) |
+
+**Note:** This characteristic is **optional** — only present on firmware that supports OTA. The app logs whether it was found during service discovery but does not treat its absence as an error.
+
+### 18.3 OTA Commands
+
+All OTA control commands are sent as JSON to **CHAR_WRITE** (same as regular commands). OTA responses are received on **CHAR_NOTIFY**.
+
+#### 18.3.1 ota_start
+
+Begin an OTA firmware update session.
+
+**Request:**
+```json
+{
+  "cmd": "ota_start",
+  "size": 524288,
+  "sha256": "a1b2c3d4e5f6...",
+  "version": "2.1.0"
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `cmd` | string | Yes | Always `"ota_start"` |
+| `size` | int | Yes | Expected firmware binary size in bytes |
+| `sha256` | string | Yes | SHA256 hash of the firmware binary |
+| `version` | string | Yes | Firmware version string (e.g., "2.1.0") |
+
+**Device Behavior:**
+1. Checks battery level — rejects if too low (< 20%)
+2. Prepares OTA partition for writing
+3. Stores expected size and hash for verification
+4. Transitions to RECEIVING state
+5. Sends `ota_ready` notification on success, or `error` notification on failure
+
+**Success Response:**
+```json
+{"status": "ota_ready"}
+```
+
+**Error Responses:**
+
+| Reason | Description |
+|--------|-------------|
+| `low_battery` | Battery below minimum threshold for safe update |
+| `write_failed` | Failed to initialize OTA partition |
+
+**Error Format:**
+```json
+{"status": "error", "cmd": "ota_start", "reason": "low_battery"}
+```
+
+---
+
+#### 18.3.2 ota_end
+
+Signal that all firmware data has been sent. Device verifies the received data.
+
+**Request:**
+```json
+{
+  "cmd": "ota_end"
+}
+```
+
+**Device Behavior:**
+1. Finalizes OTA write
+2. Computes SHA256 hash of received data
+3. Compares against expected hash from `ota_start`
+4. Transitions to VERIFIED state on match, or error on mismatch
+5. Sends `ota_verified` notification on success, or `error` notification on failure
+
+**Success Response:**
+```json
+{"status": "ota_verified"}
+```
+
+**Error Responses:**
+
+| Reason | Description |
+|--------|-------------|
+| `hash_mismatch` | Received data SHA256 does not match expected hash |
+| `write_failed` | OTA finalization failed |
+
+**Error Format:**
+```json
+{"status": "error", "cmd": "ota_end", "reason": "hash_mismatch"}
+```
+
+---
+
+#### 18.3.3 reboot
+
+Reboot the device to switch to the new firmware partition.
+
+**Request:**
+```json
+{
+  "cmd": "reboot"
+}
+```
+
+**Device Behavior:**
+1. Only accepted when device is in VERIFIED state
+2. Sets boot partition to the newly written OTA partition
+3. Sends `ota_rebooting` notification
+4. Reboots after a short delay
+
+**Response:**
+```json
+{"status": "ota_rebooting"}
+```
+
+The device disconnects during reboot. The app waits up to 30 seconds for the device to reconnect, then verifies the new firmware version via handshake.
+
+---
+
+### 18.4 OTA Notifications
+
+All OTA notifications are sent via **CHAR_NOTIFY** as JSON.
+
+| Status | When Sent | Description |
+|--------|-----------|-------------|
+| `ota_ready` | After successful `ota_start` | Device is ready to receive firmware chunks |
+| `ota_verified` | After successful `ota_end` | Firmware hash matches, ready for reboot |
+| `ota_rebooting` | After `reboot` command | Device is about to reboot |
+| `error` | On any OTA failure | Includes `cmd` and `reason` fields |
+
+**OTA Error Reason Codes:**
+
+| Reason | Trigger | Resolution |
+|--------|---------|------------|
+| `low_battery` | `ota_start` when battery < 20% | Charge device, retry |
+| `hash_mismatch` | `ota_end` when SHA256 doesn't match | Re-download firmware, retry |
+| `timeout` | 30s inactivity during RECEIVING state | Retry transfer from beginning |
+| `write_failed` | Flash write or partition error | Retry; may indicate hardware issue |
+
+### 18.5 OTA State Machine (Device-Side)
+
+```
+┌──────────┐  ota_start   ┌───────────┐  ota_end    ┌───────────┐
+│          │ ────────────► │           │ ──────────► │           │
+│   IDLE   │               │ RECEIVING │             │ VERIFYING │
+│          │ ◄──────────── │           │ ◄────────── │           │
+└──────────┘  error/       └───────────┘  error      └─────┬─────┘
+     ▲        timeout           │                          │
+     │                          │ 30s inactivity           │ hash OK
+     │                          ▼                          ▼
+     │                    ┌───────────┐              ┌───────────┐
+     │                    │  TIMEOUT  │              │ VERIFIED  │
+     │                    │ (→ IDLE)  │              │           │
+     │                    └───────────┘              └─────┬─────┘
+     │                                                     │
+     │                                                     │ reboot
+     │                                                     ▼
+     │                                               ┌───────────┐
+     └─────────────────────────────────────────────  │ REBOOTING │
+              device reboots back to IDLE             └───────────┘
+```
+
+**Timeouts:**
+
+| State | Timeout | Action |
+|-------|---------|--------|
+| RECEIVING | 30s inactivity | Abort OTA, return to IDLE |
+| VERIFIED | 10s auto-reboot | Automatically reboots if app doesn't send `reboot` |
+
+### 18.6 OTA Transfer Flow (App-Side)
+
+The app orchestrates the OTA flow through `PerformOtaUpdateUseCase`:
+
+1. **Download** firmware binary from Firebase Storage
+2. **Send `ota_start`** with size, SHA256, and version
+3. **Wait for `ota_ready`** notification (30s timeout)
+4. **Send firmware chunks** — binary data written to OTA Data characteristic with write-with-response; chunk size = negotiated MTU - 3 (ATT overhead)
+5. **Send `ota_end`** to trigger verification
+6. **Wait for `ota_verified`** notification (30s timeout)
+7. **Send `reboot`** command
+8. **Wait for reconnect** — app waits up to 30s for the device to reboot and reconnect
+9. **Verify version** — handshake response includes `firmware_version`; app confirms it matches the expected version
+
+**Pre-OTA sync:** Before starting OTA, the app triggers a normal sync to flush device count logs to Firestore. Count logs are stored in RAM and would be lost on reboot. This is handled by the BLoC/presentation layer before invoking the OTA use case.
+
+**Update check flow:**
+- App compares device `firmware_version` (from handshake) against `firmware/latest.json` in Firebase Storage
+- If device version < latest version → **OtaAvailable** (optional update banner)
+- If device version < `min_firmware_version` (Remote Config) → **OtaRequired** (non-dismissable banner)
+- If app version < `min_app_version` (from latest.json) → **AppUpdateRequired** (update the app)
+
+---
+
 ## Appendices
 
 ### Appendix A: File Locations
@@ -1903,6 +2159,9 @@ CHAR_READ:     12345678-1234-1234-1234-123456789001
 CHAR_NOTIFY:   12345678-1234-1234-1234-123456789002
 CHAR_SET_ITEMS:12345678-1234-1234-1234-123456789008
 CHAR_WRITE:    12345678-1234-1234-1234-123456789010
+CHAR_OTA_DATA: 12345678-1234-1234-1234-123456789011
+Battery Svc:   0000180f-0000-1000-8000-00805f9b34fb
+Battery Level: 00002a19-0000-1000-8000-00805f9b34fb
 ```
 
 ---
@@ -2016,6 +2275,7 @@ The device instance ID uniquely identifies each physical device. It is returned 
 | 1.0 | 2025-01-24 | Generated from codebase | Initial specification |
 | 2.0 | 2026-01-27 | Multi-device update | Added handshake, override, sync_complete commands; device states; updated sync flows |
 | 3.0 | 2026-03-01 | sync_seq removal | Removed sync_seq from handshake/override, removed sync_complete command, removed conflict state |
+| 3.1 | 2026-03-27 | OTA & Battery | Added OTA firmware update protocol (ota_start, ota_end, reboot, OTA Data characteristic), Battery Service (0x180F) |
 
 ---
 
@@ -2032,6 +2292,8 @@ The device instance ID uniquely identifies each physical device. It is returned 
 │   NOTIFY  ...002  ← Device notifications (subscribe!)      │
 │   WRITE   ...010  → Commands (handshake, set_selected...)  │
 │   SET_ITEMS ...008 → Legacy item list (JSON array)         │
+│   OTA_DATA ...011  → Firmware binary chunks (optional)     │
+│   Battery 0x2A19  ← Battery level % (optional, 0x180F)    │
 ├─────────────────────────────────────────────────────────────┤
 │ MULTI-DEVICE SYNC (v3.0):                                   │
 │   {"cmd":"handshake","uid":"..."}                          │
@@ -2059,11 +2321,21 @@ The device instance ID uniquely identifies each physical device. It is returned 
 │   2a. in_sync → device sends prefs/logs → app syncs        │
 │   2b. uninitialized → override (includes UID pairing)      │
 ├─────────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────────────────┤
+│ OTA FIRMWARE UPDATE:                                        │
+│   {"cmd":"ota_start","size":N,"sha256":"...","version":"."} │
+│   [binary chunks via CHAR_OTA_DATA]                        │
+│   {"cmd":"ota_end"}                                        │
+│   {"cmd":"reboot"}                                         │
+│   Responses: ota_ready, ota_verified, ota_rebooting, error │
+├─────────────────────────────────────────────────────────────┤
 │ GOLDEN RULES:                                               │
 │   - ALWAYS send handshake first after connect              │
 │   - in_sync: Device is source of truth for counts          │
 │   - Stale claims: App (Firestore) overrides device         │
 │   - set_items preserves device counts                      │
 │   - override_chunk overwrites with app counts              │
+│   - ALWAYS sync count logs before OTA (RAM-only, lost      │
+│     on reboot)                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
