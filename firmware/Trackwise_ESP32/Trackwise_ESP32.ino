@@ -1159,9 +1159,10 @@ void otaAbort(const char* reason) {
   otaExpectedHash[0] = '\0';
   mbedtls_sha256_free(&otaShaCtx);
 
-  // Notify app of the error
+  // Notify app of the error (use "status" key to match sync protocol convention)
   StaticJsonDocument<128> doc;
-  doc["type"] = "ota_error";
+  doc["status"] = "error";
+  doc["cmd"] = "ota";
   doc["reason"] = reason;
   String response;
   serializeJson(doc, response);
@@ -1174,7 +1175,8 @@ void handleOtaStart(size_t expectedSize, const char* expectedHash) {
   if (otaState != OTA_IDLE) {
     DEBUG_PRINTLN("❌ OTA already in progress");
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_start";
     doc["reason"] = "already_in_progress";
     String response;
     serializeJson(doc, response);
@@ -1187,7 +1189,8 @@ void handleOtaStart(size_t expectedSize, const char* expectedHash) {
   if (battery < OTA_MIN_BATTERY_PCT) {
     DEBUG_LOG("❌ OTA rejected: battery too low (%d%%)\n", battery);
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_start";
     doc["reason"] = "low_battery";
     doc["battery"] = battery;
     String response;
@@ -1201,7 +1204,8 @@ void handleOtaStart(size_t expectedSize, const char* expectedHash) {
   if (otaNextPartition == nullptr) {
     DEBUG_PRINTLN("❌ OTA: no update partition found");
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_start";
     doc["reason"] = "no_partition";
     String response;
     serializeJson(doc, response);
@@ -1214,8 +1218,9 @@ void handleOtaStart(size_t expectedSize, const char* expectedHash) {
   if (err != ESP_OK) {
     DEBUG_LOG("❌ esp_ota_begin failed: %s\n", esp_err_to_name(err));
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
-    doc["reason"] = "ota_begin_failed";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_start";
+    doc["reason"] = "write_failed";
     String response;
     serializeJson(doc, response);
     sendJsonResponse(response);
@@ -1243,9 +1248,9 @@ void handleOtaStart(size_t expectedSize, const char* expectedHash) {
   displayMessage("UPDATING...");
   DEBUG_LOG("✅ OTA started: expecting %u bytes, hash=%s\n", expectedSize, expectedHash);
 
-  // Notify app
+  // Notify app (use "status" key to match sync protocol convention)
   StaticJsonDocument<64> doc;
-  doc["type"] = "ota_ready";
+  doc["status"] = "ota_ready";
   String response;
   serializeJson(doc, response);
   sendJsonResponse(response);
@@ -1256,7 +1261,8 @@ void handleOtaEnd() {
   if (otaState != OTA_RECEIVING) {
     DEBUG_PRINTLN("❌ ota_end: not in RECEIVING state");
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_end";
     doc["reason"] = "not_receiving";
     String response;
     serializeJson(doc, response);
@@ -1290,7 +1296,8 @@ void handleOtaEnd() {
     otaNextPartition = nullptr;
 
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_end";
     doc["reason"] = "hash_mismatch";
     String response;
     serializeJson(doc, response);
@@ -1307,8 +1314,9 @@ void handleOtaEnd() {
     otaNextPartition = nullptr;
 
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
-    doc["reason"] = "ota_end_failed";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_end";
+    doc["reason"] = "write_failed";
     String response;
     serializeJson(doc, response);
     sendJsonResponse(response);
@@ -1323,8 +1331,9 @@ void handleOtaEnd() {
     otaNextPartition = nullptr;
 
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
-    doc["reason"] = "set_boot_failed";
+    doc["status"] = "error";
+    doc["cmd"] = "ota_end";
+    doc["reason"] = "write_failed";
     String response;
     serializeJson(doc, response);
     sendJsonResponse(response);
@@ -1339,7 +1348,7 @@ void handleOtaEnd() {
   DEBUG_LOG("✅ OTA verified: %u bytes written, hash matches\n", otaReceivedSize);
 
   StaticJsonDocument<64> doc;
-  doc["type"] = "ota_verified";
+  doc["status"] = "ota_verified";
   String response;
   serializeJson(doc, response);
   sendJsonResponse(response);
@@ -1350,7 +1359,8 @@ void handleOtaReboot() {
   if (otaState != OTA_VERIFIED) {
     DEBUG_PRINTLN("❌ reboot: not in VERIFIED state");
     StaticJsonDocument<128> doc;
-    doc["type"] = "ota_error";
+    doc["status"] = "error";
+    doc["cmd"] = "reboot";
     doc["reason"] = "not_verified";
     String response;
     serializeJson(doc, response);
@@ -1364,7 +1374,7 @@ void handleOtaReboot() {
 
   // Notify app before reboot
   StaticJsonDocument<64> doc;
-  doc["type"] = "ota_rebooting";
+  doc["status"] = "ota_rebooting";
   String response;
   serializeJson(doc, response);
   sendJsonResponse(response);
@@ -2187,12 +2197,12 @@ void processWriteCommand(const String& jsonStr) {
       // Note: Actual sending happens in loop() when currentReadMode is set
 
     } else if (cmd == "ota_start") {  //////////////////// OTA firmware update start
-      // App sends: { "cmd": "ota_start", "expected_size": N, "expected_hash": "sha256hex" }
-      size_t expectedSize = doc["expected_size"] | 0;
-      const char* expectedHash = doc["expected_hash"] | "";
+      // App sends: { "cmd": "ota_start", "size": N, "sha256": "hexstring", "version": "x.y.z" }
+      size_t expectedSize = doc["size"] | 0;
+      const char* expectedHash = doc["sha256"] | "";
 
       if (expectedSize == 0 || strlen(expectedHash) != 64) {
-        notifyError("ota_start", "Missing or invalid expected_size/expected_hash", ERR_MISSING_FIELD);
+        notifyError("ota_start", "Missing or invalid size/sha256", ERR_MISSING_FIELD);
         return;
       }
 

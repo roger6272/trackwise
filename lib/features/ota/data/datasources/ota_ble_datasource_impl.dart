@@ -96,7 +96,7 @@ class OtaBleDatasourceImpl implements OtaBleDatasource {
 
     // Filter the existing notification stream for OTA-related messages
     return _bluetoothDataSource.watchNotifications(deviceId).where((message) {
-      // OTA responses come as syncResponse type (they have a "status" field)
+      // OTA responses use {"status": "..."} format, parsed as syncResponse type
       return message.type == BleMessageType.syncResponse ||
           message.type == BleMessageType.error;
     }).map((message) {
