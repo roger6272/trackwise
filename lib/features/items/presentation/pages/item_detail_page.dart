@@ -138,6 +138,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     return true;
   }
 
+  /// Whether viewing a specific cycle (not All Time).
+  bool get _isViewingSpecificCycle =>
+      _selectedInterval != null && _selectedInterval! >= 0;
+
   /// Whether viewing first cycle (All Time or Period 0).
   /// Initial count is only included in charts for the first cycle.
   bool get _isFirstCycle =>
@@ -374,6 +378,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               count: newIntervals[prevIdx].count,
               startTime: newIntervals[prevIdx].startTime,
               endTime: _lastResetTime,
+              lastActivityTime: newIntervals[prevIdx].lastActivityTime,
             );
           }
         }
@@ -870,9 +875,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   },
                                   selectedDate: _selectedDate,
                                   onDateChanged: (date) {
-                                    setState(() {
-                                      _selectedDate = date;
-                                    });
+                                    if (_isViewingSpecificCycle && _isCycleLongDuration) {
+                                      // Clamp date to cycle boundaries
+                                      final start = _cycleBoundaryStart!;
+                                      final end = _cycleBoundaryEnd!;
+                                      final clamped = date.isBefore(start) ? start : (date.isAfter(end) ? end : date);
+                                      setState(() {
+                                        _selectedDate = clamped;
+                                      });
+                                    } else {
+                                      setState(() {
+                                        _selectedDate = date;
+                                      });
+                                    }
                                     _reloadChart(context);
                                   },
                                   periodTotal: stats.totalCount,
@@ -880,6 +895,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                   priorPeriodCount: stats.priorPeriodCount,
                                   periodLabel: stats.periodLabel,
                                   initialCount: _isFirstCycle ? (widget.initialCount ?? 0) : 0,
+                                  isCycleView: _isViewingSpecificCycle,
+                                  cycleLabel: _isViewingSpecificCycle ? _getCycleWindowLabel() : null,
+                                  cycleBoundaryStart: _cycleBoundaryStart,
+                                  cycleBoundaryEnd: _cycleBoundaryEnd,
                                 ),
                               ),
                               // Cycle History section
@@ -925,58 +944,134 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   /// Calculate statistics from filtered events.
   StatsResult _calculateStats(List<EventLog> events) {
     if (events.isEmpty) {
-      // Return empty stats if no events
       return const StatsResult(
         totalCount: 0,
         priorPeriodCount: 0,
         percentChange: null,
-        periodLabel: 'DoD',
+        periodLabel: '',
         average: 0.0,
         maxCount: 0,
         minCount: 0,
       );
     }
+
+    if (_isViewingSpecificCycle) {
+      // In cycle view, period-over-period comparison is meaningless
+      // (arbitrary cycle durations). Just compute total from filtered events.
+      final totalCount = events
+          .where((e) => e.eventName != 'reset' && e.eventName != 'created')
+          .fold<int>(0, (sum, e) => sum + e.increment);
+      return StatsResult(
+        totalCount: totalCount,
+        priorPeriodCount: 0,
+        percentChange: null,
+        periodLabel: '',
+        average: 0.0,
+        maxCount: 0,
+        minCount: 0,
+      );
+    }
+
     return StatsCalculator.calculate(
       events: events,
       aggregation: _aggregation,
       endDate: _selectedDate,
-      lastResetTime: null, // No longer using lastResetTime filter
-      sinceResetOnly: false, // Interval filtering handles this now
+      lastResetTime: null,
+      sinceResetOnly: false,
     );
+  }
+
+  /// Compute the effective aggregation for the current view.
+  /// In cycle view, aggregation is derived from the cycle duration.
+  /// In All Time view, it uses the user-selected _aggregation pills.
+  String get _effectiveAggregation {
+    if (!_isViewingSpecificCycle) return _aggregation;
+    final interval = _intervals.firstWhere(
+      (i) => i.intervalNumber == _selectedInterval,
+      orElse: () => _intervals.first,
+    );
+    final now = DateTime.now();
+    final chartEnd = interval.isCurrent ? now : (interval.lastActivityTime ?? interval.endTime ?? now);
+    final cycleDuration = chartEnd.difference(interval.startTime);
+    if (cycleDuration.inHours < 24) return '1D';
+    return '7D'; // daily for 1+ day cycles
   }
 
   /// Create a chart event based on current filters.
   ChartsEvent _createChartEvent() {
-    // Calculate date range based on aggregation
-    final periodDays = _aggregation == '1D' ? 1 : (_aggregation == '7D' ? 7 : 30);
-    final endDate = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      23,
-      59,
-      59,
-    );
-    final startDate = endDate.subtract(Duration(days: periodDays));
-
-    // Map aggregation string to AggregationLevel
-    // 1D = hourly (24 bars), 7D/30D = daily (7/30 bars)
-    final aggregationLevel = _aggregation == '1D'
-        ? AggregationLevel.hourly
-        : (_aggregation == '7D' ? AggregationLevel.daily : AggregationLevel.daily);
+    DateTime startDate;
+    DateTime endDate;
+    AggregationLevel aggregationLevel;
 
     // Get the interval's boundaries for filtering (if specific interval selected)
     DateTime? sinceResetTime;
     DateTime? untilResetTime;
-    if (_selectedInterval != null && _selectedInterval! >= 0) {
+
+    if (_isViewingSpecificCycle) {
+      // Cycle view: compute startDate/endDate/aggregation from cycle boundaries
       final interval = _intervals.firstWhere(
         (i) => i.intervalNumber == _selectedInterval,
         orElse: () => _intervals.first,
       );
       sinceResetTime = interval.startTime;
-      // Only set end time for completed (non-current) intervals
       if (!interval.isCurrent && interval.endTime != null) {
         untilResetTime = interval.endTime;
+      }
+
+      final now = DateTime.now();
+      final chartEnd = interval.isCurrent ? now : (interval.lastActivityTime ?? interval.endTime ?? now);
+      final cycleDuration = chartEnd.difference(interval.startTime);
+
+      if (cycleDuration.inHours < 24) {
+        // < 1 day: hourly, full cycle
+        aggregationLevel = AggregationLevel.hourly;
+        startDate = interval.startTime;
+        // Ensure at least 1-hour window for zero-duration cycles
+        endDate = cycleDuration.inMinutes < 60
+            ? interval.startTime.add(const Duration(hours: 1))
+            : chartEnd;
+      } else if (cycleDuration.inDays <= 30) {
+        // 1-30 days: daily, full cycle
+        aggregationLevel = AggregationLevel.daily;
+        startDate = DateTime(interval.startTime.year, interval.startTime.month, interval.startTime.day);
+        endDate = DateTime(chartEnd.year, chartEnd.month, chartEnd.day, 23, 59, 59);
+      } else {
+        // 30+ days: daily, last 30 days (navigable)
+        aggregationLevel = AggregationLevel.daily;
+        final clampedEnd = _selectedDate.isBefore(chartEnd) ? _selectedDate : chartEnd;
+        endDate = DateTime(clampedEnd.year, clampedEnd.month, clampedEnd.day, 23, 59, 59);
+        startDate = endDate.subtract(const Duration(days: 30));
+        // Clamp startDate to cycle start
+        final cycleStartDay = DateTime(interval.startTime.year, interval.startTime.month, interval.startTime.day);
+        if (startDate.isBefore(cycleStartDay)) {
+          startDate = cycleStartDay;
+        }
+      }
+    } else {
+      // All Time view: use aggregation pills (existing behavior)
+      final periodDays = _aggregation == '1D' ? 1 : (_aggregation == '7D' ? 7 : 30);
+      endDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        23,
+        59,
+        59,
+      );
+      startDate = endDate.subtract(Duration(days: periodDays));
+      aggregationLevel = _aggregation == '1D'
+          ? AggregationLevel.hourly
+          : AggregationLevel.daily;
+
+      if (_selectedInterval != null && _selectedInterval! >= 0) {
+        final interval = _intervals.firstWhere(
+          (i) => i.intervalNumber == _selectedInterval,
+          orElse: () => _intervals.first,
+        );
+        sinceResetTime = interval.startTime;
+        if (!interval.isCurrent && interval.endTime != null) {
+          untilResetTime = interval.endTime;
+        }
       }
     }
 
@@ -1003,6 +1098,48 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         resetNumber: _selectedInterval,
       );
     }
+  }
+
+  /// Get a window label for the cycle view chart header.
+  String _getCycleWindowLabel() {
+    if (!_isViewingSpecificCycle) return '';
+    final cycleLabel = _getSelectedCycleLabel();
+    final interval = _intervals.firstWhere(
+      (i) => i.intervalNumber == _selectedInterval,
+      orElse: () => _intervals.first,
+    );
+    final durationStr = IntervalCalculator.formatDuration(interval.activeDuration);
+    return '$cycleLabel ($durationStr)';
+  }
+
+  /// Get the cycle boundary start for chart widgets in cycle view.
+  DateTime? get _cycleBoundaryStart {
+    if (!_isViewingSpecificCycle) return null;
+    final interval = _intervals.firstWhere(
+      (i) => i.intervalNumber == _selectedInterval,
+      orElse: () => _intervals.first,
+    );
+    return interval.startTime;
+  }
+
+  /// Get the cycle boundary end for chart widgets in cycle view.
+  DateTime? get _cycleBoundaryEnd {
+    if (!_isViewingSpecificCycle) return null;
+    final interval = _intervals.firstWhere(
+      (i) => i.intervalNumber == _selectedInterval,
+      orElse: () => _intervals.first,
+    );
+    final now = DateTime.now();
+    return interval.isCurrent ? now : (interval.lastActivityTime ?? interval.endTime ?? now);
+  }
+
+  /// Whether the current cycle view spans more than 30 days (navigable picker).
+  bool get _isCycleLongDuration {
+    if (!_isViewingSpecificCycle) return false;
+    final start = _cycleBoundaryStart;
+    final end = _cycleBoundaryEnd;
+    if (start == null || end == null) return false;
+    return end.difference(start).inDays > 30;
   }
 
   /// Reload the chart based on current settings.

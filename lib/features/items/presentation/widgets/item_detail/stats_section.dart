@@ -51,6 +51,18 @@ class ChartSection extends StatelessWidget {
   /// Initial count when the item was created.
   final int initialCount;
 
+  /// Whether viewing a specific cycle (not All Time).
+  final bool isCycleView;
+
+  /// Label for the cycle window (e.g., "Cycle 3 (5d 2h)").
+  final String? cycleLabel;
+
+  /// Cycle start boundary (for chart widgets and date clamping).
+  final DateTime? cycleBoundaryStart;
+
+  /// Cycle end boundary (for chart widgets and date clamping).
+  final DateTime? cycleBoundaryEnd;
+
   const ChartSection({
     super.key,
     required this.showCumulative,
@@ -64,11 +76,16 @@ class ChartSection extends StatelessWidget {
     this.priorPeriodCount = 0,
     this.periodLabel = '',
     this.initialCount = 0,
+    this.isCycleView = false,
+    this.cycleLabel,
+    this.cycleBoundaryStart,
+    this.cycleBoundaryEnd,
   });
 
 
-  /// Get the chart window label based on range.
+  /// Get the chart window label based on range or cycle.
   String _getWindowLabel() {
+    if (cycleLabel != null) return cycleLabel!;
     switch (range) {
       case '1D':
         return 'Today';
@@ -79,6 +96,12 @@ class ChartSection extends StatelessWidget {
       default:
         return 'Activity';
     }
+  }
+
+  /// Whether the cycle spans more than 30 days.
+  bool get _isCycleLongDuration {
+    if (!isCycleView || cycleBoundaryStart == null || cycleBoundaryEnd == null) return false;
+    return cycleBoundaryEnd!.difference(cycleBoundaryStart!).inDays > 30;
   }
 
   @override
@@ -143,6 +166,28 @@ class ChartSection extends StatelessWidget {
     final baseBackground = Color.lerp(alternate, primaryBackground, 0.5)!;
     final controlBackground = Color.lerp(baseBackground, primary, 0.12)!;
 
+    if (isCycleView) {
+      if (_isCycleLongDuration) {
+        // Cycle > 30 days: no pills, navigable date picker (clamped)
+        return _buildDatePicker(
+          context,
+          primary,
+          primaryText,
+          secondaryText,
+          controlBackground,
+        );
+      } else {
+        // Cycle <= 30 days: no pills, static date range label
+        return _buildStaticDateRange(
+          context,
+          primary,
+          secondaryText,
+          controlBackground,
+        );
+      }
+    }
+
+    // All Time: show pills + date picker as before
     return Row(
       children: [
         // Aggregation pills (45% width)
@@ -168,6 +213,59 @@ class ChartSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Builds a static date range label for cycles <= 30 days.
+  Widget _buildStaticDateRange(
+    BuildContext context,
+    Color primary,
+    Color secondaryText,
+    Color background,
+  ) {
+    final dateFormat = DateFormat('MMM d');
+    final start = cycleBoundaryStart;
+    final end = cycleBoundaryEnd;
+    final rangeText = start != null && end != null
+        ? '${dateFormat.format(start)} – ${dateFormat.format(end)}'
+        : '';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10.0),
+        border: Border.all(
+          color: secondaryText.withValues(alpha: 0.08),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8.0,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.date_range_rounded,
+            size: 14.0,
+            color: primary,
+          ),
+          const SizedBox(width: 8.0),
+          Text(
+            rangeText,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontSize: 13.0,
+              color: AppColors.primaryText(Theme.of(context).brightness),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -247,7 +345,20 @@ class ChartSection extends StatelessWidget {
   ) {
     final dateFormat = DateFormat('EEE, MMM d');
     final isToday = _isToday(selectedDate);
-    final canGoForward = !isToday;
+
+    // Determine navigation bounds
+    bool canGoForward;
+    bool canGoBack;
+    if (isCycleView && _isCycleLongDuration && cycleBoundaryStart != null && cycleBoundaryEnd != null) {
+      final endDay = DateTime(cycleBoundaryEnd!.year, cycleBoundaryEnd!.month, cycleBoundaryEnd!.day);
+      final startDay = DateTime(cycleBoundaryStart!.year, cycleBoundaryStart!.month, cycleBoundaryStart!.day);
+      final selDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      canGoForward = selDay.isBefore(endDay) && !isToday;
+      canGoBack = selDay.isAfter(startDay);
+    } else {
+      canGoForward = !isToday;
+      canGoBack = true;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -272,21 +383,26 @@ class ChartSection extends StatelessWidget {
           Semantics(
             label: 'Previous day',
             button: true,
+            enabled: canGoBack,
             child: GestureDetector(
-              onTap: () => onDateChanged(
-                selectedDate.subtract(const Duration(days: 1)),
-              ),
+              onTap: canGoBack
+                  ? () => onDateChanged(
+                        selectedDate.subtract(const Duration(days: 1)),
+                      )
+                  : null,
               behavior: HitTestBehavior.opaque,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 6.0),
                 decoration: BoxDecoration(
-                  color: primary.withValues(alpha: 0.1),
+                  color: canGoBack
+                      ? primary.withValues(alpha: 0.1)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(6.0),
                 ),
                 child: Icon(
                   Icons.chevron_left_rounded,
                   size: 18.0,
-                  color: primary,
+                  color: canGoBack ? primary : secondaryText.withValues(alpha: 0.25),
                 ),
               ),
             ),
@@ -447,8 +563,12 @@ class ChartSection extends StatelessWidget {
                     // Calendar
                     CalendarDatePicker(
                       initialDate: tempSelectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
+                      firstDate: isCycleView && cycleBoundaryStart != null
+                          ? DateTime(cycleBoundaryStart!.year, cycleBoundaryStart!.month, cycleBoundaryStart!.day)
+                          : DateTime(2020),
+                      lastDate: isCycleView && cycleBoundaryEnd != null
+                          ? (cycleBoundaryEnd!.isAfter(DateTime.now()) ? DateTime.now() : DateTime(cycleBoundaryEnd!.year, cycleBoundaryEnd!.month, cycleBoundaryEnd!.day))
+                          : DateTime.now(),
                       onDateChanged: (date) {
                         setModalState(() {
                           tempSelectedDate = date;
@@ -523,6 +643,10 @@ class ChartSection extends StatelessWidget {
   /// Check if createdAt falls within the visible chart range.
   bool _isCreatedAtInRange(DateTime? createdAt) {
     if (createdAt == null) return false;
+
+    if (isCycleView && cycleBoundaryStart != null && cycleBoundaryEnd != null) {
+      return !createdAt.isBefore(cycleBoundaryStart!) && !createdAt.isAfter(cycleBoundaryEnd!);
+    }
 
     // Calculate start date based on range
     DateTime startDate;
@@ -787,11 +911,15 @@ class ChartSection extends StatelessWidget {
               return CumulativeChartWidget(
                 range: range,
                 selectedDate: selectedDate,
+                chartStartDate: isCycleView ? cycleBoundaryStart : null,
+                chartEndDate: isCycleView ? cycleBoundaryEnd : null,
               );
             } else {
               return BarChartWidget(
                 range: range,
                 selectedDate: selectedDate,
+                chartStartDate: isCycleView ? cycleBoundaryStart : null,
+                chartEndDate: isCycleView ? cycleBoundaryEnd : null,
               );
             }
           },

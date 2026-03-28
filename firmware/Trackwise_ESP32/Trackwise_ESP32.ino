@@ -1241,7 +1241,7 @@ void clearLogs() {
 // Handle app updating the full list of items
 class SetItemsCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) override {
-    std::string val = c->getValue();
+    std::string val = c->getValue().c_str();
     const char* chunk = val.c_str();
     int chunkLen = val.length();
     DEBUG_PRINTLN("Received raw chunk:");

@@ -107,7 +107,15 @@
       "Bash(cd:*)",
       "Bash(firebase:*)",
       "Bash(dir /s /b \"C:\\\\Users\\\\weich\\\\Documents\\\\FlutterProjects\\\\trackwise\\\\firmware\")",
-      "Bash(your account.\" Works better for new users who have no items yet.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(your account.\" Works better for new users who have no items yet.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(\"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" devices:*)",
+      "Bash(\"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" logcat:*)",
+      "Bash(\"$ADB\" logcat:*)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Bash(start:*)",
+      "Bash(explorer C:\\\\Users\\\\weich\\\\Documents\\\\FlutterProjects\\\\trackwise\\\\build\\\\app\\\\outputs\\\\flutter-apk:*)",
+      "Bash(explorer:*)"
     ]
   }
 }

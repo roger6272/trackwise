@@ -24,10 +24,18 @@ class BarChartWidget extends StatefulWidget {
   /// The selected end date for the chart.
   final DateTime selectedDate;
 
+  /// If set, generate buckets dynamically from this date (cycle view).
+  final DateTime? chartStartDate;
+
+  /// If set, generate buckets dynamically to this date (cycle view).
+  final DateTime? chartEndDate;
+
   const BarChartWidget({
     super.key,
     required this.range,
     required this.selectedDate,
+    this.chartStartDate,
+    this.chartEndDate,
   });
 
   @override
@@ -71,8 +79,43 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     },
   };
 
+  /// Whether this chart is in dynamic/cycle mode.
+  bool get _isDynamicMode => widget.chartStartDate != null && widget.chartEndDate != null;
+
+  /// Whether dynamic mode uses hourly buckets.
+  bool get _isDynamicHourly {
+    if (!_isDynamicMode) return false;
+    return widget.chartEndDate!.difference(widget.chartStartDate!).inHours < 24;
+  }
+
   /// Generate time buckets based on range and selected date.
   List<DateTime> _generateTimeBuckets() {
+    if (_isDynamicMode) {
+      final start = widget.chartStartDate!;
+      final end = widget.chartEndDate!;
+      if (_isDynamicHourly) {
+        // Hourly buckets from start to end
+        final startHour = DateTime(start.year, start.month, start.day, start.hour);
+        final endHour = DateTime(end.year, end.month, end.day, end.hour);
+        final hours = endHour.difference(startHour).inHours + 1;
+        final bucketCount = hours.clamp(1, 48); // safety cap
+        return List.generate(
+          bucketCount,
+          (i) => startHour.add(Duration(hours: i)),
+        );
+      } else {
+        // Daily buckets from start to end
+        final startDay = DateTime(start.year, start.month, start.day);
+        final endDay = DateTime(end.year, end.month, end.day);
+        final days = endDay.difference(startDay).inDays + 1;
+        final bucketCount = days.clamp(1, 60); // safety cap
+        return List.generate(
+          bucketCount,
+          (i) => startDay.add(Duration(days: i)),
+        );
+      }
+    }
+
     final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
     final int bucketCount = config['bucketCount'];
     final String bucketType = config['bucketType'];
@@ -93,13 +136,27 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     }
   }
 
+  /// Get the key format for bucket mapping.
+  String get _keyFormat {
+    if (_isDynamicMode) {
+      return _isDynamicHourly ? 'yyyy-MM-dd HH' : 'yyyy-MM-dd';
+    }
+    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
+    return config['keyFormat'];
+  }
+
+  /// Whether the current view is hourly.
+  bool get _isHourly {
+    if (_isDynamicMode) return _isDynamicHourly;
+    return widget.range == '1D';
+  }
+
   /// Map chart data to time buckets, filling 0 for missing data.
   Map<String, int> _mapDataToBuckets(
     List<DateTime> timeBuckets,
     ChartsLoaded state,
   ) {
-    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
-    final String keyFormat = config['keyFormat'];
+    final keyFormat = _keyFormat;
 
     // Initialize all buckets with 0
     final Map<String, int> timeToCount = {
@@ -108,14 +165,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
 
     // Fill in actual data from chart state
     for (var dataPoint in state.chartData.dataPoints) {
-      String key;
-      if (widget.range == '1D') {
-        // For hourly, use the hour key format
-        key = DateFormat(keyFormat).format(dataPoint.date);
-      } else {
-        // For daily, use the day key format
-        key = DateFormat(keyFormat).format(dataPoint.date);
-      }
+      final key = DateFormat(keyFormat).format(dataPoint.date);
       if (timeToCount.containsKey(key)) {
         timeToCount[key] = (timeToCount[key] ?? 0) + dataPoint.value;
       }
@@ -178,9 +228,8 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     required double chartContentWidth,
     required double fontScale,
   }) {
-    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
-    final String labelFormat = config['labelFormat'];
-    final String keyFormat = config['keyFormat'];
+    final String labelFormat = _isHourly ? 'HH' : 'dd';
+    final keyFormat = _keyFormat;
 
     // Generate time buckets
     final timeBuckets = _generateTimeBuckets();
@@ -303,9 +352,9 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                               width: chartContentWidth,
                               child: Row(
                                 children: List.generate(totalBars, (i) {
-                                  // Show fewer labels for 30D to avoid crowding
-                                  final showLabel = widget.range == '30D'
-                                      ? (totalBars - 1 - i) % 5 == 0
+                                  // Thin labels when many bars to avoid crowding
+                                  final showLabel = totalBars > 14
+                                      ? (totalBars - 1 - i) % (totalBars ~/ 6) == 0
                                       : true;
                                   return Expanded(
                                     child: Container(
@@ -327,7 +376,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                         height: 18,
                         child: Center(
                           child: Text(
-                            widget.range == '1D' ? 'Hour' : 'Day',
+                            _isHourly ? 'Hour' : 'Day',
                             style: TextStyle(
                               fontSize: 9 * fontScale,
                               color: AppColors.neutral,
@@ -359,7 +408,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                       children: [
                         Text(
                           tooltipDate != null
-                              ? DateFormat(widget.range == '1D' ? 'MMM dd, h a' : 'MMM dd, yy').format(tooltipDate!)
+                              ? DateFormat(_isHourly ? 'MMM dd, h a' : 'MMM dd, yy').format(tooltipDate!)
                               : '',
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
@@ -501,7 +550,8 @@ class _BarChartWidgetState extends State<BarChartWidget> {
   @override
   void didUpdateWidget(covariant BarChartWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.range != widget.range || oldWidget.selectedDate != widget.selectedDate) {
+    if (oldWidget.range != widget.range || oldWidget.selectedDate != widget.selectedDate ||
+        oldWidget.chartStartDate != widget.chartStartDate || oldWidget.chartEndDate != widget.chartEndDate) {
       if (!mounted) return;
       setState(() {
         selectedIndex = null;

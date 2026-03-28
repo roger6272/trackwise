@@ -25,10 +25,18 @@ class CumulativeChartWidget extends StatefulWidget {
   /// The selected end date for the chart.
   final DateTime selectedDate;
 
+  /// If set, generate buckets dynamically from this date (cycle view).
+  final DateTime? chartStartDate;
+
+  /// If set, generate buckets dynamically to this date (cycle view).
+  final DateTime? chartEndDate;
+
   const CumulativeChartWidget({
     super.key,
     required this.range,
     required this.selectedDate,
+    this.chartStartDate,
+    this.chartEndDate,
   });
 
   @override
@@ -71,8 +79,56 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     },
   };
 
+  /// Whether this chart is in dynamic/cycle mode.
+  bool get _isDynamicMode => widget.chartStartDate != null && widget.chartEndDate != null;
+
+  /// Whether dynamic mode uses hourly buckets.
+  bool get _isDynamicHourly {
+    if (!_isDynamicMode) return false;
+    return widget.chartEndDate!.difference(widget.chartStartDate!).inHours < 24;
+  }
+
+  /// Whether the current view is hourly.
+  bool get _isHourly {
+    if (_isDynamicMode) return _isDynamicHourly;
+    return widget.range == '1D';
+  }
+
+  /// Get the key format for bucket mapping.
+  String get _keyFormat {
+    if (_isDynamicMode) {
+      return _isDynamicHourly ? 'yyyy-MM-dd HH' : 'yyyy-MM-dd';
+    }
+    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
+    return config['keyFormat'];
+  }
+
   /// Generate time buckets based on range and selected date.
   List<DateTime> _generateTimeBuckets() {
+    if (_isDynamicMode) {
+      final start = widget.chartStartDate!;
+      final end = widget.chartEndDate!;
+      if (_isDynamicHourly) {
+        final startHour = DateTime(start.year, start.month, start.day, start.hour);
+        final endHour = DateTime(end.year, end.month, end.day, end.hour);
+        final hours = endHour.difference(startHour).inHours + 1;
+        final bucketCount = hours.clamp(1, 48);
+        return List.generate(
+          bucketCount,
+          (i) => startHour.add(Duration(hours: i)),
+        );
+      } else {
+        final startDay = DateTime(start.year, start.month, start.day);
+        final endDay = DateTime(end.year, end.month, end.day);
+        final days = endDay.difference(startDay).inDays + 1;
+        final bucketCount = days.clamp(1, 60);
+        return List.generate(
+          bucketCount,
+          (i) => startDay.add(Duration(days: i)),
+        );
+      }
+    }
+
     final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
     final int bucketCount = config['bucketCount'];
     final String bucketType = config['bucketType'];
@@ -100,8 +156,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     List<DateTime> timeBuckets,
     ChartsLoaded state,
   ) {
-    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
-    final String keyFormat = config['keyFormat'];
+    final keyFormat = _keyFormat;
 
     // Get initial count and creation time
     final initialCount = state.chartData.initialCount;
@@ -203,9 +258,8 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
     required double chartContentWidth,
     required double fontScale,
   }) {
-    final config = rangeConfig[widget.range] ?? rangeConfig['7D']!;
-    final String labelFormat = config['labelFormat'];
-    final String keyFormat = config['keyFormat'];
+    final String labelFormat = _isHourly ? 'HH' : 'dd';
+    final keyFormat = _keyFormat;
 
     // Generate time buckets
     final timeBuckets = _generateTimeBuckets();
@@ -304,9 +358,9 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                               width: chartContentWidth,
                               child: Row(
                                 children: List.generate(totalBars, (i) {
-                                  // Show fewer labels for 30D to avoid crowding
-                                  final showLabel = widget.range == '30D'
-                                      ? (totalBars - 1 - i) % 5 == 0
+                                  // Thin labels when many bars to avoid crowding
+                                  final showLabel = totalBars > 14
+                                      ? (totalBars - 1 - i) % (totalBars ~/ 6) == 0
                                       : true;
                                   return Expanded(
                                     child: Container(
@@ -328,7 +382,7 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
                         height: 18,
                         child: Center(
                           child: Text(
-                            widget.range == '1D' ? 'Hour' : 'Day',
+                            _isHourly ? 'Hour' : 'Day',
                             style: TextStyle(
                               fontSize: 9 * fontScale,
                               color: AppColors.neutral,
@@ -485,7 +539,8 @@ class _CumulativeChartWidgetState extends State<CumulativeChartWidget> {
   @override
   void didUpdateWidget(covariant CumulativeChartWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.range != widget.range || oldWidget.selectedDate != widget.selectedDate) {
+    if (oldWidget.range != widget.range || oldWidget.selectedDate != widget.selectedDate ||
+        oldWidget.chartStartDate != widget.chartStartDate || oldWidget.chartEndDate != widget.chartEndDate) {
       if (!mounted) return;
       setState(() {
         selectedIndex = null;

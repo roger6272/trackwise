@@ -16,6 +16,10 @@ class IntervalData extends Equatable {
   /// End time of this interval (next reset event time, or null if current).
   final DateTime? endTime;
 
+  /// Last increment event time in this interval (for chart windowing).
+  /// Null if no increments in this interval.
+  final DateTime? lastActivityTime;
+
   /// Whether this is the current (most recent) interval.
   bool get isCurrent => endTime == null;
 
@@ -23,15 +27,23 @@ class IntervalData extends Equatable {
   Duration get duration =>
       (endTime ?? DateTime.now()).difference(startTime);
 
+  /// Duration of activity in this interval (for chart display).
+  /// Uses lastActivityTime for completed cycles, now for current.
+  Duration get activeDuration {
+    final end = isCurrent ? DateTime.now() : (lastActivityTime ?? endTime ?? startTime);
+    return end.difference(startTime);
+  }
+
   const IntervalData({
     required this.intervalNumber,
     required this.count,
     required this.startTime,
     this.endTime,
+    this.lastActivityTime,
   });
 
   @override
-  List<Object?> get props => [intervalNumber, count, startTime, endTime];
+  List<Object?> get props => [intervalNumber, count, startTime, endTime, lastActivityTime];
 }
 
 /// Calculator for interval-based statistics from event logs.
@@ -70,6 +82,7 @@ class IntervalCalculator {
     final Map<int, DateTime> resetTimeByInterval = {};
     final Map<int, DateTime?> createdTimeByInterval = {};
     final Map<int, int> countByInterval = {};
+    final Map<int, DateTime> lastIncrementTimeByInterval = {};
     DateTime? earliestStart;
     int totalCount = 0;
 
@@ -98,6 +111,11 @@ class IntervalCalculator {
         if (event.eventName != 'reset' && event.eventName != 'created') {
           intervalCount += event.increment;
           totalCount += event.increment;
+          // Track last activity time
+          if (!lastIncrementTimeByInterval.containsKey(intervalNumber) ||
+              event.createdTime.isAfter(lastIncrementTimeByInterval[intervalNumber]!)) {
+            lastIncrementTimeByInterval[intervalNumber] = event.createdTime;
+          }
         }
       }
 
@@ -160,6 +178,7 @@ class IntervalCalculator {
           count: countByInterval[intervalNumber] ?? 0,
           startTime: intervalStart,
           endTime: intervalEnd,
+          lastActivityTime: lastIncrementTimeByInterval[intervalNumber],
         ));
       }
     }
