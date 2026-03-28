@@ -78,7 +78,7 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define PROTOCOL_VERSION 3
 
 // Firmware version: Semantic versioning (major.minor.patch)
-#define FIRMWARE_VERSION "2.0.0"
+#define FIRMWARE_VERSION "2.1.0"
 
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
@@ -2207,9 +2207,13 @@ void processWriteCommand(const String& jsonStr) {
         // Set RTC to UTC time
         rtc.adjust(utcTime);
         // Store offset in prefs
-        prefs.begin("counter", false);
+        if (!nvsBeginSafe("counter", false)) {
+          DEBUG_PRINTLN("⚠️ set_time: NVS mutex timeout, skipping offset save");
+          sendAckIfRequested(doc, "set_time", false, "NVS busy");
+          return;
+        }
         prefs.putInt("tz_offset", offsetMinutes);
-        prefs.end();
+        nvsEndSafe();
         DEBUG_LOG("✅ RTC set to UTC: %04d-%02d-%02d %02d:%02d:%02d (local offset: %d min)\n",
                       y, mo, d, h, mi, s, offsetMinutes);
         // Trigger daily reset check in case the date changed

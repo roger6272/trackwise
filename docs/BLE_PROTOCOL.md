@@ -1946,12 +1946,15 @@ Begin an OTA firmware update session.
 
 | Reason | Description |
 |--------|-------------|
+| `invalid_version` | Firmware version in request is not newer than current |
+| `already_in_progress` | OTA is already in a non-IDLE state |
 | `low_battery` | Battery below minimum threshold for safe update |
+| `no_partition` | No available OTA partition found |
 | `write_failed` | Failed to initialize OTA partition |
 
 **Error Format:**
 ```json
-{"status": "error", "cmd": "ota_start", "reason": "low_battery"}
+{"status": "error", "cmd": "ota_start", "reason": "low_battery", "battery": 15}
 ```
 
 ---
@@ -2034,7 +2037,10 @@ All OTA notifications are sent via **CHAR_NOTIFY** as JSON.
 
 | Reason | Trigger | Resolution |
 |--------|---------|------------|
+| `invalid_version` | `ota_start` when version is not newer | Verify correct firmware file |
+| `already_in_progress` | `ota_start` when OTA is not IDLE | Wait for current OTA to finish or timeout |
 | `low_battery` | `ota_start` when battery < 20% | Charge device, retry |
+| `no_partition` | `ota_start` when no OTA partition available | Retry; may indicate hardware issue |
 | `hash_mismatch` | `ota_end` when SHA256 doesn't match | Re-download firmware, retry |
 | `timeout` | 30s inactivity during RECEIVING state | Retry transfer from beginning |
 | `write_failed` | Flash write or partition error | Retry; may indicate hardware issue |
