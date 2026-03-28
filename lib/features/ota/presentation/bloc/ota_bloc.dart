@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/utils/logger.dart';
 import '../../domain/entities/firmware_info.dart';
 import '../../domain/entities/ota_state.dart' as domain;
@@ -23,15 +24,18 @@ import 'ota_state.dart';
 class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   final CheckForUpdateUseCase _checkForUpdate;
   final PerformOtaUpdateUseCase _performOtaUpdate;
+  final AnalyticsService _analytics;
 
   StreamSubscription<domain.OtaState>? _otaSubscription;
   Timer? _rebootTimer;
   FirmwareInfo? _currentFirmwareInfo;
+  String? _deviceFirmwareVersion;
+  DateTime? _otaStartTime;
 
   /// Duration to wait for device reconnect after OTA reboot.
   static const Duration _rebootTimeout = Duration(seconds: 30);
 
-  OtaBloc(this._checkForUpdate, this._performOtaUpdate)
+  OtaBloc(this._checkForUpdate, this._performOtaUpdate, this._analytics)
       : super(const OtaInitial()) {
     on<CheckForUpdateRequested>(_onCheckForUpdate);
     on<StartUpdateRequested>(_onStartUpdate);
@@ -47,6 +51,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     Emitter<OtaBlocState> emit,
   ) async {
     AppLogger.debug('OTA: Checking for update (device: v${event.deviceFirmwareVersion})');
+    _deviceFirmwareVersion = event.deviceFirmwareVersion;
 
     final result = await _checkForUpdate.call(
       CheckForUpdateParams(deviceFirmwareVersion: event.deviceFirmwareVersion),
@@ -90,7 +95,13 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     }
 
     _currentFirmwareInfo = event.firmwareInfo;
+    _otaStartTime = DateTime.now();
     emit(OtaBlocDownloading(progress: 0.0, info: event.firmwareInfo));
+
+    _analytics.logOtaStarted(
+      fromVersion: _deviceFirmwareVersion ?? 'unknown',
+      toVersion: event.firmwareInfo.version,
+    );
 
     // Start the OTA update stream
     _otaSubscription?.cancel();
@@ -113,6 +124,22 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     Emitter<OtaBlocState> emit,
   ) {
     AppLogger.debug('OTA: Update cancelled by user');
+
+    // Determine progress at cancel time
+    double progressPercent = 0.0;
+    final s = state;
+    if (s is OtaBlocDownloading) {
+      progressPercent = s.progress * 100;
+    } else if (s is OtaBlocTransferring) {
+      progressPercent = s.progress * 100;
+    }
+
+    _analytics.logOtaCancelled(
+      fromVersion: _deviceFirmwareVersion ?? 'unknown',
+      toVersion: _currentFirmwareInfo?.version ?? 'unknown',
+      progressPercent: progressPercent,
+    );
+
     _otaSubscription?.cancel();
     _otaSubscription = null;
     _rebootTimer?.cancel();
@@ -172,6 +199,11 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
           }
         });
       case domain.OtaError():
+        _analytics.logOtaFailed(
+          reason: progress.message,
+          fromVersion: _deviceFirmwareVersion ?? 'unknown',
+          toVersion: info.version,
+        );
         emit(OtaBlocError(progress.message));
         _otaSubscription?.cancel();
         _otaSubscription = null;
@@ -190,6 +222,16 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _rebootTimer = null;
     _otaSubscription?.cancel();
     _otaSubscription = null;
+
+    final durationSeconds = _otaStartTime != null
+        ? DateTime.now().difference(_otaStartTime!).inSeconds
+        : 0;
+    _analytics.logOtaCompleted(
+      fromVersion: _deviceFirmwareVersion ?? 'unknown',
+      toVersion: event.newVersion,
+      durationSeconds: durationSeconds,
+    );
+
     emit(OtaBlocComplete(event.newVersion));
   }
 
@@ -202,6 +244,13 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _rebootTimer = null;
     _otaSubscription?.cancel();
     _otaSubscription = null;
+
+    _analytics.logOtaFailed(
+      reason: 'Reboot timed out — device did not reconnect',
+      fromVersion: _deviceFirmwareVersion ?? 'unknown',
+      toVersion: _currentFirmwareInfo?.version ?? 'unknown',
+    );
+
     emit(const OtaBlocError(
       'Device didn\'t respond after update. Try turning it off and on again.',
     ));

@@ -168,6 +168,14 @@ class AnalyticsService {
     );
   }
 
+  /// Set the firmware version of the connected device
+  Future<void> setFirmwareVersion(String version) async {
+    await _analytics.setUserProperty(
+      name: 'firmware_version',
+      value: version,
+    );
+  }
+
   /// Set the user's signup method
   Future<void> setSignupMethod(String method) async {
     await _analytics.setUserProperty(
@@ -203,6 +211,73 @@ class AnalyticsService {
     await _analytics.logEvent(
       name: 'feature_used',
       parameters: {'feature_name': featureName},
+    );
+  }
+
+  // ==================== OTA Events ====================
+
+  /// Track when an OTA firmware update starts downloading
+  Future<void> logOtaStarted({
+    required String fromVersion,
+    required String toVersion,
+  }) async {
+    await _analytics.logEvent(
+      name: 'ota_started',
+      parameters: {
+        'from_version': fromVersion,
+        'to_version': toVersion,
+      },
+    );
+  }
+
+  /// Track when an OTA firmware update completes successfully
+  Future<void> logOtaCompleted({
+    required String fromVersion,
+    required String toVersion,
+    required int durationSeconds,
+  }) async {
+    await _analytics.logEvent(
+      name: 'ota_completed',
+      parameters: {
+        'from_version': fromVersion,
+        'to_version': toVersion,
+        'duration_seconds': durationSeconds,
+      },
+    );
+  }
+
+  /// Track when an OTA firmware update fails
+  Future<void> logOtaFailed({
+    required String reason,
+    required String fromVersion,
+    required String toVersion,
+  }) async {
+    await _analytics.logEvent(
+      name: 'ota_failed',
+      parameters: {
+        'reason': reason.substring(
+          0,
+          reason.length > 100 ? 100 : reason.length,
+        ),
+        'from_version': fromVersion,
+        'to_version': toVersion,
+      },
+    );
+  }
+
+  /// Track when the user cancels an OTA firmware update
+  Future<void> logOtaCancelled({
+    required String fromVersion,
+    required String toVersion,
+    required double progressPercent,
+  }) async {
+    await _analytics.logEvent(
+      name: 'ota_cancelled',
+      parameters: {
+        'from_version': fromVersion,
+        'to_version': toVersion,
+        'progress_percent': progressPercent,
+      },
     );
   }
 

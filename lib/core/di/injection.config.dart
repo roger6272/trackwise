@@ -417,10 +417,48 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i531.CategoryRepository>(),
               gh<_i394.ConnectivityService>(),
             ));
+    gh.lazySingleton<_i409.CreateCategoryUseCase>(
+        () => _i409.CreateCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i923.DeleteCategoryUseCase>(
+        () => _i923.DeleteCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i622.GetCategoriesUseCase>(
+        () => _i622.GetCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i349.ReorderCategoriesUseCase>(
+        () => _i349.ReorderCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i810.UpdateCategoryUseCase>(
+        () => _i810.UpdateCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i789.WatchCategoriesUseCase>(
+        () => _i789.WatchCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.factory<_i943.ProfileBloc>(() => _i943.ProfileBloc(
+          getProfile: gh<_i740.GetProfileUseCase>(),
+          updateProfile: gh<_i759.UpdateProfileUseCase>(),
+          exportUserData: gh<_i524.ExportUserDataUseCase>(),
+          deleteAccount: gh<_i833.DeleteAccountUseCase>(),
+        ));
     gh.factory<_i301.OtaBloc>(() => _i301.OtaBloc(
           gh<_i1014.CheckForUpdateUseCase>(),
           gh<_i555.PerformOtaUpdateUseCase>(),
+          gh<_i954.AnalyticsService>(),
         ));
+    gh.factory<_i868.ResetPasswordUseCase>(
+        () => _i868.ResetPasswordUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i542.SignInWithAppleUseCase>(
+        () => _i542.SignInWithAppleUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i27.SignInWithEmailUseCase>(
+        () => _i27.SignInWithEmailUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i683.SignInWithGoogleUseCase>(
+        () => _i683.SignInWithGoogleUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i273.SignOutUseCase>(
+        () => _i273.SignOutUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i796.SignUpUseCase>(
+        () => _i796.SignUpUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i563.WatchAuthStateUseCase>(
+        () => _i563.WatchAuthStateUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i429.SendEmailWithCSVUseCase>(
+        () => _i429.SendEmailWithCSVUseCase(
+              mailDataSource: gh<_i242.FirestoreMailDataSource>(),
+              generateCSV: gh<_i804.GenerateCSVUseCase>(),
+            ));
     gh.lazySingleton<_i531.BluetoothBloc>(() => _i531.BluetoothBloc(
           gh<_i1033.ScanDevicesUseCase>(),
           gh<_i177.StopScanUseCase>(),
@@ -443,44 +481,8 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i721.UserRepository>(),
           gh<_i649.BluetoothRepository>(),
           gh<_i452.ItemRepository>(),
+          gh<_i954.AnalyticsService>(),
         ));
-    gh.lazySingleton<_i409.CreateCategoryUseCase>(
-        () => _i409.CreateCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i923.DeleteCategoryUseCase>(
-        () => _i923.DeleteCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i622.GetCategoriesUseCase>(
-        () => _i622.GetCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i349.ReorderCategoriesUseCase>(
-        () => _i349.ReorderCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i810.UpdateCategoryUseCase>(
-        () => _i810.UpdateCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i789.WatchCategoriesUseCase>(
-        () => _i789.WatchCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.factory<_i943.ProfileBloc>(() => _i943.ProfileBloc(
-          getProfile: gh<_i740.GetProfileUseCase>(),
-          updateProfile: gh<_i759.UpdateProfileUseCase>(),
-          exportUserData: gh<_i524.ExportUserDataUseCase>(),
-          deleteAccount: gh<_i833.DeleteAccountUseCase>(),
-        ));
-    gh.factory<_i868.ResetPasswordUseCase>(
-        () => _i868.ResetPasswordUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i542.SignInWithAppleUseCase>(
-        () => _i542.SignInWithAppleUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i27.SignInWithEmailUseCase>(
-        () => _i27.SignInWithEmailUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i683.SignInWithGoogleUseCase>(
-        () => _i683.SignInWithGoogleUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i273.SignOutUseCase>(
-        () => _i273.SignOutUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i796.SignUpUseCase>(
-        () => _i796.SignUpUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i563.WatchAuthStateUseCase>(
-        () => _i563.WatchAuthStateUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i429.SendEmailWithCSVUseCase>(
-        () => _i429.SendEmailWithCSVUseCase(
-              mailDataSource: gh<_i242.FirestoreMailDataSource>(),
-              generateCSV: gh<_i804.GenerateCSVUseCase>(),
-            ));
     gh.factory<_i977.AuthBloc>(() => _i977.AuthBloc(
           signInWithEmail: gh<_i27.SignInWithEmailUseCase>(),
           signInWithGoogle: gh<_i683.SignInWithGoogleUseCase>(),

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import 'package:injectable/injectable.dart';
 
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
 import '../../../../core/utils/logger.dart';
@@ -69,6 +70,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final UserRepository _userRepository;
   final BluetoothRepository _bluetoothRepository;
   final ItemRepository _itemRepository;
+  final AnalyticsService _analyticsService;
 
   // Stream subscriptions
   StreamSubscription<dynamic>? _scanSubscription;
@@ -148,6 +150,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._userRepository,
     this._bluetoothRepository,
     this._itemRepository,
+    this._analyticsService,
   ) : super(const BluetoothState()) {
     // Register event handlers
     on<CheckBluetoothPermissions>(_onCheckPermissions);
@@ -1602,6 +1605,11 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
             firmwareVersion: result.firmwareVersion,
           )),
         ));
+
+        // Set firmware version user property for analytics
+        if (result.firmwareVersion != null) {
+          _analyticsService.setFirmwareVersion(result.firmwareVersion!);
+        }
 
         // Claim the selected item if handshake returned one
         if (result.selectedFirestoreId != null) {
