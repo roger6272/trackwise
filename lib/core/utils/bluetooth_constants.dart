@@ -27,6 +27,20 @@ class BluetoothConstants {
   /// Used for: Sending preferences and configuration to ESP32
   static const String writeCharacteristicUUID = '12345678-1234-1234-1234-123456789010';
 
+  /// OTA Data characteristic UUID
+  /// Used for: Sending firmware update data to ESP32 (optional, firmware v2+)
+  static const String otaDataCharacteristicUUID = '12345678-1234-1234-1234-123456789011';
+
+  // ========== Standard Battery Service ==========
+
+  /// Battery Service UUID (standard BLE 0x180F in 128-bit format)
+  /// Optional — only present on firmware that supports battery reporting
+  static const String batteryServiceUUID = '0000180f-0000-1000-8000-00805f9b34fb';
+
+  /// Battery Level characteristic UUID (standard BLE 0x2A19 in 128-bit format)
+  /// Reports battery percentage (0-100) via notify
+  static const String batteryLevelCharacteristicUUID = '00002a19-0000-1000-8000-00805f9b34fb';
+
   // ========== Message Chunking ==========
 
   /// Default MTU limit for BLE messages (fallback if negotiation fails)

@@ -126,11 +126,14 @@ class _BluetoothPageState extends State<BluetoothPage> {
               final isConnecting =
                   state.connectingDeviceId == device.deviceInstanceId;
 
+              final deviceState = state.connectedDevices[device.deviceInstanceId];
+
               return _DeviceListTile(
                 device: device,
                 isConnected: isConnected,
                 isConnecting: isConnecting,
                 isAtConnectionLimit: state.isAtConnectionLimit,
+                batteryLevel: deviceState?.batteryLevel,
                 onRename: () => _showRenameDialog(context, device),
                 onChangeColor: () => _showColorPickerDialog(context, device),
                 onUnpair: () => _showUnpairDialog(context, device),
@@ -603,6 +606,7 @@ class _DeviceListTile extends StatelessWidget {
   final bool isConnected;
   final bool isConnecting;
   final bool isAtConnectionLimit;
+  final int? batteryLevel;
   final VoidCallback onRename;
   final VoidCallback onChangeColor;
   final VoidCallback onUnpair;
@@ -614,6 +618,7 @@ class _DeviceListTile extends StatelessWidget {
     required this.isConnected,
     this.isConnecting = false,
     this.isAtConnectionLimit = false,
+    this.batteryLevel,
     required this.onRename,
     required this.onChangeColor,
     required this.onUnpair,
@@ -711,23 +716,10 @@ class _DeviceListTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Battery placeholder (no firmware support yet)
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.battery_unknown,
-                  size: 20,
-                  color: secondaryText.withValues(alpha: 0.4),
-                ),
-                Text(
-                  '--%',
-                  style: TextStyle(
-                    color: secondaryText.withValues(alpha: 0.4),
-                    fontSize: 10.0,
-                  ),
-                ),
-              ],
+            // Battery level indicator
+            _BatteryIndicator(
+              level: batteryLevel,
+              isConnected: isConnected,
             ),
             PopupMenuButton<String>(
           icon: Icon(Icons.more_vert, color: secondaryText),
@@ -838,5 +830,85 @@ class _DeviceListTile extends StatelessWidget {
     } else {
       return DateFormat('MMM d, yyyy').format(date);
     }
+  }
+}
+
+// ========== Battery Indicator ==========
+
+class _BatteryIndicator extends StatelessWidget {
+  final int? level;
+  final bool isConnected;
+
+  const _BatteryIndicator({
+    this.level,
+    required this.isConnected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    // Show unknown state when not connected or no battery data
+    if (!isConnected || level == null) {
+      return Semantics(
+        label: 'Battery level unknown',
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.battery_unknown,
+              size: 20,
+              color: secondaryText.withValues(alpha: 0.4),
+            ),
+            Text(
+              '--%',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: secondaryText.withValues(alpha: 0.4),
+                    fontSize: 10.0,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final batteryLevel = level!;
+    final icon = _batteryIcon(batteryLevel);
+    final color = _batteryColor(batteryLevel);
+
+    return Semantics(
+      label: 'Battery level $batteryLevel percent',
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: color,
+          ),
+          Text(
+            '$batteryLevel%',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color,
+                  fontSize: 10.0,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _batteryIcon(int level) {
+    if (level > 75) return Icons.battery_full;
+    if (level > 25) return Icons.battery_3_bar;
+    if (level > 10) return Icons.battery_1_bar;
+    return Icons.battery_alert;
+  }
+
+  Color _batteryColor(int level) {
+    if (level > 25) return AppColors.success;
+    if (level > 10) return AppColors.warning;
+    return AppColors.error;
   }
 }

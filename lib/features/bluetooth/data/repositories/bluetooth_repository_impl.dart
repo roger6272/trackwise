@@ -346,6 +346,11 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }
 
   @override
+  Stream<int> watchBatteryLevel(String deviceId) {
+    return dataSource.watchBatteryLevel(deviceId);
+  }
+
+  @override
   Future<Either<Failure, bool>> isBluetoothEnabled() async {
     try {
       final enabled = await dataSource.isBluetoothEnabled();

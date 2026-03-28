@@ -74,6 +74,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   StreamSubscription<dynamic>? _scanSubscription;
   final Map<String, StreamSubscription<dynamic>> _connectionSubscriptions = {};
   final Map<String, StreamSubscription<dynamic>> _messageSubscriptions = {};
+  final Map<String, StreamSubscription<int>> _batterySubscriptions = {};
   StreamSubscription<bool>? _bluetoothStateSubscription;
 
   // Auto-reconnect tracking (per-device)
@@ -191,6 +192,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<ClaimItem>(_onClaimItem);
     on<ReleaseItem>(_onReleaseItem);
     on<RefreshAllDevices>(_onRefreshAllDevices);
+    // Battery events
+    on<BatteryLevelUpdated>(_onBatteryLevelUpdated);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -541,6 +544,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     _messageSubscriptions[deviceId]?.cancel();
     _messageSubscriptions.remove(deviceId);
 
+    _batterySubscriptions[deviceId]?.cancel();
+    _batterySubscriptions.remove(deviceId);
+
     _connectionSubscriptions[deviceId]?.cancel();
     _connectionSubscriptions.remove(deviceId);
 
@@ -603,6 +609,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       // Start listening to messages
       _subscribeToMessages(event.deviceInstanceId);
 
+      // Start listening to battery level (optional — no-op if unsupported)
+      _subscribeToBatteryLevel(event.deviceInstanceId);
+
       // Perform initial sync
       _performInitialSync(event.deviceInstanceId);
     } else {
@@ -647,6 +656,26 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         (message) => add(MessageReceived(message, deviceInstanceId: deviceInstanceId)),
       );
     });
+  }
+
+  void _subscribeToBatteryLevel(String deviceInstanceId) {
+    _batterySubscriptions[deviceInstanceId]?.cancel();
+    final stream = _bluetoothRepository.watchBatteryLevel(deviceInstanceId);
+    _batterySubscriptions[deviceInstanceId] = stream.listen(
+      (level) => add(BatteryLevelUpdated(deviceInstanceId: deviceInstanceId, level: level)),
+      onError: (error) {
+        AppLogger.debug('Battery level stream error for $deviceInstanceId: $error');
+      },
+    );
+  }
+
+  void _onBatteryLevelUpdated(BatteryLevelUpdated event, Emitter<BluetoothState> emit) {
+    emit(state.copyWith(
+      connectedDevices: _updateDevice(
+        event.deviceInstanceId,
+        (d) => d.copyWith(batteryLevel: event.level),
+      ),
+    ));
   }
 
   Future<void> _performInitialSync(String deviceInstanceId) async {
@@ -1319,6 +1348,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       sub.cancel();
     }
     _messageSubscriptions.clear();
+    for (final sub in _batterySubscriptions.values) {
+      sub.cancel();
+    }
+    _batterySubscriptions.clear();
 
     // 4. Disconnect all active connections at the BLE layer
     for (final entry in state.connectedDevices.entries) {
@@ -1753,6 +1786,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await sub.cancel();
     }
     _messageSubscriptions.clear();
+    for (final sub in _batterySubscriptions.values) {
+      await sub.cancel();
+    }
+    _batterySubscriptions.clear();
     await _bluetoothStateSubscription?.cancel();
     return super.close();
   }

@@ -446,6 +446,19 @@ class ReleaseItem extends BluetoothEvent {
   List<Object?> get props => [itemId, claimedBy, itemName];
 }
 
+// ========== Battery Events ==========
+
+/// Internal event when battery level is updated from BLE characteristic.
+class BatteryLevelUpdated extends BluetoothEvent {
+  final String deviceInstanceId;
+  final int level;
+
+  const BatteryLevelUpdated({required this.deviceInstanceId, required this.level});
+
+  @override
+  List<Object?> get props => [deviceInstanceId, level];
+}
+
 /// Triggers a claim-filtered item push to connected devices.
 /// Used after item reorder/edits in multi-device mode where the UI-layer
 /// sync path (_checkDeviceSync) cannot apply per-device claim filtering.

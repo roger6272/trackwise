@@ -234,6 +234,12 @@ class MockBluetoothDataSource implements BluetoothDataSource {
     return _messageController.stream;
   }
 
+  @override
+  Stream<int> watchBatteryLevel(String deviceId) {
+    // Mock: no battery level updates
+    return const Stream.empty();
+  }
+
   // ========== Permissions & Adapter State ==========
 
   @override

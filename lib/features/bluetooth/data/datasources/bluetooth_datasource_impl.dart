@@ -364,6 +364,10 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
           conn.setItemsChar = char;
         } else if (uuid == BluetoothConstants.writeCharacteristicUUID.toLowerCase()) {
           conn.writeChar = char;
+        } else if (uuid == BluetoothConstants.otaDataCharacteristicUUID.toLowerCase()) {
+          conn.otaDataChar = char;
+        } else if (uuid == BluetoothConstants.batteryLevelCharacteristicUUID.toLowerCase()) {
+          conn.batteryLevelChar = char;
         }
       }
     }
@@ -382,10 +386,16 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       throw StateError(error);
     }
 
-    AppLogger.debug('All BLE characteristics discovered and cached successfully');
+    // Log optional characteristic discovery results
+    AppLogger.debug('OTA Data characteristic: ${conn.otaDataChar != null ? "found" : "not found (optional)"}');
+    AppLogger.debug('Battery Level characteristic: ${conn.batteryLevelChar != null ? "found" : "not found (optional)"}');
+    AppLogger.debug('All required BLE characteristics discovered and cached successfully');
 
     // Subscribe to notifications
     await _subscribeToNotifications(conn);
+
+    // Subscribe to battery level notifications (optional — fails silently)
+    await _subscribeToBatteryLevel(conn);
   }
 
   Future<void> _subscribeToNotifications(DeviceConnection conn) async {
@@ -400,6 +410,51 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
         _messageController.addError(error);
       },
     );
+  }
+
+  /// Subscribes to Battery Level characteristic notifications (optional).
+  ///
+  /// Battery Level uses standard BLE Battery Service (0x180F).
+  /// The characteristic value is a single byte: 0-100 (percentage).
+  /// Fails silently if not available (older firmware).
+  Future<void> _subscribeToBatteryLevel(DeviceConnection conn) async {
+    if (conn.batteryLevelChar == null) return;
+
+    try {
+      await conn.batteryLevelChar!.setNotifyValue(true);
+
+      conn.batteryLevelSubscription?.cancel();
+      conn.batteryLevelSubscription = conn.batteryLevelChar!.lastValueStream.listen(
+        (data) {
+          if (data.isNotEmpty) {
+            final level = data[0].clamp(0, 100);
+            AppLogger.debug('Battery level update: $level%');
+            if (!conn.batteryLevelController.isClosed) {
+              conn.batteryLevelController.add(level);
+            }
+          }
+        },
+        onError: (error) {
+          AppLogger.debug('Battery level notification error: $error');
+        },
+      );
+
+      // Also do an initial read to get current battery level
+      try {
+        final initialData = await conn.batteryLevelChar!.read();
+        if (initialData.isNotEmpty) {
+          final level = initialData[0].clamp(0, 100);
+          AppLogger.debug('Battery level initial read: $level%');
+          if (!conn.batteryLevelController.isClosed) {
+            conn.batteryLevelController.add(level);
+          }
+        }
+      } catch (e) {
+        AppLogger.debug('Battery level initial read failed (non-fatal): $e');
+      }
+    } catch (e) {
+      AppLogger.debug('Battery level subscription failed (non-fatal): $e');
+    }
   }
 
   void _handleNotificationData(DeviceConnection conn, List<int> data) {
@@ -678,6 +733,14 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Fallback for calls before connection is established (shouldn't happen
     // in practice, but keeps the contract safe).
     return _messageController.stream;
+  }
+
+  @override
+  Stream<int> watchBatteryLevel(String deviceId) {
+    final conn = _connections[deviceId];
+    if (conn != null) return conn.batteryLevelController.stream;
+    // Return empty stream if no connection
+    return const Stream.empty();
   }
 
   // ========== Multi-Device Sync Commands ==========

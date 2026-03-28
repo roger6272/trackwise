@@ -10,6 +10,10 @@ class DeviceConnectionState extends Equatable {
   final bool isOverriding;
   final bool hasMoreLogs;
 
+  /// Battery level percentage (0-100), null if not available.
+  /// Only populated when the device supports Battery Service (0x180F).
+  final int? batteryLevel;
+
   bool get isOnline => syncStatus == DeviceSyncStatus.synced;
 
   const DeviceConnectionState({
@@ -18,6 +22,7 @@ class DeviceConnectionState extends Equatable {
     this.selectedItemId,
     this.isOverriding = false,
     this.hasMoreLogs = false,
+    this.batteryLevel,
   });
 
   DeviceConnectionState copyWith({
@@ -27,6 +32,7 @@ class DeviceConnectionState extends Equatable {
     bool clearSelectedItemId = false,
     bool? isOverriding,
     bool? hasMoreLogs,
+    int? batteryLevel,
   }) {
     return DeviceConnectionState(
       device: device ?? this.device,
@@ -34,11 +40,12 @@ class DeviceConnectionState extends Equatable {
       selectedItemId: clearSelectedItemId ? null : (selectedItemId ?? this.selectedItemId),
       isOverriding: isOverriding ?? this.isOverriding,
       hasMoreLogs: hasMoreLogs ?? this.hasMoreLogs,
+      batteryLevel: batteryLevel ?? this.batteryLevel,
     );
   }
 
   @override
-  List<Object?> get props => [device, syncStatus, selectedItemId, isOverriding, hasMoreLogs];
+  List<Object?> get props => [device, syncStatus, selectedItemId, isOverriding, hasMoreLogs, batteryLevel];
 }
 
 bool isItemEditable(String? claimedBy, Map<String, DeviceConnectionState> connectedDevices) {

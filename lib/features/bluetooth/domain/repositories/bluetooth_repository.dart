@@ -256,6 +256,17 @@ abstract class BluetoothRepository {
   });
 
   // ============================================================
+  // BATTERY
+  // ============================================================
+
+  /// Watches battery level updates from a connected device.
+  ///
+  /// Returns a stream of battery percentage values (0-100).
+  /// Only emits if the device supports Battery Service (0x180F).
+  /// Returns empty stream if device does not support battery reporting.
+  Stream<int> watchBatteryLevel(String deviceId);
+
+  // ============================================================
   // PERMISSIONS & ADAPTER STATE
   // ============================================================
 
