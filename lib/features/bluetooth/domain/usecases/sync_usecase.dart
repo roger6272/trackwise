@@ -47,16 +47,21 @@ class SyncResult extends Equatable {
   /// can check synchronously without an extra async call.
   final List<String> staleClaims;
 
+  /// Firmware version reported by device during handshake (e.g., "1.5.0").
+  /// Used by OTA bloc to check for available firmware updates.
+  final String? firmwareVersion;
+
   const SyncResult({
     required this.type,
     this.selectedFirestoreId,
     this.selectedDeviceItemId = -1,
     this.deviceInstanceId,
     this.staleClaims = const [],
+    this.firmwareVersion,
   });
 
   @override
-  List<Object?> get props => [type, selectedFirestoreId, selectedDeviceItemId, deviceInstanceId, staleClaims];
+  List<Object?> get props => [type, selectedFirestoreId, selectedDeviceItemId, deviceInstanceId, staleClaims, firmwareVersion];
 }
 
 /// Parameters for the PerformSyncUseCase.
@@ -198,6 +203,7 @@ class PerformSyncUseCase {
       type: SyncResultType.success,
       deviceInstanceId: deviceInstanceId,
       staleClaims: staleClaims,
+      firmwareVersion: handshake.firmwareVersion,
     ));
   }
 

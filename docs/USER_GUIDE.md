@@ -17,8 +17,10 @@ Welcome to Traxelos One! This guide will help you get the most out of your physi
 9. [Viewing Your Data](#9-viewing-your-data)
 10. [Exporting Your Data](#10-exporting-your-data)
 11. [Managing Your Account](#11-managing-your-account)
-12. [Tips & Tricks](#12-tips--tricks)
-13. [Troubleshooting](#13-troubleshooting)
+12. [Firmware Updates](#12-firmware-updates)
+13. [Battery Level](#13-battery-level)
+14. [Tips & Tricks](#14-tips--tricks)
+15. [Troubleshooting](#15-troubleshooting)
 
 ---
 
@@ -620,7 +622,82 @@ On this page you can:
 
 ---
 
-## 12. Tips & Tricks
+## 12. Firmware Updates
+
+Your Traxelos One device receives firmware updates through the app. Updates bring new features, improvements, and bug fixes.
+
+### How Updates Work
+
+1. When you connect your device, the app automatically checks if a newer firmware version is available
+2. If an update is found, a **banner** appears on the Bluetooth page
+3. Tap the banner to see update details and start the update
+
+### Updating Your Device
+
+1. Make sure your device is **connected** and has **at least 20% battery**
+2. Tap the update banner on the **Bluetooth** page
+3. Review the update details and tap **"Update Now"**
+4. The app will:
+   - **Download** the update (requires internet connection)
+   - **Transfer** the update to your device over Bluetooth
+   - **Verify** the update on the device
+   - **Reboot** your device with the new firmware
+5. Your device will briefly disconnect and reconnect automatically
+6. A **success banner** confirms the update is complete
+
+### What You'll See During an Update
+
+| Stage | What the Banner Shows |
+|-------|----------------------|
+| Downloading | "Downloading firmware..." with progress bar |
+| Transferring | "Transferring to device..." with progress bar and "Don't turn off your device" warning |
+| Verifying | "Verifying firmware..." with a spinner |
+| Rebooting | "Device is rebooting..." |
+| Done | "Firmware updated to vX.X.X" (green success banner) |
+
+### Important Notes
+
+- **Don't turn off your device** during the transfer or verification steps
+- Your **counts are synced before the update starts**, so nothing is lost
+- If something goes wrong, your device will **automatically keep the previous firmware** — it won't be left in a broken state
+- **Optional updates** can be dismissed by tapping the X on the banner
+- **Required updates** show a persistent banner that cannot be dismissed — these are needed for your device to work correctly with the latest app version
+
+### "App update required" Banner
+
+If you see a banner saying "Update the Traxelos app to use this feature", it means the firmware update requires a newer version of the app. Update the Traxelos app from the App Store or Google Play, then try again.
+
+---
+
+## 13. Battery Level
+
+Your device's battery level is displayed on the **Bluetooth** page when connected.
+
+### Where to Find It
+
+On the Bluetooth page, the battery level appears next to your device's connection information. You'll see:
+- A **battery icon** that changes based on the charge level
+- The **percentage** (e.g., "85%")
+
+### Battery Icons
+
+| Icon | Meaning |
+|------|---------|
+| Full battery (green) | Above 75% — fully charged |
+| 3-bar battery | 26-75% — good charge |
+| 1-bar battery | 11-25% — getting low |
+| Battery alert (red) | 10% or below — charge soon |
+| Unknown battery | Battery level not available (older device firmware) |
+
+### Tips
+
+- Keep your device charged above 20% to ensure firmware updates can complete
+- The battery level updates automatically while connected
+- If no battery icon appears, your device may be running older firmware that doesn't report battery level
+
+---
+
+## 14. Tips & Tricks
 
 ### Get the Most Out of Traxelos One
 
@@ -646,7 +723,7 @@ The device switches automatically - no action needed!
 
 ---
 
-## 13. Troubleshooting
+## 15. Troubleshooting
 
 ### "I can't find my device"
 

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:injectable/injectable.dart';
 
@@ -31,4 +33,13 @@ abstract class RegisterModule {
   /// Connectivity instance for checking network status
   @lazySingleton
   Connectivity get connectivity => Connectivity();
+
+  /// Firebase Storage singleton instance (for OTA firmware downloads)
+  @lazySingleton
+  FirebaseStorage get firebaseStorage => FirebaseStorage.instance;
+
+  /// Firebase Remote Config singleton instance (for min_firmware_version)
+  @lazySingleton
+  FirebaseRemoteConfig get firebaseRemoteConfig =>
+      FirebaseRemoteConfig.instance;
 }

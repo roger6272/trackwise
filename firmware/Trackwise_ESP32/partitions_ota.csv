@@ -1,0 +1,9 @@
+# Dual-OTA partition table for Traxelos One ESP32
+# Enables over-the-air firmware updates with rollback protection.
+# Two app partitions (ota_0, ota_1): device boots from one while the other receives updates.
+# Total flash usage: 4MB (standard ESP32-WROOM-32)
+# Name,   Type, SubType, Offset,   Size
+nvs,      data, nvs,     0x9000,   0x6000
+otadata,  data, ota,     0xf000,   0x2000
+app0,     app,  ota_0,   0x11000,  0x1DF000
+app1,     app,  ota_1,   0x1F0000, 0x1E0000

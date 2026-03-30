@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import 'package:injectable/injectable.dart';
 
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/bluetooth_constants.dart';
 import '../../../../core/utils/logger.dart';
@@ -69,11 +70,13 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final UserRepository _userRepository;
   final BluetoothRepository _bluetoothRepository;
   final ItemRepository _itemRepository;
+  final AnalyticsService _analyticsService;
 
   // Stream subscriptions
   StreamSubscription<dynamic>? _scanSubscription;
   final Map<String, StreamSubscription<dynamic>> _connectionSubscriptions = {};
   final Map<String, StreamSubscription<dynamic>> _messageSubscriptions = {};
+  final Map<String, StreamSubscription<int>> _batterySubscriptions = {};
   StreamSubscription<bool>? _bluetoothStateSubscription;
 
   // Auto-reconnect tracking (per-device)
@@ -82,6 +85,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final Map<String, Timer> _reconnectTimers = {};
   bool _wasBluetoothOff = false; // Keep global — adapter state is global
   final Map<String, int> _reconnectAttempts = {};
+
+  // OTA reboot tracking: suppress disconnect error UI when OTA reboot is in progress
+  final Set<String> _awaitingOtaReboot = {};
 
   // Global claim queue: serializes ALL claim operations across devices
   // to prevent concurrent Firestore transactions from reading stale claim state.
@@ -144,6 +150,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     this._userRepository,
     this._bluetoothRepository,
     this._itemRepository,
+    this._analyticsService,
   ) : super(const BluetoothState()) {
     // Register event handlers
     on<CheckBluetoothPermissions>(_onCheckPermissions);
@@ -191,6 +198,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<ClaimItem>(_onClaimItem);
     on<ReleaseItem>(_onReleaseItem);
     on<RefreshAllDevices>(_onRefreshAllDevices);
+    // Battery events
+    on<BatteryLevelUpdated>(_onBatteryLevelUpdated);
+    // OTA events
+    on<SetOtaRebootFlag>(_onSetOtaRebootFlag);
   }
 
   // ========== Bluetooth Adapter State ==========
@@ -541,6 +552,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     _messageSubscriptions[deviceId]?.cancel();
     _messageSubscriptions.remove(deviceId);
 
+    _batterySubscriptions[deviceId]?.cancel();
+    _batterySubscriptions.remove(deviceId);
+
     _connectionSubscriptions[deviceId]?.cancel();
     _connectionSubscriptions.remove(deviceId);
 
@@ -603,6 +617,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       // Start listening to messages
       _subscribeToMessages(event.deviceInstanceId);
 
+      // Start listening to battery level (optional — no-op if unsupported)
+      _subscribeToBatteryLevel(event.deviceInstanceId);
+
       // Perform initial sync
       _performInitialSync(event.deviceInstanceId);
     } else {
@@ -610,29 +627,46 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       // been queued before _onDisconnect cancelled the subscription).
       final deviceId = event.deviceInstanceId;
       final wasManual = _manualDisconnects.contains(deviceId);
+      final wasOtaReboot = _awaitingOtaReboot.contains(deviceId);
       emit(state.copyWith(
         status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
         connectedDevices: _removeDevice(deviceId),
         clearConnectingDeviceId: true,
-        lastDisconnectWasManual: wasManual,
+        lastDisconnectWasManual: wasManual || wasOtaReboot,
       ));
 
-      // Auto-reconnect if not manual disconnect (with exponential backoff)
+      // Auto-reconnect if not manual disconnect
       final disconnectedId = event.deviceInstanceId;
       if (!_manualDisconnects.contains(disconnectedId)) {
         _devicesToReconnect.add(disconnectedId);
         _reconnectTimers[disconnectedId]?.cancel();
-        final delay = _getReconnectDelay(disconnectedId);
-        AppLogger.debug('🔄 Auto-reconnect for $disconnectedId scheduled in ${delay.inSeconds}s (attempt ${(_reconnectAttempts[disconnectedId] ?? 0) + 1})');
-        _reconnectTimers[disconnectedId] = Timer(delay, () {
-          if (!_manualDisconnects.contains(disconnectedId) &&
-              !state.isAtConnectionLimit &&
-              state.status == BluetoothStatus.ready &&
-              !isClosed) {
-            _reconnectAttempts[disconnectedId] = (_reconnectAttempts[disconnectedId] ?? 0) + 1;
-            add(ConnectToDevice(disconnectedId));
-          }
-        });
+
+        // OTA reboot: skip exponential backoff, use short fixed delay
+        if (_awaitingOtaReboot.contains(disconnectedId)) {
+          _reconnectAttempts.remove(disconnectedId);
+          const otaReconnectDelay = Duration(seconds: 3);
+          AppLogger.debug('OTA reboot disconnect for $disconnectedId — reconnecting in ${otaReconnectDelay.inSeconds}s');
+          _reconnectTimers[disconnectedId] = Timer(otaReconnectDelay, () {
+            // Keep the flag set — bluetooth_page needs it to dispatch
+            // OtaRebootCompleted after the handshake. The flag is cleared
+            // by bluetooth_page when it dispatches SetOtaRebootFlag(awaiting: false).
+            if (!_manualDisconnects.contains(disconnectedId) && !isClosed) {
+              add(ConnectToDevice(disconnectedId));
+            }
+          });
+        } else {
+          final delay = _getReconnectDelay(disconnectedId);
+          AppLogger.debug('Auto-reconnect for $disconnectedId scheduled in ${delay.inSeconds}s (attempt ${(_reconnectAttempts[disconnectedId] ?? 0) + 1})');
+          _reconnectTimers[disconnectedId] = Timer(delay, () {
+            if (!_manualDisconnects.contains(disconnectedId) &&
+                !state.isAtConnectionLimit &&
+                state.status == BluetoothStatus.ready &&
+                !isClosed) {
+              _reconnectAttempts[disconnectedId] = (_reconnectAttempts[disconnectedId] ?? 0) + 1;
+              add(ConnectToDevice(disconnectedId));
+            }
+          });
+        }
       }
     }
   }
@@ -648,6 +682,40 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       );
     });
   }
+
+  void _subscribeToBatteryLevel(String deviceInstanceId) {
+    _batterySubscriptions[deviceInstanceId]?.cancel();
+    final stream = _bluetoothRepository.watchBatteryLevel(deviceInstanceId);
+    _batterySubscriptions[deviceInstanceId] = stream.listen(
+      (level) => add(BatteryLevelUpdated(deviceInstanceId: deviceInstanceId, level: level)),
+      onError: (error) {
+        AppLogger.debug('Battery level stream error for $deviceInstanceId: $error');
+      },
+    );
+  }
+
+  void _onBatteryLevelUpdated(BatteryLevelUpdated event, Emitter<BluetoothState> emit) {
+    emit(state.copyWith(
+      connectedDevices: _updateDevice(
+        event.deviceInstanceId,
+        (d) => d.copyWith(batteryLevel: event.level),
+      ),
+    ));
+  }
+
+  // ========== OTA Handlers ==========
+
+  void _onSetOtaRebootFlag(SetOtaRebootFlag event, Emitter<BluetoothState> emit) {
+    if (event.awaiting) {
+      _awaitingOtaReboot.add(event.deviceInstanceId);
+    } else {
+      _awaitingOtaReboot.remove(event.deviceInstanceId);
+    }
+  }
+
+  /// Whether a device is awaiting OTA reboot (suppresses disconnect error UI).
+  bool isAwaitingOtaReboot(String deviceInstanceId) =>
+      _awaitingOtaReboot.contains(deviceInstanceId);
 
   Future<void> _performInitialSync(String deviceInstanceId) async {
     // Small delay to let BLE connection stabilize
@@ -1307,6 +1375,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // 2. Clear tracking sets
     _manualDisconnects.clear();
     _devicesToReconnect.clear();
+    _awaitingOtaReboot.clear();
     _claimQueue = Future.value();
     _deviceCategories.clear();
 
@@ -1319,6 +1388,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       sub.cancel();
     }
     _messageSubscriptions.clear();
+    for (final sub in _batterySubscriptions.values) {
+      sub.cancel();
+    }
+    _batterySubscriptions.clear();
 
     // 4. Disconnect all active connections at the BLE layer
     for (final entry in state.connectedDevices.entries) {
@@ -1543,12 +1616,20 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           return;
         }
 
+        final mtu = _bluetoothRepository.getNegotiatedMtu(deviceId);
         emit(state.copyWith(
           connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
             syncStatus: DeviceSyncStatus.synced,
             selectedItemId: result.selectedFirestoreId,
+            firmwareVersion: result.firmwareVersion,
+            negotiatedMtu: mtu,
           )),
         ));
+
+        // Set firmware version user property for analytics
+        if (result.firmwareVersion != null) {
+          _analyticsService.setFirmwareVersion(result.firmwareVersion!);
+        }
 
         // Claim the selected item if handshake returned one
         if (result.selectedFirestoreId != null) {
@@ -1753,6 +1834,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       await sub.cancel();
     }
     _messageSubscriptions.clear();
+    for (final sub in _batterySubscriptions.values) {
+      await sub.cancel();
+    }
+    _batterySubscriptions.clear();
     await _bluetoothStateSubscription?.cancel();
     return super.close();
   }

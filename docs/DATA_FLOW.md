@@ -30,6 +30,7 @@
 6. [Offline & Reconnection](#6-offline--reconnection)
 7. [Multi-Device Sync](#7-multi-device-sync)
 8. [Data Consistency Rules](#8-data-consistency-rules)
+9. [OTA Firmware Update Flow](#9-ota-firmware-update-flow)
 
 ---
 
@@ -961,6 +962,128 @@ Key properties:
 2. Next connect → normal sync (device counts forwarded again)
 3. Firestore write retried
 ⚠️ If Firestore write keeps failing, counts may be lost
+```
+
+---
+
+## 9. OTA Firmware Update Flow
+
+### 9.1 Full OTA Sequence
+
+**When:** App detects newer firmware via Firebase Storage check after device connect.
+**Critical prerequisite:** Sync device count logs to Firestore before starting OTA (logs are RAM-only, lost on reboot).
+
+```
+┌──────────┐        ┌─────────┐        ┌─────────┐        ┌─────────┐
+│ FIREBASE │        │   APP   │        │ DEVICE  │        │  USER   │
+│ STORAGE  │        │         │        │         │        │         │
+└────┬─────┘        └────┬────┘        └────┬────┘        └────┬────┘
+     │                    │                  │                   │
+     │                    │                  │                   │
+     │                    │ ① Check latest.json                 │
+     │ ◄──────────────────│                  │                   │
+     │                    │                  │                   │
+     │ ② {version, sha256,│                  │                   │
+     │    filePath, ...}  │                  │                   │
+     │ ──────────────────►│                  │                   │
+     │                    │                  │                   │
+     │                    │ ③ Compare device │                   │
+     │                    │   firmware_version                   │
+     │                    │   (from handshake)                   │
+     │                    │                  │                   │
+     │                    │ ④ Show update    │                   │
+     │                    │   banner         │──────────────────►│
+     │                    │                  │                   │
+     │                    │                  │              ⑤ User taps
+     │                    │ ◄───────────────────────────────────│
+     │                    │                  │              "Update"
+     │                    │                  │                   │
+     │                    │ ⑥ Sync logs to   │                   │
+     │                    │   Firestore first │                  │
+     │                    │   (count logs are │                  │
+     │                    │    RAM-only!)     │                  │
+     │                    │                  │                   │
+     │ ⑦ Download binary  │                  │                   │
+     │ ◄──────────────────│                  │                   │
+     │                    │                  │                   │
+     │ ⑧ Binary data      │                  │                   │
+     │ ──────────────────►│                  │                   │
+     │                    │                  │                   │
+     │                    │ ⑨ ota_start      │                   │
+     │                    │ {size, sha256,   │                   │
+     │                    │  version}        │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │                   │
+     │                    │ ⑩ {ota_ready}    │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ⑪ Binary chunks  │                   │
+     │                    │ (CHAR_OTA_DATA,  │                   │
+     │                    │  write-with-resp)│                   │
+     │                    │ ════════════════►│                   │
+     │                    │  ... repeat ...  │                   │
+     │                    │ ════════════════►│                   │
+     │                    │                  │                   │
+     │                    │ ⑫ ota_end        │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │ ⑬ SHA256 verify   │
+     │                    │ ⑭ {ota_verified} │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ⑮ reboot         │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │                   │
+     │                    │ ⑯ {ota_rebooting}│                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │ ⑰ Device reboots  │
+     │                    │  ~~disconnect~~  │    with new       │
+     │                    │                  │    firmware        │
+     │                    │                  │                   │
+     │                    │  ...wait up to 30s...                │
+     │                    │                  │                   │
+     │                    │ ⑱ Reconnect      │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ⑲ handshake      │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │                   │
+     │                    │ ⑳ {in_sync,      │                   │
+     │                    │  firmware_version│                   │
+     │                    │  :"2.1.0"}       │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ㉑ Version match! │                   │
+     │                    │   Show success   │──────────────────►│
+     │                    │                  │                   │
+
+Data flow:
+  Firebase Storage → App (binary) → Device (OTA partition)
+  Device reboots → reconnects → handshake confirms new version
+
+⚠️ Critical: Count logs are RAM-only on the device.
+   Sync logs to Firestore BEFORE starting OTA, or they will be
+   lost when the device reboots.
+```
+
+### 9.2 OTA Error Recovery
+
+```
+Error during download:
+  → App shows error banner
+  → User can retry (re-download from Firebase Storage)
+
+Error during transfer (write_failed, timeout):
+  → Device returns to IDLE state
+  → App shows error, user retries from step ⑨
+
+Error during verification (hash_mismatch):
+  → Device stays on current firmware (OTA partition discarded)
+  → App shows error, user re-downloads and retries
+
+Error after reboot (device doesn't reconnect in 30s):
+  → App shows timeout error
+  → User can power-cycle device
+  → Rollback: device boots to last working firmware
 ```
 
 ---

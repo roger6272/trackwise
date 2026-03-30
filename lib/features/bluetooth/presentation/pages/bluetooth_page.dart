@@ -5,11 +5,17 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
+import '../../../../core/utils/bluetooth_constants.dart';
 import '../../domain/entities/paired_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
 import '../bloc/bluetooth_state.dart';
+import '../bloc/device_connection_state.dart';
 import '../widgets/device_color_picker_dialog.dart';
+import '../../../ota/presentation/bloc/ota_bloc.dart';
+import '../../../ota/presentation/bloc/ota_event.dart' as ota_events;
+import '../../../ota/presentation/bloc/ota_state.dart';
+import '../../../ota/presentation/widgets/update_banner.dart';
 import 'bluetooth_search_page.dart';
 
 /// Main Bluetooth page — unified device management.
@@ -33,6 +39,9 @@ class _BluetoothPageState extends State<BluetoothPage> {
   /// The deviceInstanceId we're connecting to from this page (null if not connecting).
   String? _connectingDeviceId;
 
+  /// Tracks which device IDs have already triggered an OTA check this session.
+  final Set<String> _otaCheckedDevices = {};
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +58,34 @@ class _BluetoothPageState extends State<BluetoothPage> {
     final primaryBackground = AppColors.primaryBackground(brightness);
     final primaryText = AppColors.primaryText(brightness);
 
-    return BlocConsumer<BluetoothBloc, BluetoothState>(
+    return BlocListener<OtaBloc, OtaBlocState>(
+      listener: (context, otaState) {
+        // When OTA enters rebooting state, tell BluetoothBloc to expect the disconnect
+        if (otaState is OtaBlocRebooting) {
+          final btState = context.read<BluetoothBloc>().state;
+          for (final deviceId in btState.connectedDevices.keys) {
+            context.read<BluetoothBloc>().add(
+              SetOtaRebootFlag(deviceInstanceId: deviceId, awaiting: true),
+            );
+          }
+        }
+        // If OTA was cancelled or errored during reboot, clear the flag
+        // (Normal completion clears it via OtaRebootCompleted handler below)
+        if (otaState is OtaUpdateAvailable ||
+            otaState is OtaBlocError ||
+            otaState is OtaInitial) {
+          final bluetoothBloc = context.read<BluetoothBloc>();
+          final btState = bluetoothBloc.state;
+          for (final deviceId in btState.connectedDevices.keys) {
+            if (bluetoothBloc.isAwaitingOtaReboot(deviceId)) {
+              bluetoothBloc.add(
+                SetOtaRebootFlag(deviceInstanceId: deviceId, awaiting: false),
+              );
+            }
+          }
+        }
+      },
+      child: BlocConsumer<BluetoothBloc, BluetoothState>(
       listener: (context, state) {
         // Connection success feedback
         if (_connectingDeviceId != null) {
@@ -62,6 +98,35 @@ class _BluetoothPageState extends State<BluetoothPage> {
             showErrorSnackBar(context, state.errorMessage!);
           }
         }
+
+        // Trigger OTA update check when a device's firmware version becomes available
+        for (final entry in state.connectedDevices.entries) {
+          final deviceState = entry.value;
+          if (deviceState.firmwareVersion != null &&
+              deviceState.syncStatus == DeviceSyncStatus.synced &&
+              !_otaCheckedDevices.contains(entry.key)) {
+            _otaCheckedDevices.add(entry.key);
+            // Check if this device just completed an OTA reboot
+            final bluetoothBloc = context.read<BluetoothBloc>();
+            if (bluetoothBloc.isAwaitingOtaReboot(entry.key)) {
+              // Post-reboot reconnection: notify OtaBloc and clear the flag
+              context.read<OtaBloc>().add(
+                ota_events.OtaRebootCompleted(deviceState.firmwareVersion!),
+              );
+              bluetoothBloc.add(
+                SetOtaRebootFlag(deviceInstanceId: entry.key, awaiting: false),
+              );
+            } else {
+              context.read<OtaBloc>().add(
+                    ota_events.CheckForUpdateRequested(deviceState.firmwareVersion!),
+                  );
+            }
+            break; // Check for first connected device only
+          }
+        }
+        // Clean up OTA check tracking for disconnected devices
+        _otaCheckedDevices.removeWhere(
+            (id) => !state.connectedDevices.containsKey(id));
       },
       builder: (context, state) {
         final devices = state.pairedDevices;
@@ -102,6 +167,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
               : _buildDeviceList(context, state),
         );
       },
+    ),
     );
   }
 
@@ -126,11 +192,14 @@ class _BluetoothPageState extends State<BluetoothPage> {
               final isConnecting =
                   state.connectingDeviceId == device.deviceInstanceId;
 
+              final deviceState = state.connectedDevices[device.deviceInstanceId];
+
               return _DeviceListTile(
                 device: device,
                 isConnected: isConnected,
                 isConnecting: isConnecting,
                 isAtConnectionLimit: state.isAtConnectionLimit,
+                batteryLevel: deviceState?.batteryLevel,
                 onRename: () => _showRenameDialog(context, device),
                 onChangeColor: () => _showColorPickerDialog(context, device),
                 onUnpair: () => _showUnpairDialog(context, device),
@@ -176,6 +245,16 @@ class _BluetoothPageState extends State<BluetoothPage> {
               .read<BluetoothBloc>()
               .add(const RequestBluetoothPermissions());
         },
+      ));
+    }
+
+    // OTA update banner (shown when a connected device has a firmware update available)
+    if (state.isConnected) {
+      // Use the actual negotiated MTU from the first connected device
+      final firstDeviceState = state.connectedDevices.values.firstOrNull;
+      final mtu = firstDeviceState?.negotiatedMtu ?? BluetoothConstants.defaultMtuLimit;
+      banners.add(UpdateBanner(
+        negotiatedMtu: mtu,
       ));
     }
 
@@ -603,6 +682,7 @@ class _DeviceListTile extends StatelessWidget {
   final bool isConnected;
   final bool isConnecting;
   final bool isAtConnectionLimit;
+  final int? batteryLevel;
   final VoidCallback onRename;
   final VoidCallback onChangeColor;
   final VoidCallback onUnpair;
@@ -614,6 +694,7 @@ class _DeviceListTile extends StatelessWidget {
     required this.isConnected,
     this.isConnecting = false,
     this.isAtConnectionLimit = false,
+    this.batteryLevel,
     required this.onRename,
     required this.onChangeColor,
     required this.onUnpair,
@@ -711,23 +792,10 @@ class _DeviceListTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Battery placeholder (no firmware support yet)
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.battery_unknown,
-                  size: 20,
-                  color: secondaryText.withValues(alpha: 0.4),
-                ),
-                Text(
-                  '--%',
-                  style: TextStyle(
-                    color: secondaryText.withValues(alpha: 0.4),
-                    fontSize: 10.0,
-                  ),
-                ),
-              ],
+            // Battery level indicator
+            _BatteryIndicator(
+              level: batteryLevel,
+              isConnected: isConnected,
             ),
             PopupMenuButton<String>(
           icon: Icon(Icons.more_vert, color: secondaryText),
@@ -838,5 +906,85 @@ class _DeviceListTile extends StatelessWidget {
     } else {
       return DateFormat('MMM d, yyyy').format(date);
     }
+  }
+}
+
+// ========== Battery Indicator ==========
+
+class _BatteryIndicator extends StatelessWidget {
+  final int? level;
+  final bool isConnected;
+
+  const _BatteryIndicator({
+    this.level,
+    required this.isConnected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final secondaryText = AppColors.secondaryText(brightness);
+
+    // Show unknown state when not connected or no battery data
+    if (!isConnected || level == null) {
+      return Semantics(
+        label: 'Battery level unknown',
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.battery_unknown,
+              size: 20,
+              color: secondaryText.withValues(alpha: 0.4),
+            ),
+            Text(
+              '--%',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: secondaryText.withValues(alpha: 0.4),
+                    fontSize: 10.0,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final batteryLevel = level!;
+    final icon = _batteryIcon(batteryLevel);
+    final color = _batteryColor(batteryLevel);
+
+    return Semantics(
+      label: 'Battery level $batteryLevel percent',
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: color,
+          ),
+          Text(
+            '$batteryLevel%',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color,
+                  fontSize: 10.0,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _batteryIcon(int level) {
+    if (level > 75) return Icons.battery_full;
+    if (level > 25) return Icons.battery_3_bar;
+    if (level > 10) return Icons.battery_1_bar;
+    return Icons.battery_alert;
+  }
+
+  Color _batteryColor(int level) {
+    if (level > 25) return AppColors.success;
+    if (level > 10) return AppColors.warning;
+    return AppColors.error;
   }
 }

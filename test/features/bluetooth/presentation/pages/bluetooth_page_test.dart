@@ -11,12 +11,19 @@ import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_event.da
 import 'package:traxelos/features/bluetooth/presentation/bloc/bluetooth_state.dart';
 import 'package:traxelos/features/bluetooth/presentation/bloc/device_connection_state.dart';
 import 'package:traxelos/features/bluetooth/presentation/pages/bluetooth_page.dart';
+import 'package:traxelos/features/ota/presentation/bloc/ota_bloc.dart';
+import 'package:traxelos/features/ota/presentation/bloc/ota_event.dart';
+import 'package:traxelos/features/ota/presentation/bloc/ota_state.dart';
 
 class MockBluetoothBloc extends MockBloc<BluetoothEvent, BluetoothState>
     implements BluetoothBloc {}
 
+class MockOtaBloc extends MockBloc<OtaEvent, OtaBlocState>
+    implements OtaBloc {}
+
 void main() {
   late MockBluetoothBloc mockBluetoothBloc;
+  late MockOtaBloc mockOtaBloc;
 
   setUpAll(() {
     registerFallbackValue(const CheckBluetoothPermissions());
@@ -27,12 +34,17 @@ void main() {
 
   setUp(() {
     mockBluetoothBloc = MockBluetoothBloc();
+    mockOtaBloc = MockOtaBloc();
+    when(() => mockOtaBloc.state).thenReturn(const OtaInitial());
   });
 
   Widget createTestWidget() {
     return MaterialApp(
-      home: BlocProvider<BluetoothBloc>.value(
-        value: mockBluetoothBloc,
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<BluetoothBloc>.value(value: mockBluetoothBloc),
+          BlocProvider<OtaBloc>.value(value: mockOtaBloc),
+        ],
         child: const BluetoothPage(),
       ),
     );

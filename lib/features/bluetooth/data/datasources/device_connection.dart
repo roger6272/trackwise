@@ -21,6 +21,10 @@ class DeviceConnection {
   BluetoothCharacteristic? setItemsChar;
   BluetoothCharacteristic? writeChar;
 
+  // Optional characteristics (may not be present on older firmware)
+  BluetoothCharacteristic? otaDataChar;
+  BluetoothCharacteristic? batteryLevelChar;
+
   // Connection
   int negotiatedMtu = BluetoothConstants.defaultMtuLimit;
   StreamSubscription<BluetoothConnectionState>? connectionSubscription;
@@ -30,6 +34,10 @@ class DeviceConnection {
   final messageController = StreamController<BleMessage>.broadcast();
   final messageBuffer = StringBuffer();
   Timer? messageTimeoutTimer;
+
+  // Battery level (optional — only present on firmware with Battery Service)
+  StreamSubscription<List<int>>? batteryLevelSubscription;
+  final batteryLevelController = StreamController<int>.broadcast();
 
   // Write serialization (per-device queue)
   final writeQueue = <WriteOperation>[];
@@ -43,9 +51,13 @@ class DeviceConnection {
     notifyChar = null;
     setItemsChar = null;
     writeChar = null;
+    otaDataChar = null;
+    batteryLevelChar = null;
     negotiatedMtu = BluetoothConstants.defaultMtuLimit;
     notifySubscription?.cancel();
     notifySubscription = null;
+    batteryLevelSubscription?.cancel();
+    batteryLevelSubscription = null;
     messageBuffer.clear();
     messageTimeoutTimer?.cancel();
     messageTimeoutTimer = null;
@@ -57,12 +69,17 @@ class DeviceConnection {
     connectionSubscription = null;
     notifySubscription?.cancel();
     notifySubscription = null;
+    batteryLevelSubscription?.cancel();
+    batteryLevelSubscription = null;
     messageTimeoutTimer?.cancel();
     messageTimeoutTimer = null;
     messageBuffer.clear();
     writeQueue.clear();
     if (!messageController.isClosed) {
       await messageController.close();
+    }
+    if (!batteryLevelController.isClosed) {
+      await batteryLevelController.close();
     }
   }
 }

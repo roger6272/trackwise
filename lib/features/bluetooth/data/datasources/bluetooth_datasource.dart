@@ -111,6 +111,12 @@ abstract class BluetoothDataSource {
   /// Handles chunk assembly automatically.
   Stream<BleMessage> watchNotifications(String deviceId);
 
+  /// Watches battery level updates for a connected device.
+  ///
+  /// Returns a stream of battery percentage values (0-100).
+  /// Only emits if the device supports Battery Service (optional).
+  Stream<int> watchBatteryLevel(String deviceId);
+
   // ========== Multi-Device Sync Commands ==========
 
   /// Sends handshake command to device and waits for response.

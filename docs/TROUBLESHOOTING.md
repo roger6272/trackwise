@@ -18,6 +18,7 @@
 8. [Diagnostic Tools](#8-diagnostic-tools)
 9. [App-Side Sync Pitfalls](#9-app-side-sync-pitfalls)
 10. [Multi-Device / Exclusive Leasing Issues](#10-multi-device--exclusive-leasing-issues)
+11. [OTA Firmware Update Issues](#11-ota-firmware-update-issues)
 
 ---
 
@@ -106,11 +107,13 @@ await connect(device);
 
 **Diagnostic Steps:**
 1. Verify service UUID: `12345678-1234-1234-1234-123456789000`
-2. Check all 4 characteristics found:
+2. Check all characteristics found:
    - CHAR_READ: `...001`
    - CHAR_NOTIFY: `...002`
    - CHAR_SET_ITEMS: `...008`
    - CHAR_WRITE: `...010`
+   - CHAR_OTA_DATA: `...011` (optional, firmware v2+)
+   - Battery Level: `0x2A19` in Battery Service `0x180F` (optional, firmware v2+)
 
 **Common Causes:**
 | Cause | Solution |
@@ -986,6 +989,102 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 ---
 
+## 11. OTA Firmware Update Issues
+
+### 11.1 "Update failed: low battery"
+
+**Symptoms:** OTA update fails immediately after tapping "Update Now" with a "low_battery" error.
+
+**Root Cause:** The device rejects `ota_start` when battery is below 20%. This prevents the device from losing power mid-update, which could corrupt the firmware partition.
+
+**Resolution:**
+1. Charge your device to above 20%
+2. Reconnect and try the update again
+
+**Key Lesson:** The 20% threshold is enforced device-side. The app cannot bypass it.
+
+---
+
+### 11.2 "Update failed: verification error"
+
+**Symptoms:** OTA transfer completes but verification fails with "hash_mismatch" error.
+
+**Root Cause:** The firmware binary received by the device doesn't match the expected SHA256 hash. This can happen due to:
+- Corrupted download from Firebase Storage
+- BLE transmission error during chunk transfer
+- Incomplete transfer (timeout)
+
+**Resolution:**
+1. Check your internet connection
+2. Retry the update — the app will re-download the firmware binary
+3. Move closer to the device to improve BLE signal quality
+4. If the error persists, try disconnecting and reconnecting the device, then retry
+
+**Key Lesson:** Hash verification is a safety mechanism. The device stays on its current firmware if verification fails — no data is lost.
+
+---
+
+### 11.3 "Device not responding after update"
+
+**Symptoms:** OTA appeared to complete (reboot stage) but the device doesn't reconnect within 30 seconds. App shows a timeout error.
+
+**Root Cause:** The device is rebooting with the new firmware. Reboot typically takes 5-10 seconds, but may take longer depending on the firmware initialization.
+
+**Resolution:**
+1. **Wait 30 seconds** — the device may still be booting
+2. If still unresponsive, **power cycle the device** (turn off and on)
+3. The device has rollback protection — if the new firmware fails to boot, it will automatically revert to the last working firmware
+4. Open the app and reconnect to check the firmware version
+
+**Key Lesson:** Rollback protection means the device will always boot to a working firmware. A failed update cannot brick the device.
+
+---
+
+### 11.4 "Update banner won't go away"
+
+**Symptoms:** The update banner on the Bluetooth page is persistent and cannot be dismissed (no X button).
+
+**Root Cause:** The device firmware is below the **minimum required version** (`min_firmware_version` from Remote Config). This is a mandatory update — the current firmware version may have critical bugs or compatibility issues with the app.
+
+**Resolution:**
+1. Tap the banner to start the update
+2. Complete the firmware update process
+3. The banner will be replaced with a success message once the update completes
+
+**Key Lesson:** Required updates are non-dismissable by design. The `isRequired` flag is set when `device_firmware_version < min_firmware_version`.
+
+---
+
+### 11.5 "Can't update: app version too old"
+
+**Symptoms:** A warning banner says "Update the Traxelos app to use this feature" instead of showing the firmware update option.
+
+**Root Cause:** The latest firmware requires a newer app version than what's installed. The `min_app_version` field in `firmware/latest.json` specifies the minimum app version needed to safely install the firmware.
+
+**Resolution:**
+1. Update the Traxelos app from the App Store (iOS) or Google Play (Android)
+2. Open the updated app and connect your device
+3. The firmware update option should now appear
+
+**Key Lesson:** Firmware updates may depend on app-side changes (new BLE commands, updated OTA flow). Installing firmware without the matching app version could cause communication issues.
+
+---
+
+### 11.6 "Counts missing after firmware update"
+
+**Symptoms:** After a successful firmware update, some recent counts or event history are missing from the app.
+
+**Root Cause:** Count event logs are stored in device RAM (not flash). When the device reboots for the firmware update, RAM is cleared. If the app didn't sync logs to Firestore before starting the OTA, those log entries are lost.
+
+**Resolution:**
+- This should not happen under normal conditions — the app syncs count logs to Firestore before starting the OTA transfer
+- If it does happen, the counts themselves (stored in NVS flash) are preserved across reboots. Only the detailed event timestamps from the RAM log buffer may be lost
+- Reconnect the device to trigger a fresh sync
+
+**Key Lesson:** The pre-OTA sync step is critical. Count totals are in NVS (flash, survives reboot) but event logs are in RAM (lost on reboot). The BLoC/presentation layer handles the pre-OTA sync before invoking the OTA use case.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -1032,3 +1131,9 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 | Items pushed after re-pair | `in_sync` but device not in `pairedDevices` — redirect to DeviceSetupRequired — see 10.9 |
 | Auto-connect after account change | Stale reconnect timers in singleton BLoC — `ResetBluetoothState` clears all timers — see 10.10 |
 | Scan shows non-Traxelos devices | Missing service UUID filter on `startScan()` — add `withServices` — see 10.11 |
+| OTA: low battery error | Charge device above 20%, retry — see 11.1 |
+| OTA: verification/hash error | Re-download firmware, check BLE signal, retry — see 11.2 |
+| OTA: device not responding | Wait 30s, then power cycle. Rollback protects device — see 11.3 |
+| OTA: banner won't dismiss | Required update (below min version) — must complete update — see 11.4 |
+| OTA: app too old | Update Traxelos app from app store — see 11.5 |
+| OTA: counts missing after update | Pre-OTA sync may have failed. Reconnect to re-sync — see 11.6 |

@@ -12,6 +12,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as _i974;
 import 'package:connectivity_plus/connectivity_plus.dart' as _i895;
 import 'package:firebase_auth/firebase_auth.dart' as _i59;
+import 'package:firebase_remote_config/firebase_remote_config.dart' as _i627;
+import 'package:firebase_storage/firebase_storage.dart' as _i457;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:google_sign_in/google_sign_in.dart' as _i116;
 import 'package:injectable/injectable.dart' as _i526;
@@ -173,6 +175,23 @@ import 'package:traxelos/features/items/presentation/bloc/deleted_items_bloc.dar
     as _i7;
 import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart'
     as _i380;
+import 'package:traxelos/features/ota/data/datasources/ota_ble_datasource.dart'
+    as _i126;
+import 'package:traxelos/features/ota/data/datasources/ota_ble_datasource_impl.dart'
+    as _i433;
+import 'package:traxelos/features/ota/data/datasources/ota_remote_datasource.dart'
+    as _i1017;
+import 'package:traxelos/features/ota/data/datasources/ota_remote_datasource_impl.dart'
+    as _i857;
+import 'package:traxelos/features/ota/data/repositories/ota_repository_impl.dart'
+    as _i970;
+import 'package:traxelos/features/ota/domain/repositories/ota_repository.dart'
+    as _i1036;
+import 'package:traxelos/features/ota/domain/usecases/check_for_update.dart'
+    as _i1014;
+import 'package:traxelos/features/ota/domain/usecases/perform_ota_update.dart'
+    as _i555;
+import 'package:traxelos/features/ota/presentation/bloc/ota_bloc.dart' as _i301;
 import 'package:traxelos/features/profile/data/datasources/profile_remote_datasource.dart'
     as _i892;
 import 'package:traxelos/features/profile/data/datasources/profile_remote_datasource_impl.dart'
@@ -209,6 +228,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i116.GoogleSignIn>(() => registerModule.googleSignIn);
     gh.lazySingleton<_i625.AppUiState>(() => registerModule.appUiState);
     gh.lazySingleton<_i895.Connectivity>(() => registerModule.connectivity);
+    gh.lazySingleton<_i457.FirebaseStorage>(
+        () => registerModule.firebaseStorage);
+    gh.lazySingleton<_i627.FirebaseRemoteConfig>(
+        () => registerModule.firebaseRemoteConfig);
     gh.lazySingleton<_i954.AnalyticsService>(
         () => _i954.AnalyticsService.create());
     gh.lazySingleton<_i729.CrashlyticsService>(
@@ -219,6 +242,11 @@ extension GetItInjectableX on _i174.GetIt {
         _i472.EventLogRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i394.ConnectivityService>(() =>
         _i394.ConnectivityServiceImpl(connectivity: gh<_i895.Connectivity>()));
+    gh.lazySingleton<_i1017.OtaRemoteDataSource>(
+        () => _i857.OtaRemoteDataSourceImpl(
+              gh<_i457.FirebaseStorage>(),
+              gh<_i627.FirebaseRemoteConfig>(),
+            ));
     gh.lazySingleton<_i933.BluetoothDataSource>(
         () => _i607.BluetoothDataSourceImpl());
     gh.lazySingleton<_i153.EventLogRepository>(
@@ -238,6 +266,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i762.InsertEventsUseCase(gh<_i153.EventLogRepository>()));
     gh.lazySingleton<_i868.CategoryRemoteDataSource>(() =>
         _i162.CategoryRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
+    gh.lazySingleton<_i126.OtaBleDatasource>(
+        () => _i433.OtaBleDatasourceImpl(gh<_i933.BluetoothDataSource>()));
     gh.factory<_i251.EventsBloc>(() => _i251.EventsBloc(
           getEventsByDateRangeUseCase: gh<_i921.GetEventsByDateRangeUseCase>(),
           getEventsByItemUseCase: gh<_i12.GetEventsByItemUseCase>(),
@@ -307,6 +337,10 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i452.ItemRepository>(),
               gh<_i153.EventLogRepository>(),
             ));
+    gh.lazySingleton<_i1036.OtaRepository>(() => _i970.OtaRepositoryImpl(
+          gh<_i1017.OtaRemoteDataSource>(),
+          gh<_i126.OtaBleDatasource>(),
+        ));
     gh.lazySingleton<_i214.CreateItemUseCase>(() => _i214.CreateItemUseCase(
           gh<_i452.ItemRepository>(),
           gh<_i153.EventLogRepository>(),
@@ -369,6 +403,10 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i452.ItemRepository>(),
           gh<_i531.CategoryRepository>(),
         ));
+    gh.lazySingleton<_i1014.CheckForUpdateUseCase>(
+        () => _i1014.CheckForUpdateUseCase(gh<_i1036.OtaRepository>()));
+    gh.lazySingleton<_i555.PerformOtaUpdateUseCase>(
+        () => _i555.PerformOtaUpdateUseCase(gh<_i1036.OtaRepository>()));
     gh.lazySingleton<_i259.AuthRepository>(() => _i319.AuthRepositoryImpl(
         dataSource: gh<_i810.AuthFirebaseDataSource>()));
     gh.lazySingleton<_i62.PerformOverrideUseCase>(
@@ -378,6 +416,49 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i452.ItemRepository>(),
               gh<_i531.CategoryRepository>(),
               gh<_i394.ConnectivityService>(),
+            ));
+    gh.lazySingleton<_i409.CreateCategoryUseCase>(
+        () => _i409.CreateCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i923.DeleteCategoryUseCase>(
+        () => _i923.DeleteCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i622.GetCategoriesUseCase>(
+        () => _i622.GetCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i349.ReorderCategoriesUseCase>(
+        () => _i349.ReorderCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i810.UpdateCategoryUseCase>(
+        () => _i810.UpdateCategoryUseCase(gh<_i531.CategoryRepository>()));
+    gh.lazySingleton<_i789.WatchCategoriesUseCase>(
+        () => _i789.WatchCategoriesUseCase(gh<_i531.CategoryRepository>()));
+    gh.factory<_i943.ProfileBloc>(() => _i943.ProfileBloc(
+          getProfile: gh<_i740.GetProfileUseCase>(),
+          updateProfile: gh<_i759.UpdateProfileUseCase>(),
+          exportUserData: gh<_i524.ExportUserDataUseCase>(),
+          deleteAccount: gh<_i833.DeleteAccountUseCase>(),
+        ));
+    gh.lazySingleton<_i301.OtaBloc>(() => _i301.OtaBloc(
+          gh<_i1014.CheckForUpdateUseCase>(),
+          gh<_i555.PerformOtaUpdateUseCase>(),
+          gh<_i954.AnalyticsService>(),
+          gh<_i394.ConnectivityService>(),
+        ));
+    gh.factory<_i868.ResetPasswordUseCase>(
+        () => _i868.ResetPasswordUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i542.SignInWithAppleUseCase>(
+        () => _i542.SignInWithAppleUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i27.SignInWithEmailUseCase>(
+        () => _i27.SignInWithEmailUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i683.SignInWithGoogleUseCase>(
+        () => _i683.SignInWithGoogleUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i273.SignOutUseCase>(
+        () => _i273.SignOutUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i796.SignUpUseCase>(
+        () => _i796.SignUpUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i563.WatchAuthStateUseCase>(
+        () => _i563.WatchAuthStateUseCase(gh<_i259.AuthRepository>()));
+    gh.factory<_i429.SendEmailWithCSVUseCase>(
+        () => _i429.SendEmailWithCSVUseCase(
+              mailDataSource: gh<_i242.FirestoreMailDataSource>(),
+              generateCSV: gh<_i804.GenerateCSVUseCase>(),
             ));
     gh.lazySingleton<_i531.BluetoothBloc>(() => _i531.BluetoothBloc(
           gh<_i1033.ScanDevicesUseCase>(),
@@ -401,44 +482,8 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i721.UserRepository>(),
           gh<_i649.BluetoothRepository>(),
           gh<_i452.ItemRepository>(),
+          gh<_i954.AnalyticsService>(),
         ));
-    gh.lazySingleton<_i409.CreateCategoryUseCase>(
-        () => _i409.CreateCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i923.DeleteCategoryUseCase>(
-        () => _i923.DeleteCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i622.GetCategoriesUseCase>(
-        () => _i622.GetCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i349.ReorderCategoriesUseCase>(
-        () => _i349.ReorderCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i810.UpdateCategoryUseCase>(
-        () => _i810.UpdateCategoryUseCase(gh<_i531.CategoryRepository>()));
-    gh.lazySingleton<_i789.WatchCategoriesUseCase>(
-        () => _i789.WatchCategoriesUseCase(gh<_i531.CategoryRepository>()));
-    gh.factory<_i943.ProfileBloc>(() => _i943.ProfileBloc(
-          getProfile: gh<_i740.GetProfileUseCase>(),
-          updateProfile: gh<_i759.UpdateProfileUseCase>(),
-          exportUserData: gh<_i524.ExportUserDataUseCase>(),
-          deleteAccount: gh<_i833.DeleteAccountUseCase>(),
-        ));
-    gh.factory<_i868.ResetPasswordUseCase>(
-        () => _i868.ResetPasswordUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i542.SignInWithAppleUseCase>(
-        () => _i542.SignInWithAppleUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i27.SignInWithEmailUseCase>(
-        () => _i27.SignInWithEmailUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i683.SignInWithGoogleUseCase>(
-        () => _i683.SignInWithGoogleUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i273.SignOutUseCase>(
-        () => _i273.SignOutUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i796.SignUpUseCase>(
-        () => _i796.SignUpUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i563.WatchAuthStateUseCase>(
-        () => _i563.WatchAuthStateUseCase(gh<_i259.AuthRepository>()));
-    gh.factory<_i429.SendEmailWithCSVUseCase>(
-        () => _i429.SendEmailWithCSVUseCase(
-              mailDataSource: gh<_i242.FirestoreMailDataSource>(),
-              generateCSV: gh<_i804.GenerateCSVUseCase>(),
-            ));
     gh.factory<_i977.AuthBloc>(() => _i977.AuthBloc(
           signInWithEmail: gh<_i27.SignInWithEmailUseCase>(),
           signInWithGoogle: gh<_i683.SignInWithGoogleUseCase>(),
