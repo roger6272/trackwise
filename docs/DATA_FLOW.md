@@ -226,7 +226,7 @@ class BluetoothState {
          │ ◄─────────────────────────────────────────────│
          │  {"status":"...",                            │
          │   "protocol_version":3,                      │
-         │   "firmware_version":"2.0.0"}                │
+         │   "firmware_version":"2.1.0"}                │
          │                                                │
          │  ⑦ Branch based on status...                  │
          │                                                │

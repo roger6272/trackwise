@@ -600,7 +600,7 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 **Example Flow (in_sync):**
 ```
 App: {"cmd": "handshake", "uid": "abc123"}
-Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF", "protocol_version": 3, "firmware_version": "2.0.0"}
+Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF", "protocol_version": 3, "firmware_version": "2.1.0"}
 Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic)
 Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic)
 ```
