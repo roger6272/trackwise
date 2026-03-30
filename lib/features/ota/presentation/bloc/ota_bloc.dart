@@ -102,7 +102,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
 
     _currentFirmwareInfo = event.firmwareInfo;
     _otaStartTime = DateTime.now();
-    WakelockPlus.enable();
+    _setWakelock(true);
     emit(OtaBlocDownloading(progress: 0.0, info: event.firmwareInfo));
 
     _analytics.logOtaStarted(
@@ -151,7 +151,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _otaSubscription = null;
     _rebootTimer?.cancel();
     _rebootTimer = null;
-    WakelockPlus.disable();
+    _setWakelock(false);
 
     // Return to update available state if we have firmware info
     if (_currentFirmwareInfo != null) {
@@ -206,7 +206,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
           fromVersion: _deviceFirmwareVersion ?? 'unknown',
           toVersion: info.version,
         );
-        WakelockPlus.disable();
+        _setWakelock(false);
         emit(OtaBlocError(progress.message));
         _otaSubscription?.cancel();
         _otaSubscription = null;
@@ -235,7 +235,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
       durationSeconds: durationSeconds,
     );
 
-    WakelockPlus.disable();
+    _setWakelock(false);
     emit(OtaBlocComplete(event.newVersion));
   }
 
@@ -248,7 +248,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _rebootTimer = null;
     _otaSubscription?.cancel();
     _otaSubscription = null;
-    WakelockPlus.disable();
+    _setWakelock(false);
 
     _analytics.logOtaFailed(
       reason: 'Reboot timed out — device did not reconnect',
@@ -268,6 +268,18 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
         s is OtaBlocTransferring ||
         s is OtaBlocVerifying ||
         s is OtaBlocRebooting;
+  }
+
+  void _setWakelock(bool enabled) {
+    try {
+      if (enabled) {
+        _setWakelock(true);
+      } else {
+        _setWakelock(false);
+      }
+    } catch (_) {
+      // WakeLock unavailable (e.g., in tests) — non-critical
+    }
   }
 
   @override
