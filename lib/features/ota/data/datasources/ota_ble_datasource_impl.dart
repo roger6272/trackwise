@@ -109,11 +109,18 @@ class OtaBleDatasourceImpl implements OtaBleDatasource {
         return false;
       }
       if (message.type == BleMessageType.syncResponse) {
-        // Only include responses with OTA-related status values
+        // Only include responses with OTA-related status or cmd values
         final data = message.data;
         if (data is Map<String, dynamic>) {
           final status = data['status'] as String?;
-          return status != null && status.startsWith('ota_');
+          final cmd = data['cmd'] as String?;
+          // Match OTA success responses (status starts with "ota_")
+          // and OTA error responses (status == "error" with OTA cmd)
+          if (status != null && status.startsWith('ota_')) return true;
+          if (status == 'error' && cmd != null &&
+              (cmd.startsWith('ota_') || cmd == 'reboot' || cmd == 'ota_abort')) {
+            return true;
+          }
         }
         return false;
       }
