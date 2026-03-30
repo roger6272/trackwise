@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/connectivity_service.dart';
@@ -101,6 +102,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
 
     _currentFirmwareInfo = event.firmwareInfo;
     _otaStartTime = DateTime.now();
+    WakelockPlus.enable();
     emit(OtaBlocDownloading(progress: 0.0, info: event.firmwareInfo));
 
     _analytics.logOtaStarted(
@@ -149,6 +151,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _otaSubscription = null;
     _rebootTimer?.cancel();
     _rebootTimer = null;
+    WakelockPlus.disable();
 
     // Return to update available state if we have firmware info
     if (_currentFirmwareInfo != null) {
@@ -203,6 +206,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
           fromVersion: _deviceFirmwareVersion ?? 'unknown',
           toVersion: info.version,
         );
+        WakelockPlus.disable();
         emit(OtaBlocError(progress.message));
         _otaSubscription?.cancel();
         _otaSubscription = null;
@@ -231,6 +235,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
       durationSeconds: durationSeconds,
     );
 
+    WakelockPlus.disable();
     emit(OtaBlocComplete(event.newVersion));
   }
 
@@ -243,6 +248,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _rebootTimer = null;
     _otaSubscription?.cancel();
     _otaSubscription = null;
+    WakelockPlus.disable();
 
     _analytics.logOtaFailed(
       reason: 'Reboot timed out — device did not reconnect',

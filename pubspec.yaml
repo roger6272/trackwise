@@ -122,6 +122,7 @@ dependencies:
   # Clean Architecture - OTA Firmware Updates
   # Using versions compatible with firebase_core 3.14.0
   firebase_storage: ^12.3.7
+  wakelock_plus: ^1.2.8
   firebase_remote_config: ^5.3.0
 
   # Clean Architecture - Privacy Policy
