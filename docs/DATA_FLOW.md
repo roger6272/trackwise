@@ -1080,7 +1080,7 @@ Error during verification (hash_mismatch):
   → Device stays on current firmware (OTA partition discarded)
   → App shows error, user re-downloads and retries
 
-Error after reboot (device doesn't reconnect in 30s):
+Error after reboot (device doesn't reconnect in 60s):
   → App shows timeout error
   → User can power-cycle device
   → Rollback: device boots to last working firmware

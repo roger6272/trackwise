@@ -336,7 +336,7 @@ OtaRebootComplete(newFirmwareVersion)
 **Post-reboot:**
 - App sets `awaitingOtaReboot` flag before sending reboot command
 - Connection logic auto-reconnects silently (no disconnect error shown)
-- 30-second reconnect timeout — if device doesn't reconnect, show `OtaError("Device didn't respond after update. Try turning it off and on again.")`
+- 60-second reconnect timeout — if device doesn't reconnect, show timeout error. Screen kept awake via WakeLock during the wait.
 - On reconnect: full handshake, reads firmware version to confirm update succeeded
 - Shows "Updated to v2.1.0" success message
 

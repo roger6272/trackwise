@@ -1026,7 +1026,7 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 ### 11.3 "Device not responding after update"
 
-**Symptoms:** OTA appeared to complete (reboot stage) but the device doesn't reconnect within 30 seconds. App shows a timeout error.
+**Symptoms:** OTA appeared to complete (reboot stage) but the device doesn't reconnect within 60 seconds. App shows a timeout error.
 
 **Root Cause:** The device is rebooting with the new firmware. Reboot typically takes 5-10 seconds, but may take longer depending on the firmware initialization.
 

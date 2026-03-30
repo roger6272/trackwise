@@ -576,9 +576,9 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 
 | Status | Condition | Response Format |
 |--------|-----------|-----------------|
-| `in_sync` | Device paired to this UID | `{"status":"in_sync","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.0.0"}` |
-| `wrong_account` | Device paired to different UID | `{"status":"wrong_account","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.0.0"}` |
-| `uninitialized` | Device has no UID (new/reset) | `{"status":"uninitialized","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.0.0"}` |
+| `in_sync` | Device paired to this UID | `{"status":"in_sync","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.1.0"}` |
+| `wrong_account` | Device paired to different UID | `{"status":"wrong_account","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.1.0"}` |
+| `uninitialized` | Device has no UID (new/reset) | `{"status":"uninitialized","device_instance_id":"MAC","protocol_version":3,"firmware_version":"2.1.0"}` |
 
 **Response Fields:**
 
@@ -986,17 +986,17 @@ Sent in response to multi-device sync commands (handshake, override_end).
 
 **Format (handshake - in_sync):**
 ```json
-{"status":"in_sync","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.0.0"}
+{"status":"in_sync","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.1.0"}
 ```
 
 **Format (handshake - wrong_account):**
 ```json
-{"status":"wrong_account","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.0.0"}
+{"status":"wrong_account","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.1.0"}
 ```
 
 **Format (handshake - uninitialized):**
 ```json
-{"status":"uninitialized","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.0.0"}
+{"status":"uninitialized","device_instance_id":"AA:BB:CC:DD:EE:FF","protocol_version":3,"firmware_version":"2.1.0"}
 ```
 
 **Format (override_end - success):**
@@ -2018,7 +2018,7 @@ Reboot the device to switch to the new firmware partition.
 {"status": "ota_rebooting"}
 ```
 
-The device disconnects during reboot. The app waits up to 30 seconds for the device to reconnect, then verifies the new firmware version via handshake.
+The device disconnects during reboot. The app waits up to 60 seconds for the device to reconnect, then verifies the new firmware version via handshake. The app keeps the screen awake during this period to prevent Android from suspending BLE operations.
 
 ---
 
@@ -2086,7 +2086,7 @@ The app orchestrates the OTA flow through `PerformOtaUpdateUseCase`:
 5. **Send `ota_end`** to trigger verification
 6. **Wait for `ota_verified`** notification (30s timeout)
 7. **Send `reboot`** command
-8. **Wait for reconnect** — app waits up to 30s for the device to reboot and reconnect
+8. **Wait for reconnect** — app waits up to 60s for the device to reboot and reconnect (screen kept awake via WakeLock)
 9. **Verify version** — handshake response includes `firmware_version`; app confirms it matches the expected version
 
 **Pre-OTA sync:** Before starting OTA, the app triggers a normal sync to flush device count logs to Firestore. Count logs are stored in RAM and would be lost on reboot. This is handled by the BLoC/presentation layer before invoking the OTA use case.
