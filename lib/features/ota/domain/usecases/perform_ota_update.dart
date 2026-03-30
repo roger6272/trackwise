@@ -201,14 +201,38 @@ class PerformOtaUpdateUseCase {
         return null; // Success
       }
 
-      // Error response from device
+      // Error response from device — map to user-friendly messages
       final reason = notification['reason'] as String? ?? 'unknown';
-      final cmd = notification['cmd'] as String? ?? 'unknown';
-      return 'Device error ($cmd): $reason';
+      return _friendlyError(reason);
     } on TimeoutException {
-      return 'Timed out waiting for $expectedStatus (${timeout.inSeconds}s)';
+      return 'Device not responding. Please try again.';
     } catch (e) {
-      return 'Error waiting for $expectedStatus: $e';
+      return 'Unexpected error: $e';
+    }
+  }
+
+  String _friendlyError(String reason) {
+    switch (reason) {
+      case 'low_battery':
+        return 'Battery too low to update. Please charge your device above 20% and try again.';
+      case 'hash_mismatch':
+        return 'The update file was corrupted during download. Check your internet connection and try again.';
+      case 'write_failed':
+        return 'The update could not be installed. This update may not be compatible with your device.';
+      case 'timeout':
+        return 'The device stopped responding. Move closer to your device and try again.';
+      case 'disconnect':
+        return 'Connection lost during update. Move closer to your device and try again.';
+      case 'invalid_version':
+        return 'Your device already has this software version.';
+      case 'no_partition':
+        return 'Your device does not support updates. Please contact support.';
+      case 'already_in_progress':
+        return 'An update is already in progress.';
+      case 'not_receiving':
+        return 'The device was not ready. Please wait a moment and try again.';
+      default:
+        return 'Update failed ($reason). Please try again later.';
     }
   }
 }
