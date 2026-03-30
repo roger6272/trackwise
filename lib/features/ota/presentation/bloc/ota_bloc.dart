@@ -34,7 +34,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   DateTime? _otaStartTime;
 
   /// Duration to wait for device reconnect after OTA reboot.
-  static const Duration _rebootTimeout = Duration(seconds: 30);
+  static const Duration _rebootTimeout = Duration(seconds: 60);
 
   OtaBloc(
     this._checkForUpdate,

@@ -17,8 +17,8 @@ class OtaRemoteDataSourceImpl implements OtaRemoteDataSource {
   /// Hardcoded fallback for min firmware version when Remote Config is unreachable.
   static const String _fallbackMinFirmwareVersion = '1.0.0';
 
-  /// Maximum firmware binary size (1MB) to prevent excessive memory usage.
-  static const int _maxBinarySize = 1024 * 1024;
+  /// Maximum firmware binary size (2MB) — must fit in ESP32 OTA partition (~1.9MB).
+  static const int _maxBinarySize = 2 * 1024 * 1024;
 
   OtaRemoteDataSourceImpl(this._storage, this._remoteConfig);
 

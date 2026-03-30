@@ -1168,7 +1168,7 @@ void otaAbort(const char* reason) {
   // Notify app of the error (use "status" key to match sync protocol convention)
   StaticJsonDocument<128> doc;
   doc["status"] = "error";
-  doc["cmd"] = "ota";
+  doc["cmd"] = "ota_abort";
   doc["reason"] = reason;
   String response;
   serializeJson(doc, response);
@@ -2313,8 +2313,8 @@ class OtaDataCallback : public BLECharacteristicCallbacks {
       return;
     }
 
-    std::string val = c->getValue();
-    const uint8_t* data = (const uint8_t*)val.data();
+    String val = c->getValue();
+    const uint8_t* data = (const uint8_t*)val.c_str();
     size_t len = val.length();
 
     if (len == 0) return;
@@ -2417,13 +2417,13 @@ uint8_t readBatterySOC() {
   Wire.beginTransmission(MAX17048_I2C_ADDR);
   Wire.write(MAX17048_SOC_REG);
   if (Wire.endTransmission(false) != 0) {
-    DEBUG_PRINTLN("⚠️ MAX17048 I2C transmission error");
-    return 0;
+    DEBUG_PRINTLN("⚠️ MAX17048 not connected — assuming 100%");
+    return 100;  // No fuel gauge: assume full battery so OTA isn't blocked
   }
   uint8_t bytesRead = Wire.requestFrom((uint8_t)MAX17048_I2C_ADDR, (uint8_t)2);
   if (bytesRead < 2) {
-    DEBUG_PRINTLN("⚠️ MAX17048 I2C read failed");
-    return 0;
+    DEBUG_PRINTLN("⚠️ MAX17048 I2C read failed — assuming 100%");
+    return 100;  // No fuel gauge: assume full battery so OTA isn't blocked
   }
   uint8_t socInt = Wire.read();   // Upper byte = integer percentage
   Wire.read();                     // Lower byte = fractional (discard)

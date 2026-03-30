@@ -647,11 +647,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           const otaReconnectDelay = Duration(seconds: 3);
           AppLogger.debug('OTA reboot disconnect for $disconnectedId — reconnecting in ${otaReconnectDelay.inSeconds}s');
           _reconnectTimers[disconnectedId] = Timer(otaReconnectDelay, () {
-            // Flag has served its purpose (suppressed disconnect error +
-            // triggered fast reconnect). Clear it regardless of whether
-            // the reconnect succeeds — prevents flag leak if device
-            // never comes back and connectedDevices is empty.
-            _awaitingOtaReboot.remove(disconnectedId);
+            // Keep the flag set — bluetooth_page needs it to dispatch
+            // OtaRebootCompleted after the handshake. The flag is cleared
+            // by bluetooth_page when it dispatches SetOtaRebootFlag(awaiting: false).
             if (!_manualDisconnects.contains(disconnectedId) && !isClosed) {
               add(ConnectToDevice(disconnectedId));
             }

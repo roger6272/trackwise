@@ -73,8 +73,15 @@ class PerformOtaUpdateUseCase {
     yield const OtaDownloading(1.0);
     AppLogger.debug('OTA: Downloaded ${binaryData.length} bytes');
 
-    // ---- Step 2: Send ota_start ----
+    // ---- Step 2: Send ota_start and wait for ota_ready ----
     yield const OtaTransferring(0.0);
+
+    // Start listening BEFORE sending the command to avoid race condition
+    // (firmware may respond before we set up the listener)
+    final readyFuture = _waitForNotification(
+      expectedStatus: 'ota_ready',
+      timeout: _responseTimeout,
+    );
 
     final startResult = await _repository.sendOtaStart(
       expectedSize: binaryData.length,
@@ -91,10 +98,7 @@ class PerformOtaUpdateUseCase {
     // ---- Step 3: Wait for ota_ready ----
     AppLogger.debug('OTA: Waiting for ota_ready notification');
 
-    final readyResult = await _waitForNotification(
-      expectedStatus: 'ota_ready',
-      timeout: _responseTimeout,
-    );
+    final readyResult = await readyFuture;
 
     if (readyResult != null) {
       yield OtaError(readyResult);
@@ -128,9 +132,15 @@ class PerformOtaUpdateUseCase {
       }
     }
 
-    // ---- Step 5: Send ota_end ----
+    // ---- Step 5: Send ota_end and wait for ota_verified ----
     yield const OtaVerifying();
     AppLogger.debug('OTA: Sending ota_end');
+
+    // Start listening BEFORE sending to avoid race condition
+    final verifyFuture = _waitForNotification(
+      expectedStatus: 'ota_verified',
+      timeout: _responseTimeout,
+    );
 
     final endResult = await _repository.sendOtaEnd();
     if (endResult.isLeft()) {
@@ -142,10 +152,7 @@ class PerformOtaUpdateUseCase {
     // ---- Step 6: Wait for ota_verified ----
     AppLogger.debug('OTA: Waiting for ota_verified notification');
 
-    final verifyResult = await _waitForNotification(
-      expectedStatus: 'ota_verified',
-      timeout: _responseTimeout,
-    );
+    final verifyResult = await verifyFuture;
 
     if (verifyResult != null) {
       yield OtaError(verifyResult);
