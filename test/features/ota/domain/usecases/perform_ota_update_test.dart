@@ -76,7 +76,7 @@ void main() {
 
       expect(states.last, isA<OtaError>());
       expect(
-          (states.last as OtaError).message, contains('low_battery'));
+          (states.last as OtaError).message, contains('Battery too low'));
     });
 
     test('emits OtaError on hash_mismatch after transfer', () async {
@@ -122,7 +122,7 @@ void main() {
           .toList();
 
       expect(states.last, isA<OtaError>());
-      expect((states.last as OtaError).message, contains('hash_mismatch'));
+      expect((states.last as OtaError).message, contains('corrupted during download'));
     });
 
     test('sends correct number of chunks for given binary size and MTU',
@@ -208,7 +208,7 @@ void main() {
 
       expect(states.last, isA<OtaError>());
       expect((states.last as OtaError).message,
-          contains('Error waiting for ota_ready'));
+          contains('Unexpected error'));
     });
   });
 }
