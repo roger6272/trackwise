@@ -75,17 +75,22 @@ class _UpdateBannerState extends State<UpdateBanner> {
         builder: (context, state) {
           final banners = <Widget>[];
 
-          // Active transfer banner first (if any)
+          // Active transfer banner (only for in-progress states;
+          // complete/error are handled by the progress sheet)
           final transfer = state.activeTransfer;
-          if (transfer != null) {
-            banners.add(_buildTransferBanner(context, transfer));
+          final showTransferBanner = transfer != null &&
+              transfer is! OtaTransferComplete &&
+              transfer is! OtaTransferError;
+          if (showTransferBanner) {
+            banners.add(_buildTransferBanner(context, transfer!));
           }
 
           // Per-device update banners
           for (final entry in state.deviceStatuses.entries) {
-            // Skip the device that's actively being updated
-            if (transfer != null &&
-                entry.key == transfer.deviceInstanceId) {
+            // Skip the device that's actively being updated (but show
+            // it if transfer is complete/error since banner isn't shown)
+            if (showTransferBanner &&
+                entry.key == transfer!.deviceInstanceId) {
               continue;
             }
 
