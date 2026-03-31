@@ -1,69 +1,167 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/bluetooth_constants.dart';
+import '../../../bluetooth/domain/entities/paired_device.dart';
+import '../../../bluetooth/presentation/bloc/device_connection_state.dart';
 import '../bloc/ota_bloc.dart';
+import '../bloc/ota_device_status.dart';
 import '../bloc/ota_event.dart';
 import '../bloc/ota_state.dart';
 import 'ota_progress_sheet.dart';
 
-/// Banner widget that appears on the bluetooth page when a firmware update
-/// is available, the app needs updating, or OTA is in progress.
+/// Banner widget that appears on the bluetooth page when firmware updates
+/// are available, the app needs updating, or OTA is in progress.
 ///
-/// - Optional update: Dismissable with tap to open progress sheet
-/// - Required update: Non-dismissable, persistent
-/// - App update required: Informational message
-/// - Transfer in progress: Shows current step
-class UpdateBanner extends StatelessWidget {
-  /// Negotiated BLE MTU for the connected device.
-  final int negotiatedMtu;
+/// Supports per-device banners by iterating `state.deviceStatuses` and
+/// showing an active transfer banner when applicable.
+class UpdateBanner extends StatefulWidget {
+  /// Connected devices keyed by deviceInstanceId.
+  final Map<String, DeviceConnectionState> connectedDevices;
 
-  const UpdateBanner({super.key, required this.negotiatedMtu});
+  /// All paired devices (used for name lookup).
+  final List<PairedDevice> pairedDevices;
+
+  const UpdateBanner({
+    super.key,
+    required this.connectedDevices,
+    required this.pairedDevices,
+  });
+
+  @override
+  State<UpdateBanner> createState() => _UpdateBannerState();
+}
+
+class _UpdateBannerState extends State<UpdateBanner> {
+  Timer? _autoDismissTimer;
+
+  @override
+  void dispose() {
+    _autoDismissTimer?.cancel();
+    super.dispose();
+  }
+
+  String _deviceName(String deviceInstanceId) {
+    final device = widget.pairedDevices
+        .where((d) => d.deviceInstanceId == deviceInstanceId)
+        .firstOrNull;
+    return device?.deviceName ?? 'Unknown Device';
+  }
+
+  int _deviceMtu(String deviceInstanceId) {
+    return widget.connectedDevices[deviceInstanceId]?.negotiatedMtu ??
+        BluetoothConstants.defaultMtuLimit;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<OtaBloc, OtaBlocState>(
-      builder: (context, state) {
-        return switch (state) {
-          OtaUpdateAvailable() => _UpdateAvailableBanner(
-              state: state,
-              negotiatedMtu: negotiatedMtu,
-            ),
-          OtaAppUpdateRequired() => _AppUpdateBanner(state: state),
-          OtaBlocDownloading() => _TransferProgressBanner(
-              label: 'Downloading firmware...',
-              progress: state.progress,
-            ),
-          OtaBlocTransferring() => _TransferProgressBanner(
-              label: 'Transferring to device...',
-              progress: state.progress,
-              showWarning: true,
-            ),
-          OtaBlocVerifying() => _TransferProgressBanner(
-              label: 'Verifying firmware...',
-              progress: null,
-              showWarning: true,
-            ),
-          OtaBlocRebooting() => _TransferProgressBanner(
-              label: 'Device is rebooting...',
-              progress: null,
-            ),
-          OtaBlocComplete() => _CompleteBanner(newVersion: state.newVersion),
-          OtaBlocError() => _ErrorBanner(message: state.message),
-          _ => const SizedBox.shrink(),
-        };
+    return BlocListener<OtaBloc, OtaBlocState>(
+      listenWhen: (prev, curr) => prev.activeTransfer != curr.activeTransfer,
+      listener: (context, state) {
+        _autoDismissTimer?.cancel();
+        final transfer = state.activeTransfer;
+        if (transfer is OtaTransferComplete || transfer is OtaTransferError) {
+          _autoDismissTimer = Timer(const Duration(seconds: 5), () {
+            if (mounted) {
+              context.read<OtaBloc>().add(const DismissTransferResult());
+            }
+          });
+        }
       },
+      child: BlocBuilder<OtaBloc, OtaBlocState>(
+        builder: (context, state) {
+          final banners = <Widget>[];
+
+          // Active transfer banner first (if any)
+          final transfer = state.activeTransfer;
+          if (transfer != null) {
+            banners.add(_buildTransferBanner(context, transfer));
+          }
+
+          // Per-device update banners
+          for (final entry in state.deviceStatuses.entries) {
+            // Skip the device that's actively being updated
+            if (transfer != null &&
+                entry.key == transfer.deviceInstanceId) {
+              continue;
+            }
+
+            final status = entry.value;
+            final name = _deviceName(entry.key);
+
+            if (status is OtaDeviceUpdateAvailable) {
+              banners.add(_UpdateAvailableBanner(
+                deviceInstanceId: entry.key,
+                deviceName: name,
+                status: status,
+                negotiatedMtu: _deviceMtu(entry.key),
+              ));
+            } else if (status is OtaDeviceAppUpdateRequired) {
+              banners.add(_AppUpdateBanner(
+                deviceName: name,
+                minAppVersion: status.minAppVersion,
+              ));
+            }
+          }
+
+          if (banners.isEmpty) return const SizedBox.shrink();
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: banners,
+          );
+        },
+      ),
     );
+  }
+
+  Widget _buildTransferBanner(BuildContext context, OtaTransferState transfer) {
+    final name = _deviceName(transfer.deviceInstanceId);
+    return switch (transfer) {
+      OtaTransferDownloading() => _TransferProgressBanner(
+          label: '$name: Downloading firmware...',
+          progress: transfer.progress,
+        ),
+      OtaTransferTransferring() => _TransferProgressBanner(
+          label: '$name: Transferring to device...',
+          progress: transfer.progress,
+          showWarning: true,
+        ),
+      OtaTransferVerifying() => _TransferProgressBanner(
+          label: '$name: Verifying firmware...',
+          progress: null,
+          showWarning: true,
+        ),
+      OtaTransferRebooting() => _TransferProgressBanner(
+          label: '$name: Device is rebooting...',
+          progress: null,
+        ),
+      OtaTransferComplete() => _CompleteBanner(
+          deviceName: name,
+          newVersion: transfer.newVersion,
+        ),
+      OtaTransferError() => _ErrorBanner(message: transfer.message),
+    };
   }
 }
 
 // ========== Update Available Banner ==========
 
 class _UpdateAvailableBanner extends StatelessWidget {
-  final OtaUpdateAvailable state;
+  final String deviceInstanceId;
+  final String deviceName;
+  final OtaDeviceUpdateAvailable status;
   final int negotiatedMtu;
 
-  const _UpdateAvailableBanner({required this.state, required this.negotiatedMtu});
+  const _UpdateAvailableBanner({
+    required this.deviceInstanceId,
+    required this.deviceName,
+    required this.status,
+    required this.negotiatedMtu,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +171,7 @@ class _UpdateAvailableBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Semantics(
-        label: 'Firmware update available: version ${state.info.version}',
+        label: '$deviceName: Firmware update available: version ${status.info.version}',
         child: Container(
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
@@ -96,15 +194,15 @@ class _UpdateAvailableBanner extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Firmware v${state.info.version} available',
+                            '$deviceName: Firmware v${status.info.version} available',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: color,
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),
-                          if (state.info.changelog.isNotEmpty)
+                          if (status.info.changelog.isNotEmpty)
                             Text(
-                              state.info.changelog,
+                              status.info.changelog,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -115,13 +213,15 @@ class _UpdateAvailableBanner extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (!state.isRequired)
+                    if (!status.isRequired)
                       Semantics(
-                        label: 'Dismiss update banner',
+                        label: 'Dismiss update banner for $deviceName',
                         child: IconButton(
                           icon: Icon(Icons.close, size: 18, color: color),
                           onPressed: () {
-                            context.read<OtaBloc>().add(const DismissUpdateBanner());
+                            context.read<OtaBloc>().add(
+                              DismissUpdateBanner(deviceInstanceId: deviceInstanceId),
+                            );
                           },
                           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                           padding: EdgeInsets.zero,
@@ -146,8 +246,9 @@ class _UpdateAvailableBanner extends StatelessWidget {
       builder: (_) => BlocProvider.value(
         value: context.read<OtaBloc>(),
         child: OtaProgressSheet(
-          firmwareInfo: state.info,
+          firmwareInfo: status.info,
           negotiatedMtu: negotiatedMtu,
+          deviceInstanceId: deviceInstanceId,
         ),
       ),
     );
@@ -157,16 +258,20 @@ class _UpdateAvailableBanner extends StatelessWidget {
 // ========== App Update Banner ==========
 
 class _AppUpdateBanner extends StatelessWidget {
-  final OtaAppUpdateRequired state;
+  final String deviceName;
+  final String minAppVersion;
 
-  const _AppUpdateBanner({required this.state});
+  const _AppUpdateBanner({
+    required this.deviceName,
+    required this.minAppVersion,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Semantics(
-        label: 'App update required to version ${state.minAppVersion}',
+        label: '$deviceName: App update required to version $minAppVersion',
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
           decoration: BoxDecoration(
@@ -180,7 +285,7 @@ class _AppUpdateBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Update the Traxelos app to use this feature',
+                  '$deviceName: Update the Traxelos app to use this feature',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.warningText(Theme.of(context).brightness),
                         fontWeight: FontWeight.w500,
@@ -295,16 +400,20 @@ class _TransferProgressBanner extends StatelessWidget {
 // ========== Complete Banner ==========
 
 class _CompleteBanner extends StatelessWidget {
+  final String deviceName;
   final String newVersion;
 
-  const _CompleteBanner({required this.newVersion});
+  const _CompleteBanner({
+    required this.deviceName,
+    required this.newVersion,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Semantics(
-        label: 'Firmware updated to version $newVersion',
+        label: '$deviceName updated to version $newVersion',
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
           decoration: BoxDecoration(
@@ -318,7 +427,7 @@ class _CompleteBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Firmware updated to v$newVersion',
+                  '$deviceName updated to v$newVersion',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.success,
                         fontWeight: FontWeight.w500,

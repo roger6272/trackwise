@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_util.dart';
-import '../../../../core/utils/bluetooth_constants.dart';
+
 import '../../domain/entities/paired_device.dart';
 import '../bloc/bluetooth_bloc.dart';
 import '../bloc/bluetooth_event.dart';
@@ -59,21 +59,17 @@ class _BluetoothPageState extends State<BluetoothPage> {
     final primaryText = AppColors.primaryText(brightness);
 
     return BlocListener<OtaBloc, OtaBlocState>(
+      listenWhen: (prev, curr) => prev.activeTransfer != curr.activeTransfer,
       listener: (context, otaState) {
+        final transfer = otaState.activeTransfer;
         // When OTA enters rebooting state, tell BluetoothBloc to expect the disconnect
-        if (otaState is OtaBlocRebooting) {
-          final btState = context.read<BluetoothBloc>().state;
-          for (final deviceId in btState.connectedDevices.keys) {
-            context.read<BluetoothBloc>().add(
-              SetOtaRebootFlag(deviceInstanceId: deviceId, awaiting: true),
-            );
-          }
+        if (transfer is OtaTransferRebooting) {
+          context.read<BluetoothBloc>().add(
+            SetOtaRebootFlag(deviceInstanceId: transfer.deviceInstanceId, awaiting: true),
+          );
         }
-        // If OTA was cancelled or errored during reboot, clear the flag
-        // (Normal completion clears it via OtaRebootCompleted handler below)
-        if (otaState is OtaUpdateAvailable ||
-            otaState is OtaBlocError ||
-            otaState is OtaInitial) {
+        // If OTA was cancelled or errored, clear the reboot flags
+        if (transfer == null || transfer is OtaTransferError) {
           final bluetoothBloc = context.read<BluetoothBloc>();
           final btState = bluetoothBloc.state;
           for (final deviceId in btState.connectedDevices.keys) {
@@ -111,22 +107,31 @@ class _BluetoothPageState extends State<BluetoothPage> {
             if (bluetoothBloc.isAwaitingOtaReboot(entry.key)) {
               // Post-reboot reconnection: notify OtaBloc and clear the flag
               context.read<OtaBloc>().add(
-                ota_events.OtaRebootCompleted(deviceState.firmwareVersion!),
+                ota_events.OtaRebootCompleted(
+                  deviceState.firmwareVersion!,
+                  deviceInstanceId: entry.key,
+                ),
               );
               bluetoothBloc.add(
                 SetOtaRebootFlag(deviceInstanceId: entry.key, awaiting: false),
               );
             } else {
               context.read<OtaBloc>().add(
-                    ota_events.CheckForUpdateRequested(deviceState.firmwareVersion!),
+                    ota_events.CheckForUpdateRequested(
+                      deviceState.firmwareVersion!,
+                      deviceInstanceId: entry.key,
+                    ),
                   );
             }
-            break; // Check for first connected device only
           }
         }
         // Clean up OTA check tracking for disconnected devices
-        _otaCheckedDevices.removeWhere(
-            (id) => !state.connectedDevices.containsKey(id));
+        final disconnected = _otaCheckedDevices.where(
+            (id) => !state.connectedDevices.containsKey(id)).toList();
+        for (final id in disconnected) {
+          _otaCheckedDevices.remove(id);
+          context.read<OtaBloc>().add(ota_events.OtaDeviceDisconnected(deviceInstanceId: id));
+        }
       },
       builder: (context, state) {
         final devices = state.pairedDevices;
@@ -250,11 +255,9 @@ class _BluetoothPageState extends State<BluetoothPage> {
 
     // OTA update banner (shown when a connected device has a firmware update available)
     if (state.isConnected) {
-      // Use the actual negotiated MTU from the first connected device
-      final firstDeviceState = state.connectedDevices.values.firstOrNull;
-      final mtu = firstDeviceState?.negotiatedMtu ?? BluetoothConstants.defaultMtuLimit;
       banners.add(UpdateBanner(
-        negotiatedMtu: mtu,
+        connectedDevices: state.connectedDevices,
+        pairedDevices: state.pairedDevices,
       ));
     }
 
