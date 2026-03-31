@@ -968,7 +968,23 @@ Key properties:
 
 ## 9. OTA Firmware Update Flow
 
-### 9.1 Full OTA Sequence
+### 9.1 Multi-Device OTA Awareness
+
+The app tracks OTA update status **per device** independently. State is split into two dimensions:
+
+- **Device statuses** (`Map<deviceId, OtaDeviceStatus>`): Which devices need updates, are up-to-date, dismissed, or require an app update. Each connected device gets checked against `firmware/latest.json` after handshake.
+- **Active transfer** (`OtaTransferState?`): At most one OTA transfer at a time. Starting an update on one device blocks starting on another until the first completes.
+
+```
+Device A connects → handshake → check firmware version → banner: "Device A: v2.1.1 available"
+Device B connects → handshake → check firmware version → banner: "Device B: v2.1.1 available"
+User taps Device A banner → transfer starts → Device B banner still visible
+Transfer completes → Device A marked up-to-date → User can now update Device B
+```
+
+**Disconnect during transfer:** If a device disconnects while OTA is actively transferring (downloading, transferring, or verifying), the transfer is cancelled with an error. Disconnect during **rebooting** is expected and does not cancel — the device reconnects after reboot.
+
+### 9.2 Full OTA Sequence
 
 **When:** App detects newer firmware via Firebase Storage check after device connect.
 **Critical prerequisite:** Sync device count logs to Firestore before starting OTA (logs are RAM-only, lost on reboot).
@@ -1065,7 +1081,7 @@ Data flow:
    lost when the device reboots.
 ```
 
-### 9.2 OTA Error Recovery
+### 9.3 OTA Error Recovery
 
 ```
 Error during download:

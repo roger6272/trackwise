@@ -624,18 +624,18 @@ On this page you can:
 
 ## 12. Firmware Updates
 
-Your Traxelos One device receives firmware updates through the app. Updates bring new features, improvements, and bug fixes.
+Your Traxelos One devices receive firmware updates through the app. Updates bring new features, improvements, and bug fixes.
 
 ### How Updates Work
 
-1. When you connect your device, the app automatically checks if a newer firmware version is available
-2. If an update is found, a **banner** appears on the Bluetooth page
-3. Tap the banner to see update details and start the update
+1. When you connect your devices, the app automatically checks **each device** for a newer firmware version
+2. If an update is found, a **banner** appears on the Bluetooth page **for each device** that needs updating, showing the device name (e.g., "Traxelos One: Firmware v2.1.1 available")
+3. Tap a device's banner to see update details and start the update
 
 ### Updating Your Device
 
-1. Make sure your device is **connected** and has **at least 20% battery**
-2. Tap the update banner on the **Bluetooth** page
+1. Make sure the device is **connected** and has **at least 20% battery**
+2. Tap the update banner for the device you want to update
 3. Review the update details and tap **"Update Now"**
 4. The app will:
    - **Download** the update (requires internet connection)
@@ -643,29 +643,36 @@ Your Traxelos One device receives firmware updates through the app. Updates brin
    - **Verify** the update on the device
    - **Reboot** your device with the new firmware
 5. Your device will briefly disconnect and reconnect automatically
-6. A **success banner** confirms the update is complete
+6. The progress sheet confirms the update is complete
 
 ### What You'll See During an Update
 
 | Stage | What the Banner Shows |
 |-------|----------------------|
-| Downloading | "Downloading firmware..." with progress bar |
-| Transferring | "Transferring to device..." with progress bar and "Don't turn off your device" warning |
-| Verifying | "Verifying firmware..." with a spinner |
-| Rebooting | "Device is rebooting..." |
-| Done | "Firmware updated to vX.X.X" (green success banner) |
+| Downloading | "*DeviceName*: Downloading firmware..." with progress bar |
+| Transferring | "*DeviceName*: Transferring to device..." with progress bar and "Don't turn off your device" warning |
+| Verifying | "*DeviceName*: Verifying firmware..." with a spinner |
+| Rebooting | "*DeviceName*: Device is rebooting..." |
+
+### Multiple Devices
+
+- Each connected device gets its **own update banner** with the device name
+- **Only one device can update at a time** — you must wait for one update to finish before starting another
+- Banners for other devices remain visible while one device is updating
+- You can **dismiss** each device's banner independently
 
 ### Important Notes
 
 - **Don't turn off your device** during the transfer or verification steps
 - Your **counts are synced before the update starts**, so nothing is lost
 - If something goes wrong, your device will **automatically keep the previous firmware** — it won't be left in a broken state
+- If a device **disconnects during transfer**, the update is cancelled and an error is shown (disconnecting during reboot is normal — the device reconnects automatically)
 - **Optional updates** can be dismissed by tapping the X on the banner
 - **Required updates** show a persistent banner that cannot be dismissed — these are needed for your device to work correctly with the latest app version
 
 ### "App update required" Banner
 
-If you see a banner saying "Update the Traxelos app to use this feature", it means the firmware update requires a newer version of the app. Update the Traxelos app from the App Store or Google Play, then try again.
+If you see a banner saying "*DeviceName*: Update the Traxelos app to use this feature", it means the firmware update requires a newer version of the app. Update the Traxelos app from the App Store or Google Play, then try again.
 
 ---
 

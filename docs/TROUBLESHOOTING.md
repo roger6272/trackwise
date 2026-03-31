@@ -1070,7 +1070,37 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 ---
 
-### 11.6 "Counts missing after firmware update"
+### 11.6 "Device disconnected during update"
+
+**Symptoms:** OTA transfer is interrupted and the app shows "Device disconnected during update."
+
+**Root Cause:** The BLE connection was lost while the OTA transfer was actively in progress (downloading, transferring, or verifying). This can happen if the device goes out of range, loses power, or is manually disconnected.
+
+**Resolution:**
+1. Move closer to the device and ensure it has power
+2. Reconnect the device — the update banner will reappear
+3. Retry the update from the beginning
+
+**Key Lesson:** Disconnect during transfer cancels the OTA. Disconnect during **rebooting** is expected (the device intentionally disconnects to reboot with new firmware) and does not trigger this error. The device has rollback protection — a partial transfer cannot corrupt the firmware.
+
+---
+
+### 11.7 "Update banner shows for only one device"
+
+**Symptoms:** Multiple devices are connected but only one shows an update banner, or banners appear/disappear unexpectedly.
+
+**Root Cause:** Each device is checked independently after its handshake completes. If a device hasn't finished syncing, its OTA check hasn't run yet. Dismissed banners stay dismissed for that session.
+
+**Resolution:**
+1. Wait for all devices to complete their handshake and sync (status shows "synced")
+2. If a banner was dismissed, disconnect and reconnect the device to trigger a new check
+3. Verify all devices are running firmware older than the latest version
+
+**Key Lesson:** The app tracks OTA status per device independently. Each device's banner can be dismissed without affecting others. Only one transfer can run at a time.
+
+---
+
+### 11.8 "Counts missing after firmware update"
 
 **Symptoms:** After a successful firmware update, some recent counts or event history are missing from the app.
 

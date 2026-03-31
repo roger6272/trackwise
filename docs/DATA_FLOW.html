@@ -1115,7 +1115,25 @@ Key properties:
 
         <h2>9. OTA Firmware Update Flow</h2>
 
-        <h3>9.1 Full OTA Sequence</h3>
+        <h3>9.1 Multi-Device OTA Awareness</h3>
+
+        <p>The app tracks OTA update status <strong>per device</strong> independently. State is split into two dimensions:</p>
+
+        <ul>
+            <li><strong>Device statuses</strong> (<code>Map&lt;deviceId, OtaDeviceStatus&gt;</code>): Which devices need updates, are up-to-date, dismissed, or require an app update. Each connected device gets checked against <code>firmware/latest.json</code> after handshake.</li>
+            <li><strong>Active transfer</strong> (<code>OtaTransferState?</code>): At most one OTA transfer at a time. Starting an update on one device blocks starting on another until the first completes.</li>
+        </ul>
+
+        <div class="sequence-diagram">
+Device A connects &#8594; handshake &#8594; check firmware version &#8594; banner: "Device A: v2.1.1 available"
+Device B connects &#8594; handshake &#8594; check firmware version &#8594; banner: "Device B: v2.1.1 available"
+User taps Device A banner &#8594; transfer starts &#8594; Device B banner still visible
+Transfer completes &#8594; Device A marked up-to-date &#8594; User can now update Device B
+        </div>
+
+        <p><strong>Disconnect during transfer:</strong> If a device disconnects while OTA is actively transferring (downloading, transferring, or verifying), the transfer is cancelled with an error. Disconnect during <strong>rebooting</strong> is expected and does not cancel &mdash; the device reconnects after reboot.</p>
+
+        <h3>9.2 Full OTA Sequence</h3>
 
         <p><strong>When:</strong> App detects newer firmware via Firebase Storage check after device connect.<br>
         <strong>Critical prerequisite:</strong> Sync device count logs to Firestore before starting OTA (logs are RAM-only, lost on reboot).</p>
@@ -1188,7 +1206,7 @@ Key properties:
 <span style="color: #f87171;">   Sync logs to Firestore BEFORE starting OTA, or they</span>
 <span style="color: #f87171;">   will be lost when the device reboots.</span></div>
 
-        <h3>9.2 OTA Error Recovery</h3>
+        <h3>9.3 OTA Error Recovery</h3>
 
         <table>
             <thead>
