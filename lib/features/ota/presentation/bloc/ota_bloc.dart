@@ -162,6 +162,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     AppLogger.debug('OTA: Update cancelled by user');
 
     final transfer = state.activeTransfer;
+    if (transfer == null) return;
 
     // Determine progress at cancel time
     double progressPercent = 0.0;
