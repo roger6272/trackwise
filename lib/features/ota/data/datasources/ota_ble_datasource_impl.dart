@@ -48,7 +48,7 @@ class OtaBleDatasourceImpl implements OtaBleDatasource {
     required String version,
   }) async {
     AppLogger.debug(
-        'Sending ota_start: size=$expectedSize, hash=${expectedHash.substring(0, 8)}..., version=$version');
+        'Sending ota_start: size=$expectedSize, hash=${expectedHash.length >= 8 ? expectedHash.substring(0, 8) : expectedHash}..., version=$version');
 
     final command = jsonEncode({
       'cmd': 'ota_start',
