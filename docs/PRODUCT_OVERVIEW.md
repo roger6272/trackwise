@@ -76,10 +76,11 @@ Traxelos One bridges the gap between physical simplicity and digital intelligenc
   - **By Cycle** — total button presses per reset cycle (initial counts not included)
 
 ### 8. Multi-Device Support
-- Pair **multiple Traxelos One devices** to a single account
+- Pair up to **10 Traxelos One devices** to a single account (up to 5 connected simultaneously)
 - **Exclusive leasing** — each item is assigned to one device at a time, preventing conflicts
 - **Device color coding** — each device gets a distinct color for visual identification
 - Seamlessly reassign items between devices as workflows change
+- **Per-device firmware updates** — each device is checked independently, updated one at a time
 
 ### 9. Cloud Backup
 - All data stored in Firebase Firestore
