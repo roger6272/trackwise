@@ -80,7 +80,7 @@ class OtaRebootCompleted extends OtaEvent {
   List<Object?> get props => [newVersion, deviceInstanceId];
 }
 
-/// Device didn't reconnect within 30s.
+/// Device didn't reconnect within timeout (60s).
 class OtaRebootTimedOut extends OtaEvent {
   const OtaRebootTimedOut();
 }
@@ -93,4 +93,9 @@ class OtaDeviceDisconnected extends OtaEvent {
 
   @override
   List<Object?> get props => [deviceInstanceId];
+}
+
+/// Clear the completed/errored transfer result so new transfers can start.
+class DismissTransferResult extends OtaEvent {
+  const DismissTransferResult();
 }

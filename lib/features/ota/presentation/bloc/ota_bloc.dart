@@ -50,6 +50,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     on<OtaRebootCompleted>(_onRebootCompleted);
     on<OtaRebootTimedOut>(_onRebootTimedOut);
     on<OtaDeviceDisconnected>(_onDeviceDisconnected);
+    on<DismissTransferResult>(_onDismissTransferResult);
   }
 
   Future<void> _onCheckForUpdate(
@@ -378,7 +379,40 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     final updatedStatuses =
         Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
     updatedStatuses.remove(deviceId);
-    emit(state.copyWith(deviceStatuses: updatedStatuses));
+
+    // If the disconnected device has the active transfer, cancel it —
+    // UNLESS it's in the rebooting state, where disconnect is expected.
+    final transfer = state.activeTransfer;
+    if (state.activeDeviceId == deviceId &&
+        state.isTransferInProgress &&
+        transfer is! OtaTransferRebooting) {
+      _otaSubscription?.cancel();
+      _otaSubscription = null;
+      _rebootTimer?.cancel();
+      _rebootTimer = null;
+      _setWakelock(false);
+
+      emit(state.copyWith(
+        deviceStatuses: updatedStatuses,
+        activeTransfer: OtaTransferError(
+          deviceInstanceId: deviceId,
+          info: transfer!.info,
+          message: 'Device disconnected during update.',
+        ),
+      ));
+    } else {
+      emit(state.copyWith(deviceStatuses: updatedStatuses));
+    }
+  }
+
+  void _onDismissTransferResult(
+    DismissTransferResult event,
+    Emitter<OtaBlocState> emit,
+  ) {
+    if (state.activeTransfer is OtaTransferComplete ||
+        state.activeTransfer is OtaTransferError) {
+      emit(state.copyWith(clearActiveTransfer: true));
+    }
   }
 
   void _setWakelock(bool enabled) {

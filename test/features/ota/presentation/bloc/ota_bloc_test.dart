@@ -790,6 +790,118 @@ void main() {
     );
   });
 
+  group('DismissTransferResult', () {
+    blocTest<OtaBloc, OtaBlocState>(
+      'clears completed transfer state',
+      build: buildBloc,
+      seed: () => OtaBlocState(
+        activeTransfer: OtaTransferComplete(
+          deviceInstanceId: _deviceId,
+          info: testFirmwareInfo,
+          newVersion: '2.1.0',
+        ),
+      ),
+      act: (bloc) => bloc.add(const DismissTransferResult()),
+      expect: () => [const OtaBlocState()],
+    );
+
+    blocTest<OtaBloc, OtaBlocState>(
+      'clears errored transfer state',
+      build: buildBloc,
+      seed: () => OtaBlocState(
+        activeTransfer: OtaTransferError(
+          deviceInstanceId: _deviceId,
+          info: testFirmwareInfo,
+          message: 'Some error',
+        ),
+      ),
+      act: (bloc) => bloc.add(const DismissTransferResult()),
+      expect: () => [const OtaBlocState()],
+    );
+
+    blocTest<OtaBloc, OtaBlocState>(
+      'does nothing when transfer is actively in progress',
+      build: buildBloc,
+      seed: () => OtaBlocState(
+        activeTransfer: OtaTransferDownloading(
+          deviceInstanceId: _deviceId,
+          info: testFirmwareInfo,
+          progress: 0.5,
+        ),
+      ),
+      act: (bloc) => bloc.add(const DismissTransferResult()),
+      expect: () => <OtaBlocState>[],
+    );
+  });
+
+  group('OtaDeviceDisconnected during transfer', () {
+    blocTest<OtaBloc, OtaBlocState>(
+      'cancels active transfer with error when device disconnects',
+      build: () {
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const OtaDeviceDisconnected(deviceInstanceId: _deviceId));
+      },
+      expect: () => [
+        OtaBlocState(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.0,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferError(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            message: 'Device disconnected during update.',
+          ),
+        ),
+      ],
+    );
+
+    blocTest<OtaBloc, OtaBlocState>(
+      'does NOT cancel transfer when device disconnects during reboot (expected)',
+      build: buildBloc,
+      seed: () => OtaBlocState(
+        deviceStatuses: {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        },
+        activeTransfer: OtaTransferRebooting(
+          deviceInstanceId: _deviceId,
+          info: testFirmwareInfo,
+        ),
+      ),
+      act: (bloc) =>
+          bloc.add(const OtaDeviceDisconnected(deviceInstanceId: _deviceId)),
+      expect: () => [
+        // Device removed from statuses, but transfer stays (reboot expected)
+        OtaBlocState(
+          activeTransfer: OtaTransferRebooting(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+          ),
+        ),
+      ],
+    );
+  });
+
   group('Multi-device tracking', () {
     blocTest<OtaBloc, OtaBlocState>(
       'tracks two devices independently',
