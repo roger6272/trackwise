@@ -35,7 +35,7 @@ void main() {
   setUp(() {
     mockBluetoothBloc = MockBluetoothBloc();
     mockOtaBloc = MockOtaBloc();
-    when(() => mockOtaBloc.state).thenReturn(const OtaInitial());
+    when(() => mockOtaBloc.state).thenReturn(const OtaBlocState());
   });
 
   Widget createTestWidget() {
