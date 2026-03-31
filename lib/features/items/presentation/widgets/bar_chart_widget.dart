@@ -55,6 +55,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
   static const double chartContentHorizontalPadding = 40.0;
   static const double minBarHeight = 3.0;
   static const double barAreaVerticalPadding = 8.0;
+  static const double maxBarWidth = 48.0;
   static const int divisions = 5;
 
   // Range configuration matching FlutterFlow
@@ -320,17 +321,15 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                       // Bars
                       SizedBox(
                         width: chartContentWidth,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: _buildBars(
-                            totalBars: totalBars,
-                            barAreaHeight: barAreaHeight,
-                            values: values,
-                            timeBuckets: timeBuckets,
-                            adjustedMaxY: adjustedMaxY,
-                            initialCount: initialCount,
-                            initialCountBucketIndex: initialCountBucketIndex,
-                          ),
+                        child: _buildBarRow(
+                          totalBars: totalBars,
+                          barAreaHeight: barAreaHeight,
+                          chartContentWidth: chartContentWidth,
+                          values: values,
+                          timeBuckets: timeBuckets,
+                          adjustedMaxY: adjustedMaxY,
+                          initialCount: initialCount,
+                          initialCountBucketIndex: initialCountBucketIndex,
                         ),
                       ),
                     ],
@@ -350,22 +349,11 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                             // Labels matching bar area width
                             SizedBox(
                               width: chartContentWidth,
-                              child: Row(
-                                children: List.generate(totalBars, (i) {
-                                  // Thin labels when many bars to avoid crowding
-                                  final showLabel = totalBars > 14
-                                      ? (totalBars - 1 - i) % (totalBars ~/ 6) == 0
-                                      : true;
-                                  return Expanded(
-                                    child: Container(
-                                      alignment: Alignment.topCenter,
-                                      child: Text(
-                                        showLabel ? labels[i] : '',
-                                        style: TextStyle(fontSize: 7 * fontScale),
-                                      ),
-                                    ),
-                                  );
-                                }),
+                              child: _buildXAxisLabels(
+                                totalBars: totalBars,
+                                labels: labels,
+                                chartContentWidth: chartContentWidth,
+                                fontScale: fontScale,
                               ),
                             ),
                           ],
@@ -443,6 +431,82 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     );
   }
 
+  /// Whether bars need width capping (few bars would stretch too wide).
+  bool _needsWidthCap(int totalBars, double chartContentWidth) {
+    return totalBars > 0 && (chartContentWidth / totalBars) > maxBarWidth;
+  }
+
+  Widget _buildBarRow({
+    required int totalBars,
+    required double barAreaHeight,
+    required double chartContentWidth,
+    required List<int> values,
+    required List<DateTime> timeBuckets,
+    required int adjustedMaxY,
+    required int initialCount,
+    required int? initialCountBucketIndex,
+  }) {
+    final bars = _buildBars(
+      totalBars: totalBars,
+      barAreaHeight: barAreaHeight,
+      values: values,
+      timeBuckets: timeBuckets,
+      adjustedMaxY: adjustedMaxY,
+      initialCount: initialCount,
+      initialCountBucketIndex: initialCountBucketIndex,
+      capWidth: _needsWidthCap(totalBars, chartContentWidth),
+    );
+
+    if (_needsWidthCap(totalBars, chartContentWidth)) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: bars,
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: bars,
+    );
+  }
+
+  Widget _buildXAxisLabels({
+    required int totalBars,
+    required List<String> labels,
+    required double chartContentWidth,
+    required double fontScale,
+  }) {
+    final capWidth = _needsWidthCap(totalBars, chartContentWidth);
+
+    final labelWidgets = List.generate(totalBars, (i) {
+      final showLabel = totalBars > 14
+          ? (totalBars - 1 - i) % (totalBars ~/ 6) == 0
+          : true;
+      final child = Container(
+        alignment: Alignment.topCenter,
+        child: Text(
+          showLabel ? labels[i] : '',
+          style: TextStyle(fontSize: 7 * fontScale),
+        ),
+      );
+
+      if (capWidth) {
+        return SizedBox(width: maxBarWidth, child: child);
+      }
+      return Expanded(child: child);
+    });
+
+    if (capWidth) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: labelWidgets,
+      );
+    }
+
+    return Row(children: labelWidgets);
+  }
+
   List<Widget> _buildBars({
     required int totalBars,
     required double barAreaHeight,
@@ -451,6 +515,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
     required int adjustedMaxY,
     required int initialCount,
     required int? initialCountBucketIndex,
+    bool capWidth = false,
   }) {
     // Colors for the stacked bars
     const Color initialColor = AppColors.chartInitial;
@@ -491,8 +556,7 @@ class _BarChartWidgetState extends State<BarChartWidget> {
         }
       }
 
-      return Expanded(
-        child: Padding(
+      final barContent = Padding(
           padding: const EdgeInsets.symmetric(horizontal: 1),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -542,8 +606,12 @@ class _BarChartWidgetState extends State<BarChartWidget> {
                     ),
             ),
           ),
-        ),
-      );
+        );
+
+      if (capWidth) {
+        return SizedBox(width: maxBarWidth, child: barContent);
+      }
+      return Expanded(child: barContent);
     });
   }
 
