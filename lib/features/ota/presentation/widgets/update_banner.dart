@@ -246,9 +246,10 @@ class _UpdateAvailableBanner extends StatelessWidget {
       builder: (_) => BlocProvider.value(
         value: context.read<OtaBloc>(),
         child: OtaProgressSheet(
+          deviceInstanceId: deviceInstanceId,
+          deviceName: deviceName,
           firmwareInfo: status.info,
           negotiatedMtu: negotiatedMtu,
-          deviceInstanceId: deviceInstanceId,
         ),
       ),
     );

@@ -15,11 +15,15 @@ import '../bloc/ota_state.dart';
 /// - Cancel button with confirmation
 /// - Success/error messages
 class OtaProgressSheet extends StatelessWidget {
+  final String deviceInstanceId;
+  final String deviceName;
   final FirmwareInfo firmwareInfo;
   final int negotiatedMtu;
 
   const OtaProgressSheet({
     super.key,
+    required this.deviceInstanceId,
+    required this.deviceName,
     required this.firmwareInfo,
     required this.negotiatedMtu,
   });
@@ -33,14 +37,18 @@ class OtaProgressSheet extends StatelessWidget {
 
     return BlocConsumer<OtaBloc, OtaBlocState>(
       listener: (context, state) {
-        // Auto-dismiss on complete or error after delay
-        if (state is OtaBlocComplete) {
+        if (state.activeTransfer is OtaTransferComplete) {
           Future.delayed(const Duration(seconds: 3), () {
-            if (context.mounted) Navigator.of(context).pop();
+            if (context.mounted) {
+              context.read<OtaBloc>().add(const DismissTransferResult());
+              Navigator.of(context).pop();
+            }
           });
         }
       },
       builder: (context, state) {
+        final transfer = state.activeTransfer;
+
         return Container(
           decoration: BoxDecoration(
             color: backgroundColor,
@@ -67,7 +75,7 @@ class OtaProgressSheet extends StatelessWidget {
                   const SizedBox(height: 16),
                   // Title
                   Text(
-                    'Firmware Update',
+                    'Firmware Update \u2014 $deviceName',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: primaryText,
                           fontWeight: FontWeight.w600,
@@ -99,10 +107,10 @@ class OtaProgressSheet extends StatelessWidget {
                   ],
                   const SizedBox(height: 24),
                   // Progress content based on state
-                  _buildContent(context, state),
+                  _buildContent(context, transfer),
                   const SizedBox(height: 16),
                   // Action buttons
-                  _buildActions(context, state),
+                  _buildActions(context, transfer),
                 ],
               ),
             ),
@@ -112,34 +120,32 @@ class OtaProgressSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, OtaBlocState state) {
+  Widget _buildContent(BuildContext context, OtaTransferState? transfer) {
     final brightness = Theme.of(context).brightness;
     final primaryColor = AppColors.primaryAdaptive(brightness);
     final secondaryText = AppColors.secondaryText(brightness);
 
-    return switch (state) {
-      OtaUpdateAvailable() || OtaInitial() => _StepList(
-          currentStep: -1,
+    if (transfer == null) {
+      return _StepList(
+        currentStep: -1,
+        secondaryText: secondaryText,
+        primaryColor: primaryColor,
+      );
+    }
+
+    return switch (transfer) {
+      OtaTransferDownloading() => _StepList(
+          currentStep: 0,
+          progress: transfer.progress,
           secondaryText: secondaryText,
           primaryColor: primaryColor,
         ),
-      OtaBlocDownloading() => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _StepList(
-              currentStep: 0,
-              progress: state.progress,
-              secondaryText: secondaryText,
-              primaryColor: primaryColor,
-            ),
-          ],
-        ),
-      OtaBlocTransferring() => Column(
+      OtaTransferTransferring() => Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _StepList(
               currentStep: 1,
-              progress: state.progress,
+              progress: transfer.progress,
               secondaryText: secondaryText,
               primaryColor: primaryColor,
             ),
@@ -161,7 +167,7 @@ class OtaProgressSheet extends StatelessWidget {
             ),
           ],
         ),
-      OtaBlocVerifying() => Column(
+      OtaTransferVerifying() => Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _StepList(
@@ -187,12 +193,12 @@ class OtaProgressSheet extends StatelessWidget {
             ),
           ],
         ),
-      OtaBlocRebooting() => _StepList(
+      OtaTransferRebooting() => _StepList(
           currentStep: 3,
           secondaryText: secondaryText,
           primaryColor: primaryColor,
         ),
-      OtaBlocComplete() => Column(
+      OtaTransferComplete() => Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.check_circle, size: 48, color: AppColors.success),
@@ -206,14 +212,14 @@ class OtaProgressSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Firmware updated to v${state.newVersion}',
+              'Firmware updated to v${transfer.newVersion}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: secondaryText,
                   ),
             ),
           ],
         ),
-      OtaBlocError() => Column(
+      OtaTransferError() => Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline, size: 48, color: AppColors.error),
@@ -227,7 +233,7 @@ class OtaProgressSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              state.message,
+              transfer.message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: secondaryText,
@@ -235,36 +241,39 @@ class OtaProgressSheet extends StatelessWidget {
             ),
           ],
         ),
-      _ => const SizedBox.shrink(),
     };
   }
 
-  Widget _buildActions(BuildContext context, OtaBlocState state) {
-    return switch (state) {
-      OtaUpdateAvailable() || OtaInitial() => Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Later',
-                style: TextStyle(color: AppColors.secondaryText(Theme.of(context).brightness)),
-              ),
+  Widget _buildActions(BuildContext context, OtaTransferState? transfer) {
+    if (transfer == null) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Later',
+              style: TextStyle(color: AppColors.secondaryText(Theme.of(context).brightness)),
             ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: () {
-                context.read<OtaBloc>().add(StartUpdateRequested(
-                      firmwareInfo: firmwareInfo,
-                      negotiatedMtu: negotiatedMtu,
-                    ));
-              },
-              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-              child: const Text('Update Now', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      OtaBlocDownloading() || OtaBlocTransferring() => Row(
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () {
+              context.read<OtaBloc>().add(StartUpdateRequested(
+                    deviceInstanceId: deviceInstanceId,
+                    firmwareInfo: firmwareInfo,
+                    negotiatedMtu: negotiatedMtu,
+                  ));
+            },
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('Update Now', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    }
+
+    return switch (transfer) {
+      OtaTransferDownloading() || OtaTransferTransferring() => Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton(
@@ -273,28 +282,33 @@ class OtaProgressSheet extends StatelessWidget {
             ),
           ],
         ),
-      OtaBlocVerifying() || OtaBlocRebooting() => const SizedBox.shrink(),
-      OtaBlocComplete() => Row(
+      OtaTransferVerifying() || OtaTransferRebooting() => const SizedBox.shrink(),
+      OtaTransferComplete() => Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                context.read<OtaBloc>().add(const DismissTransferResult());
+                Navigator.of(context).pop();
+              },
               style: FilledButton.styleFrom(backgroundColor: AppColors.success),
               child: const Text('Done', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
-      OtaBlocError() => Row(
+      OtaTransferError() => Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                context.read<OtaBloc>().add(const DismissTransferResult());
+                Navigator.of(context).pop();
+              },
               style: FilledButton.styleFrom(backgroundColor: AppColors.error),
               child: const Text('Dismiss', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
-      _ => const SizedBox.shrink(),
     };
   }
 
