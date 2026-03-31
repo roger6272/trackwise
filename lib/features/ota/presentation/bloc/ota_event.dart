@@ -14,25 +14,31 @@ abstract class OtaEvent extends Equatable {
 /// Triggered on device connect after handshake completes.
 class CheckForUpdateRequested extends OtaEvent {
   final String deviceFirmwareVersion;
+  final String deviceInstanceId;
 
-  const CheckForUpdateRequested(this.deviceFirmwareVersion);
+  const CheckForUpdateRequested(
+    this.deviceFirmwareVersion, {
+    required this.deviceInstanceId,
+  });
 
   @override
-  List<Object?> get props => [deviceFirmwareVersion];
+  List<Object?> get props => [deviceFirmwareVersion, deviceInstanceId];
 }
 
 /// User taps "Update Now".
 class StartUpdateRequested extends OtaEvent {
   final FirmwareInfo firmwareInfo;
   final int negotiatedMtu;
+  final String deviceInstanceId;
 
   const StartUpdateRequested({
     required this.firmwareInfo,
     required this.negotiatedMtu,
+    required this.deviceInstanceId,
   });
 
   @override
-  List<Object?> get props => [firmwareInfo, negotiatedMtu];
+  List<Object?> get props => [firmwareInfo, negotiatedMtu, deviceInstanceId];
 }
 
 /// User taps Cancel during update.
@@ -42,7 +48,12 @@ class CancelUpdateRequested extends OtaEvent {
 
 /// User dismisses optional update banner.
 class DismissUpdateBanner extends OtaEvent {
-  const DismissUpdateBanner();
+  final String deviceInstanceId;
+
+  const DismissUpdateBanner({required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }
 
 /// Progress update from PerformOtaUpdate stream.
@@ -58,14 +69,28 @@ class OtaProgressUpdated extends OtaEvent {
 /// After reconnect + handshake verifies new version.
 class OtaRebootCompleted extends OtaEvent {
   final String newVersion;
+  final String deviceInstanceId;
 
-  const OtaRebootCompleted(this.newVersion);
+  const OtaRebootCompleted(
+    this.newVersion, {
+    required this.deviceInstanceId,
+  });
 
   @override
-  List<Object?> get props => [newVersion];
+  List<Object?> get props => [newVersion, deviceInstanceId];
 }
 
 /// Device didn't reconnect within 30s.
 class OtaRebootTimedOut extends OtaEvent {
   const OtaRebootTimedOut();
+}
+
+/// A device disconnected — remove its OTA tracking state.
+class OtaDeviceDisconnected extends OtaEvent {
+  final String deviceInstanceId;
+
+  const OtaDeviceDisconnected({required this.deviceInstanceId});
+
+  @override
+  List<Object?> get props => [deviceInstanceId];
 }

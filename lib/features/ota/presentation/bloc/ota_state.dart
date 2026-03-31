@@ -1,106 +1,139 @@
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/firmware_info.dart';
+import 'ota_device_status.dart';
 
-/// States for the OTA BLoC.
-///
-/// Represents the full lifecycle of a firmware update check and transfer.
-abstract class OtaBlocState extends Equatable {
-  const OtaBlocState();
+/// Composite OTA state with per-device awareness and single active transfer.
+class OtaBlocState extends Equatable {
+  /// Per-device update awareness, keyed by deviceInstanceId.
+  final Map<String, OtaDeviceStatus> deviceStatuses;
+
+  /// The currently active OTA transfer (at most one at a time).
+  final OtaTransferState? activeTransfer;
+
+  const OtaBlocState({
+    this.deviceStatuses = const {},
+    this.activeTransfer,
+  });
+
+  /// Whether any device has an available update (not dismissed).
+  bool get hasAvailableUpdates => deviceStatuses.values
+      .any((status) => status is OtaDeviceUpdateAvailable);
+
+  /// Number of devices with available updates.
+  int get availableUpdateCount => deviceStatuses.values
+      .where((status) => status is OtaDeviceUpdateAvailable)
+      .length;
+
+  /// Whether an OTA transfer is actively in progress.
+  bool get isTransferInProgress {
+    final transfer = activeTransfer;
+    return transfer != null &&
+        transfer is! OtaTransferComplete &&
+        transfer is! OtaTransferError;
+  }
+
+  /// The deviceInstanceId of the device currently being updated, if any.
+  String? get activeDeviceId => activeTransfer?.deviceInstanceId;
+
+  OtaBlocState copyWith({
+    Map<String, OtaDeviceStatus>? deviceStatuses,
+    OtaTransferState? activeTransfer,
+    bool clearActiveTransfer = false,
+  }) {
+    return OtaBlocState(
+      deviceStatuses: deviceStatuses ?? this.deviceStatuses,
+      activeTransfer:
+          clearActiveTransfer ? null : (activeTransfer ?? this.activeTransfer),
+    );
+  }
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [deviceStatuses, activeTransfer];
 }
 
-/// Initial state — no update check performed yet.
-class OtaInitial extends OtaBlocState {
-  const OtaInitial();
-}
-
-/// A firmware update is available.
-class OtaUpdateAvailable extends OtaBlocState {
+/// Base class for active OTA transfer states.
+sealed class OtaTransferState extends Equatable {
+  final String deviceInstanceId;
   final FirmwareInfo info;
-  final bool isRequired;
 
-  const OtaUpdateAvailable({required this.info, required this.isRequired});
-
-  @override
-  List<Object?> get props => [info, isRequired];
-}
-
-/// The app itself needs updating before firmware can be installed.
-class OtaAppUpdateRequired extends OtaBlocState {
-  final String minAppVersion;
-
-  const OtaAppUpdateRequired(this.minAppVersion);
+  const OtaTransferState({
+    required this.deviceInstanceId,
+    required this.info,
+  });
 
   @override
-  List<Object?> get props => [minAppVersion];
+  List<Object?> get props => [deviceInstanceId, info];
 }
 
-/// Downloading firmware binary.
-class OtaBlocDownloading extends OtaBlocState {
+/// Downloading firmware binary from cloud.
+class OtaTransferDownloading extends OtaTransferState {
   final double progress;
-  final FirmwareInfo info;
 
-  const OtaBlocDownloading({required this.progress, required this.info});
+  const OtaTransferDownloading({
+    required super.deviceInstanceId,
+    required super.info,
+    required this.progress,
+  });
 
   @override
-  List<Object?> get props => [progress, info];
+  List<Object?> get props => [deviceInstanceId, info, progress];
 }
 
 /// Transferring firmware to device over BLE.
-class OtaBlocTransferring extends OtaBlocState {
+class OtaTransferTransferring extends OtaTransferState {
   final double progress;
-  final FirmwareInfo info;
 
-  const OtaBlocTransferring({required this.progress, required this.info});
+  const OtaTransferTransferring({
+    required super.deviceInstanceId,
+    required super.info,
+    required this.progress,
+  });
 
   @override
-  List<Object?> get props => [progress, info];
+  List<Object?> get props => [deviceInstanceId, info, progress];
 }
 
 /// Device is verifying the received firmware.
-class OtaBlocVerifying extends OtaBlocState {
-  final FirmwareInfo info;
-
-  const OtaBlocVerifying({required this.info});
-
-  @override
-  List<Object?> get props => [info];
+class OtaTransferVerifying extends OtaTransferState {
+  const OtaTransferVerifying({
+    required super.deviceInstanceId,
+    required super.info,
+  });
 }
 
 /// Device is rebooting with new firmware.
-class OtaBlocRebooting extends OtaBlocState {
-  final FirmwareInfo info;
-
-  const OtaBlocRebooting({required this.info});
-
-  @override
-  List<Object?> get props => [info];
+class OtaTransferRebooting extends OtaTransferState {
+  const OtaTransferRebooting({
+    required super.deviceInstanceId,
+    required super.info,
+  });
 }
 
-/// OTA update completed successfully.
-class OtaBlocComplete extends OtaBlocState {
+/// OTA transfer completed successfully.
+class OtaTransferComplete extends OtaTransferState {
   final String newVersion;
 
-  const OtaBlocComplete(this.newVersion);
+  const OtaTransferComplete({
+    required super.deviceInstanceId,
+    required super.info,
+    required this.newVersion,
+  });
 
   @override
-  List<Object?> get props => [newVersion];
+  List<Object?> get props => [deviceInstanceId, info, newVersion];
 }
 
-/// OTA operation failed.
-class OtaBlocError extends OtaBlocState {
+/// OTA transfer failed.
+class OtaTransferError extends OtaTransferState {
   final String message;
 
-  const OtaBlocError(this.message);
+  const OtaTransferError({
+    required super.deviceInstanceId,
+    required super.info,
+    required this.message,
+  });
 
   @override
-  List<Object?> get props => [message];
-}
-
-/// User dismissed optional update banner.
-class OtaDismissed extends OtaBlocState {
-  const OtaDismissed();
+  List<Object?> get props => [deviceInstanceId, info, message];
 }

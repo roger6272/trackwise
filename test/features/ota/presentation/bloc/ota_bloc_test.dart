@@ -7,11 +7,14 @@ import 'package:traxelos/features/ota/domain/entities/firmware_info.dart';
 import 'package:traxelos/features/ota/domain/entities/ota_state.dart' as domain;
 import 'package:traxelos/features/ota/domain/usecases/check_for_update.dart';
 import 'package:traxelos/features/ota/presentation/bloc/ota_bloc.dart';
+import 'package:traxelos/features/ota/presentation/bloc/ota_device_status.dart';
 import 'package:traxelos/features/ota/presentation/bloc/ota_event.dart';
 import 'package:traxelos/features/ota/presentation/bloc/ota_state.dart';
 
 import '../../helpers/test_fixtures.dart';
 import '../../helpers/test_helper.dart';
+
+const _deviceId = 'device-1';
 
 void main() {
   late MockCheckForUpdateUseCase mockCheckForUpdate;
@@ -65,15 +68,15 @@ void main() {
         mockConnectivity,
       );
 
-  test('initial state is OtaInitial', () {
+  test('initial state is empty OtaBlocState', () {
     final bloc = buildBloc();
-    expect(bloc.state, const OtaInitial());
+    expect(bloc.state, const OtaBlocState());
     bloc.close();
   });
 
   group('CheckForUpdateRequested', () {
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaUpdateAvailable when optional update is available',
+      'emits device update available when optional update is available',
       build: () {
         when(() => mockCheckForUpdate(any())).thenAnswer(
           (_) async => Right(UpdateAvailable(
@@ -83,14 +86,22 @@ void main() {
         );
         return buildBloc();
       },
-      act: (bloc) => bloc.add(const CheckForUpdateRequested('1.5.0')),
+      act: (bloc) => bloc.add(const CheckForUpdateRequested(
+        '1.5.0',
+        deviceInstanceId: _deviceId,
+      )),
       expect: () => [
-        OtaUpdateAvailable(info: testFirmwareInfo, isRequired: false),
+        OtaBlocState(deviceStatuses: {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        }),
       ],
     );
 
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaUpdateAvailable(isRequired: true) when update is required',
+      'emits device update available (isRequired: true) when update is required',
       build: () {
         when(() => mockCheckForUpdate(any())).thenAnswer(
           (_) async => Right(UpdateAvailable(
@@ -100,14 +111,22 @@ void main() {
         );
         return buildBloc();
       },
-      act: (bloc) => bloc.add(const CheckForUpdateRequested('0.5.0')),
+      act: (bloc) => bloc.add(const CheckForUpdateRequested(
+        '0.5.0',
+        deviceInstanceId: _deviceId,
+      )),
       expect: () => [
-        OtaUpdateAvailable(info: testFirmwareInfo, isRequired: true),
+        OtaBlocState(deviceStatuses: {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: true,
+          ),
+        }),
       ],
     );
 
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaAppUpdateRequired when app needs updating',
+      'emits device app update required when app needs updating',
       build: () {
         when(() => mockCheckForUpdate(any())).thenAnswer(
           (_) async =>
@@ -115,20 +134,34 @@ void main() {
         );
         return buildBloc();
       },
-      act: (bloc) => bloc.add(const CheckForUpdateRequested('1.0.0')),
-      expect: () => [const OtaAppUpdateRequired('3.0.0')],
+      act: (bloc) => bloc.add(const CheckForUpdateRequested(
+        '1.0.0',
+        deviceInstanceId: _deviceId,
+      )),
+      expect: () => [
+        const OtaBlocState(deviceStatuses: {
+          _deviceId: OtaDeviceAppUpdateRequired('3.0.0'),
+        }),
+      ],
     );
 
     blocTest<OtaBloc, OtaBlocState>(
-      'emits nothing when device is up to date',
+      'emits device up to date when firmware is current',
       build: () {
         when(() => mockCheckForUpdate(any())).thenAnswer(
           (_) async => const Right(UpToDate()),
         );
         return buildBloc();
       },
-      act: (bloc) => bloc.add(const CheckForUpdateRequested('2.1.0')),
-      expect: () => <OtaBlocState>[],
+      act: (bloc) => bloc.add(const CheckForUpdateRequested(
+        '2.1.0',
+        deviceInstanceId: _deviceId,
+      )),
+      expect: () => [
+        const OtaBlocState(deviceStatuses: {
+          _deviceId: OtaDeviceUpToDate(),
+        }),
+      ],
     );
 
     blocTest<OtaBloc, OtaBlocState>(
@@ -140,7 +173,10 @@ void main() {
         );
         return buildBloc();
       },
-      act: (bloc) => bloc.add(const CheckForUpdateRequested('1.0.0')),
+      act: (bloc) => bloc.add(const CheckForUpdateRequested(
+        '1.0.0',
+        deviceInstanceId: _deviceId,
+      )),
       expect: () => <OtaBlocState>[],
     );
   });
@@ -155,10 +191,25 @@ void main() {
             firmwareInfo: testFirmwareInfo,
           )),
         );
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
         return buildBloc();
       },
       act: (bloc) async {
-        bloc.add(const CheckForUpdateRequested('1.0.0'));
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
         await Future<void>.delayed(const Duration(milliseconds: 50));
         bloc
           ..add(const OtaProgressUpdated(domain.OtaDownloading(0.5)))
@@ -168,19 +219,75 @@ void main() {
           ..add(const OtaProgressUpdated(domain.OtaVerifying()))
           ..add(const OtaProgressUpdated(domain.OtaRebooting()));
       },
-      expect: () => [
-        OtaUpdateAvailable(info: testFirmwareInfo, isRequired: false),
-        OtaBlocDownloading(progress: 0.5, info: testFirmwareInfo),
-        OtaBlocDownloading(progress: 1.0, info: testFirmwareInfo),
-        OtaBlocTransferring(progress: 0.5, info: testFirmwareInfo),
-        OtaBlocTransferring(progress: 1.0, info: testFirmwareInfo),
-        OtaBlocVerifying(info: testFirmwareInfo),
-        OtaBlocRebooting(info: testFirmwareInfo),
-      ],
+      expect: () {
+        final deviceStatuses = {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        };
+        return [
+          OtaBlocState(deviceStatuses: deviceStatuses),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferDownloading(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 0.0,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferDownloading(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 0.5,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferDownloading(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 1.0,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferTransferring(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 0.5,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferTransferring(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 1.0,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferVerifying(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferRebooting(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+            ),
+          ),
+        ];
+      },
     );
 
     blocTest<OtaBloc, OtaBlocState>(
-      'OtaError from stream emits OtaBlocError',
+      'OtaError from stream emits OtaTransferError',
       build: () {
         when(() => mockCheckForUpdate(any())).thenAnswer(
           (_) async => Right(UpdateAvailable(
@@ -188,25 +295,65 @@ void main() {
             firmwareInfo: testFirmwareInfo,
           )),
         );
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
         return buildBloc();
       },
       act: (bloc) async {
-        bloc.add(const CheckForUpdateRequested('1.0.0'));
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
         await Future<void>.delayed(const Duration(milliseconds: 50));
         bloc.add(
-          const OtaProgressUpdated(domain.OtaError('Download failed: timeout')),
+          const OtaProgressUpdated(
+            domain.OtaError('Download failed: timeout'),
+          ),
         );
       },
-      expect: () => [
-        OtaUpdateAvailable(info: testFirmwareInfo, isRequired: false),
-        const OtaBlocError('Download failed: timeout'),
-      ],
+      expect: () {
+        final deviceStatuses = {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        };
+        return [
+          OtaBlocState(deviceStatuses: deviceStatuses),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferDownloading(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 0.0,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferError(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              message: 'Download failed: timeout',
+            ),
+          ),
+        ];
+      },
     );
   });
 
   group('CancelUpdateRequested', () {
     blocTest<OtaBloc, OtaBlocState>(
-      'returns to OtaUpdateAvailable when cancelled during transfer',
+      'restores device to update available and clears active transfer',
       build: () {
         when(() => mockCheckForUpdate(any())).thenAnswer(
           (_) async => Right(UpdateAvailable(
@@ -214,26 +361,65 @@ void main() {
             firmwareInfo: testFirmwareInfo,
           )),
         );
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
         return buildBloc();
       },
       act: (bloc) async {
-        bloc.add(const CheckForUpdateRequested('1.0.0'));
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
         await Future<void>.delayed(const Duration(milliseconds: 50));
         bloc.add(const OtaProgressUpdated(domain.OtaTransferring(0.3)));
         await Future<void>.delayed(const Duration(milliseconds: 50));
         bloc.add(const CancelUpdateRequested());
       },
-      expect: () => [
-        OtaUpdateAvailable(info: testFirmwareInfo, isRequired: false),
-        OtaBlocTransferring(progress: 0.3, info: testFirmwareInfo),
-        OtaUpdateAvailable(info: testFirmwareInfo, isRequired: false),
-      ],
+      expect: () {
+        final deviceStatuses = {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        };
+        return [
+          OtaBlocState(deviceStatuses: deviceStatuses),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferDownloading(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 0.0,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: deviceStatuses,
+            activeTransfer: OtaTransferTransferring(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 0.3,
+            ),
+          ),
+          // After cancel: device restored to update available, transfer cleared
+          OtaBlocState(deviceStatuses: deviceStatuses),
+        ];
+      },
     );
   });
 
   group('DismissUpdateBanner', () {
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaDismissed when optional update banner is dismissed',
+      'emits device dismissed when optional update banner is dismissed',
       build: () {
         when(() => mockCheckForUpdate(any())).thenAnswer(
           (_) async => Right(UpdateAvailable(
@@ -244,34 +430,139 @@ void main() {
         return buildBloc();
       },
       act: (bloc) async {
-        bloc.add(const CheckForUpdateRequested('1.0.0'));
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
         await Future<void>.delayed(const Duration(milliseconds: 50));
-        bloc.add(const DismissUpdateBanner());
+        bloc.add(const DismissUpdateBanner(deviceInstanceId: _deviceId));
       },
       expect: () => [
-        OtaUpdateAvailable(info: testFirmwareInfo, isRequired: false),
-        const OtaDismissed(),
+        OtaBlocState(deviceStatuses: {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        }),
+        const OtaBlocState(deviceStatuses: {
+          _deviceId: OtaDeviceDismissed(),
+        }),
       ],
     );
   });
 
   group('OtaRebootCompleted', () {
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaBlocComplete with new version',
-      build: buildBloc,
-      act: (bloc) => bloc.add(const OtaRebootCompleted('2.1.0')),
-      expect: () => [const OtaBlocComplete('2.1.0')],
+      'marks device as up to date and sets transfer complete',
+      build: () {
+        when(() => mockCheckForUpdate(any())).thenAnswer(
+          (_) async => Right(UpdateAvailable(
+            isRequired: false,
+            firmwareInfo: testFirmwareInfo,
+          )),
+        );
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const OtaProgressUpdated(domain.OtaRebooting()));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const OtaRebootCompleted(
+          '2.1.0',
+          deviceInstanceId: _deviceId,
+        ));
+      },
+      expect: () {
+        final updateAvailableStatuses = {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        };
+        return [
+          OtaBlocState(deviceStatuses: updateAvailableStatuses),
+          OtaBlocState(
+            deviceStatuses: updateAvailableStatuses,
+            activeTransfer: OtaTransferDownloading(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              progress: 0.0,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: updateAvailableStatuses,
+            activeTransfer: OtaTransferRebooting(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+            ),
+          ),
+          OtaBlocState(
+            deviceStatuses: const {
+              _deviceId: OtaDeviceUpToDate(),
+            },
+            activeTransfer: OtaTransferComplete(
+              deviceInstanceId: _deviceId,
+              info: testFirmwareInfo,
+              newVersion: '2.1.0',
+            ),
+          ),
+        ];
+      },
     );
   });
 
   group('OtaRebootTimedOut', () {
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaBlocError with timeout message',
-      build: buildBloc,
-      act: (bloc) => bloc.add(const OtaRebootTimedOut()),
+      'emits transfer error with timeout message',
+      build: () {
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const OtaRebootTimedOut());
+      },
       expect: () => [
-        const OtaBlocError(
-          'Device didn\'t respond after update. Try turning it off and on again.',
+        OtaBlocState(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.0,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferError(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            message:
+                'Device didn\'t respond after update. Try turning it off and on again.',
+          ),
         ),
       ],
     );
@@ -279,7 +570,7 @@ void main() {
 
   group('StartUpdateRequested', () {
     blocTest<OtaBloc, OtaBlocState>(
-      'happy path: emits downloading → transferring → verifying → rebooting → rebooting (complete)',
+      'happy path: emits downloading → transferring → verifying → rebooting',
       build: () {
         when(() => mockConnectivity.hasInternetConnection())
             .thenAnswer((_) async => true);
@@ -296,18 +587,45 @@ void main() {
         return buildBloc();
       },
       act: (bloc) => bloc.add(StartUpdateRequested(
+        deviceInstanceId: _deviceId,
         firmwareInfo: testFirmwareInfo,
         negotiatedMtu: 512,
       )),
       wait: const Duration(milliseconds: 100),
       expect: () => [
-        OtaBlocDownloading(progress: 0.0, info: testFirmwareInfo),
-        OtaBlocDownloading(progress: 0.5, info: testFirmwareInfo),
-        OtaBlocTransferring(progress: 0.5, info: testFirmwareInfo),
-        OtaBlocVerifying(info: testFirmwareInfo),
-        // OtaRebooting and OtaComplete both emit OtaBlocRebooting;
-        // bloc deduplicates consecutive equal states
-        OtaBlocRebooting(info: testFirmwareInfo),
+        OtaBlocState(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.0,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.5,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferTransferring(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.5,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferVerifying(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferRebooting(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+          ),
+        ),
       ],
       verify: (_) {
         verify(() => mockPerformOtaUpdate.execute(
@@ -322,19 +640,25 @@ void main() {
     );
 
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaBlocError when no internet connection',
+      'emits transfer error when no internet connection',
       build: () {
         when(() => mockConnectivity.hasInternetConnection())
             .thenAnswer((_) async => false);
         return buildBloc();
       },
       act: (bloc) => bloc.add(StartUpdateRequested(
+        deviceInstanceId: _deviceId,
         firmwareInfo: testFirmwareInfo,
         negotiatedMtu: 512,
       )),
       expect: () => [
-        const OtaBlocError(
-          'No internet connection. Connect to Wi-Fi or mobile data and try again.',
+        OtaBlocState(
+          activeTransfer: OtaTransferError(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            message:
+                'No internet connection. Connect to Wi-Fi or mobile data and try again.',
+          ),
         ),
       ],
       verify: (_) {
@@ -346,7 +670,7 @@ void main() {
     );
 
     blocTest<OtaBloc, OtaBlocState>(
-      'emits OtaBlocError when use case stream emits OtaError',
+      'emits transfer error when use case stream emits OtaError',
       build: () {
         when(() => mockConnectivity.hasInternetConnection())
             .thenAnswer((_) async => true);
@@ -360,14 +684,33 @@ void main() {
         return buildBloc();
       },
       act: (bloc) => bloc.add(StartUpdateRequested(
+        deviceInstanceId: _deviceId,
         firmwareInfo: testFirmwareInfo,
         negotiatedMtu: 512,
       )),
       wait: const Duration(milliseconds: 100),
       expect: () => [
-        OtaBlocDownloading(progress: 0.0, info: testFirmwareInfo),
-        OtaBlocDownloading(progress: 0.5, info: testFirmwareInfo),
-        const OtaBlocError('Download failed: timeout'),
+        OtaBlocState(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.0,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.5,
+          ),
+        ),
+        OtaBlocState(
+          activeTransfer: OtaTransferError(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            message: 'Download failed: timeout',
+          ),
+        ),
       ],
       verify: (_) {
         verify(() => mockAnalytics.logOtaFailed(
@@ -375,6 +718,113 @@ void main() {
               fromVersion: any(named: 'fromVersion'),
               toVersion: '2.1.0',
             )).called(1);
+      },
+    );
+
+    blocTest<OtaBloc, OtaBlocState>(
+      'ignores second start request while transfer is in progress',
+      build: () {
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Second start should be ignored
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: 'device-2',
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 512,
+        ));
+      },
+      expect: () => [
+        OtaBlocState(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: _deviceId,
+            info: testFirmwareInfo,
+            progress: 0.0,
+          ),
+        ),
+      ],
+    );
+  });
+
+  group('OtaDeviceDisconnected', () {
+    blocTest<OtaBloc, OtaBlocState>(
+      'removes device from statuses',
+      build: () {
+        when(() => mockCheckForUpdate(any())).thenAnswer(
+          (_) async => Right(UpdateAvailable(
+            isRequired: false,
+            firmwareInfo: testFirmwareInfo,
+          )),
+        );
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const OtaDeviceDisconnected(deviceInstanceId: _deviceId));
+      },
+      expect: () => [
+        OtaBlocState(deviceStatuses: {
+          _deviceId: OtaDeviceUpdateAvailable(
+            info: testFirmwareInfo,
+            isRequired: false,
+          ),
+        }),
+        const OtaBlocState(),
+      ],
+    );
+  });
+
+  group('Multi-device tracking', () {
+    blocTest<OtaBloc, OtaBlocState>(
+      'tracks two devices independently',
+      build: () {
+        when(() => mockCheckForUpdate(any())).thenAnswer(
+          (_) async => Right(UpdateAvailable(
+            isRequired: false,
+            firmwareInfo: testFirmwareInfo,
+          )),
+        );
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: 'device-1',
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: 'device-2',
+        ));
+      },
+      expect: () {
+        final status = OtaDeviceUpdateAvailable(
+          info: testFirmwareInfo,
+          isRequired: false,
+        );
+        return [
+          OtaBlocState(deviceStatuses: {'device-1': status}),
+          OtaBlocState(deviceStatuses: {
+            'device-1': status,
+            'device-2': status,
+          }),
+        ];
       },
     );
   });

@@ -7,18 +7,18 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/utils/logger.dart';
-import '../../domain/entities/firmware_info.dart';
 import '../../domain/entities/ota_state.dart' as domain;
 import '../../domain/usecases/check_for_update.dart';
 import '../../domain/usecases/perform_ota_update.dart';
+import 'ota_device_status.dart';
 import 'ota_event.dart';
 import 'ota_state.dart';
 
 /// BLoC for managing OTA firmware update lifecycle.
 ///
 /// Handles:
-/// - Checking for available firmware updates after device connect
-/// - Download, transfer, verify, reboot flow via PerformOtaUpdate
+/// - Per-device update awareness (which devices need updates)
+/// - Single active OTA transfer (download, transfer, verify, reboot)
 /// - Cancel support
 /// - Post-reboot verification
 @lazySingleton
@@ -30,8 +30,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
 
   StreamSubscription<domain.OtaState>? _otaSubscription;
   Timer? _rebootTimer;
-  FirmwareInfo? _currentFirmwareInfo;
-  String? _deviceFirmwareVersion;
+  final Map<String, String> _deviceFirmwareVersions = {};
   DateTime? _otaStartTime;
 
   /// Duration to wait for device reconnect after OTA reboot.
@@ -42,7 +41,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     this._performOtaUpdate,
     this._analytics,
     this._connectivity,
-  ) : super(const OtaInitial()) {
+  ) : super(const OtaBlocState()) {
     on<CheckForUpdateRequested>(_onCheckForUpdate);
     on<StartUpdateRequested>(_onStartUpdate);
     on<CancelUpdateRequested>(_onCancelUpdate);
@@ -50,40 +49,52 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     on<OtaProgressUpdated>(_onProgressUpdated);
     on<OtaRebootCompleted>(_onRebootCompleted);
     on<OtaRebootTimedOut>(_onRebootTimedOut);
+    on<OtaDeviceDisconnected>(_onDeviceDisconnected);
   }
 
   Future<void> _onCheckForUpdate(
     CheckForUpdateRequested event,
     Emitter<OtaBlocState> emit,
   ) async {
-    AppLogger.debug('OTA: Checking for update (device: v${event.deviceFirmwareVersion})');
-    _deviceFirmwareVersion = event.deviceFirmwareVersion;
+    final deviceId = event.deviceInstanceId;
+    AppLogger.debug(
+      'OTA: Checking for update (device: $deviceId, v${event.deviceFirmwareVersion})',
+    );
+    _deviceFirmwareVersions[deviceId] = event.deviceFirmwareVersion;
 
     final result = await _checkForUpdate.call(
-      CheckForUpdateParams(deviceFirmwareVersion: event.deviceFirmwareVersion),
+      CheckForUpdateParams(
+        deviceFirmwareVersion: event.deviceFirmwareVersion,
+      ),
     );
 
     result.fold(
       (failure) {
         AppLogger.error('OTA: Update check failed: ${failure.message}');
-        // Don't emit error for check failures — silently stay in initial state
+        // Don't emit error for check failures — silently keep current state
       },
       (checkResult) {
+        final updatedStatuses =
+            Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
+
         switch (checkResult) {
           case UpdateAvailable():
-            _currentFirmwareInfo = checkResult.firmwareInfo;
-            emit(OtaUpdateAvailable(
+            updatedStatuses[deviceId] = OtaDeviceUpdateAvailable(
               info: checkResult.firmwareInfo,
               isRequired: checkResult.isRequired,
-            ));
+            );
+            emit(state.copyWith(deviceStatuses: updatedStatuses));
           case AppUpdateRequired():
-            emit(OtaAppUpdateRequired(checkResult.minAppVersion));
+            updatedStatuses[deviceId] =
+                OtaDeviceAppUpdateRequired(checkResult.minAppVersion);
+            emit(state.copyWith(deviceStatuses: updatedStatuses));
           case UpToDate():
-            AppLogger.debug('OTA: Firmware is up to date');
-            // Stay in initial state — no banner needed
+            AppLogger.debug('OTA: Firmware is up to date ($deviceId)');
+            updatedStatuses[deviceId] = const OtaDeviceUpToDate();
+            emit(state.copyWith(deviceStatuses: updatedStatuses));
           case CheckFailed():
             AppLogger.debug('OTA: Check failed: ${checkResult.reason}');
-            // Stay in initial state — don't bother user with check failures
+            // Don't update device status — don't bother user with check failures
         }
       },
     );
@@ -93,20 +104,37 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     StartUpdateRequested event,
     Emitter<OtaBlocState> emit,
   ) async {
+    // Only one transfer at a time
+    if (state.isTransferInProgress) return;
+
     // Check internet connectivity before starting
     final hasInternet = await _connectivity.hasInternetConnection();
     if (!hasInternet) {
-      emit(const OtaBlocError('No internet connection. Connect to Wi-Fi or mobile data and try again.'));
+      emit(state.copyWith(
+        activeTransfer: OtaTransferError(
+          deviceInstanceId: event.deviceInstanceId,
+          info: event.firmwareInfo,
+          message:
+              'No internet connection. Connect to Wi-Fi or mobile data and try again.',
+        ),
+      ));
       return;
     }
 
-    _currentFirmwareInfo = event.firmwareInfo;
+    final deviceId = event.deviceInstanceId;
     _otaStartTime = DateTime.now();
     _setWakelock(true);
-    emit(OtaBlocDownloading(progress: 0.0, info: event.firmwareInfo));
+
+    emit(state.copyWith(
+      activeTransfer: OtaTransferDownloading(
+        deviceInstanceId: deviceId,
+        info: event.firmwareInfo,
+        progress: 0.0,
+      ),
+    ));
 
     _analytics.logOtaStarted(
-      fromVersion: _deviceFirmwareVersion ?? 'unknown',
+      fromVersion: _deviceFirmwareVersions[deviceId] ?? 'unknown',
       toVersion: event.firmwareInfo.version,
     );
 
@@ -132,18 +160,24 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   ) {
     AppLogger.debug('OTA: Update cancelled by user');
 
+    final transfer = state.activeTransfer;
+
     // Determine progress at cancel time
     double progressPercent = 0.0;
-    final s = state;
-    if (s is OtaBlocDownloading) {
-      progressPercent = s.progress * 100;
-    } else if (s is OtaBlocTransferring) {
-      progressPercent = s.progress * 100;
+    if (transfer is OtaTransferDownloading) {
+      progressPercent = transfer.progress * 100;
+    } else if (transfer is OtaTransferTransferring) {
+      progressPercent = transfer.progress * 100;
     }
 
+    final deviceId = transfer?.deviceInstanceId;
+    final info = transfer?.info;
+
     _analytics.logOtaCancelled(
-      fromVersion: _deviceFirmwareVersion ?? 'unknown',
-      toVersion: _currentFirmwareInfo?.version ?? 'unknown',
+      fromVersion: deviceId != null
+          ? (_deviceFirmwareVersions[deviceId] ?? 'unknown')
+          : 'unknown',
+      toVersion: info?.version ?? 'unknown',
       progressPercent: progressPercent,
     );
 
@@ -153,14 +187,20 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _rebootTimer = null;
     _setWakelock(false);
 
-    // Return to update available state if we have firmware info
-    if (_currentFirmwareInfo != null) {
-      emit(OtaUpdateAvailable(
-        info: _currentFirmwareInfo!,
+    // Restore device to update available if we have info
+    if (deviceId != null && info != null) {
+      final updatedStatuses =
+          Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
+      updatedStatuses[deviceId] = OtaDeviceUpdateAvailable(
+        info: info,
         isRequired: false, // If they can cancel, it's not required
+      );
+      emit(state.copyWith(
+        deviceStatuses: updatedStatuses,
+        clearActiveTransfer: true,
       ));
     } else {
-      emit(const OtaInitial());
+      emit(state.copyWith(clearActiveTransfer: true));
     }
   }
 
@@ -168,27 +208,54 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     DismissUpdateBanner event,
     Emitter<OtaBlocState> emit,
   ) {
-    emit(const OtaDismissed());
+    final updatedStatuses =
+        Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
+    updatedStatuses[event.deviceInstanceId] = const OtaDeviceDismissed();
+    emit(state.copyWith(deviceStatuses: updatedStatuses));
   }
 
   void _onProgressUpdated(
     OtaProgressUpdated event,
     Emitter<OtaBlocState> emit,
   ) {
-    final info = _currentFirmwareInfo;
-    if (info == null) return;
+    final transfer = state.activeTransfer;
+    if (transfer == null) return;
 
+    final deviceId = transfer.deviceInstanceId;
+    final info = transfer.info;
     final progress = event.progress;
 
     switch (progress) {
       case domain.OtaDownloading():
-        emit(OtaBlocDownloading(progress: progress.progress, info: info));
+        emit(state.copyWith(
+          activeTransfer: OtaTransferDownloading(
+            deviceInstanceId: deviceId,
+            info: info,
+            progress: progress.progress,
+          ),
+        ));
       case domain.OtaTransferring():
-        emit(OtaBlocTransferring(progress: progress.progress, info: info));
+        emit(state.copyWith(
+          activeTransfer: OtaTransferTransferring(
+            deviceInstanceId: deviceId,
+            info: info,
+            progress: progress.progress,
+          ),
+        ));
       case domain.OtaVerifying():
-        emit(OtaBlocVerifying(info: info));
+        emit(state.copyWith(
+          activeTransfer: OtaTransferVerifying(
+            deviceInstanceId: deviceId,
+            info: info,
+          ),
+        ));
       case domain.OtaRebooting():
-        emit(OtaBlocRebooting(info: info));
+        emit(state.copyWith(
+          activeTransfer: OtaTransferRebooting(
+            deviceInstanceId: deviceId,
+            info: info,
+          ),
+        ));
         // Start reboot timeout timer
         _rebootTimer?.cancel();
         _rebootTimer = Timer(_rebootTimeout, () {
@@ -203,11 +270,17 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
       case domain.OtaError():
         _analytics.logOtaFailed(
           reason: progress.message,
-          fromVersion: _deviceFirmwareVersion ?? 'unknown',
+          fromVersion: _deviceFirmwareVersions[deviceId] ?? 'unknown',
           toVersion: info.version,
         );
         _setWakelock(false);
-        emit(OtaBlocError(progress.message));
+        emit(state.copyWith(
+          activeTransfer: OtaTransferError(
+            deviceInstanceId: deviceId,
+            info: info,
+            message: progress.message,
+          ),
+        ));
         _otaSubscription?.cancel();
         _otaSubscription = null;
       default:
@@ -226,17 +299,38 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _otaSubscription?.cancel();
     _otaSubscription = null;
 
+    final deviceId = event.deviceInstanceId;
     final durationSeconds = _otaStartTime != null
         ? DateTime.now().difference(_otaStartTime!).inSeconds
         : 0;
     _analytics.logOtaCompleted(
-      fromVersion: _deviceFirmwareVersion ?? 'unknown',
+      fromVersion: _deviceFirmwareVersions[deviceId] ?? 'unknown',
       toVersion: event.newVersion,
       durationSeconds: durationSeconds,
     );
 
     _setWakelock(false);
-    emit(OtaBlocComplete(event.newVersion));
+
+    final updatedStatuses =
+        Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
+    updatedStatuses[deviceId] = const OtaDeviceUpToDate();
+
+    final info = state.activeTransfer?.info;
+    if (info != null) {
+      emit(state.copyWith(
+        deviceStatuses: updatedStatuses,
+        activeTransfer: OtaTransferComplete(
+          deviceInstanceId: deviceId,
+          info: info,
+          newVersion: event.newVersion,
+        ),
+      ));
+    } else {
+      emit(state.copyWith(
+        deviceStatuses: updatedStatuses,
+        clearActiveTransfer: true,
+      ));
+    }
   }
 
   void _onRebootTimedOut(
@@ -250,33 +344,50 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _otaSubscription = null;
     _setWakelock(false);
 
+    final transfer = state.activeTransfer;
+    if (transfer == null) return;
+
+    final deviceId = transfer.deviceInstanceId;
+    final info = transfer.info;
+
     _analytics.logOtaFailed(
       reason: 'Reboot timed out — device did not reconnect',
-      fromVersion: _deviceFirmwareVersion ?? 'unknown',
-      toVersion: _currentFirmwareInfo?.version ?? 'unknown',
+      fromVersion: _deviceFirmwareVersions[deviceId] ?? 'unknown',
+      toVersion: info.version,
     );
 
-    emit(const OtaBlocError(
-      'Device didn\'t respond after update. Try turning it off and on again.',
+    emit(state.copyWith(
+      activeTransfer: OtaTransferError(
+        deviceInstanceId: deviceId,
+        info: info,
+        message:
+            'Device didn\'t respond after update. Try turning it off and on again.',
+      ),
     ));
   }
 
-  /// Whether an OTA transfer is actively in progress (download, transfer, verify, reboot).
-  bool get isTransferInProgress {
-    final s = state;
-    return s is OtaBlocDownloading ||
-        s is OtaBlocTransferring ||
-        s is OtaBlocVerifying ||
-        s is OtaBlocRebooting;
+  void _onDeviceDisconnected(
+    OtaDeviceDisconnected event,
+    Emitter<OtaBlocState> emit,
+  ) {
+    final deviceId = event.deviceInstanceId;
+    AppLogger.debug('OTA: Device disconnected ($deviceId)');
+
+    _deviceFirmwareVersions.remove(deviceId);
+
+    final updatedStatuses =
+        Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
+    updatedStatuses.remove(deviceId);
+    emit(state.copyWith(deviceStatuses: updatedStatuses));
   }
 
   void _setWakelock(bool enabled) {
     try {
-      if (enabled) {
-        _setWakelock(true);
-      } else {
-        _setWakelock(false);
-      }
+      final future =
+          enabled ? WakelockPlus.enable() : WakelockPlus.disable();
+      future.catchError((_) {
+        // WakeLock unavailable (e.g., in tests) — non-critical
+      });
     } catch (_) {
       // WakeLock unavailable (e.g., in tests) — non-critical
     }
