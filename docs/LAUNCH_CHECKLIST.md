@@ -15,12 +15,21 @@
 - [x] Verify debug, release, and obfuscated builds succeed
 - [x] CI green on master
 
+## Do Now (no accounts needed)
+- [ ] Back up `release-keystore.jks` + password to password manager — **cannot recover if lost**
+- [ ] Verify app launcher icons are production quality (not Flutter defaults) — check `android/app/src/main/res/mipmap-*`
+- [ ] (Optional) Remove old `com.rogershih.ble2024` app registrations from Firebase Console
+
 ## Accounts
 - [ ] Create Google Play Developer account ($25 one-time) — https://play.google.com/console
 - [ ] Create Apple Developer account ($99/year) — https://developer.apple.com/programs/
 
+## Privacy Policy (before store listings — both stores require it)
+- [ ] Write privacy policy covering: data collected, Firebase usage, BLE data, analytics
+- [ ] Host at a public URL (Firebase Hosting, GitHub Pages, or your domain)
+- [ ] Update `assets/privacy_policy.md` to match hosted version
+
 ## Signing & Secrets (after accounts)
-- [ ] Back up `release-keystore.jks` + password to password manager
 - [ ] Add GitHub secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`
 - [ ] Add GitHub secret: `GOOGLE_SERVICE_INFO_PLIST` (base64 of iOS Firebase config)
 - [ ] Enable Google Play App Signing (during first upload — recommended safety net)
@@ -36,7 +45,6 @@
 - [ ] App icon (512x512 PNG)
 - [ ] Feature graphic (1024x500 PNG)
 - [ ] Screenshots — phone (min 2, recommended 4-8)
-- [ ] Screenshots — tablet (optional but recommended)
 - [ ] App category (Tools? Productivity?)
 - [ ] Content rating questionnaire
 - [ ] Privacy policy URL
@@ -52,24 +60,16 @@
 - [ ] App icon (1024x1024 PNG, no alpha)
 - [ ] Screenshots — 6.7" (iPhone 15 Pro Max, required)
 - [ ] Screenshots — 6.5" (iPhone 11 Pro Max, required)
-- [ ] Screenshots — 5.5" (iPhone 8 Plus, optional)
-- [ ] Screenshots — iPad (optional unless supporting iPad)
 - [ ] App category
 - [ ] Age rating questionnaire
 - [ ] Privacy policy URL (same as Android)
 - [ ] App privacy details (data collection declarations)
 
-## Privacy Policy
-- [ ] Write privacy policy covering: data collected, Firebase usage, BLE data, analytics
-- [ ] Host at a public URL (Firebase Hosting, GitHub Pages, or your domain)
-- [ ] Add URL to both store listings
-- [ ] Verify in-app privacy policy viewer matches hosted version
-
 ## Testing
 - [ ] Upload first build to Google Play internal testing track
 - [ ] Upload first build to TestFlight
-- [ ] Test on multiple Android devices (different API levels)
-- [ ] Test on multiple iOS devices (different iOS versions)
+- [ ] Test on 1 older + 1 newer Android device
+- [ ] Test on 1 older + 1 newer iPhone
 - [ ] Test fresh install flow (onboarding)
 - [ ] Test BLE pairing with physical device
 - [ ] Test OTA firmware update flow
