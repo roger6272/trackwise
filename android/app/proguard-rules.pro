@@ -24,6 +24,11 @@
 -dontwarn org.bouncycastle.**
 -keep class org.bouncycastle.** { *; }
 
+# Play Core (referenced by Flutter engine for deferred components, not used at runtime)
+-dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
+
 # Suppress common warnings
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
