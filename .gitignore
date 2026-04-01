@@ -69,3 +69,8 @@ firebase/extensions/*.env
 
 # Flutter DevTools
 devtools_options.yaml
+
+# Android signing
+key.properties
+*.jks
+*.keystore
