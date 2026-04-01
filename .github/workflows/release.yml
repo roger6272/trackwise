@@ -61,20 +61,23 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Decode keystore from secrets (uncomment when secrets are configured)
-      # - name: Decode Keystore
-      #   run: |
-      #     echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-keystore.jks
-      #     echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
-      #     echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-      #     echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-      #     echo "storeFile=release-keystore.jks" >> android/key.properties
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-keystore.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=release-keystore.jks" >> android/key.properties
+
+      - name: Decode google-services.json
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | tr -d '\n\r ' | base64 -d > android/app/google-services.json
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --obfuscate --split-debug-info=build/debug-info
 
       - name: Build App Bundle
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --obfuscate --split-debug-info=build/debug-info
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -88,43 +91,63 @@ jobs:
           name: android-aab
           path: build/app/outputs/bundle/release/app-release.aab
 
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-symbols
+          path: build/debug-info/
+
   # =============================================================================
   # Build iOS (requires macOS runner)
   # =============================================================================
-  # build-ios:
-  #   name: Build iOS
-  #   needs: test
-  #   runs-on: macos-latest
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Flutter
-  #       uses: subosito/flutter-action@v2
-  #       with:
-  #         flutter-version: ${{ env.FLUTTER_VERSION }}
-  #         channel: 'stable'
-  #         cache: true
-  #
-  #     - name: Install dependencies
-  #       run: flutter pub get
-  #
-  #     - name: Build iOS (no codesign)
-  #       run: flutter build ios --release --no-codesign
-  #
-  #     - name: Upload iOS artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: ios-build
-  #         path: build/ios/iphoneos/Runner.app
+  build-ios:
+    name: Build iOS
+    needs: test
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Decode GoogleService-Info.plist
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 -d > ios/Runner/GoogleService-Info.plist
+
+      # NOTE: --no-codesign produces a .app directory, not a distributable .ipa.
+      # This is a CI verification step only — actual App Store distribution
+      # requires code signing with an Apple Developer certificate and
+      # xcodebuild -exportArchive (deferred until Apple Developer account is set up).
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign --obfuscate --split-debug-info=build/debug-info
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: build/ios/iphoneos/Runner.app
+
+      - name: Upload iOS debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-debug-symbols
+          path: build/debug-info/
 
   # =============================================================================
   # Create GitHub Release
   # =============================================================================
   release:
     name: Create Release
-    needs: [build-android]
+    needs: [build-android, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -163,9 +186,9 @@ jobs:
           echo "$NOTES" > release_notes.md
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          name: Trackwise v${{ steps.version.outputs.VERSION }}
+          name: Traxelos v${{ steps.version.outputs.VERSION }}
           body_path: release_notes.md
           draft: false
           prerelease: false
@@ -180,7 +203,7 @@ jobs:
   # =============================================================================
   notify-failure:
     name: Notify on Failure
-    needs: [test, build-android, release]
+    needs: [test, build-android, build-ios, release]
     if: failure()
     runs-on: ubuntu-latest
 
