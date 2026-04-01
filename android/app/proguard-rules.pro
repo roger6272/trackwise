@@ -1,16 +1,31 @@
-# Please add these rules to your existing keep rules in order to suppress warnings.
-# This is generated automatically by the Android Gradle plugin.
--dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
--dontwarn com.google.errorprone.annotations.CheckReturnValue
--dontwarn com.google.errorprone.annotations.Immutable
--dontwarn com.google.errorprone.annotations.RestrictedApi
--dontwarn javax.annotation.Nullable
--dontwarn javax.annotation.concurrent.GuardedBy
--dontwarn org.bouncycastle.jce.provider.BouncyCastleProvider
--dontwarn org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider
+# Flutter
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.** { *; }
+-keep class io.flutter.util.** { *; }
+-keep class io.flutter.view.** { *; }
+-keep class io.flutter.** { *; }
+-keep class io.flutter.plugins.** { *; }
+
+# Firebase
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# Google Sign-In
+-keep class com.google.android.gms.auth.** { *; }
+
+# Crashlytics — preserve stack trace info
+-keepattributes SourceFile,LineNumberTable
+-keep public class * extends java.lang.Exception
+
+# flutter_blue_plus (BLE) — verified package: com.lib.flutter_blue_plus
+-keep class com.lib.flutter_blue_plus.** { *; }
+
+# BouncyCastle (used by mailer/crypto)
+-dontwarn org.bouncycastle.**
+-keep class org.bouncycastle.** { *; }
+
+# Suppress common warnings
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn org.xmlpull.v1.**
 -keep class org.xmlpull.v1.** { *; }
-
-
-
-
-
