@@ -70,6 +70,25 @@ void main() {
         (user) => fail('Should not return user'),
       );
     });
+
+    test('should return AuthFailure when unexpected exception occurs', () async {
+      // Arrange - simulate a Firestore exception escaping the datasource
+      when(() => mockDataSource.signInWithEmail(testEmail, testPassword))
+          .thenThrow(Exception('Firestore permission denied'));
+
+      // Act
+      final result = await repository.signInWithEmail(testEmail, testPassword);
+
+      // Assert
+      expect(result, isA<Left<Failure, User>>());
+      result.fold(
+        (failure) {
+          expect(failure, isA<AuthFailure>());
+          expect(failure.message, contains('Sign in failed'));
+        },
+        (user) => fail('Should not return user'),
+      );
+    });
   });
 
   group('signInWithGoogle', () {
@@ -102,6 +121,19 @@ void main() {
       expect(result, isA<Left<Failure, User>>());
       result.fold(
         (failure) => expect(failure.message, 'Google sign-in cancelled'),
+        (user) => fail('Should not return user'),
+      );
+    });
+
+    test('should return AuthFailure when unexpected exception occurs', () async {
+      when(() => mockDataSource.signInWithGoogle())
+          .thenThrow(Exception('Firestore timeout'));
+
+      final result = await repository.signInWithGoogle();
+
+      expect(result, isA<Left<Failure, User>>());
+      result.fold(
+        (failure) => expect(failure.message, contains('Google sign-in failed')),
         (user) => fail('Should not return user'),
       );
     });

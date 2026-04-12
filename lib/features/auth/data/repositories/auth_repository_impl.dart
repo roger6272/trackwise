@@ -3,6 +3,7 @@ import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/utils/logger.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_firebase_datasource.dart';
@@ -24,6 +25,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return Right(userModel.toEntity());
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
+    } catch (e, stackTrace) {
+      AppLogger.error('signInWithEmail unexpected error: $e', e, stackTrace);
+      return Left(AuthFailure('Sign in failed. Please check your connection and try again.'));
     }
   }
 
@@ -34,6 +38,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return Right(userModel.toEntity());
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
+    } catch (e, stackTrace) {
+      AppLogger.error('signInWithGoogle unexpected error: $e', e, stackTrace);
+      return Left(AuthFailure('Google sign-in failed. Please check your connection and try again.'));
     }
   }
 
@@ -44,6 +51,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return Right(userModel.toEntity());
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
+    } catch (e, stackTrace) {
+      AppLogger.error('signInWithApple unexpected error: $e', e, stackTrace);
+      return Left(AuthFailure('Apple sign-in failed. Please check your connection and try again.'));
     }
   }
 
@@ -54,6 +64,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return Right(userModel.toEntity());
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
+    } catch (e, stackTrace) {
+      AppLogger.error('signUp unexpected error: $e', e, stackTrace);
+      return Left(AuthFailure('Sign up failed. Please check your connection and try again.'));
     }
   }
 
@@ -64,6 +77,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return const Right(null);
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
+    } catch (e, stackTrace) {
+      AppLogger.error('signOut unexpected error: $e', e, stackTrace);
+      return Left(AuthFailure('Sign out failed. Please try again.'));
     }
   }
 
@@ -74,6 +90,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return const Right(null);
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
+    } catch (e, stackTrace) {
+      AppLogger.error('resetPassword unexpected error: $e', e, stackTrace);
+      return Left(AuthFailure('Password reset failed. Please try again.'));
     }
   }
 
@@ -97,6 +116,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return Right(providerId);
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
+    } catch (e, stackTrace) {
+      AppLogger.error('reauthenticate unexpected error: $e', e, stackTrace);
+      return Left(AuthFailure('Re-authentication failed. Please try again.'));
     }
   }
 }
