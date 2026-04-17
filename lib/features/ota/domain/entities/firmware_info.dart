@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 /// Metadata about the latest available firmware version.
 ///
-/// Parsed from `firmware/latest.json` in Firebase Storage.
+/// Parsed from `firmware/<channel>/latest.json` in Firebase Storage.
 class FirmwareInfo extends Equatable {
   /// Firmware version string (e.g., "2.1.0").
   final String version;

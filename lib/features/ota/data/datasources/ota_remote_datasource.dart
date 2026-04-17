@@ -7,7 +7,7 @@ import '../models/firmware_info_model.dart';
 abstract class OtaRemoteDataSource {
   /// Fetches the latest firmware metadata from Firebase Storage.
   ///
-  /// Downloads and parses `firmware/latest.json`.
+  /// Downloads and parses `firmware/<channel>/latest.json`.
   ///
   /// Throws [Exception] if the download or parse fails.
   Future<FirmwareInfoModel> fetchLatestFirmwareInfo();

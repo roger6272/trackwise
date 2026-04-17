@@ -1889,7 +1889,11 @@ The device optionally exposes the standard BLE **Battery Service** for reporting
 
 Over-the-Air (OTA) firmware updates allow the app to push new firmware to the ESP32 device over BLE. The update process uses the existing command/notify characteristics for control messages and a dedicated OTA Data characteristic for binary transfer.
 
-**Metadata source:** The app checks `firmware/latest.json` in Firebase Storage for the latest firmware version, SHA256 hash, download path, changelog, and minimum app version. A separate Remote Config value (`min_firmware_version`) determines whether an update is required or optional.
+**Metadata source:** The app checks `firmware/<channel>/latest.json` in Firebase Storage for the latest firmware version, SHA256 hash, download path, changelog, and minimum app version. A separate Remote Config value (`min_firmware_version`) determines whether an update is required or optional.
+
+**Channels:** Firmware is organized into `beta` and `release` channels under `firmware/` in Firebase Storage. The app channel is set at build time via `--dart-define=OTA_CHANNEL=beta` (defaults to `release`). Beta builds check `firmware/beta/latest.json`; release builds check `firmware/release/latest.json`.
+
+**Publishing firmware:** Use `scripts/publish_firmware.sh --channel beta|release` to generate `latest.json` and get upload instructions. See the script's `--help` for all options.
 
 ### 18.2 OTA Data Characteristic
 
@@ -2092,7 +2096,7 @@ The app orchestrates the OTA flow through `PerformOtaUpdateUseCase`:
 **Pre-OTA sync:** Before starting OTA, the app triggers a normal sync to flush device count logs to Firestore. Count logs are stored in RAM and would be lost on reboot. This is handled by the BLoC/presentation layer before invoking the OTA use case.
 
 **Update check flow:**
-- App compares device `firmware_version` (from handshake) against `firmware/latest.json` in Firebase Storage
+- App compares device `firmware_version` (from handshake) against `firmware/<channel>/latest.json` in Firebase Storage
 - If device version < latest version → **OtaAvailable** (optional update banner)
 - If device version < `min_firmware_version` (Remote Config) → **OtaRequired** (non-dismissable banner)
 - If app version < `min_app_version` (from latest.json) → **AppUpdateRequired** (update the app)

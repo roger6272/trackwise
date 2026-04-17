@@ -1059,7 +1059,7 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 **Symptoms:** A warning banner says "Update the Traxelos app to use this feature" instead of showing the firmware update option.
 
-**Root Cause:** The latest firmware requires a newer app version than what's installed. The `min_app_version` field in `firmware/latest.json` specifies the minimum app version needed to safely install the firmware.
+**Root Cause:** The latest firmware requires a newer app version than what's installed. The `min_app_version` field in `firmware/<channel>/latest.json` specifies the minimum app version needed to safely install the firmware.
 
 **Resolution:**
 1. Update the Traxelos app from the App Store (iOS) or Google Play (Android)

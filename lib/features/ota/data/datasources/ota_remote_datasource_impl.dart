@@ -20,17 +20,22 @@ class OtaRemoteDataSourceImpl implements OtaRemoteDataSource {
   /// Maximum firmware binary size (2MB) — must fit in ESP32 OTA partition (~1.9MB).
   static const int _maxBinarySize = 2 * 1024 * 1024;
 
+  /// OTA firmware channel: "release" or "beta".
+  /// Set at build time via `--dart-define=OTA_CHANNEL=beta`.
+  static const String _channel =
+      String.fromEnvironment('OTA_CHANNEL', defaultValue: 'release');
+
   OtaRemoteDataSourceImpl(this._storage, this._remoteConfig);
 
   @override
   Future<FirmwareInfoModel> fetchLatestFirmwareInfo() async {
-    AppLogger.debug('Fetching latest firmware info from Firebase Storage');
+    AppLogger.debug('Fetching firmware info (channel: $_channel)');
 
-    final ref = _storage.ref('firmware/latest.json');
+    final ref = _storage.ref('firmware/$_channel/latest.json');
     final data = await ref.getData(_maxBinarySize);
 
     if (data == null) {
-      throw Exception('Failed to download firmware/latest.json: no data');
+      throw Exception('Failed to download firmware/$_channel/latest.json: no data');
     }
 
     final jsonString = utf8.decode(data);

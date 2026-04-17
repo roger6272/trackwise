@@ -4,8 +4,8 @@
 # Firmware Publish Script for Trackwise
 # =============================================================================
 # Usage: ./scripts/publish_firmware.sh <bin_file> <version>
-#        [--min-app-version X.Y.Z] [--changelog "text"]
-#        [--min-firmware-version X.Y.Z]
+#        [--channel beta|release] [--min-app-version X.Y.Z]
+#        [--changelog "text"] [--min-firmware-version X.Y.Z]
 #
 # This script:
 # 1. Validates the firmware binary and version string
@@ -23,6 +23,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Defaults
+CHANNEL="release"
 MIN_APP_VERSION="1.0.0"
 CHANGELOG=""
 MIN_FIRMWARE_VERSION=""
@@ -37,12 +38,14 @@ usage() {
     echo "  version     Firmware version in X.Y.Z format (e.g. 1.2.3)"
     echo ""
     echo "Options:"
+    echo "  --channel beta|release         OTA channel (default: release)"
     echo "  --min-app-version X.Y.Z       Minimum app version required (default: 1.0.0)"
     echo "  --changelog \"text\"             Changelog text for this release"
     echo "  --min-firmware-version X.Y.Z   Minimum firmware version that can OTA to this"
     echo ""
     echo "Examples:"
     echo "  ./scripts/publish_firmware.sh build/trackwise.bin 1.2.0"
+    echo "  ./scripts/publish_firmware.sh build/trackwise.bin 1.2.0 --channel beta"
     echo "  ./scripts/publish_firmware.sh build/trackwise.bin 1.2.0 --changelog \"Bug fixes\""
     exit 1
 }
@@ -70,6 +73,15 @@ shift 2
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --channel)
+            [ $# -lt 2 ] && { echo -e "${RED}Error: --channel requires a value${NC}"; exit 1; }
+            CHANNEL="$2"
+            if [[ "$CHANNEL" != "beta" && "$CHANNEL" != "release" ]]; then
+                echo -e "${RED}Error: --channel must be 'beta' or 'release'${NC}"
+                exit 1
+            fi
+            shift 2
+            ;;
         --min-app-version)
             [ $# -lt 2 ] && { echo -e "${RED}Error: --min-app-version requires a value${NC}"; exit 1; }
             MIN_APP_VERSION="$2"
@@ -119,7 +131,7 @@ fi
 
 # --- Generate latest.json ---------------------------------------------------
 
-STORAGE_PATH="firmware/bins/trackwise_${VERSION}.bin"
+STORAGE_PATH="firmware/${CHANNEL}/bins/trackwise_${VERSION}.bin"
 RELEASED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 OUTPUT_DIR="$(dirname "$BIN_FILE")"
 OUTPUT_FILE="${OUTPUT_DIR}/latest.json"
@@ -138,6 +150,7 @@ EOF
 
 echo -e "${GREEN}=== Firmware Publish Package Ready ===${NC}"
 echo ""
+echo -e "Channel:          ${CHANNEL}"
 echo -e "Version:          ${VERSION}"
 echo -e "Binary:           ${BIN_FILE}"
 echo -e "SHA256:           ${SHA256}"
@@ -153,19 +166,17 @@ echo -e "Metadata:         ${OUTPUT_FILE}"
 echo ""
 echo -e "${YELLOW}=== Upload Instructions ===${NC}"
 echo ""
-echo "Upload the firmware binary and metadata to Firebase Storage:"
+echo "Upload via Firebase Console (console.firebase.google.com > Storage):"
 echo ""
-echo "  # 1. Upload the binary"
-echo "  firebase storage:upload ${BIN_FILE} --path ${STORAGE_PATH}"
+echo "  1. Upload the binary to:    firmware/${CHANNEL}/bins/"
+echo "     File: ${BIN_FILE}"
 echo ""
-echo "  # 2. Upload the metadata"
-echo "  firebase storage:upload ${OUTPUT_FILE} --path firmware/latest.json"
-echo ""
+echo "  2. Upload the metadata to:  firmware/${CHANNEL}/"
+echo "     File: ${OUTPUT_FILE}"
 if [ -n "$MIN_FIRMWARE_VERSION" ]; then
-    echo "  # 3. Update Remote Config min_firmware_version to ${MIN_FIRMWARE_VERSION}"
-    echo "  #    (Do this in Firebase Console > Remote Config)"
     echo ""
+    echo "  3. Update Remote Config min_firmware_version to ${MIN_FIRMWARE_VERSION}"
+    echo "     (Firebase Console > Remote Config)"
 fi
-echo "  Or upload via Firebase Console: Storage > firmware/"
 echo ""
 echo -e "${GREEN}Done.${NC}"

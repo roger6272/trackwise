@@ -2,7 +2,7 @@ import '../../domain/entities/firmware_info.dart';
 
 /// Data model for [FirmwareInfo] with JSON serialization.
 ///
-/// Parses `firmware/latest.json` from Firebase Storage.
+/// Parses `firmware/<channel>/latest.json` from Firebase Storage.
 class FirmwareInfoModel extends FirmwareInfo {
   const FirmwareInfoModel({
     required super.version,
