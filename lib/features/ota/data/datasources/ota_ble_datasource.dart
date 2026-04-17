@@ -42,6 +42,14 @@ abstract class OtaBleDatasource {
   /// Throws on BLE write failure.
   Future<void> writeOtaChunk(Uint8List chunk);
 
+  /// Sends the `ota_abort` command to cancel an in-progress OTA session.
+  ///
+  /// The device will clean up OTA state and return to normal operation.
+  /// Best-effort: failure is non-fatal (device will timeout on its own).
+  ///
+  /// Throws on BLE write failure.
+  Future<void> sendOtaAbort();
+
   /// Listens for OTA-related notification responses from the device.
   ///
   /// Emits parsed JSON maps from the notify characteristic.

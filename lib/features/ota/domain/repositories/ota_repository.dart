@@ -72,6 +72,15 @@ abstract class OtaRepository {
   /// - Left(BluetoothFailure): BLE write failed
   Future<Either<Failure, void>> sendReboot();
 
+  /// Sends the `ota_abort` command to cancel an in-progress OTA session.
+  ///
+  /// Best-effort: if the command fails, the device will timeout on its own.
+  ///
+  /// Returns:
+  /// - Right(void): Command sent
+  /// - Left(BluetoothFailure): BLE write failed
+  Future<Either<Failure, void>> sendOtaAbort();
+
   /// Writes a firmware chunk to the OTA Data characteristic.
   ///
   /// Returns:

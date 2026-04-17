@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/utils/bluetooth_constants.dart';
@@ -32,6 +33,18 @@ class PerformOtaUpdateUseCase {
   static const Duration _responseTimeout = Duration(seconds: 30);
 
   PerformOtaUpdateUseCase(this._repository);
+
+  /// Sends ota_abort to the device to cancel an in-progress OTA session.
+  ///
+  /// Best-effort: failures are logged but not propagated, since the device
+  /// will timeout on its own after 30s of inactivity.
+  Future<void> abort() async {
+    final result = await _repository.sendOtaAbort();
+    result.fold(
+      (failure) => AppLogger.debug('OTA abort send failed (non-fatal): ${failure.message}'),
+      (_) => AppLogger.debug('OTA: Sent ota_abort to device'),
+    );
+  }
 
   /// Executes the OTA update flow, emitting [OtaState] updates.
   ///
@@ -72,6 +85,23 @@ class PerformOtaUpdateUseCase {
 
     yield const OtaDownloading(1.0);
     AppLogger.debug('OTA: Downloaded ${binaryData.length} bytes');
+
+    // ---- Step 1b: Verify download integrity ----
+    final computedHash = sha256.convert(binaryData).toString();
+    if (computedHash != firmwareInfo.sha256) {
+      final expectedPrefix = firmwareInfo.sha256.length >= 8
+          ? firmwareInfo.sha256.substring(0, 8)
+          : firmwareInfo.sha256;
+      AppLogger.error(
+        'OTA: SHA256 mismatch — expected $expectedPrefix..., '
+        'got ${computedHash.substring(0, 8)}...',
+      );
+      yield const OtaError(
+        'Downloaded file is corrupted. Check your internet connection and try again.',
+      );
+      return;
+    }
+    AppLogger.debug('OTA: SHA256 verified');
 
     // ---- Step 2: Send ota_start and wait for ota_ready ----
     yield const OtaTransferring(0.0);

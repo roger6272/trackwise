@@ -59,6 +59,10 @@ void main() {
     // Default: connectivity is available
     when(() => mockConnectivity.hasInternetConnection())
         .thenAnswer((_) async => true);
+
+    // Stub abort so cancel handler doesn't throw
+    when(() => mockPerformOtaUpdate.abort())
+        .thenAnswer((_) async {});
   });
 
   OtaBloc buildBloc() => OtaBloc(

@@ -45,9 +45,29 @@ void main() {
       expect((states.last as OtaError).message, contains('Download failed'));
     });
 
+    test('emits OtaError when downloaded binary SHA256 does not match',
+        () async {
+      final binaryData = Uint8List(200);
+      when(() => mockRepository.downloadFirmwareBinary(
+            any(),
+            onProgress: any(named: 'onProgress'),
+          )).thenAnswer((_) async => Right(binaryData));
+
+      // testFirmwareInfo has sha256='abc123def456' which won't match
+      final states = await useCase
+          .execute(firmwareInfo: testFirmwareInfo, negotiatedMtu: testMtu)
+          .toList();
+
+      expect(states.last, isA<OtaError>());
+      expect(
+          (states.last as OtaError).message, contains('corrupted'));
+    });
+
     test('emits OtaError when device rejects ota_start (low battery)',
         () async {
       final binaryData = Uint8List(200);
+      final firmwareInfo = testFirmwareInfoForBinary(binaryData);
+
       when(() => mockRepository.downloadFirmwareBinary(
             any(),
             onProgress: any(named: 'onProgress'),
@@ -71,7 +91,7 @@ void main() {
       );
 
       final states = await useCase
-          .execute(firmwareInfo: testFirmwareInfo, negotiatedMtu: testMtu)
+          .execute(firmwareInfo: firmwareInfo, negotiatedMtu: testMtu)
           .toList();
 
       expect(states.last, isA<OtaError>());
@@ -81,6 +101,8 @@ void main() {
 
     test('emits OtaError on hash_mismatch after transfer', () async {
       final binaryData = Uint8List(testChunkSize); // Single chunk
+      final firmwareInfo = testFirmwareInfoForBinary(binaryData);
+
       when(() => mockRepository.downloadFirmwareBinary(
             any(),
             onProgress: any(named: 'onProgress'),
@@ -118,7 +140,7 @@ void main() {
       });
 
       final states = await useCase
-          .execute(firmwareInfo: testFirmwareInfo, negotiatedMtu: testMtu)
+          .execute(firmwareInfo: firmwareInfo, negotiatedMtu: testMtu)
           .toList();
 
       expect(states.last, isA<OtaError>());
@@ -129,6 +151,7 @@ void main() {
         () async {
       // 250 bytes with chunkSize of 97 (100 - 3) = ceil(250/97) = 3 chunks
       final binaryData = Uint8List(250);
+      final firmwareInfo = testFirmwareInfoForBinary(binaryData);
       final expectedChunks = (250 / testChunkSize).ceil();
 
       when(() => mockRepository.downloadFirmwareBinary(
@@ -167,7 +190,7 @@ void main() {
       });
 
       final states = await useCase
-          .execute(firmwareInfo: testFirmwareInfo, negotiatedMtu: testMtu)
+          .execute(firmwareInfo: firmwareInfo, negotiatedMtu: testMtu)
           .toList();
 
       // Verify correct number of writeOtaChunk calls
@@ -186,6 +209,8 @@ void main() {
     test('emits OtaError when notification stream closes without response',
         () async {
       final binaryData = Uint8List(200);
+      final firmwareInfo = testFirmwareInfoForBinary(binaryData);
+
       when(() => mockRepository.downloadFirmwareBinary(
             any(),
             onProgress: any(named: 'onProgress'),
@@ -203,7 +228,7 @@ void main() {
       );
 
       final states = await useCase
-          .execute(firmwareInfo: testFirmwareInfo, negotiatedMtu: testMtu)
+          .execute(firmwareInfo: firmwareInfo, negotiatedMtu: testMtu)
           .toList();
 
       expect(states.last, isA<OtaError>());

@@ -972,7 +972,7 @@ Key properties:
 
 The app tracks OTA update status **per device** independently. State is split into two dimensions:
 
-- **Device statuses** (`Map<deviceId, OtaDeviceStatus>`): Which devices need updates, are up-to-date, dismissed, or require an app update. Each connected device gets checked against `firmware/latest.json` after handshake.
+- **Device statuses** (`Map<deviceId, OtaDeviceStatus>`): Which devices need updates, are up-to-date, dismissed, or require an app update. Each connected device gets checked against `firmware/<channel>/latest.json` after handshake.
 - **Active transfer** (`OtaTransferState?`): At most one OTA transfer at a time. Starting an update on one device blocks starting on another until the first completes.
 
 ```
@@ -1055,7 +1055,7 @@ Transfer completes → Device A marked up-to-date → User can now update Device
      │                    │  ~~disconnect~~  │    with new       │
      │                    │                  │    firmware        │
      │                    │                  │                   │
-     │                    │  ...wait up to 30s...                │
+     │                    │  ...wait up to 60s...                │
      │                    │                  │                   │
      │                    │ ⑱ Reconnect      │                   │
      │                    │ ◄────────────────│                   │

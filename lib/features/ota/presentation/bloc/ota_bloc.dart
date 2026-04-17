@@ -189,13 +189,21 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     _rebootTimer = null;
     _setWakelock(false);
 
+    // Tell the device to exit OTA mode immediately (best-effort)
+    _performOtaUpdate.abort();
+
     // Restore device to update available if we have info
     if (deviceId != null && info != null) {
+      // Preserve original isRequired — a required update stays required after cancel
+      final previousStatus = state.deviceStatuses[deviceId];
+      final wasRequired = previousStatus is OtaDeviceUpdateAvailable &&
+          previousStatus.isRequired;
+
       final updatedStatuses =
           Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
       updatedStatuses[deviceId] = OtaDeviceUpdateAvailable(
         info: info,
-        isRequired: false, // If they can cancel, it's not required
+        isRequired: wasRequired,
       );
       emit(state.copyWith(
         deviceStatuses: updatedStatuses,

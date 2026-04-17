@@ -113,6 +113,19 @@ class OtaRepositoryImpl implements OtaRepository {
   }
 
   @override
+  Future<Either<Failure, void>> sendOtaAbort() async {
+    try {
+      await _bleDataSource.sendOtaAbort();
+      return const Right(null);
+    } on StateError catch (e) {
+      return Left(BluetoothFailure('OTA abort failed: ${e.message}'));
+    } catch (e) {
+      AppLogger.error('OTA abort failed', e);
+      return Left(BluetoothFailure('OTA abort failed: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> writeOtaChunk(Uint8List chunk) async {
     try {
       await _bleDataSource.writeOtaChunk(chunk);

@@ -241,6 +241,10 @@ unsigned long otaLastChunkTime = 0;                 // Timestamp of last receive
 unsigned long otaVerifiedTime = 0;                  // Timestamp when VERIFIED state entered
 BLECharacteristic* otaDataChar = nullptr;           // OTA Data characteristic pointer
 bool pendingOtaEnd = false;                          // Deferred ota_end processing (avoid blocking BLE callback)
+bool pendingOtaStart = false;                        // Deferred ota_start processing (esp_ota_begin erases flash)
+size_t pendingOtaStartSize = 0;                      // Deferred ota_start: expected size
+char pendingOtaStartHash[65] = {0};                  // Deferred ota_start: expected SHA256
+char pendingOtaStartVersion[16] = {0};               // Deferred ota_start: firmware version
 
 // For Non-Blocking Vibration (handles millis() overflow after ~49 days)
 // Supports multi-pulse patterns (e.g., double vibrate for goal reached)
@@ -1147,9 +1151,8 @@ void notifyError(const char* cmd, const char* reason, int error_code = 0) {
 
 // ============== OTA HELPER FUNCTIONS ==============
 
-// Abort an in-progress OTA session and return to IDLE
-void otaAbort(const char* reason) {
-  DEBUG_LOG("❌ OTA abort: %s\n", reason);
+// Reset all OTA state to IDLE (shared cleanup for abort and error paths)
+void otaResetState() {
   if (otaHandle != 0) {
     esp_ota_abort(otaHandle);
     otaHandle = 0;
@@ -1160,10 +1163,17 @@ void otaAbort(const char* reason) {
   otaReceivedSize = 0;
   otaExpectedHash[0] = '\0';
   pendingOtaEnd = false;
+  pendingOtaStart = false;
   if (otaShaCtxInitialized) {
     mbedtls_sha256_free(&otaShaCtx);
     otaShaCtxInitialized = false;
   }
+}
+
+// Abort an in-progress OTA session and return to IDLE
+void otaAbort(const char* reason) {
+  DEBUG_LOG("❌ OTA abort: %s\n", reason);
+  otaResetState();
 
   // Notify app of the error (use "status" key to match sync protocol convention)
   StaticJsonDocument<128> doc;
@@ -1327,10 +1337,14 @@ void handleOtaEnd() {
   // Compare hashes
   if (strncmp(computedHash, otaExpectedHash, 64) != 0) {
     DEBUG_PRINTLN("❌ OTA hash mismatch!");
+    // otaShaCtx already freed above; reset remaining state
     esp_ota_abort(otaHandle);
     otaHandle = 0;
     otaState = OTA_IDLE;
     otaNextPartition = nullptr;
+    otaExpectedSize = 0;
+    otaReceivedSize = 0;
+    otaExpectedHash[0] = '\0';
 
     StaticJsonDocument<128> doc;
     doc["status"] = "error";
@@ -1349,6 +1363,9 @@ void handleOtaEnd() {
     DEBUG_LOG("❌ esp_ota_end failed: %s\n", esp_err_to_name(err));
     otaState = OTA_IDLE;
     otaNextPartition = nullptr;
+    otaExpectedSize = 0;
+    otaReceivedSize = 0;
+    otaExpectedHash[0] = '\0';
 
     StaticJsonDocument<128> doc;
     doc["status"] = "error";
@@ -1366,6 +1383,9 @@ void handleOtaEnd() {
     DEBUG_LOG("❌ esp_ota_set_boot_partition failed: %s\n", esp_err_to_name(err));
     otaState = OTA_IDLE;
     otaNextPartition = nullptr;
+    otaExpectedSize = 0;
+    otaReceivedSize = 0;
+    otaExpectedHash[0] = '\0';
 
     StaticJsonDocument<128> doc;
     doc["status"] = "error";
@@ -2241,20 +2261,34 @@ void processWriteCommand(const String& jsonStr) {
       // App sends: { "cmd": "ota_start", "size": N, "sha256": "hexstring", "version": "x.y.z" }
       size_t expectedSize = doc["size"] | 0;
       const char* expectedHash = doc["sha256"] | "";
-
-      const char* version = doc["version"] | (const char*)nullptr;
+      const char* version = doc["version"] | "";
 
       if (expectedSize == 0 || strlen(expectedHash) != 64) {
         notifyError("ota_start", "Missing or invalid size/sha256", ERR_MISSING_FIELD);
         return;
       }
 
-      handleOtaStart(expectedSize, expectedHash, version);
+      // Defer to loop() — esp_ota_begin() erases flash and can block for seconds
+      pendingOtaStartSize = expectedSize;
+      strncpy(pendingOtaStartHash, expectedHash, sizeof(pendingOtaStartHash) - 1);
+      pendingOtaStartHash[sizeof(pendingOtaStartHash) - 1] = '\0';
+      strncpy(pendingOtaStartVersion, version, sizeof(pendingOtaStartVersion) - 1);
+      pendingOtaStartVersion[sizeof(pendingOtaStartVersion) - 1] = '\0';
+      pendingOtaStart = true;
 
     } else if (cmd == "ota_end") {  //////////////////// OTA firmware update end/verify
       // App sends: { "cmd": "ota_end" }
       // Defer to loop() — esp_ota_end() can block for hundreds of ms (flash flush)
       pendingOtaEnd = true;
+
+    } else if (cmd == "ota_abort") {  //////////////////// OTA abort (app-initiated cancel)
+      // App sends: { "cmd": "ota_abort" }
+      if (pendingOtaStart) {
+        // ota_start was deferred but not yet processed — just cancel it
+        pendingOtaStart = false;
+      } else if (otaState != OTA_IDLE) {
+        otaAbort("cancelled");
+      }
 
     } else if (cmd == "reboot") {  //////////////////// OTA reboot into new firmware
       // App sends: { "cmd": "reboot" }
@@ -2318,6 +2352,14 @@ class OtaDataCallback : public BLECharacteristicCallbacks {
     size_t len = val.length();
 
     if (len == 0) return;
+
+    // Guard: reject data beyond declared size
+    if (otaReceivedSize + len > otaExpectedSize) {
+      DEBUG_LOG("❌ OTA data overflow: received %u + %u > expected %u\n",
+                otaReceivedSize, len, otaExpectedSize);
+      otaAbort("write_failed");
+      return;
+    }
 
     // Write chunk to flash
     esp_err_t err = esp_ota_write(otaHandle, data, len);
@@ -3039,6 +3081,14 @@ void loop() {
   if (millis() - lastBatteryUpdate > BATTERY_UPDATE_INTERVAL_MS) {
     updateBatteryLevel();
     lastBatteryUpdate = millis();
+  }
+
+  // ============== DEFERRED OTA START ==============
+  // Process ota_start outside BLE callback to avoid blocking the BLE stack
+  // (esp_ota_begin() erases flash sectors and can take seconds)
+  if (pendingOtaStart) {
+    pendingOtaStart = false;
+    handleOtaStart(pendingOtaStartSize, pendingOtaStartHash, pendingOtaStartVersion);
   }
 
   // ============== DEFERRED OTA END ==============

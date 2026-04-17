@@ -91,6 +91,14 @@ class OtaBleDatasourceImpl implements OtaBleDatasource {
   }
 
   @override
+  Future<void> sendOtaAbort() async {
+    AppLogger.debug('Sending ota_abort');
+
+    final command = jsonEncode({'cmd': 'ota_abort'});
+    await _bluetoothDataSource.writeCommand(_deviceId, command);
+  }
+
+  @override
   Stream<Map<String, dynamic>> listenForOtaNotifications() {
     final deviceId = _deviceId;
 
