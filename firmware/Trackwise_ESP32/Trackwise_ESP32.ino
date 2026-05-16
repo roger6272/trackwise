@@ -2925,6 +2925,10 @@ void resetTodayCountsIfNeeded(){//bool forceReset = false) {
 void setup() {
   Serial.begin(115200);
 
+  // Print firmware version on boot — used by OTA test plan and field debugging
+  // to confirm what's running on the device without needing a BLE connection.
+  DEBUG_LOG("🔖 FIRMWARE_VERSION: %s\n", FIRMWARE_VERSION);
+
   // Initialize NVS mutex for thread-safe access
   nvsMutex = xSemaphoreCreateMutex();
   DEBUG_PRINTLN("🔒 NVS mutex initialized");
