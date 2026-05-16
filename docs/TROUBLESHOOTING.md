@@ -1031,6 +1031,28 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 
 **Key Lesson:** An `in_sync` handshake from a device that *thinks* it's paired but *the app forgot* is not a re-connection — it's the start of a fresh pairing. The firmware doesn't know the app unpaired it (the `unpair` BLE command is only sent during account deletion, not user-initiated Path A unpair), so it ships its old state on reconnect as if nothing happened. **The app must filter messages by `pairedDevices` membership, not just by `connectedDevices`**, because the handshake window opens before Set Up routes the device into the setup flow. Also: a guard that checks state at handler-entry time isn't enough when the actual write runs later via a serialized queue — drain the queue before clearing dependent state.
 
+### 10.14 "'Connecting…' or 'Reconnecting…' message after tapping Unpair"
+
+**Symptoms:** Immediately after tapping Unpair on Paired Devices, the user sees one or both of:
+- A "Connecting…" banner / status indicator for the just-removed device.
+- A "Device disconnected. Reconnecting..." snackbar from the AppShell.
+
+The device is gone from the Paired Devices list (so unpair "worked"), but the reconnect UI implies the app is still trying to reach it.
+
+**Root Cause:** Two separate races, both around the unpair handler vs. concurrent reconnect/disconnect machinery.
+
+**Race 1 — stale `ConnectToDevice` from auto-reconnect timer.** When a device disconnects, `_onConnectionStateChanged` schedules a reconnect timer (`bluetooth_bloc.dart:660`). The timer callback checks `_manualDisconnects` before dispatching `ConnectToDevice`. If the timer fires in the *same microtask window* as the user tapping Unpair, the check passes (the manual-disconnect flag isn't set yet — that happens at the top of `_onRemovePairedDevice`) and `ConnectToDevice` is queued. The unpair handler then runs, removes the device from state, but `ConnectToDevice` is already in the BLoC's event queue. `_onConnect` later (a) clears `_manualDisconnects` at line 467, (b) emits `BluetoothStatus.connecting` with `connectingDeviceId` set, (c) attempts the connection.
+
+**Race 2 — manual disconnect not flagged in the synchronous emit.** The unpair handler's synchronous emit at the top of `_onRemovePairedDevice` removes the device from `connectedDevices`, flipping `state.isConnected` from `true` to `false`. `AppShell`'s `BlocListener` (`core/widgets/app_shell.dart:33`) listens for exactly this transition and fires the "Device disconnected. Reconnecting…" snackbar if `state.lastDisconnectWasManual` is `false`. The synchronous emit didn't set `lastDisconnectWasManual: true`, so the snackbar fires — even though the user actually initiated the disconnect. The flag *does* get set later when the BLE disconnect actually completes and `_onConnectionStateChanged` runs (`bluetooth_bloc.dart:625–636`), but that's after the listener already fired.
+
+**Fix Applied:**
+
+1. **`_onConnect` defensive guard.** At handler entry, check if the device is in `state.pairedDevices` OR `state.discoveredDevices`. If neither, reject the connect, clear any leftover reconnect bookkeeping, and return. This blocks stale `ConnectToDevice` events for unpaired devices regardless of how they reached the queue (auto-reconnect timer, Bluetooth-on auto-reconnect at `bluetooth_bloc.dart:249`, OTA reboot timer at line 654). Legitimate paths (first-time pairing, user reconnect to paired device, OTA reboot of still-paired device) all pass because the device is in one of the two lists.
+
+2. **Set `lastDisconnectWasManual: true` in the unpair synchronous emit.** Only when `deviceState != null` (the device was actually connected). This suppresses the AppShell "Reconnecting…" snackbar at the exact moment `state.isConnected` flips false. The flag still gets re-affirmed by `_onConnectionStateChanged` when the BLE link actually closes — no behavior change after that point.
+
+**Key Lesson:** Synchronous state emits that flip `isConnected` or similar derived properties need to set the *full* set of fields that downstream listeners use to interpret the change. `connectedDevices.remove(id)` alone is ambiguous — it could mean "user unpaired", "OTA reboot", "BLE flapped". The `lastDisconnectWasManual` flag is the disambiguator; forgetting to set it makes the same state change trigger different UX. Similarly: timer callbacks that dispatch events check state at fire-time, but the dispatched event is processed later — defending the handler entry itself (not just the dispatch site) is the only way to avoid stale-event races.
+
 ---
 
 ## 11. OTA Firmware Update Issues

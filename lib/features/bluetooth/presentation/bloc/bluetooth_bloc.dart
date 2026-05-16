@@ -411,6 +411,28 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ConnectToDevice event,
     Emitter<BluetoothState> emit,
   ) async {
+    // Reject ConnectToDevice for devices that are neither paired nor
+    // discovered. This catches a race where an auto-reconnect timer fires
+    // and queues ConnectToDevice just before the user unpairs the device —
+    // without this guard, _onConnect would clear _manualDisconnects and
+    // proceed to connect (and the UI would briefly show "Connecting..."
+    // for a device the user just removed).
+    final id = event.deviceId;
+    final isKnown = state.pairedDevices.any(
+      (d) => d.deviceInstanceId.toUpperCase() == id.toUpperCase(),
+    );
+    final isDiscovered = state.discoveredDevices.any(
+      (d) => d.id.toUpperCase() == id.toUpperCase(),
+    );
+    if (!isKnown && !isDiscovered) {
+      AppLogger.debug('ConnectToDevice rejected: $id is not paired or discovered');
+      _reconnectTimers[id]?.cancel();
+      _reconnectTimers.remove(id);
+      _devicesToReconnect.remove(id);
+      _reconnectAttempts.remove(id);
+      return;
+    }
+
     // Cancel any pending reconnect for this device
     _reconnectTimers[event.deviceId]?.cancel();
     _reconnectTimers.remove(event.deviceId);
@@ -1186,6 +1208,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       pairedDevices: state.pairedDevices.where((d) => d.deviceInstanceId != id).toList(),
       connectedDevices: _removeDevice(id),
       status: deviceState != null ? BluetoothStatus.ready : null,
+      // Mark as manual so AppShell suppresses the "Reconnecting..." snackbar.
+      // Without this, removing the device from connectedDevices flips
+      // state.isConnected false→true and the AppShell listener fires.
+      lastDisconnectWasManual: deviceState != null ? true : null,
     ));
 
     // Drain in-flight claim transactions so releaseAllClaims runs against a

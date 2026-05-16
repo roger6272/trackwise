@@ -1218,6 +1218,25 @@ AppLogger.debug('BLE TX: $command');</code></pre>
         <strong>Key Lesson:</strong> An <code>in_sync</code> handshake from a device that <em>thinks</em> it's paired but <em>the app forgot</em> is not a re-connection &mdash; it's the start of a fresh pairing. The firmware doesn't know the app unpaired it (the <code>unpair</code> BLE command is only sent during account deletion, not user-initiated Path A unpair), so it ships its old state on reconnect as if nothing happened. <strong>The app must filter messages by <code>pairedDevices</code> membership, not just by <code>connectedDevices</code></strong>, because the handshake window opens before Set Up routes the device into the setup flow. Also: a guard that checks state at handler-entry time isn't enough when the actual write runs later via a serialized queue &mdash; drain the queue before clearing dependent state.
     </div>
 
+    <h3>10.14 "'Connecting&hellip;' or 'Reconnecting&hellip;' message after tapping Unpair"</h3>
+    <p class="symptom">Immediately after tapping Unpair on Paired Devices, the user sees one or both of: a "Connecting&hellip;" banner for the just-removed device, OR a "Device disconnected. Reconnecting..." snackbar from the AppShell. The device is gone from the Paired Devices list, but the reconnect UI implies the app is still trying to reach it.</p>
+
+    <p><strong>Root Cause:</strong> Two separate races, both around the unpair handler vs. concurrent reconnect/disconnect machinery.</p>
+
+    <p><strong>Race 1 &mdash; stale <code>ConnectToDevice</code> from auto-reconnect timer.</strong> When a device disconnects, <code>_onConnectionStateChanged</code> schedules a reconnect timer (<code>bluetooth_bloc.dart:660</code>). The timer callback checks <code>_manualDisconnects</code> before dispatching <code>ConnectToDevice</code>. If the timer fires in the <em>same microtask window</em> as the user tapping Unpair, the check passes (the manual-disconnect flag isn't set yet — that happens at the top of <code>_onRemovePairedDevice</code>) and <code>ConnectToDevice</code> is queued. The unpair handler then runs, removes the device from state, but <code>ConnectToDevice</code> is already in the BLoC's event queue. <code>_onConnect</code> later (a) clears <code>_manualDisconnects</code> at line 467, (b) emits <code>BluetoothStatus.connecting</code> with <code>connectingDeviceId</code> set, (c) attempts the connection.</p>
+
+    <p><strong>Race 2 &mdash; manual disconnect not flagged in the synchronous emit.</strong> The unpair handler's synchronous emit at the top of <code>_onRemovePairedDevice</code> removes the device from <code>connectedDevices</code>, flipping <code>state.isConnected</code> from <code>true</code> to <code>false</code>. <code>AppShell</code>'s <code>BlocListener</code> (<code>core/widgets/app_shell.dart:33</code>) listens for exactly this transition and fires the "Device disconnected. Reconnecting&hellip;" snackbar if <code>state.lastDisconnectWasManual</code> is <code>false</code>. The synchronous emit didn't set <code>lastDisconnectWasManual: true</code>, so the snackbar fires &mdash; even though the user actually initiated the disconnect. The flag <em>does</em> get set later when the BLE disconnect actually completes and <code>_onConnectionStateChanged</code> runs (<code>bluetooth_bloc.dart:625&ndash;636</code>), but that's after the listener already fired.</p>
+
+    <p><strong>Fix Applied:</strong></p>
+    <ol>
+        <li><strong><code>_onConnect</code> defensive guard.</strong> At handler entry, check if the device is in <code>state.pairedDevices</code> OR <code>state.discoveredDevices</code>. If neither, reject the connect, clear any leftover reconnect bookkeeping, and return. This blocks stale <code>ConnectToDevice</code> events for unpaired devices regardless of how they reached the queue (auto-reconnect timer, Bluetooth-on auto-reconnect at <code>bluetooth_bloc.dart:249</code>, OTA reboot timer at line 654). Legitimate paths (first-time pairing, user reconnect to paired device, OTA reboot of still-paired device) all pass because the device is in one of the two lists.</li>
+        <li><strong>Set <code>lastDisconnectWasManual: true</code> in the unpair synchronous emit.</strong> Only when <code>deviceState != null</code> (the device was actually connected). This suppresses the AppShell "Reconnecting&hellip;" snackbar at the exact moment <code>state.isConnected</code> flips false. The flag still gets re-affirmed by <code>_onConnectionStateChanged</code> when the BLE link actually closes &mdash; no behavior change after that point.</li>
+    </ol>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> Synchronous state emits that flip <code>isConnected</code> or similar derived properties need to set the <em>full</em> set of fields that downstream listeners use to interpret the change. <code>connectedDevices.remove(id)</code> alone is ambiguous &mdash; it could mean "user unpaired", "OTA reboot", "BLE flapped". The <code>lastDisconnectWasManual</code> flag is the disambiguator; forgetting to set it makes the same state change trigger different UX. Similarly: timer callbacks that dispatch events check state at fire-time, but the dispatched event is processed later &mdash; defending the handler entry itself (not just the dispatch site) is the only way to avoid stale-event races.
+    </div>
+
     <!-- Quick Reference -->
     <h2>Quick Reference: Error &rarr; Solution</h2>
 
@@ -1268,6 +1287,7 @@ AppLogger.debug('BLE TX: $command');</code></pre>
             <tr><td>Scan shows non-Traxelos devices</td><td>Missing service UUID filter on <code>startScan()</code> &mdash; add <code>withServices</code> &mdash; see 10.11</td></tr>
             <tr><td>Multi-device switch loses claim color</td><td>Per-device claim queues raced &mdash; global <code>_claimQueue</code> + optimistic rollback &mdash; see 10.12</td></tr>
             <tr><td>Item still assigned after Unpair &rarr; Re-pair</td><td>Firmware re-sends old prefs on <code>in_sync</code> handshake &mdash; app must filter by <code>pairedDevices</code> membership in <code>_onMessageReceived</code> &mdash; see 10.13</td></tr>
+            <tr><td>"Connecting&hellip;" or "Reconnecting&hellip;" message after Unpair</td><td>Stale <code>ConnectToDevice</code> from auto-reconnect timer + missing <code>lastDisconnectWasManual</code> flag in synchronous emit &mdash; see 10.14</td></tr>
         </tbody>
     </table>
 
