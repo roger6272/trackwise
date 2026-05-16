@@ -641,7 +641,7 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
 <p><strong>Device Behavior by Status:</strong></p>
 <table>
     <tr><th>Status</th><th>Device Action</th><th>App Action</th></tr>
-    <tr><td><code>in_sync</code></td><td>Automatically sends prefs + logs via NOTIFY</td><td>Process prefs, sync to Firestore</td></tr>
+    <tr><td><code>in_sync</code></td><td>Automatically sends prefs + logs via NOTIFY ~100ms after handshake response</td><td>If device is in <code>paired_devices</code>: process prefs, sync to Firestore. If NOT in <code>paired_devices</code> (re-pair after user-initiated Unpair): <strong>drop the messages</strong> and route via <code>DeviceSetupRequired</code> so the user re-confirms setup. See note below.</td></tr>
     <tr><td><code>wrong_account</code></td><td>Shows "PAIRED TO OTHER ACCOUNT"</td><td>Show error dialog, disconnect</td></tr>
     <tr><td><code>uninitialized</code></td><td>Shows "AWAITING SETUP"</td><td>Show setup dialog, send override on user confirm</td></tr>
 </table>
@@ -649,8 +649,10 @@ final offset = now.timeZoneOffset.inMinutes;</code></pre>
 <p><strong>Example Flow (in_sync):</strong></p>
 <pre><code>App: {"cmd": "handshake", "uid": "abc123"}
 Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF", "protocol_version": 3, "firmware_version": "2.0.0"}
-Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic)
-Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic)</code></pre>
+Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic, ~100ms later)
+Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic, after prefs)</code></pre>
+
+<blockquote><strong>Important &mdash; <code>in_sync</code> does not imply "known device":</strong> Path A unpair (Paired Devices &rarr; three-dot menu &rarr; Unpair) clears the app's <code>paired_devices</code> entry but does <strong>not</strong> send the <code>unpair</code> BLE command, so the device retains <code>paired_uid</code> in NVS. A subsequent reconnect returns <code>in_sync</code> even though the app has no record of the device. Firmware unconditionally fires the prefs+logs storm after <code>in_sync</code> (it has no way to know the app forgot it), and those carry the device's <em>old</em> item list and <em>old</em> <code>selectedDeviceItemId</code>. The app <strong>must</strong> filter by <code>paired_devices</code> membership in its message handler &mdash; otherwise the old <code>selectedDeviceItemId</code> resolves to a still-existing Firestore item and <code>claim_by</code> is written back onto the just-unpaired device. See <code>docs/decisions/ADR-006</code> (Refinement section) and <code>docs/TROUBLESHOOTING.md</code> &sect;10.13.</blockquote>
 
 <hr>
 

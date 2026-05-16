@@ -20,6 +20,8 @@
 10. [Multi-Device / Exclusive Leasing Issues](#10-multi-device--exclusive-leasing-issues)
 11. [OTA Firmware Update Issues](#11-ota-firmware-update-issues)
 
+> See also §1.6 (silent SIG-UUID match failure in flutter_blue_plus) for the battery-level-never-appears class of bug.
+
 ---
 
 ## 1. Connection Issues
@@ -121,6 +123,30 @@ await connect(device);
 | Firmware outdated | Update device firmware |
 | Partial discovery | Retry service discovery |
 | UUID mismatch | Check `bluetooth_constants.dart` |
+
+---
+
+### 1.6 "Battery level never appears in app (but works in nRF Connect)"
+
+**Symptoms:** Custom Trackwise characteristics work (handshake, sync, notifications), but battery level icon never updates. nRF Connect on the same device shows the 0x180F service and 0x2A19 reads/notifies fine. Logs show `Battery Level characteristic: not found (optional)` on every connect.
+
+**Root Cause:** flutter_blue_plus's `Guid.toString()` returns the *shortest* representation, not canonical 128-bit form. For SIG-assigned UUIDs (anything matching the base `-0000-1000-8000-00805f9b34fb`), `toString()` strips down to the 4-char short form — so the Battery Level characteristic returns `"2a19"`, not `"00002a19-0000-1000-8000-00805f9b34fb"`. String-equality comparison against the long-form constant in `BluetoothConstants` silently fails. Custom 128-bit UUIDs (Trackwise's `12345678-...`) are unaffected because they don't match the SIG base.
+
+**The Fix:** Use `char.uuid.str128.toLowerCase()` instead of `char.uuid.toString().toLowerCase()` when matching characteristics. `str128` always returns the canonical 128-bit form regardless of UUID width. See `bluetooth_datasource_impl.dart:355-372`.
+
+**Key Lesson:** When comparing BLE UUIDs in flutter_blue_plus, never rely on `toString()` — use `str128` for string compare, or compare `Guid` instances directly (`==` canonicalizes via `str128` internally). This matters for any SIG-assigned UUID (Battery 0x180F, Device Info 0x180A, Current Time 0x1805, etc.) and is silent — no error, no exception, just a missing characteristic.
+
+---
+
+### 1.7 "Battery level only appears after a long delay post-connect"
+
+**Symptoms:** Battery icon stays empty for many seconds (sometimes minutes) after connect, then suddenly populates with a sensible %. Tied to whenever the firmware fires its next `notify()` for a SOC change. On a steady or charging battery the wait can be effectively indefinite.
+
+**Root Cause:** Subscriber-timing race between the data source and the BLoC. Inside `connect()` → `discoverServices()`, the data source calls `_subscribeToBatteryLevel()` which does an initial `Read` of `0x2A19` and pushes the value into `batteryLevelController`. *Then* `connect()` returns and the BLoC's `_onDeviceConnected` handler subscribes via `_bluetoothRepository.watchBatteryLevel()`. If the controller is a non-replaying broadcast (`StreamController<int>.broadcast()`), the initial Read landed on an empty audience and the value is lost. Until firmware notifies again — which only happens when SOC actually changes (per-channel firmware logic, often gated to ~5%-step lookup-table boundaries) — the UI stays empty.
+
+**The Fix:** Use `BehaviorSubject<int>()` from `rxdart` instead of `StreamController<int>.broadcast()` in `device_connection.dart`. `BehaviorSubject` extends `StreamController` (drop-in replacement for `.add()`/`.stream`/`.close()`/`.isClosed`) but buffers the most recent value and replays it to every new subscriber. Late-subscribing BLoCs receive the initial Read immediately.
+
+**Key Lesson:** Any "current value" stream in BLE (battery, RSSI, connection state, MTU) needs replay-on-subscribe semantics. Event streams (button presses, sync events, OTA progress) do **not** — replaying old events on reconnect would re-fire stale UX. Pick the controller per-stream: `BehaviorSubject` for current-value, plain broadcast `StreamController` for events.
 
 ---
 
@@ -986,6 +1012,24 @@ Both items re-render in the same frame: new item gains color via `isActivated`, 
 **Known edge case:** Even with the global queue, BLE notification latency varies per device. If Device B presses switch first but Device A's BLE notification arrives at the app first, A's claim enters the queue before B's. A fails (item still claimed by B), reverts cleanly, then B succeeds. The user just taps again on Device A — the item is now free. This is a sub-second retry for near-simultaneous button presses, not a desync.
 
 **Key Lesson:** Fire-and-forget operations with optimistic updates must handle rollback on failure. Per-device queues only serialize within one device — cross-device races require a global queue. BLE notification arrival order is not guaranteed to match physical button press order.
+
+### 10.13 "Item still shows assigned to device after Unpair → Re-pair"
+
+**Symptoms:** User taps **Unpair** in Paired Devices for a device that had an item claimed, then re-connects to the same device (without factory reset). After the Set Up dialog, the device is paired again — but the items list still shows the previously-claimed item as assigned to that device. The `claimed_by` field on the Firestore item document points to the device. The user expects the re-paired device to be treated as a fresh device with no prior assignments.
+
+**Root Cause:** Two overlapping races around `claim_by` writes.
+
+**Race 1 — re-pair handshake window (primary).** When the user re-connects an unpaired device, the device still has `paired_uid` set in NVS, so its handshake returns `in_sync`. ~100ms later, firmware (`Trackwise_ESP32.ino` lines 3143–3153) fires `notifyPrefsToApp()` and `notifyLogsToApp()` carrying the OLD item list and the OLD `selectedDeviceItemId`. These prefs arrive at `_onMessageReceived` while `syncStatus` is still `handshaking` (the existing block-on-not-online check allows handshaking through for legacy sync). `_syncDeviceData` maps the old `deviceItemId` to a still-existing Firestore item, returns `selectedFirestoreId`, and `_onMessageReceived` dispatches `ClaimItem`. The `_onClaimItem` guard at the top (`connectedDevices[id] == null`) passes — the device IS connected — so `atomicClaimSwap` runs and writes `claim_by = <re-paired-deviceInstanceId>`. Then `_onHandshakeCompleted` detects "in_sync but not in pairedDevices" and routes to `DeviceSetupRequired` → Set Up dialog → override clears items on the device. By then the ghost claim is already on Firestore.
+
+**Race 2 — Path A unpair stragglers.** While `_onRemovePairedDevice` is awaiting `releaseAllClaims`, `_onMessageReceived` for the same device can run concurrently (bloc 8 runs different event types concurrently by default), dispatching `ClaimItem`. The `_claimQueue` captures variables at dispatch time and runs `atomicClaimSwap` later — potentially after `releaseAllClaims` already cleared the field, recreating the claim.
+
+**Fix Applied:**
+
+1. **Drop messages from devices not in `pairedDevices`** at the top of `_onMessageReceived` (before the existing `syncStatus` gate). Closes Race 1: re-pair prefs arrive when the device is not yet in `pairedDevices`, so they get dropped instead of triggering `ClaimItem`. Set Up override then runs against a clean Firestore state. Also covers Race 2 stragglers because the synchronous emit in `_onRemovePairedDevice` removed the device from `pairedDevices`.
+2. **Restructured `_onRemovePairedDevice`** so all bookkeeping and state emit happen synchronously before any `await`. This closes the manual-disconnect/auto-reconnect race (`_manualDisconnects.add(id)` must be set before `_onConnectionStateChanged` can fire) and makes the `pairedDevices` removal visible to any concurrent reader before the first await.
+3. **`await _claimQueue` before `releaseAllClaims`** in `_onRemovePairedDevice`. Drains in-flight `atomicClaimSwap` transactions so the release batch runs against a settled state and catches just-committed claims.
+
+**Key Lesson:** An `in_sync` handshake from a device that *thinks* it's paired but *the app forgot* is not a re-connection — it's the start of a fresh pairing. The firmware doesn't know the app unpaired it (the `unpair` BLE command is only sent during account deletion, not user-initiated Path A unpair), so it ships its old state on reconnect as if nothing happened. **The app must filter messages by `pairedDevices` membership, not just by `connectedDevices`**, because the handshake window opens before Set Up routes the device into the setup flow. Also: a guard that checks state at handler-entry time isn't enough when the actual write runs later via a serialized queue — drain the queue before clearing dependent state.
 
 ---
 

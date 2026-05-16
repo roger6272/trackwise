@@ -388,6 +388,76 @@ Data Flow:
   Device starts empty — user must claim an item to assign it a category.
 ```
 
+### 4.3 Re-pairing After Path A Unpair
+
+**When:** User previously unpaired the device via Paired Devices → three-dot → **Unpair** (without factory-resetting the device), then re-connects to it. The device's `paired_uid` still matches, so handshake returns `in_sync` — but the app has no record of this device.
+**Source of Truth:** App (empty) — same outcome as new-device setup
+**Key behavior:** App **drops** the firmware's initial prefs/logs storm because the device is not in `paired_devices`. This prevents the old `selectedDeviceItemId` from being mapped back to a Firestore item and writing a ghost `claim_by`.
+
+```
+┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① handshake(uid)    │
+     │                     │ ───────────────────►│ paired_uid matches
+     │                     │                     │
+     │                     │ ② {status: in_sync, │
+     │                     │    protocol_version:3}
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │                     │ ③ ~100ms later:     │
+     │                     │   prefs (old items, │
+     │                     │   old selected_id)  │
+     │                     │ ◄───────────────────│
+     │                     │   logs (old data)   │
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │                     │ ④ APP DROPS BOTH    │
+     │                     │   (device not in    │
+     │                     │   paired_devices)   │
+     │                     │                     │
+     │                     │ ⑤ _onHandshakeCompleted:
+     │                     │   "in_sync + unknown"
+     │                     │   → DeviceSetupRequired
+     │                     │                     │
+     │                     │ ⑥ Show setup dialog │
+     │                     │   "New Device       │
+     │                     │    Detected"        │
+     │                     │                     │
+     │ User taps "Set Up"  │                     │
+     │                     │                     │
+     │                     │ ⑦ override_start    │
+     │                     │ ───────────────────►│
+     │                     │ (uid, 0 items)      │ clearAllItemSlots
+     │                     │                     │
+     │                     │ ⑧ override_end      │
+     │                     │ ───────────────────►│
+     │                     │ (selected_id: -1)   │ No selection
+     │                     │                     │
+     │                     │ ⑨ {override_complete}
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │ addPairedDevice     │                     │
+     │ ◄───────────────────│                     │
+
+Data Flow:
+  Device's old NVS state → discarded by App during ④
+  App empties device's NVS slots via override
+  Device ends up paired to the same UID but with no items and no selection
+  — identical end state to a fresh New Device Setup.
+
+Why dropping ④ matters:
+  Firmware fires notifyPrefsToApp + notifyLogsToApp unconditionally after
+  in_sync (Trackwise_ESP32.ino:3143-3163). It has no way to know the app
+  unpaired the device. Without the paired_devices filter in
+  _onMessageReceived, the old selectedDeviceItemId maps to a still-existing
+  Firestore item and triggers a ClaimItem → atomicClaimSwap that writes
+  claim_by onto the just-unpaired device. The setup-route via
+  DeviceSetupRequired races the prefs and can lose. See
+  docs/TROUBLESHOOTING.md §10.13.
+```
+
 ### 4.4 Wrong Account
 
 **When:** Device paired to different Firebase UID

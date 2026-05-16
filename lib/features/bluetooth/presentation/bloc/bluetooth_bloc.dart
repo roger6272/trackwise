@@ -962,6 +962,25 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     final message = event.message;
     final deviceInstanceId = event.deviceInstanceId;
 
+    // Drop messages from devices not in pairedDevices. Covers two cases:
+    // (1) Re-pair: device returns in_sync (still has paired_uid from before
+    //     unpair) and firmware fires initial prefs ~100ms after handshake.
+    //     Those prefs carry the old selected item — without this guard, the
+    //     dispatched ClaimItem would write claim_by back onto the device
+    //     that was just unpaired. Setup-route via DeviceSetupRequired races
+    //     the prefs, so syncStatus-based gating in the next check is not
+    //     enough.
+    // (2) Path A unpair stragglers: messages already in flight when the
+    //     synchronous emit in _onRemovePairedDevice removed the device from
+    //     pairedDevices.
+    final isKnownDevice = state.pairedDevices.any(
+      (d) => d.deviceInstanceId.toUpperCase() == deviceInstanceId.toUpperCase(),
+    );
+    if (!isKnownDevice) {
+      AppLogger.debug('Dropping ${message.type.name} from unknown device $deviceInstanceId');
+      return;
+    }
+
     // Block messages during states where device data is unreliable.
     // Allow during 'handshaking' — prefs must flow through to complete
     // legacy sync (sets synced via line below) and to avoid a race where
@@ -1149,55 +1168,49 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     RemovePairedDevice event,
     Emitter<BluetoothState> emit,
   ) async {
-    // Release all claims for this device before unpairing
+    final id = event.deviceInstanceId;
+    final deviceState = state.connectedDevices[id];
+
+    // Synchronous bookkeeping + emit BEFORE any await: prevents concurrent
+    // _onMessageReceived from dispatching a ClaimItem that re-writes claims
+    // after release (line 1657 guard sees connectedDevices[id] == null), and
+    // prevents reconnect timers from re-adding the device mid-unpair.
+    _manualDisconnects.add(id);
+    _devicesToReconnect.remove(id);
+    _reconnectTimers[id]?.cancel();
+    _reconnectTimers.remove(id);
+    _reconnectAttempts.remove(id);
+    _deviceCategories.remove(id);
+
+    emit(state.copyWith(
+      pairedDevices: state.pairedDevices.where((d) => d.deviceInstanceId != id).toList(),
+      connectedDevices: _removeDevice(id),
+      status: deviceState != null ? BluetoothStatus.ready : null,
+    ));
+
+    // Drain in-flight claim transactions so releaseAllClaims runs against a
+    // settled state — otherwise an atomicClaimSwap committed after the
+    // release query becomes a ghost claim on the unpaired device.
+    await _claimQueue;
+
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (userId.isNotEmpty) {
-      final releaseResult = await _itemRepository.releaseAllClaims(event.deviceInstanceId, userId);
+      final releaseResult = await _itemRepository.releaseAllClaims(id, userId);
       releaseResult.fold(
-        (failure) => AppLogger.debug('Failed to release claims for ${event.deviceInstanceId}: ${failure.message}'),
-        (_) => AppLogger.debug('Released all claims for device ${event.deviceInstanceId}'),
+        (failure) => AppLogger.debug('Failed to release claims for $id: ${failure.message}'),
+        (_) => AppLogger.debug('Released all claims for device $id'),
       );
     }
 
-    // Check if the device being unpaired is currently connected (direct map lookup)
-    final deviceState = state.connectedDevices[event.deviceInstanceId];
-
-    // Disconnect first if this device is connected
     if (deviceState != null) {
       AppLogger.debug('Disconnecting from device being unpaired');
-      _manualDisconnects.add(event.deviceInstanceId);
-      _devicesToReconnect.remove(event.deviceInstanceId);
-      _reconnectTimers[event.deviceInstanceId]?.cancel();
-      _reconnectTimers.remove(event.deviceInstanceId);
-      _reconnectAttempts.remove(event.deviceInstanceId);
-      _deviceCategories.remove(event.deviceInstanceId);
-
       await _bluetoothRepository.disconnect(deviceState.device.id);
     }
 
-    final result = await _userRepository.removePairedDevice(event.deviceInstanceId);
-
+    final result = await _userRepository.removePairedDevice(id);
     result.fold(
-      (failure) {
-        AppLogger.debug('Failed to remove paired device: ${failure.message}');
-      },
-      (_) {
-        // Update local state
-        final updatedDevices = state.pairedDevices
-            .where((d) => d.deviceInstanceId != event.deviceInstanceId)
-            .toList();
-
-        if (deviceState != null) {
-          // Also clear connected state for this device
-          emit(state.copyWith(
-            pairedDevices: updatedDevices,
-            status: BluetoothStatus.ready,
-            connectedDevices: _removeDevice(event.deviceInstanceId),
-          ));
-        } else {
-          emit(state.copyWith(pairedDevices: updatedDevices));
-        }
-      },
+      (failure) => AppLogger.debug('Failed to remove paired device: ${failure.message}'),
+      (_) {},
     );
   }
 

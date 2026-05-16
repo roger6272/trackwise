@@ -692,6 +692,74 @@ Per-Item (index 0-99):              Global:
   1. Device counts &#8594; App state &#8594; Firestore (preserve device's work)
   2. Firestore claimed items &#8594; App &#8594; Device (push latest assignments)</div>
 
+        <h3>4.3 Re-pairing After Path A Unpair</h3>
+
+        <p><strong>When:</strong> User previously unpaired the device via Paired Devices &rarr; three-dot &rarr; <strong>Unpair</strong> (without factory-resetting the device), then re-connects to it. The device's <code>paired_uid</code> still matches, so handshake returns <code>in_sync</code> &mdash; but the app has no record of this device.<br>
+        <strong>Source of Truth:</strong> App (empty) &mdash; same outcome as new-device setup<br>
+        <strong>Key behavior:</strong> App <strong>drops</strong> the firmware's initial prefs/logs storm because the device is not in <code>paired_devices</code>. This prevents the old <code>selectedDeviceItemId</code> from being mapped back to a Firestore item and writing a ghost <code>claim_by</code>.</p>
+
+        <div class="sequence-diagram">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;<span style="color: #fbbf24;">FIRESTORE</span>&#9474;           &#9474;   <span style="color: #a78bfa;">APP</span>   &#9474;           &#9474; <span style="color: #34d399;">DEVICE</span>  &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9312;</span> handshake(uid)    &#9474;
+     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; paired_uid matches
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9313;</span> {status: in_sync} &#9474;
+     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9314;</span> ~100ms later:     &#9474;
+     &#9474;                     &#9474;   prefs (old items, &#9474;
+     &#9474;                     &#9474;   old selected_id)  &#9474;
+     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
+     &#9474;                     &#9474;   logs (old data)   &#9474;
+     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #f87171;">&#9315; APP DROPS BOTH</span>    &#9474;
+     &#9474;                     &#9474;   (device not in    &#9474;
+     &#9474;                     &#9474;   paired_devices)   &#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9316;</span> _onHandshakeCompleted: &#9474;
+     &#9474;                     &#9474;   "in_sync + unknown"  &#9474;
+     &#9474;                     &#9474;   &rarr; DeviceSetupRequired &#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9317;</span> Show setup dialog &#9474;
+     &#9474;                     &#9474;   "New Device       &#9474;
+     &#9474;                     &#9474;    Detected"        &#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474; User taps "Set Up"  &#9474;                     &#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9318;</span> override_start    &#9474;
+     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; clearAllItemSlots
+     &#9474;                     &#9474; (uid, 0 items)      &#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9319;</span> override_end      &#9474;
+     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; No selection
+     &#9474;                     &#9474; (selected_id: -1)   &#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9320;</span> {override_complete}&#9474;
+     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
+     &#9474;                     &#9474;                     &#9474;
+     &#9474; addPairedDevice     &#9474;                     &#9474;
+     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                     &#9474;
+
+<span style="color: #4ade80;">Data Flow:</span>
+  Device's old NVS state &#8594; <span style="color: #f87171;">discarded by App during &#9315;</span>
+  App empties device's NVS slots via override
+  Device ends up paired to the same UID but with no items and no selection
+  &mdash; identical end state to a fresh New Device Setup.
+
+<span style="color: #f87171;">Why dropping &#9315; matters:</span>
+  Firmware fires notifyPrefsToApp + notifyLogsToApp unconditionally after
+  in_sync (Trackwise_ESP32.ino:3143-3163). It has no way to know the app
+  unpaired the device. Without the paired_devices filter in
+  _onMessageReceived, the old selectedDeviceItemId maps to a still-existing
+  Firestore item and triggers a ClaimItem &rarr; atomicClaimSwap that writes
+  claim_by onto the just-unpaired device. The setup-route via
+  DeviceSetupRequired races the prefs and can lose. See
+  docs/TROUBLESHOOTING.md &sect;10.13.</div>
+
         <hr>
 
         <h2 id="realtime-events">5. Real-time Event Flow</h2>

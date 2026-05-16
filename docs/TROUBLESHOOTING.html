@@ -1198,6 +1198,26 @@ AppLogger.debug('BLE TX: $command');</code></pre>
         <strong>Key Lesson:</strong> Fire-and-forget operations with optimistic updates must handle rollback on failure. Per-device queues only serialize within one device &mdash; cross-device races require a global queue. BLE notification arrival order is not guaranteed to match physical button press order.
     </div>
 
+    <h3>10.13 "Item still shows assigned to device after Unpair &rarr; Re-pair"</h3>
+    <p class="symptom">User taps <strong>Unpair</strong> in Paired Devices for a device that had an item claimed, then re-connects to the same device (without factory reset). After the Set Up dialog, the device is paired again &mdash; but the items list still shows the previously-claimed item as assigned to that device. The <code>claimed_by</code> field on the Firestore item document points to the device. The user expects the re-paired device to be treated as a fresh device with no prior assignments.</p>
+
+    <p><strong>Root Cause:</strong> Two overlapping races around <code>claim_by</code> writes.</p>
+
+    <p><strong>Race 1 &mdash; re-pair handshake window (primary).</strong> When the user re-connects an unpaired device, the device still has <code>paired_uid</code> set in NVS, so its handshake returns <code>in_sync</code>. ~100ms later, firmware (<code>Trackwise_ESP32.ino</code> lines 3143&ndash;3153) fires <code>notifyPrefsToApp()</code> and <code>notifyLogsToApp()</code> carrying the OLD item list and the OLD <code>selectedDeviceItemId</code>. These prefs arrive at <code>_onMessageReceived</code> while <code>syncStatus</code> is still <code>handshaking</code> (the existing block-on-not-online check allows handshaking through for legacy sync). <code>_syncDeviceData</code> maps the old <code>deviceItemId</code> to a still-existing Firestore item, returns <code>selectedFirestoreId</code>, and <code>_onMessageReceived</code> dispatches <code>ClaimItem</code>. The <code>_onClaimItem</code> guard at the top (<code>connectedDevices[id] == null</code>) passes &mdash; the device IS connected &mdash; so <code>atomicClaimSwap</code> runs and writes <code>claim_by = &lt;re-paired-deviceInstanceId&gt;</code>. Then <code>_onHandshakeCompleted</code> detects "in_sync but not in pairedDevices" and routes to <code>DeviceSetupRequired</code> &rarr; Set Up dialog &rarr; override clears items on the device. By then the ghost claim is already on Firestore.</p>
+
+    <p><strong>Race 2 &mdash; Path A unpair stragglers.</strong> While <code>_onRemovePairedDevice</code> is awaiting <code>releaseAllClaims</code>, <code>_onMessageReceived</code> for the same device can run concurrently (bloc 8 runs different event types concurrently by default), dispatching <code>ClaimItem</code>. The <code>_claimQueue</code> captures variables at dispatch time and runs <code>atomicClaimSwap</code> later &mdash; potentially after <code>releaseAllClaims</code> already cleared the field, recreating the claim.</p>
+
+    <p><strong>Fix Applied:</strong></p>
+    <ol>
+        <li><strong>Drop messages from devices not in <code>pairedDevices</code></strong> at the top of <code>_onMessageReceived</code> (before the existing <code>syncStatus</code> gate). Closes Race 1: re-pair prefs arrive when the device is not yet in <code>pairedDevices</code>, so they get dropped instead of triggering <code>ClaimItem</code>. Set Up override then runs against a clean Firestore state. Also covers Race 2 stragglers because the synchronous emit in <code>_onRemovePairedDevice</code> removed the device from <code>pairedDevices</code>.</li>
+        <li><strong>Restructured <code>_onRemovePairedDevice</code></strong> so all bookkeeping and state emit happen synchronously before any <code>await</code>. This closes the manual-disconnect/auto-reconnect race (<code>_manualDisconnects.add(id)</code> must be set before <code>_onConnectionStateChanged</code> can fire) and makes the <code>pairedDevices</code> removal visible to any concurrent reader before the first await.</li>
+        <li><strong><code>await _claimQueue</code> before <code>releaseAllClaims</code></strong> in <code>_onRemovePairedDevice</code>. Drains in-flight <code>atomicClaimSwap</code> transactions so the release batch runs against a settled state and catches just-committed claims.</li>
+    </ol>
+
+    <div class="lesson">
+        <strong>Key Lesson:</strong> An <code>in_sync</code> handshake from a device that <em>thinks</em> it's paired but <em>the app forgot</em> is not a re-connection &mdash; it's the start of a fresh pairing. The firmware doesn't know the app unpaired it (the <code>unpair</code> BLE command is only sent during account deletion, not user-initiated Path A unpair), so it ships its old state on reconnect as if nothing happened. <strong>The app must filter messages by <code>pairedDevices</code> membership, not just by <code>connectedDevices</code></strong>, because the handshake window opens before Set Up routes the device into the setup flow. Also: a guard that checks state at handler-entry time isn't enough when the actual write runs later via a serialized queue &mdash; drain the queue before clearing dependent state.
+    </div>
+
     <!-- Quick Reference -->
     <h2>Quick Reference: Error &rarr; Solution</h2>
 
@@ -1247,6 +1267,7 @@ AppLogger.debug('BLE TX: $command');</code></pre>
             <tr><td>Auto-connect after account change</td><td>Stale reconnect timers in singleton BLoC &mdash; <code>ResetBluetoothState</code> clears all timers &mdash; see 10.10</td></tr>
             <tr><td>Scan shows non-Traxelos devices</td><td>Missing service UUID filter on <code>startScan()</code> &mdash; add <code>withServices</code> &mdash; see 10.11</td></tr>
             <tr><td>Multi-device switch loses claim color</td><td>Per-device claim queues raced &mdash; global <code>_claimQueue</code> + optimistic rollback &mdash; see 10.12</td></tr>
+            <tr><td>Item still assigned after Unpair &rarr; Re-pair</td><td>Firmware re-sends old prefs on <code>in_sync</code> handshake &mdash; app must filter by <code>pairedDevices</code> membership in <code>_onMessageReceived</code> &mdash; see 10.13</td></tr>
         </tbody>
     </table>
 

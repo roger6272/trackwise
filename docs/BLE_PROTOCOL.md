@@ -593,7 +593,7 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 
 | Status | Device Action | App Action |
 |--------|---------------|------------|
-| `in_sync` | Automatically sends prefs + logs via NOTIFY | Process prefs, sync to Firestore |
+| `in_sync` | Automatically sends prefs + logs via NOTIFY ~100ms after handshake response | If device is in `paired_devices`: process prefs, sync to Firestore. If NOT in `paired_devices` (re-pair after user-initiated Unpair): **drop the messages** and route via `DeviceSetupRequired` so the user re-confirms setup. See note below. |
 | `wrong_account` | Shows "PAIRED TO OTHER ACCOUNT" | Show error dialog, disconnect |
 | `uninitialized` | Shows "AWAITING SETUP" | Show setup dialog, send override on user confirm |
 
@@ -601,9 +601,11 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 ```
 App: {"cmd": "handshake", "uid": "abc123"}
 Device: {"status": "in_sync", "device_instance_id": "AA:BB:CC:DD:EE:FF", "protocol_version": 3, "firmware_version": "2.1.0"}
-Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic)
-Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic)
+Device: {"type": "prefs", "data": [...], "selected_id": 0}  (automatic, ~100ms later)
+Device: {"type": "logs", "page": 0, "hasMore": false, "data": [...]}  (automatic, after prefs)
 ```
+
+> **Important — `in_sync` does not imply "known device":** Path A unpair (Paired Devices → three-dot menu → Unpair) clears the app's `paired_devices` entry but does **not** send the `unpair` BLE command, so the device retains `paired_uid` in NVS. A subsequent reconnect returns `in_sync` even though the app has no record of the device. Firmware unconditionally fires the prefs+logs storm after `in_sync` (it has no way to know the app forgot it), and those carry the device's *old* item list and *old* `selectedDeviceItemId`. The app **must** filter by `paired_devices` membership in its message handler — otherwise the old `selectedDeviceItemId` resolves to a still-existing Firestore item and `claim_by` is written back onto the just-unpaired device. See `docs/decisions/ADR-006` (Refinement section) and `docs/TROUBLESHOOTING.md` §10.13.
 
 ---
 
