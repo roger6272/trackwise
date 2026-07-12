@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../../../../core/utils/bluetooth_constants.dart';
 import '../../domain/entities/ble_message.dart';
@@ -35,9 +36,9 @@ class DeviceConnection {
   final messageBuffer = StringBuffer();
   Timer? messageTimeoutTimer;
 
-  // Battery level (optional — only present on firmware with Battery Service)
+  // Battery level (optional). BehaviorSubject — late subscribers (BLoC after connect()) replay last value.
   StreamSubscription<List<int>>? batteryLevelSubscription;
-  final batteryLevelController = StreamController<int>.broadcast();
+  final batteryLevelController = BehaviorSubject<int>();
 
   // Write serialization (per-device queue)
   final writeQueue = <WriteOperation>[];

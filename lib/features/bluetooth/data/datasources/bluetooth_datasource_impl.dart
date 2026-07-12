@@ -354,7 +354,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     // Don't filter by service UUID - just find characteristics by their UUIDs
     for (final service in services) {
       for (final char in service.characteristics) {
-        final uuid = char.uuid.toString().toLowerCase();
+        // Must be str128, not toString() — toString() returns short form ("2a19") for SIG UUIDs.
+        final uuid = char.uuid.str128.toLowerCase();
 
         if (uuid == BluetoothConstants.readCharacteristicUUID.toLowerCase()) {
           conn.readChar = char;
