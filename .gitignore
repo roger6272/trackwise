@@ -67,6 +67,11 @@ GoogleService-Info.plist
 .claude/ccpm/settings.local.json
 firebase/extensions/*.env
 
+# Claude Code local settings — machine-specific, and the permission
+# allowlist records approved commands verbatim (can capture secrets
+# passed as CLI flags, e.g. keytool -storepass).
+.claude/settings.local.json
+
 # Flutter DevTools
 devtools_options.yaml
 
