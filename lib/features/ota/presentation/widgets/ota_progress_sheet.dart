@@ -193,10 +193,29 @@ class OtaProgressSheet extends StatelessWidget {
             ),
           ],
         ),
-      OtaTransferRebooting() => _StepList(
-          currentStep: 3,
-          secondaryText: secondaryText,
-          primaryColor: primaryColor,
+      // The device can be gone for a while here. On nRF the bootloader bank-swaps
+      // the new image (physically copying it between flash banks) before it will
+      // run — 30-60s, and longer if it has to swap back. Say so, or the user
+      // assumes it has hung and pulls the power, which is the one thing that can
+      // actually damage the device mid-swap.
+      OtaTransferRebooting() => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _StepList(
+              currentStep: 3,
+              secondaryText: secondaryText,
+              primaryColor: primaryColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'This can take a couple of minutes.\n'
+              'Keep your device powered on and nearby.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: secondaryText,
+                  ),
+            ),
+          ],
         ),
       OtaTransferComplete() => Column(
           mainAxisSize: MainAxisSize.min,

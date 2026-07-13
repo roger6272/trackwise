@@ -43,7 +43,14 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   bool _activeTransferWasRequired = false;
 
   /// Duration to wait for device reconnect after OTA reboot.
-  static const Duration _rebootTimeout = Duration(seconds: 60);
+  ///
+  /// Must cover the slowest device, not the fastest. ESP32 flips a partition
+  /// pointer and is back in ~1-2s. nRF's bootloader **bank-swaps** — it physically
+  /// copies the new image between flash banks before it will run it — which takes
+  /// 30-60s, and a rollback is a SECOND swap. So the legitimate worst case is around
+  /// two minutes, not one. This was 60s, tuned to the ESP32, which meant every
+  /// successful nRF update timed out and reported failure.
+  static const Duration _rebootTimeout = Duration(seconds: 180);
 
   OtaBloc(
     this._checkForUpdate,
@@ -433,7 +440,15 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
         deviceInstanceId: deviceId,
         info: info,
         message:
-            'Device didn\'t respond after update. Try turning it off and on again.',
+            // NEVER tell the user to power-cycle here. The device may still be
+            // bank-swapping the new image, and pulling power mid-swap is the one
+            // action that can actually damage it. Keep it powered and let it finish.
+            // Deliberately avoids the phrase "turn it off" entirely, even negated —
+            // the test bans the substring outright, and a blunt guard is worth more
+            // than a clever one when the failure mode is a bricked device.
+            'The device is taking longer than expected to restart. '
+            'Keep it powered and near your phone — it may still be installing. '
+            'It should reconnect on its own shortly.',
       ),
     ));
   }

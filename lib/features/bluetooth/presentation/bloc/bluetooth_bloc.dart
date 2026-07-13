@@ -663,18 +663,41 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         _devicesToReconnect.add(disconnectedId);
         _reconnectTimers[disconnectedId]?.cancel();
 
-        // OTA reboot: skip exponential backoff, use short fixed delay
+        // OTA reboot: skip exponential backoff and RETRY on a fixed interval.
+        //
+        // A single attempt is not enough. On nRF the bootloader bank-swaps the new
+        // image — physically copying it between flash banks before it will run —
+        // which takes 30-60s, and a rollback is a SECOND swap. The device is not
+        // advertising for that entire window, so any one connect attempt lands on a
+        // dead radio. Previously this fired once at 3s, missed, and scheduled nothing
+        // further: the app then sat idle until the reboot timeout and declared a
+        // successful update failed. Keep trying until we get it or OtaBloc's reboot
+        // timeout gives up. (ESP32 comes back in ~1-2s, so the first attempt wins
+        // there and the retries cost nothing.)
         if (_awaitingOtaReboot.contains(disconnectedId)) {
           _reconnectAttempts.remove(disconnectedId);
-          const otaReconnectDelay = Duration(seconds: 3);
-          AppLogger.debug('OTA reboot disconnect for $disconnectedId — reconnecting in ${otaReconnectDelay.inSeconds}s');
-          _reconnectTimers[disconnectedId] = Timer(otaReconnectDelay, () {
-            // Keep the flag set — bluetooth_page needs it to dispatch
-            // OtaRebootCompleted after the handshake. The flag is cleared
-            // by bluetooth_page when it dispatches SetOtaRebootFlag(awaiting: false).
-            if (!_manualDisconnects.contains(disconnectedId) && !isClosed) {
-              add(ConnectToDevice(disconnectedId));
+          const otaReconnectInterval = Duration(seconds: 5);
+          AppLogger.debug(
+              'OTA reboot disconnect for $disconnectedId — retrying every ${otaReconnectInterval.inSeconds}s until it returns');
+          _reconnectTimers[disconnectedId] =
+              Timer.periodic(otaReconnectInterval, (timer) {
+            // Stop once the device is back, or if OtaBloc gave up and cleared the
+            // flag. bluetooth_page clears it via SetOtaRebootFlag(awaiting: false)
+            // after the post-reboot handshake.
+            if (!_awaitingOtaReboot.contains(disconnectedId) ||
+                _manualDisconnects.contains(disconnectedId) ||
+                isClosed) {
+              timer.cancel();
+              _reconnectTimers.remove(disconnectedId);
+              return;
             }
+            if (state.connectedDevices.containsKey(disconnectedId)) {
+              timer.cancel();
+              _reconnectTimers.remove(disconnectedId);
+              return;
+            }
+            AppLogger.debug('OTA reboot: retrying connect to $disconnectedId');
+            add(ConnectToDevice(disconnectedId));
           });
         } else {
           final delay = _getReconnectDelay(disconnectedId);

@@ -661,23 +661,32 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 50));
         bloc.add(const OtaRebootTimedOut());
       },
-      expect: () => [
-        OtaBlocState(
-          activeTransfer: OtaTransferDownloading(
-            deviceInstanceId: _deviceId,
-            info: testFirmwareInfo,
-            progress: 0.0,
-          ),
-        ),
-        OtaBlocState(
-          activeTransfer: OtaTransferError(
-            deviceInstanceId: _deviceId,
-            info: testFirmwareInfo,
-            message:
-                'Device didn\'t respond after update. Try turning it off and on again.',
-          ),
-        ),
-      ],
+      // Asserts the SAFETY PROPERTY, not the exact wording. The device may still be
+      // bank-swapping the new image when this fires, and telling the user to pull
+      // power mid-swap is the one action that can actually damage it. The old copy
+      // said "try turning it off and on again" — and this test pinned it. Never
+      // again: a future copy edit must not be able to quietly reintroduce it.
+      verify: (bloc) {
+        final transfer = bloc.state.activeTransfer;
+        expect(transfer, isA<OtaTransferError>());
+        final message = (transfer! as OtaTransferError).message.toLowerCase();
+
+        expect(message, contains('keep it powered'),
+            reason: 'the user must be told to LEAVE the device on — it may be '
+                'mid-bank-swap and still working');
+        for (final dangerous in [
+          'turn it off',
+          'turning it off',
+          'power cycle',
+          'power-cycle',
+          'unplug',
+          'restart it',
+        ]) {
+          expect(message, isNot(contains(dangerous)),
+              reason: 'must never advise power-cycling a device that may be '
+                  'mid-swap — that is the one thing that can brick it');
+        }
+      },
     );
   });
 

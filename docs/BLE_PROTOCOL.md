@@ -62,6 +62,23 @@ Any implementation (ESP32, nRF, or a future chip) must honor everything in this 
 | **Version honesty.** The `firmware_version` reported on handshake MUST be the version the image was published as. | The ESP32 published a binary as `2.1.1` that reported `2.1.0`. The app never saw the update as applied and would have re-offered it **forever**. `scripts/publish_firmware.sh` now refuses to publish on a mismatch. |
 | **`ota_abort` MUST be refused once the image is committed** (VERIFIED or REBOOTING) — reply `reason: "already_committed"`. | The boot partition is already set, so the new image *will* boot on the next reset. Honouring the abort would reset to IDLE and tell the app "cancelled", and the device would then silently come up on the new firmware anyway. Refuse rather than lie. |
 
+### Post-reboot timing envelope — this is contract, and it is platform-dependent
+
+**How long the device may be gone after `reboot` is part of the contract.** It was never written down, lived only as two magic numbers in the app tuned to the ESP32, and consequently every successful nRF update reported as a failure.
+
+| Platform | Time from restart to advertising again | Why |
+|---|---|---|
+| **ESP32** | ~1–2s | The bootloader just flips a pointer to the other OTA partition. Nothing is copied. |
+| **nRF (MCUboot)** | **30–60s** | The bootloader **bank-swaps**: it physically copies the new image between flash banks before it will run it. Scales with image size — this gets *slower* as the firmware grows. |
+| **nRF, rolled back** | **up to ~2 min** | A rollback is a *second* bank swap. |
+
+**App-side budget (`OtaBloc._rebootTimeout`): 180s**, with a reconnect attempt every 5s for the whole window. A single attempt is useless — the device is not advertising at all while it swaps.
+
+> [!DANGER]
+> **Never tell the user to power-cycle a device that hasn't come back yet.** It may be mid-bank-swap, and pulling power during a swap is the one action that can actually damage the device. The app's timeout message previously said *"try turning it off and on again"* — at 60s, i.e. squarely inside the nRF swap window. Any UI covering this state must say **keep it powered**.
+
+**If a port can avoid the swap** (e.g. MCUboot *direct-XIP*, which boots the new image in place rather than copying it), the device returns in seconds and this whole problem disappears. Worth doing if the flash layout allows it.
+
 **ESP32 artifacts — a port should reimplement the *intent*, not the mechanism:**
 
 | Leak | What it actually means | For a non-ESP32 port |
