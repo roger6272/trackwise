@@ -2292,6 +2292,20 @@ void processWriteCommand(const String& jsonStr) {
       if (pendingOtaStart) {
         // ota_start was deferred but not yet processed — just cancel it
         pendingOtaStart = false;
+      } else if (otaState == OTA_VERIFIED || otaState == OTA_REBOOTING) {
+        // Too late to cancel: esp_ota_set_boot_partition() already ran, so the new
+        // image WILL boot on the next reset no matter what we do here. Honouring the
+        // abort would reset us to IDLE and tell the app "cancelled" — and then the
+        // device would silently come up on the new firmware anyway. Refuse instead of
+        // lying. (Not reachable from the UI today: Cancel is hidden once verifying.)
+        DEBUG_PRINTLN("❌ ota_abort: already committed, cannot cancel");
+        StaticJsonDocument<128> doc;
+        doc["status"] = "error";
+        doc["cmd"] = "ota_abort";
+        doc["reason"] = "already_committed";
+        String response;
+        serializeJson(doc, response);
+        sendJsonResponse(response);
       } else if (otaState != OTA_IDLE) {
         otaAbort("cancelled");
       }

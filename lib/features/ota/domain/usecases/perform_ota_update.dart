@@ -251,6 +251,12 @@ class PerformOtaUpdateUseCase {
 
   String _friendlyError(String reason) {
     switch (reason) {
+      case 'already_committed':
+        // The device verified the image and set its boot partition — it will come up
+        // on the new firmware regardless. Cancelling is no longer possible, and
+        // saying otherwise would be a lie.
+        return 'The update is already installed and cannot be cancelled. '
+            'Your device will restart to finish it.';
       case 'low_battery':
         return 'Battery too low to update. Please charge your device above 20% and try again.';
       case 'hash_mismatch':
