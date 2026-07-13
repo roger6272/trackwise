@@ -206,6 +206,59 @@ void main() {
       expect(states.last, isA<OtaComplete>());
     });
 
+    test(
+        'completes (does NOT error) when the reboot write is never acked — the '
+        'device restarts before it can ack, and the update is already committed',
+        () async {
+      // Regression: the ESP32 used to call esp_restart() inside the BLE write
+      // callback, so the reboot command was never acked and the app reported a
+      // successful update as "Update failed". The firmware now defers the restart,
+      // but the link can still drop here for unrelated reasons (out of range,
+      // phone sleeps). After ota_verified the boot partition is committed and the
+      // device self-reboots regardless, so a lost ack must not fail the update.
+      final binaryData = Uint8List(200);
+      final firmwareInfo = testFirmwareInfoForBinary(binaryData);
+
+      when(() => mockRepository.downloadFirmwareBinary(
+            any(),
+            onProgress: any(named: 'onProgress'),
+          )).thenAnswer((_) async => Right(binaryData));
+
+      when(() => mockRepository.sendOtaStart(
+            expectedSize: any(named: 'expectedSize'),
+            expectedHash: any(named: 'expectedHash'),
+            version: any(named: 'version'),
+          )).thenAnswer((_) async => const Right(null));
+
+      when(() => mockRepository.writeOtaChunk(any()))
+          .thenAnswer((_) async => const Right(null));
+
+      when(() => mockRepository.sendOtaEnd())
+          .thenAnswer((_) async => const Right(null));
+
+      // The device reboots before acking — the write fails.
+      when(() => mockRepository.sendReboot()).thenAnswer(
+        (_) async => const Left(BluetoothFailure('Device disconnected')),
+      );
+
+      var callCount = 0;
+      when(() => mockRepository.listenForOtaNotifications()).thenAnswer((_) {
+        callCount++;
+        return Stream.fromIterable([
+          {'status': callCount == 1 ? 'ota_ready' : 'ota_verified'}
+        ]);
+      });
+
+      final states = await useCase
+          .execute(firmwareInfo: firmwareInfo, negotiatedMtu: testMtu)
+          .toList();
+
+      expect(states.whereType<OtaError>(), isEmpty,
+          reason: 'a lost reboot ack must not surface as an update failure');
+      expect(states.any((s) => s is OtaRebooting), isTrue);
+      expect(states.last, isA<OtaComplete>());
+    });
+
     test('emits OtaError when notification stream closes without response',
         () async {
       final binaryData = Uint8List(200);

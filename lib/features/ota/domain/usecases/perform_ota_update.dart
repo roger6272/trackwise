@@ -193,12 +193,20 @@ class PerformOtaUpdateUseCase {
     yield const OtaRebooting();
     AppLogger.debug('OTA: Sending reboot');
 
+    // A failed reboot write is NOT an update failure. By this point the device has
+    // verified the image and committed its boot partition — the update cannot fail
+    // any more, and the device self-reboots ~10s after verifying even if it never
+    // hears from us. A lost ack here usually just means the device rebooted before
+    // acking. Treat silence as "it's rebooting" and let the reconnect (or the reboot
+    // timeout) decide the outcome; raising an error would show "Update failed" on an
+    // update that succeeded.
     final rebootResult = await _repository.sendReboot();
-    if (rebootResult.isLeft()) {
-      final errorMsg = rebootResult.fold((f) => f.message, (_) => '');
-      yield OtaError('Failed to send reboot: $errorMsg');
-      return;
-    }
+    rebootResult.fold(
+      (f) => AppLogger.debug(
+        'OTA: reboot not acked (${f.message}) — device reboots regardless, continuing',
+      ),
+      (_) => AppLogger.debug('OTA: reboot acknowledged'),
+    );
 
     yield const OtaComplete();
     AppLogger.debug('OTA: Update complete, device is rebooting');

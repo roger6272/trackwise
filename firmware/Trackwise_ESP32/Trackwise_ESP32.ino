@@ -242,6 +242,7 @@ unsigned long otaVerifiedTime = 0;                  // Timestamp when VERIFIED s
 BLECharacteristic* otaDataChar = nullptr;           // OTA Data characteristic pointer
 bool pendingOtaEnd = false;                          // Deferred ota_end processing (avoid blocking BLE callback)
 bool pendingOtaStart = false;                        // Deferred ota_start processing (esp_ota_begin erases flash)
+bool pendingReboot = false;                          // Deferred reboot (esp_restart() in the callback kills the write response)
 size_t pendingOtaStartSize = 0;                      // Deferred ota_start: expected size
 char pendingOtaStartHash[65] = {0};                  // Deferred ota_start: expected SHA256
 char pendingOtaStartVersion[16] = {0};               // Deferred ota_start: firmware version
@@ -1164,6 +1165,7 @@ void otaResetState() {
   otaExpectedHash[0] = '\0';
   pendingOtaEnd = false;
   pendingOtaStart = false;
+  pendingReboot = false;
   if (otaShaCtxInitialized) {
     mbedtls_sha256_free(&otaShaCtx);
     otaShaCtxInitialized = false;
@@ -2292,7 +2294,10 @@ void processWriteCommand(const String& jsonStr) {
 
     } else if (cmd == "reboot") {  //////////////////// OTA reboot into new firmware
       // App sends: { "cmd": "reboot" }
-      handleOtaReboot();
+      // Deferred to loop(): esp_restart() inside this callback restarts the chip
+      // before the BLE stack can send the write response, so the app's write
+      // never gets acked and it reports the (already-successful) update as failed.
+      pendingReboot = true;
 
     } else {
       DEBUG_LOG("⚠️ Unknown command: %s\n", cmd.c_str());
@@ -3101,6 +3106,17 @@ void loop() {
   if (pendingOtaEnd) {
     pendingOtaEnd = false;
     handleOtaEnd();
+  }
+
+  // ============== DEFERRED REBOOT ==============
+  // Process reboot outside the BLE callback. esp_restart() never returns, so
+  // calling it from the callback means the stack never sends the write response
+  // for the reboot command — the app's write fails and it reports the update as
+  // failed even though the new firmware is already verified and committed.
+  // Returning from the callback first lets the ack go out, then we restart here.
+  if (pendingReboot) {
+    pendingReboot = false;
+    handleOtaReboot();
   }
 
   // ============== OTA TIMEOUT CHECKS ==============
