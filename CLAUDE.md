@@ -173,14 +173,25 @@ This repo has been burned by this: `TROUBLESHOOTING.md` §1.6/§1.7 were committ
 |------------------|-------------------|
 | BLE commands, notifications, protocol | `docs/BLE_PROTOCOL.md`, check `DATA_FLOW.md` for examples |
 | Handshake request/response format | `docs/BLE_PROTOCOL.md`, `docs/DATA_FLOW.md` (has response examples) |
-| Sync logic, data flow | `docs/DATA_FLOW.md`, `docs/DATA_FLOW.html` |
+| Sync logic, data flow | `docs/DATA_FLOW.md` (the `.html` is generated — see below) |
 | Firmware behavior | `docs/BLE_PROTOCOL.md`, `docs/DATA_FLOW.md` |
 | Error handling, failure modes | `docs/TROUBLESHOOTING.md`, `docs/BLE_PROTOCOL.md` (error codes) |
 | User-facing features, UI flows | `docs/USER_GUIDE.md` |
 | Product capabilities, use cases | `docs/PRODUCT_OVERVIEW.md` |
 | Non-obvious design decisions | Create new `docs/decisions/ADR-XXX.md` |
 
-**Note:** `DATA_FLOW.html` is a styled version of `DATA_FLOW.md` - update both when changing data flow diagrams.
+### `docs/*.html` are GENERATED. Never edit them by hand.
+
+The HTML docs are **build output**, produced from the markdown by `scripts/build_docs.py`. They exist because the **firmware engineer reads them** — he doesn't have this repo, so they are how the spec reaches the person implementing the nRF port.
+
+```bash
+python scripts/build_docs.py           # regenerate after editing any docs/*.md
+python scripts/build_docs.py --check   # exits 1 if any HTML is stale
+```
+
+**This rule used to say "update both."** It didn't hold, and the failure was severe: on 2026-07-12, `BLE_PROTOCOL.html` contained **zero** mentions of `ota_start` while the markdown had 17, and `TROUBLESHOOTING.html` had none of the OTA section. **The one person who most needed the OTA protocol was reading a copy that didn't contain it.** A hand-maintained second copy of a document is a drift generator — the markdown is the source of truth and the HTML is derived from it.
+
+Only the six docs in `PUBLISHED` (in the script) are generated — deliberately *not* the launch checklist, store-setup guides, or UX specs, which are internal.
 
 **Guidelines:**
 - Update docs in the **same commit** as the code change when possible

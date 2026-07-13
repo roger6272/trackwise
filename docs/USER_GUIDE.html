@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traxelos One User Guide</title>
-    <style>
-        :root {
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traxelos One User Guide - Traxelos</title>
+<style>
+:root {
             --primary-color: #2563eb;
             --secondary-color: #1e40af;
             --bg-color: #f8fafc;
@@ -13,19 +13,21 @@
             --text-color: #1e293b;
             --text-muted: #64748b;
             --border-color: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
             --table-header: #f1f5f9;
-            --accent-bg: #eff6ff;
-            --accent-border: #bfdbfe;
             --success-color: #22c55e;
             --warning-color: #f59e0b;
             --error-color: #ef4444;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.7;
+            line-height: 1.6;
             color: var(--text-color);
             background-color: var(--bg-color);
             margin: 0;
@@ -33,1065 +35,1313 @@
         }
 
         .container {
-            max-width: 860px;
+            max-width: 1000px;
             margin: 0 auto;
             background: var(--card-bg);
-            padding: 48px 56px;
+            padding: 40px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         h1 {
             color: var(--primary-color);
-            font-size: 2.2em;
             border-bottom: 3px solid var(--primary-color);
-            padding-bottom: 16px;
-            margin-bottom: 8px;
+            padding-bottom: 15px;
+            margin-bottom: 10px;
         }
 
-        .subtitle {
+        h1 + blockquote {
             color: var(--text-muted);
-            font-size: 1.1em;
-            margin-bottom: 32px;
+            font-style: italic;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 15px;
+            margin: 0 0 30px 0;
         }
 
         h2 {
             color: var(--secondary-color);
-            font-size: 1.5em;
-            margin-top: 56px;
-            padding-top: 24px;
+            margin-top: 50px;
+            padding-top: 20px;
             border-top: 1px solid var(--border-color);
         }
 
         h3 {
             color: var(--text-color);
-            font-size: 1.15em;
-            margin-top: 28px;
+            margin-top: 30px;
         }
 
-        /* Table of Contents */
-        .toc {
-            background: var(--accent-bg);
-            border: 1px solid var(--accent-border);
-            border-radius: 8px;
-            padding: 24px 32px;
-            margin: 24px 0 40px;
-        }
-        .toc h3 { margin-top: 0; color: var(--secondary-color); }
-        .toc ol { margin: 0; padding-left: 20px; }
-        .toc li { margin: 6px 0; }
-        .toc a { color: var(--primary-color); text-decoration: none; }
-        .toc a:hover { text-decoration: underline; }
-
-        /* Tables */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 16px 0;
-            font-size: 0.95em;
+            margin: 20px 0;
+            font-size: 14px;
         }
+
         th, td {
-            padding: 10px 14px;
+            padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-        th {
-            background: var(--table-header);
-            font-weight: 600;
-            color: var(--secondary-color);
-        }
-        tr:hover td { background: #fafbfc; }
-
-        /* Lists */
-        ul, ol { padding-left: 24px; }
-        li { margin: 4px 0; }
-
-        /* Callout / Note */
-        .note {
-            background: var(--accent-bg);
-            border-left: 4px solid var(--primary-color);
-            padding: 14px 20px;
-            border-radius: 0 8px 8px 0;
-            margin: 16px 0;
-            font-size: 0.95em;
-        }
-        .note strong { color: var(--secondary-color); }
-
-        .warning {
-            background: #fef3c7;
-            border-left: 4px solid var(--warning-color);
-            padding: 14px 20px;
-            border-radius: 0 8px 8px 0;
-            margin: 16px 0;
-        }
-
-        .danger {
-            background: #fef2f2;
-            border-left: 4px solid var(--error-color);
-            padding: 14px 20px;
-            border-radius: 0 8px 8px 0;
-            margin: 16px 0;
-        }
-
-        /* Inline code / UI labels */
-        .ui {
-            background: #e0e7ff;
-            color: var(--secondary-color);
-            padding: 2px 7px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 0.93em;
-            white-space: nowrap;
-        }
-
-        .key {
-            background: var(--table-header);
             border: 1px solid var(--border-color);
-            padding: 1px 6px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            font-weight: 600;
         }
 
-        /* Tip */
-        .tip {
-            color: var(--text-muted);
-            font-style: italic;
+        th {
+            background-color: var(--table-header);
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        tr:hover {
+            background-color: #f0f9ff;
+        }
+
+        code {
+            background-color: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: var(--secondary-color);
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 20px 0;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        /* Special styling for ASCII diagrams */
+        .diagram {
+            background-color: #1a1a2e;
+            color: #a0e7e5;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 20px 0;
+            white-space: pre;
+        }
+
+        /* Sequence diagram styling */
+        .sequence-diagram {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #94a3b8;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            line-height: 1.3;
+            margin: 20px 0;
+            white-space: pre;
+            border: 1px solid #334155;
+        }
+
+        /* Decision tree styling */
+        .decision-tree {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0d2137 100%);
+            color: #7dd3fc;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            line-height: 1.3;
+            margin: 20px 0;
+            white-space: pre;
+            border: 1px solid #0ea5e9;
+        }
+
+        /* Architecture diagram styling */
+        .architecture {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #e2e8f0;
+            padding: 30px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 20px 0;
+            white-space: pre;
+            border: 2px solid var(--primary-color);
+        }
+
+        /* Timeline diagram */
+        .timeline {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fbbf24;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            line-height: 1.3;
+            margin: 20px 0;
+            white-space: pre;
+            border: 1px solid #f59e0b;
+        }
+
+        /* Quick reference box */
+        .quick-reference {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #22d3ee;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 20px 0;
+            white-space: pre;
+            border: 2px solid #06b6d4;
+        }
+
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            margin: 20px 0;
+            padding: 15px 20px;
+            background-color: #f0f9ff;
+            border-radius: 0 8px 8px 0;
+            color: var(--text-color);
+        }
+
+        blockquote strong {
+            color: var(--primary-color);
+        }
+
+        hr {
+            border: none;
+            border-top: 2px solid var(--border-color);
+            margin: 40px 0;
+        }
+
+        ul, ol {
+            padding-left: 25px;
+        }
+
+        li {
             margin: 8px 0;
         }
 
-        /* Steps */
-        .steps ol { counter-reset: step; list-style: none; padding-left: 0; }
-        .steps ol > li {
-            counter-increment: step;
-            position: relative;
-            padding-left: 40px;
-            margin: 12px 0;
-        }
-        .steps ol > li::before {
-            content: counter(step);
-            position: absolute;
-            left: 0;
-            top: 1px;
-            width: 26px;
-            height: 26px;
-            background: var(--primary-color);
-            color: white;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 26px;
-            font-size: 0.85em;
-            font-weight: 700;
-        }
-        .steps ul { list-style: disc; padding-left: 20px; }
-        .steps ul li::before { content: none; }
-
-        /* Quick Ref Card */
-        .quick-ref {
-            background: var(--accent-bg);
-            border: 1px solid var(--accent-border);
+        /* Table of Contents styling */
+        .toc {
+            background-color: var(--table-header);
+            padding: 20px 30px;
             border-radius: 8px;
-            padding: 24px 28px;
             margin: 20px 0;
         }
-        .quick-ref h3 { margin-top: 20px; color: var(--secondary-color); }
-        .quick-ref h3:first-child { margin-top: 0; }
 
-        /* Footer */
-        .footer {
-            text-align: center;
-            margin-top: 48px;
-            padding-top: 24px;
-            border-top: 2px solid var(--primary-color);
-            color: var(--text-muted);
+        .toc ol {
+            margin: 0;
+            padding-left: 20px;
         }
-        .footer .tagline {
+
+        .toc a {
             color: var(--primary-color);
-            font-weight: 700;
-            font-size: 1.1em;
-            margin-top: 8px;
+            text-decoration: none;
         }
 
-        hr { border: none; border-top: 1px solid var(--border-color); margin: 40px 0; }
-
-        @media (max-width: 700px) {
-            .container { padding: 24px 20px; }
-            h1 { font-size: 1.6em; }
+        .toc a:hover {
+            text-decoration: underline;
         }
-    </style>
+
+        /* Status badges */
+        .status-insync {
+            background-color: #dcfce7;
+            color: #166534;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .status-override {
+            background-color: #fef3c7;
+            color: #92400e;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .status-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        /* Warning/Note boxes */
+        .warning {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .note {
+            background-color: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                padding: 20px;
+            }
+            pre, .diagram, .sequence-diagram, .decision-tree, .architecture, .timeline, .quick-reference {
+                background: #f5f5f5 !important;
+                color: #333 !important;
+                border: 1px solid #ccc;
+            }
+        }
+
+
+.alert { border-left: 5px solid; border-radius: 6px; padding: 12px 16px; margin: 18px 0; }
+.alert .alert-title { font-weight: 700; margin-bottom: 6px; letter-spacing: .02em; }
+.alert > :last-child { margin-bottom: 0; }
+.generated-banner { background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px;
+  padding:10px 14px; margin-bottom:24px; font-size:.9em; color:#475569; }
+
+</style>
 </head>
 <body>
 <div class="container">
-
-    <h1>Traxelos One User Guide</h1>
-    <p class="subtitle">Welcome to Traxelos One! This guide will help you get the most out of your physical counter device and companion app.</p>
-
-    <div class="toc">
-        <h3>Table of Contents</h3>
-        <ol>
-            <li><a href="#what-is-traxelos">What is Traxelos One?</a></li>
-            <li><a href="#getting-started">Getting Started</a></li>
-            <li><a href="#connecting-your-device">Connecting Your Device</a></li>
-            <li><a href="#creating-managing-items">Creating &amp; Managing Items</a></li>
-            <li><a href="#using-your-traxelos-one-counter">Using Your Traxelos One Counter</a></li>
-            <li><a href="#organizing-with-categories">Organizing with Categories</a></li>
-            <li><a href="#setting-goals">Setting Goals</a></li>
-            <li><a href="#setting-reminders">Setting Reminders</a></li>
-            <li><a href="#viewing-your-data">Viewing Your Data</a></li>
-            <li><a href="#exporting-your-data">Exporting Your Data</a></li>
-            <li><a href="#managing-your-account">Managing Your Account</a></li>
-            <li><a href="#tips-tricks">Tips &amp; Tricks</a></li>
-            <li><a href="#troubleshooting">Troubleshooting</a></li>
-        </ol>
-    </div>
-
-    <!-- Section 1 -->
-    <h2 id="what-is-traxelos">1. What is Traxelos One?</h2>
-
-    <p>Traxelos One is a <strong>physical counter device</strong> paired with a <strong>mobile app</strong> that makes tracking habits, inventory, or any countable activity effortless.</p>
-
-    <h3>How it works</h3>
-    <ul>
-        <li>Press the button on your device to count</li>
-        <li>Your counts sync automatically to the app</li>
-        <li>View analytics, set goals, and export data from your phone</li>
-    </ul>
-
-    <h3>What you can track</h3>
-    <ul>
-        <li>Daily habits (water intake, exercise reps, meditation minutes)</li>
-        <li>Inventory counts (stock levels, audit tallies)</li>
-        <li>Work tasks (completed items, customer interactions)</li>
-        <li>Anything you want to count!</li>
-    </ul>
-
-    <!-- Section 2 -->
-    <h2 id="getting-started">2. Getting Started</h2>
-
-    <h3>Step 1: Download the App</h3>
-    <p>Download Traxelos One from the App Store (iOS) or Google Play (Android).</p>
-
-    <h3>Step 2: Create an Account</h3>
-    <div class="steps">
-        <ol>
-            <li>Open the app</li>
-            <li>Tap <span class="ui">Create Account</span></li>
-            <li>Enter your email address</li>
-            <li>Create a password and confirm it</li>
-            <li>Tap <span class="ui">Create Account</span></li>
-        </ol>
-    </div>
-    <p class="tip">You can also sign in with Google (or Apple on iOS) for faster setup.</p>
-
-    <h3>Step 3: Complete Onboarding</h3>
-    <p>After creating your account, a guided setup walks you through four steps:</p>
-    <div class="steps">
-        <ol>
-            <li><strong>Your Profile</strong> &mdash; Enter your name, select your primary use case (e.g., Habit Tracking, Inventory), and how you heard about us. All fields are optional.</li>
-            <li><strong>Welcome to Traxelos One</strong> &mdash; A quick overview of how it works, what you need, and what comes next.</li>
-            <li><strong>Find Your Device</strong> &mdash; The app scans for your Traxelos One via Bluetooth. Tap your device in the list to connect and pair it. <em>(Tap "I don't have a device yet" to skip.)</em></li>
-            <li><strong>You're All Set!</strong> &mdash; A confirmation screen showing your paired device. Tap <span class="ui">Get Started</span> to enter the app. <em>(Only shown if you paired a device in the previous step.)</em></li>
-        </ol>
-    </div>
-    <p class="tip">You can skip any step &mdash; tap "Skip for now" to move on or finish early.</p>
-
-    <h3>Step 4: Sign In</h3>
-    <p>If you already have an account:</p>
-    <div class="steps">
-        <ol>
-            <li>Enter your email and password</li>
-            <li>Tap <span class="ui">Sign In</span></li>
-        </ol>
-    </div>
-
-    <h3>Step 5: Pair Your Device</h3>
-    <p>See <a href="#connecting-your-device">Connecting Your Device</a> below.</p>
-
-    <!-- Section 3 -->
-    <h2 id="connecting-your-device">3. Connecting Your Device</h2>
-
-    <h3>First-Time Pairing</h3>
-    <div class="steps">
-        <ol>
-            <li><strong>Turn on your Traxelos One device</strong>
-                <ul><li>The device should be charged and powered on</li></ul>
-            </li>
-            <li><strong>Open the Bluetooth tab</strong> in the app
-                <ul><li>Tap the Bluetooth icon in the bottom navigation</li></ul>
-            </li>
-            <li><strong>Grant Bluetooth permissions</strong> (if prompted)
-                <ul>
-                    <li>Tap <span class="ui">Grant Permissions</span></li>
-                    <li>Allow Bluetooth and Location access</li>
-                </ul>
-            </li>
-            <li><strong>Tap <span class="ui">Find Device</span></strong>
-                <ul>
-                    <li>The app will open the search page and automatically scan for nearby devices</li>
-                    <li>Your device will appear in the list (e.g., "Traxelos_One")</li>
-                </ul>
-            </li>
-            <li><strong>Select your device</strong>
-                <ul>
-                    <li>Tap the device name to connect (already-paired devices are hidden from scan results)</li>
-                    <li>If this is a new device, you'll see a <strong>"New Device Detected"</strong> setup dialog &mdash; tap <span class="ui">Set Up</span> to pair</li>
-                </ul>
-            </li>
-            <li><strong>You're connected!</strong>
-                <ul>
-                    <li>The device is now paired but starts with <strong>no items and no selection</strong></li>
-                    <li>Go to the <strong>Home</strong> screen and tap an item to claim it for the device &mdash; this assigns the device to that item's category</li>
-                    <li>The Bluetooth icon in the bottom navigation turns <strong>green</strong> to indicate an active connection</li>
-                    <li>The device is automatically named "Traxelos One (1)", "Traxelos One (2)", etc. based on how many devices you've paired</li>
-                </ul>
-            </li>
-        </ol>
-    </div>
-
-    <h3>Re-pairing a Previously Unpaired Device</h3>
-    <p>If you unpair a device and later reconnect to it (without factory resetting), the app treats it as a fresh setup:</p>
-    <ul>
-        <li>The device starts <strong>empty</strong> with no items &mdash; same as first-time pairing</li>
-        <li>A new entry is added to your paired devices list with the next auto-numbered name</li>
-        <li>Any items previously on the device are cleared</li>
-    </ul>
-    <p class="tip">To fully reset the device before pairing to a different account, use <a href="#factory-reset">Factory Reset</a>.</p>
-
-    <h3>Reconnecting</h3>
-    <p>If your device disconnects unexpectedly, the app will automatically try to reconnect with increasing intervals. You'll see:</p>
-    <ul>
-        <li><strong>"Device disconnected. Reconnecting..."</strong> notification when the connection drops</li>
-        <li><strong>"Reconnected to device"</strong> notification when it reconnects successfully</li>
-    </ul>
-    <p>If auto-reconnect doesn't work:</p>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account &gt; Paired Devices</strong> and tap your device to reconnect (no scan needed)</li>
-            <li>Or go to <strong>Bluetooth &gt; Find Device</strong> and select your device from the scan list (already-paired devices are hidden &mdash; use the Paired Devices page instead)</li>
-        </ol>
-    </div>
-
-    <h3>Disconnecting</h3>
-    <p>To manually disconnect:</p>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account &gt; Paired Devices</strong> and tap the three-dot menu &gt; <strong>Disconnect</strong></li>
-            <li>Or go to the <strong>Bluetooth tab</strong> and tap <span class="ui">Disconnect</span></li>
-        </ol>
-    </div>
-
-    <!-- Section 4 -->
-    <h2 id="creating-managing-items">4. Creating &amp; Managing Items</h2>
-
-    <div class="note">
-        <strong>Note:</strong> Creating and editing items can be done without a device connection. A connected device is needed to sync items to the device.
-    </div>
-
-    <h3>Creating Your First Item</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to the <strong>Home tab</strong> (Items)</li>
-            <li>Tap the <strong>+ button</strong> in the top right</li>
-            <li>Fill in the details:
-                <ul>
-                    <li><strong>Item Name</strong> (required, max 30 characters) &mdash; e.g., "Push-ups"</li>
-                    <li><strong>Category</strong> (optional) &mdash; Select from the dropdown (see <a href="#organizing-with-categories">Organizing with Categories</a>)</li>
-                    <li><strong>Initial Value</strong> (create only) &mdash; Starting count (default: 0)</li>
-                    <li><strong>Goal</strong> (optional) &mdash; Target count</li>
-                    <li><strong>Count Per Press</strong> &mdash; How much to add per button press (default: 1)</li>
-                    <li><strong>Reminder (Vibration)</strong> (optional) &mdash; Choose a vibration alert type:
-                        <ul>
-                            <li>"None" &mdash; No vibration</li>
-                            <li>"At Target Count" &mdash; Vibrate when reaching your goal</li>
-                            <li>"Every X Increments" &mdash; Vibrate at regular intervals</li>
-                        </ul>
-                    </li>
-                    <li><strong>Reminder Value</strong> &mdash; The count that triggers the vibration</li>
-                </ul>
-            </li>
-            <li>Tap <span class="ui">Create</span></li>
-        </ol>
-    </div>
-    <p>You can track up to <strong>100 items</strong>.</p>
-
-    <h3>Editing an Item</h3>
-    <div class="steps">
-        <ol>
-            <li>On the items list, <strong>swipe left</strong> on the item</li>
-            <li>Tap the <strong>edit icon</strong> (pencil)</li>
-            <li>Make your changes</li>
-            <li>Tap <span class="ui">Update</span></li>
-        </ol>
-    </div>
-    <p class="tip">Note: You cannot change the initial value after creation.</p>
-
-    <h3>Deleting an Item</h3>
-    <div class="steps">
-        <ol>
-            <li>On the items list, <strong>swipe left</strong> on the item</li>
-            <li>Tap the <strong>delete icon</strong> (trash)</li>
-            <li>Confirm deletion</li>
-        </ol>
-    </div>
-    <p><strong>Don't worry!</strong> Deleted items go to "Recently Deleted" for 30 days. You can restore them anytime (device connection required).</p>
-
-    <h3>Swipe Actions</h3>
-    <p>Swiping left on an item reveals actions depending on context:</p>
-    <table>
-        <thead><tr><th>Icon</th><th>Action</th><th>When Shown</th><th>Description</th></tr></thead>
-        <tbody>
-            <tr><td><strong>Pin</strong></td><td>Activate</td><td>Device connected, item unclaimed</td><td>Assign item to a connected device</td></tr>
-            <tr><td><strong>Open lock</strong></td><td>Unlock</td><td>Item claimed by a device</td><td>Release the item from its device</td></tr>
-            <tr><td><strong>Pencil</strong></td><td>Edit</td><td>Item editable (not locked by offline device)</td><td>Open the item edit form</td></tr>
-            <tr><td><strong>Trash</strong></td><td>Delete</td><td>Item editable (not locked by offline device)</td><td>Delete the item (with confirmation)</td></tr>
-        </tbody>
-    </table>
-
-    <h3>Searching Items</h3>
-    <p>Tap the <strong>search icon</strong> in the top right to filter items by name.</p>
-
-    <h3>Reordering Items</h3>
-    <div class="steps">
-        <ol>
-            <li><strong>Long press</strong> on an item</li>
-            <li><strong>Drag</strong> it to the new position within its category</li>
-            <li><strong>Release</strong> to save</li>
-        </ol>
-    </div>
-    <p>Your custom order is saved and synced to your device.</p>
-
-    <!-- Section 5 -->
-    <h2 id="using-your-traxelos-one-counter">5. Using Your Traxelos One Counter</h2>
-
-    <h3>Basic Counting</h3>
-    <div class="steps">
-        <ol>
-            <li>Make sure your device is connected (check the Bluetooth tab)</li>
-            <li>Press the <strong>count button</strong> on your device</li>
-            <li>The app updates automatically</li>
-        </ol>
-    </div>
-    <div class="note">
-        When you first connect, a brief <strong>"Syncing..."</strong> indicator appears on the items list while your counts update from the device. This disappears once sync is complete.
-    </div>
-    <p class="tip">You'll feel a triple vibration when you reach an item's goal, or a single vibration when a reminder condition is met (see <a href="#setting-reminders">Setting Reminders</a>).</p>
-    <p class="tip">The maximum count for any item is <strong>9,999</strong>. When you reach this limit, the device will display "MAX REACHED" and give a double vibration on each press. Reset the item to continue counting.</p>
-
-    <h3>Device Buttons</h3>
-
-    <h4>Traxelos One Device</h4>
-
-    <p><strong>Button A</strong></p>
-    <table>
-        <thead><tr><th>Interaction</th><th>Location</th><th>Action</th></tr></thead>
-        <tbody>
-            <tr><td>Press</td><td>Main Item View</td><td>Add to your current item's count</td></tr>
-            <tr><td>Press</td><td>Item Menu View</td><td>Confirm item selection (Menu view)</td></tr>
-            <tr><td>Press</td><td>Sleep Mode</td><td>Awake the device</td></tr>
-            <tr><td>Press &amp; Hold 3 seconds</td><td>Main Item View</td><td>Display time, Current Category, and Current Item for 10 seconds or until a button is pressed</td></tr>
-        </tbody>
-    </table>
-
-    <p><strong>Button B</strong></p>
-    <table>
-        <thead><tr><th>Interaction</th><th>Location</th><th>Action</th></tr></thead>
-        <tbody>
-            <tr><td>Press</td><td>Main Item View</td><td>Enter item menu view</td></tr>
-            <tr><td>Press</td><td>Item Menu View</td><td>Next item in the menu</td></tr>
-            <tr><td>Press</td><td>Sleep Mode</td><td>Awake the device</td></tr>
-            <tr><td>Press &amp; Hold</td><td>Item Menu View</td><td>Rapidly loop through the items in the menu</td></tr>
-            <tr><td>Press &amp; Hold 3 seconds</td><td>Main Item View</td><td>Reset the selected item's count (Enter the next cycle)</td></tr>
-        </tbody>
-    </table>
-
-    <blockquote><strong>Note:</strong> When the device is not connected to the app, switching items is disabled. Pressing Button B will show "SWITCH DISABLED — SYNC TO APP". Counting and resetting still work normally. Connect to the app to switch items again.</blockquote>
-
-    <p><strong>Automatic Behaviors</strong></p>
-    <table>
-        <thead><tr><th>Trigger</th><th>Location</th><th>Action</th></tr></thead>
-        <tbody>
-            <tr><td>5 secs of inactivity</td><td>Item Menu View</td><td>Leave the menu to the Main Item View</td></tr>
-            <tr><td>5 mins of inactivity</td><td>Main Item View</td><td>Enter Power Saving mode (Display Off)</td></tr>
-            <tr><td>Turn on device</td><td>When device is on before pairing</td><td>Show "Welcome" on the display</td></tr>
-        </tbody>
-    </table>
-
-    <p><strong>Factory Reset</strong></p>
-    <p>To erase all data and restore the device to its original state, hold <strong>both A and B buttons for 7 seconds</strong>. The device will clear all items, counts, and pairing information.</p>
-    <p><strong>When to factory reset:</strong></p>
-    <ul>
-        <li>Before pairing a device to a different account</li>
-        <li>After unpairing or deleting your account while the device was not connected</li>
-        <li>If the device is behaving unexpectedly and reconnecting doesn't resolve it</li>
-    </ul>
-    <p class="tip">After a factory reset, the device will show "Welcome" and is ready to be paired as a new device.</p>
-
-    <h3>Understanding Your Counts</h3>
-    <p>Each item tracks two numbers:</p>
-    <ul>
-        <li><strong>Total Count</strong> &mdash; All-time total since you created the item</li>
-        <li><strong>Today Count</strong> &mdash; Count since midnight (resets daily)</li>
-    </ul>
-
-    <h3>What Happens at Midnight?</h3>
-    <p>Every night at midnight (local time):</p>
-    <ul>
-        <li>Your "Today Count" resets to 0</li>
-        <li>Your "Total Count" stays the same</li>
-        <li>This happens automatically on the device</li>
-    </ul>
-
-    <h3>Counting Without Your Phone</h3>
-    <p>Your device works independently! You can:</p>
-    <ul>
-        <li>Count without your phone nearby</li>
-        <li>Counts are stored on the device</li>
-        <li>Everything syncs when you reconnect</li>
-    </ul>
-    <p>For best results, sync regularly by opening the app near your device — this backs up your data to the cloud and keeps everything up to date.</p>
-
-    <!-- Section 6 -->
-    <h2 id="organizing-with-categories">6. Organizing with Categories</h2>
-
-    <p>Categories help you group related items together.</p>
-
-    <h3>Creating a Category</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap <span class="ui">Manage Categories</span></li>
-            <li>Tap the <strong>+ Add</strong> icon in the top right</li>
-            <li>Enter a name (e.g., "Fitness", "Work", "Health")</li>
-            <li>Tap <span class="ui">Create</span></li>
-        </ol>
-    </div>
-
-    <h3>Assigning Items to Categories</h3>
-    <p>When creating or editing an item:</p>
-    <div class="steps">
-        <ol>
-            <li>Tap the <strong>Category</strong> dropdown</li>
-            <li>Select a category</li>
-            <li>Save your item</li>
-        </ol>
-    </div>
-    <p class="tip">Tip: The category dropdown also has a "Manage Categories" shortcut at the bottom.</p>
-
-    <h3>Reordering Categories</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Manage Categories</strong></li>
-            <li><strong>Long press</strong> a category</li>
-            <li><strong>Drag</strong> to reorder</li>
-            <li>Release to save</li>
-        </ol>
-    </div>
-
-    <h3>Renaming or Deleting a Category</h3>
-    <div class="steps">
-        <ol>
-            <li>Tap the <strong>three-dot menu</strong> next to the category</li>
-            <li>Choose <strong>Rename</strong> or <strong>Delete</strong></li>
-            <li>Confirm if deleting</li>
-        </ol>
-    </div>
-    <p class="tip">Items in a deleted category become "Uncategorized" (they're not deleted).</p>
-
-    <!-- Section 7 -->
-    <h2 id="setting-goals">7. Setting Goals</h2>
-
-    <p>Goals let you set a target count for any item and track your progress visually.</p>
-
-    <h3>Adding a Goal</h3>
-    <div class="steps">
-        <ol>
-            <li>Create or edit an item</li>
-            <li>Enter a number in the <strong>Goal</strong> field (e.g., 100)</li>
-            <li>Save</li>
-        </ol>
-    </div>
-
-    <h3>Viewing Goal Progress</h3>
-    <p>On the <strong>Item Detail Page</strong> (tap any item), you'll see:</p>
-    <ul>
-        <li>A <strong>progress ring</strong> showing how close you are to your goal</li>
-        <li>Your current count vs. your target</li>
-    </ul>
-    <p class="tip">When you reach a goal, your device gives a distinctive <strong>triple vibration</strong> so you know you've hit your target without looking at the screen.</p>
-
-    <!-- Section 8 -->
-    <h2 id="setting-reminders">8. Setting Reminders</h2>
-
-    <p>Reminders make your physical device vibrate to keep you on track &mdash; no need to check your phone.</p>
-
-    <h3>Types of Reminders</h3>
-    <table>
-        <thead><tr><th>Type</th><th>How It Works</th><th>Example</th></tr></thead>
-        <tbody>
-            <tr><td><strong>None</strong></td><td>No vibration alerts</td><td>&mdash;</td></tr>
-            <tr><td><strong>At Target Count</strong></td><td>Vibrates when you reach your goal</td><td>Vibrate at 100 push-ups</td></tr>
-            <tr><td><strong>Every X Increments</strong></td><td>Vibrates every N counts</td><td>Vibrate every 10 counts</td></tr>
-        </tbody>
-    </table>
-
-    <h3>Setting Up a Reminder</h3>
-    <div class="steps">
-        <ol>
-            <li>Create or edit an item</li>
-            <li>Choose <strong>Reminder (Vibration)</strong> type:
-                <ul>
-                    <li>"At Target Count" &mdash; vibrates when goal reached</li>
-                    <li>"Every X Increments" &mdash; vibrates at intervals</li>
-                </ul>
-            </li>
-            <li>Enter the <strong>Reminder Value</strong> (the count that triggers vibration)</li>
-            <li>Save</li>
-        </ol>
-    </div>
-
-    <h3>How Reminders Work</h3>
-    <ul>
-        <li>Your <strong>device vibrates</strong> (not your phone)</li>
-        <li>Single vibration when a reminder condition is met (reaching target or hitting interval)</li>
-        <li>Triple vibration when you reach an item's goal (takes priority over reminders)</li>
-        <li>Works even without your phone nearby</li>
-    </ul>
-
-    <!-- Section 9 -->
-    <h2 id="viewing-your-data">9. Viewing Your Data</h2>
-
-    <h3>Item Detail Page</h3>
-    <p>Tap any item to see detailed analytics (the page title shows the item name):</p>
-    <ul>
-        <li><strong>Count Card</strong> &mdash; Large count with goal progress ring, date info, and config stats (Per Press, Reminder)</li>
-        <li><strong>Cycle Note</strong> &mdash; Optional text note for each cycle (tap to edit, 250 character limit)</li>
-        <li><strong>Activity</strong> &mdash; Charts showing visual trends over time</li>
-        <li><strong>Cycle History</strong> &mdash; Table of all your tracking periods with counts and durations</li>
-        <li><strong>Export shortcut</strong> &mdash; Tap the export icon in the top right to jump directly to the Export page with this item pre-selected</li>
-    </ul>
-    <p class="tip">When viewing a historical cycle, the count card shows that cycle's total and date range. Config stats (Per Press, Reminder) appear grayed out since they only apply to the current cycle.</p>
-
-    <h3>Understanding Reset Cycles</h3>
-    <p>Every time you reset an item's count, a new <strong>cycle</strong> begins. This lets you track progress in separate periods.</p>
-    <p><strong>Example:</strong> If you track push-ups and reset weekly, you'll have:</p>
-    <ul>
-        <li>Cycle 1: Week 1 counts</li>
-        <li>Cycle 2: Week 2 counts</li>
-        <li>Current Cycle: This week's counts</li>
-    </ul>
-    <p>You can <strong>name your cycles</strong> and <strong>add notes</strong> to remember what each period was about (e.g., "Training block A" or "Started new routine").</p>
-
-    <h3>Filtering by Reset Cycle</h3>
-    <p>Tap the <strong>cycle selector chip</strong> at the top of the item detail page to open a bottom sheet where you can:</p>
-    <ul>
-        <li><strong>Select a cycle</strong> to view its data</li>
-        <li><strong>Rename cycles</strong> by tapping the edit icon next to any cycle name</li>
-        <li><strong>See All Time</strong> summary across all cycles</li>
-    </ul>
-    <table>
-        <thead><tr><th>Option</th><th>What It Shows</th></tr></thead>
-        <tbody>
-            <tr><td><strong>All Time</strong></td><td>Complete history across all cycles</td></tr>
-            <tr><td><strong>Current Cycle</strong></td><td>Only counts since your last reset</td></tr>
-            <tr><td><strong>Previous cycles</strong></td><td>A specific named or numbered cycle</td></tr>
-        </tbody>
-    </table>
-    <p>The charts, statistics, and cycle note update based on your selected cycle.</p>
-
-    <h3>Cycle Notes</h3>
-    <p>Each cycle can have an optional text note (up to 250 characters). Use notes to record context like why you started a new cycle or what changed.</p>
-    <ul>
-        <li>Tap the <strong>"Add a note..."</strong> area below the count card to start writing</li>
-        <li>Tap <strong>Done</strong> or tap outside the text field to save</li>
-        <li>Notes are saved per-cycle and hidden when viewing All Time</li>
-        <li>Notes sync with your account and persist across devices</li>
-    </ul>
-
-    <h3>Understanding the Charts</h3>
-    <p><strong>Bar Chart</strong> (Activity)</p>
-    <ul>
-        <li>Shows how much you counted each day/hour</li>
-        <li>Taller bars = more activity</li>
-        <li>Tap a bar to see exact values</li>
-    </ul>
-    <p><strong>Cumulative Chart</strong> (Running Total)</p>
-    <ul>
-        <li>Shows your total count growing over time</li>
-        <li>Bars grow taller as you count more</li>
-        <li>Good for seeing overall progress</li>
-    </ul>
-
-    <h3>Changing the Time Range</h3>
-    <table>
-        <thead><tr><th>Time Range</th><th>What It Shows</th></tr></thead>
-        <tbody>
-            <tr><td><strong>1D</strong></td><td>Hourly breakdown for one day</td></tr>
-            <tr><td><strong>7D</strong></td><td>Daily breakdown for one week</td></tr>
-            <tr><td><strong>30D</strong></td><td>Daily breakdown for one month</td></tr>
-        </tbody>
-    </table>
-
-    <h3>Refreshing Data</h3>
-    <p>Pull down on the screen to refresh and get the latest data.</p>
-
-    <!-- Section 10 -->
-    <h2 id="exporting-your-data">10. Exporting Your Data</h2>
-
-    <p>Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).</p>
-
-    <h3>How to Export</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap <span class="ui">Export My Data</span></li>
-            <li>Choose an <strong>Aggregation Level</strong>:
-                <ul>
-                    <li><strong>Raw</strong> &mdash; every single count event</li>
-                    <li><strong>By Day</strong> &mdash; button presses per item per day (resets and initial counts not included)</li>
-                    <li><strong>By Cycle</strong> &mdash; total button presses per item per reset cycle (initial counts not included)</li>
-                </ul>
-            </li>
-            <li>Configure additional options:
-                <ul>
-                    <li><em>Raw / By Day:</em> Select a <strong>Date Range</strong> (start and end dates)</li>
-                    <li><em>By Cycle:</em> Choose <strong>All Cycles</strong> or <strong>Latest Cycle Only</strong></li>
-                    <li><strong>Items</strong> &mdash; Tap to open a searchable picker and select which items to include (all selected by default)</li>
-                </ul>
-            </li>
-            <li>Enter your <strong>email address</strong></li>
-            <li>Review the <strong>Export Preview</strong> card to confirm your settings</li>
-            <li>Tap <span class="ui">Export to Email</span></li>
-        </ol>
-    </div>
-
-    <h3>Aggregation Options</h3>
-    <table>
-        <thead><tr><th>Level</th><th>What You Get</th><th>Extra Options</th></tr></thead>
-        <tbody>
-            <tr><td><strong>Raw</strong></td><td>Every single count event with full timestamp</td><td>Date range picker</td></tr>
-            <tr><td><strong>By Day</strong></td><td>Button presses per item per day (resets and initial counts not included)</td><td>Date range picker</td></tr>
-            <tr><td><strong>By Cycle</strong></td><td>Total button presses per item per reset cycle (initial counts not included)</td><td>All Cycles / Latest Cycle toggle</td></tr>
-        </tbody>
-    </table>
-
-    <h3>What's in the Export?</h3>
-    <p><strong>Raw export</strong> columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count, Device</p>
-    <ul>
-        <li>Every event (increment, reset, created) as a separate row</li>
-        <li><strong>Timezone offset</strong> &mdash; timestamps include your local UTC offset (e.g., <code>+05:30</code>, <code>-08:00</code>) so the data is unambiguous when shared</li>
-    </ul>
-    <p><strong>By Day export</strong> columns: Item Name, Category, Event Type, Date, Event Count</p>
-    <ul>
-        <li>Daily totals per item (reset and created events are excluded)</li>
-    </ul>
-    <p><strong>By Cycle export</strong> columns: Item Name, Category, Cycle, Cycle Name, Cycle Note, Total Count</p>
-    <ul>
-        <li>One row per item per cycle, showing the total count for that cycle</li>
-        <li>Includes <strong>Cycle Name</strong> and <strong>Cycle Note</strong> if you&rsquo;ve named your cycles or added notes</li>
-        <li>Cycles with names or notes appear even if they have 0 events</li>
-    </ul>
-
-    <!-- Section 11 -->
-    <h2 id="managing-your-account">11. Managing Your Account</h2>
-
-    <h3>Dark Mode</h3>
-    <p>Toggle between light and dark themes:</p>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap the <strong>Dark Mode</strong> switch</li>
-        </ol>
-    </div>
-    <p>Your preference is saved automatically.</p>
-
-    <h3>Editing Your Profile</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap <span class="ui">Edit Profile</span></li>
-            <li>Update your name</li>
-            <li>Tap <span class="ui">Save</span></li>
-        </ol>
-    </div>
-
-    <h3>Managing Paired Devices</h3>
-    <p>View and manage all devices paired to your account:</p>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap <span class="ui">Paired Devices</span></li>
-        </ol>
-    </div>
-    <p>On this page you can:</p>
-    <ul>
-        <li>See all paired devices and their pairing date</li>
-        <li>Identify the currently connected device (green indicator)</li>
-        <li><strong>Connect to a device</strong> &mdash; Tap the device tile, or use the three-dot menu &gt; Connect (no scan needed)</li>
-        <li><strong>Disconnect a device</strong> &mdash; Tap the three-dot menu &gt; Disconnect (only shown for connected device)</li>
-        <li><strong>Rename a device</strong> &mdash; Tap the three-dot menu &gt; Rename</li>
-        <li><strong>Unpair a device</strong> &mdash; Tap the three-dot menu &gt; Unpair</li>
-    </ul>
-    <p class="tip">After unpairing, factory reset the device before pairing it to another account.</p>
-
-    <h3>How Multi-Device Works</h3>
-    <p>You can pair multiple Traxelos One devices to your account (up to 5 connected simultaneously). When <strong>two or more devices are connected simultaneously</strong>, exclusive leasing activates automatically &mdash; each item is assigned to one device at a time.</p>
-
-    <p><strong>Single device connected (classic mode):</strong></p>
-    <ul>
-        <li>All your items sync to the connected device</li>
-        <li>No color indicators or claim UI &mdash; works exactly as before</li>
-    </ul>
-
-    <p><strong>Multiple devices connected (exclusive leasing):</strong></p>
-    <ul>
-        <li>Swipe an item and tap <strong>Activate</strong> to assign it to a device. If multiple devices are online, a <strong>device selector sheet</strong> appears &mdash; tap the device you want</li>
-        <li>Assigned items show a <strong>colored left border</strong> and the <strong>device name</strong> below the item name</li>
-        <li>The physical device's switch button only cycles through items assigned to it</li>
-        <li>To reassign an item, simply <strong>Activate</strong> it on a different device &mdash; the previous device's claim is released automatically</li>
-        <li><strong>Per-device active item pills</strong> appear at the top of the items list &mdash; one colored pill per connected device showing each device's currently selected item. Tap a pill to filter to that item's category</li>
-    </ul>
-
-    <p><strong>Changing device colors:</strong></p>
-    <ul>
-        <li>Go to <strong>Paired Devices</strong> page</li>
-        <li>Tap the three-dot menu on a device &gt; <strong>Change Color</strong></li>
-        <li>Pick from 10 colors &mdash; this color appears on item tiles assigned to that device</li>
-    </ul>
-
-    <p><strong>Offline claims (break-glass release):</strong></p>
-    <ul>
-        <li>If a device disconnects, its claimed items show a <strong>grayed color</strong> and "&#183; disconnected" subtitle</li>
-        <li>You cannot edit or delete these items until the device reconnects or you release them</li>
-        <li>To force-release: swipe the item and tap <strong>Unlock</strong> &mdash; a warning explains that unsynced counts will be lost when the device reconnects</li>
-    </ul>
-
-    <p><strong>What happens when a device reconnects after force-release:</strong></p>
-    <ul>
-        <li>An <strong>"Items Released"</strong> dialog appears listing the items that were released while the device was away</li>
-        <li>Tap <span class="ui">Sync Now</span> &mdash; the released items are removed from the device and any unsynced counts on them are discarded</li>
-        <li>Or tap <span class="ui">Keep Offline</span> to disconnect without syncing (the device retains its local data)</li>
-        <li>This is expected &mdash; the break-glass warning explains this consequence before you release</li>
-    </ul>
-
-    <p><strong>CSV export with device info:</strong></p>
-    <ul>
-        <li>Raw exports automatically include a <strong>Device</strong> column showing which device logged each event</li>
-    </ul>
-
-    <div class="danger">
-        <strong>Important:</strong> If you force-release an item while its device is offline, any counts on that device since last sync will be discarded when it reconnects. The app will show a sync conflict dialog &mdash; choose "Sync Now" to overwrite the device.
-    </div>
-
-    <h3>Starting a New Cycle</h3>
-    <p>Reset all your counts to start fresh:</p>
-    <div class="steps">
-        <ol>
-            <li>Connect <strong>all paired devices</strong> (the action is blocked if any device is disconnected)</li>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap <span class="ui">Start New Cycle</span></li>
-            <li>Tap <span class="ui">Start New Cycle</span> to confirm</li>
-        </ol>
-    </div>
-    <p class="tip">This resets all counts to 0 on both app and all connected devices.</p>
-    <div class="note">
-        <strong>If a device is disconnected:</strong> You'll see a "Devices Disconnected" dialog listing the offline devices. Connect them or release their claimed items first before starting a new cycle.
-    </div>
-
-    <h3>Restoring Deleted Items</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap <span class="ui">Recently Deleted</span></li>
-            <li>Find the item you want back</li>
-            <li>Tap <span class="ui">Restore</span> (device connection required)</li>
-        </ol>
-    </div>
-    <p>Items stay in Recently Deleted for 30 days before permanent deletion.</p>
-    <p class="tip">Restored items are placed in "Uncategorized" regardless of their original category. You can reassign them to a category by editing the item after restoring.</p>
-
-    <h3>Help &amp; Support</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Tap <span class="ui">Help &amp; Support</span></li>
-        </ol>
-    </div>
-    <p>On this page you can:</p>
-    <ul>
-        <li>Browse <strong>Frequently Asked Questions</strong> about using your device</li>
-        <li>Tap <span class="ui">Email Support</span> to contact us directly</li>
-    </ul>
-    <p><strong>Support Email:</strong> support@digi1st.com</p>
-
-    <h3>Logging Out</h3>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Scroll to bottom</li>
-            <li>Tap <span class="ui">Log Out</span></li>
-            <li>Confirm by tapping <span class="ui">Sign Out</span></li>
-        </ol>
-    </div>
-
-    <h3>Deleting Your Account</h3>
-    <div class="danger">
-        <strong>Warning: This is permanent!</strong>
-    </div>
-    <div class="steps">
-        <ol>
-            <li>Go to <strong>Account tab</strong></li>
-            <li>Scroll to "Danger Zone"</li>
-            <li>Tap <span class="ui">Delete Account</span></li>
-            <li>Read the device notice and tap <span class="ui">Delete</span></li>
-            <li>Type <span class="key">DELETE</span> to confirm</li>
-            <li>Tap <span class="ui">Delete Account</span> &mdash; all your data will be permanently deleted</li>
-        </ol>
-    </div>
-    <p><strong>Device behavior:</strong></p>
-    <ul>
-        <li><strong>Connected:</strong> The device is automatically unpaired and reset, and can be paired to a new account immediately.</li>
-        <li><strong>Not connected:</strong> You must factory reset the device before it can be paired to another account. On device: hold <strong>both A and B buttons for 7 seconds</strong>.</li>
-    </ul>
-
-    <!-- Section 12 -->
-    <h2 id="tips-tricks">12. Tips &amp; Tricks</h2>
-
-    <h3>Get the Most Out of Traxelos One</h3>
-    <ol>
-        <li><strong>Keep your device charged</strong> &mdash; Low battery can cause connection issues</li>
-        <li><strong>Time syncs automatically</strong> &mdash; Your device syncs its clock when it connects via Bluetooth. Keep your phone's clock accurate for correct timestamps.</li>
-        <li><strong>Use categories</strong> &mdash; Organize items for easier filtering</li>
-        <li><strong>Set realistic goals</strong> &mdash; Start small and increase over time</li>
-        <li><strong>Check your charts weekly</strong> &mdash; Spot patterns and trends</li>
-        <li><strong>Export monthly</strong> &mdash; Keep a backup of your data</li>
-    </ol>
-
-    <h3>Battery Saving</h3>
-    <p>Your device has two power modes:</p>
-    <ul>
-        <li><strong>Active</strong> &mdash; Fast response when you're counting</li>
-        <li><strong>Low Power</strong> &mdash; Saves battery when idle for 5+ minutes</li>
-    </ul>
-    <p>The device switches automatically &mdash; no action needed!</p>
-
-    <!-- Section 13 -->
-    <h2 id="troubleshooting">13. Troubleshooting</h2>
-
-    <h3>"I can't find my device"</h3>
-    <ol>
-        <li>Make sure Bluetooth is <strong>ON</strong> on your phone</li>
-        <li>Check that your device is <strong>powered on</strong> and <strong>charged</strong></li>
-        <li>Move closer to your device (within 10 feet / 3 meters)</li>
-        <li>Try <strong>restarting the app</strong></li>
-        <li>Try <strong>restarting your device</strong> (power off and on)</li>
-    </ol>
-
-    <h3>"My device keeps disconnecting"</h3>
-    <ol>
-        <li>Check battery level on your device</li>
-        <li>Stay within range (Bluetooth has limited distance)</li>
-        <li>Close other Bluetooth-heavy apps</li>
-        <li>On Android: Disable battery optimization for Traxelos One</li>
-    </ol>
-    <p class="tip">The app will automatically try to reconnect. Watch for the "Reconnecting..." notification and the bottom nav Bluetooth icon (green = connected).</p>
-
-    <h3>"My counts aren't syncing"</h3>
-    <ol>
-        <li>Check the bottom nav Bluetooth icon &mdash; green means connected</li>
-        <li>Disconnect and reconnect your device to trigger a fresh sync</li>
-        <li>Pull-to-refresh on the Items page</li>
-    </ol>
-
-    <h3>"I lost my counts!"</h3>
-    <p>Don't panic! Your counts are stored in multiple places:</p>
-    <ul>
-        <li>On your device (survives power loss)</li>
-        <li>In the cloud (synced from app)</li>
-        <li>In Recently Deleted (if you deleted an item)</li>
-    </ul>
-    <p>Try:</p>
-    <ol>
-        <li>Reconnect your device</li>
-        <li>Wait for sync to complete</li>
-        <li>Check Recently Deleted for missing items</li>
-    </ol>
-
-    <h3>"The time on my device is wrong"</h3>
-    <p>Time syncs automatically when your device connects via Bluetooth. If the time seems wrong:</p>
-    <ol>
-        <li>Disconnect your device</li>
-        <li>Reconnect &mdash; time will sync automatically</li>
-        <li>Your device will update to your phone's time</li>
-    </ol>
-
-    <h3>"I forgot my password"</h3>
-    <ol>
-        <li>On the login screen, tap <span class="ui">Forgot password?</span></li>
-        <li>Enter your email</li>
-        <li>Check your inbox for a reset link</li>
-        <li>Create a new password</li>
-    </ol>
-
-    <h3>Still Need Help?</h3>
-    <ol>
-        <li>Go to <strong>Account &gt; Help &amp; Support</strong></li>
-        <li>Browse the FAQ section</li>
-        <li>Tap <span class="ui">Email Support</span> to contact us</li>
-    </ol>
-    <p><strong>Support Email:</strong> support@digi1st.com</p>
-
-    <!-- Quick Reference Card -->
-    <h2>Quick Reference Card</h2>
-
-    <div class="quick-ref">
-        <h3>Navigation</h3>
-        <table>
-            <thead><tr><th>Tab</th><th>Icon</th><th>What It Does</th></tr></thead>
-            <tbody>
-                <tr><td><strong>Home</strong></td><td>House</td><td>View and manage all items</td></tr>
-                <tr><td><strong>Bluetooth</strong></td><td>Bluetooth (green when connected, default when not)</td><td>Connect and manage your device</td></tr>
-                <tr><td><strong>Account</strong></td><td>Person</td><td>Account, settings, export, support</td></tr>
-            </tbody>
-        </table>
-
-        <h3>Device Buttons &mdash; Traxelos One Device</h3>
-        <table>
-            <thead><tr><th>Button</th><th>Interaction</th><th>Action</th></tr></thead>
-            <tbody>
-                <tr><td>A</td><td>Press</td><td>Add to count / Confirm selection / Wake device</td></tr>
-                <tr><td>A</td><td>Hold 3s</td><td>Show time, category, and item info</td></tr>
-                <tr><td>B</td><td>Press</td><td>Enter menu / Next item</td></tr>
-                <tr><td>B</td><td>Hold</td><td>Rapidly loop through items</td></tr>
-                <tr><td>B</td><td>Hold 3s</td><td>Reset item count (new cycle)</td></tr>
-            </tbody>
-        </table>
-
-        <h3>Key Features</h3>
-        <table>
-            <thead><tr><th>Feature</th><th>Where to Find It</th></tr></thead>
-            <tbody>
-                <tr><td>Create item</td><td>Home &gt; + button (requires device)</td></tr>
-                <tr><td>Edit item</td><td>Swipe left on item &gt; Edit icon</td></tr>
-                <tr><td>Delete item</td><td>Swipe left on item &gt; Trash icon</td></tr>
-                <tr><td>Activate item</td><td>Swipe left on item &gt; Pin icon</td></tr>
-                <tr><td>Search items</td><td>Home &gt; Search icon (top right)</td></tr>
-                <tr><td>Reorder</td><td>Long press &amp; drag</td></tr>
-                <tr><td>Categories</td><td>Account &gt; Manage Categories</td></tr>
-                <tr><td>Paired Devices</td><td>Account &gt; Paired Devices</td></tr>
-                <tr><td>Export</td><td>Account &gt; Export My Data, or Item Detail &gt; Export icon</td></tr>
-                <tr><td>Restore deleted</td><td>Account &gt; Recently Deleted (requires device)</td></tr>
-                <tr><td>Connect device</td><td>Bluetooth &gt; Find Device, or Account &gt; Paired Devices &gt; tap device</td></tr>
-                <tr><td>Sync time</td><td>Automatic on device connect</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Footer -->
-    <div class="footer">
-        <p><strong>Thank you for using Traxelos One!</strong></p>
-        <p class="tagline">One button. Instant count. Full insights.</p>
-    </div>
-
+<div class="generated-banner">
+  <strong>Generated file — do not edit.</strong>
+  Built from <code>docs/USER_GUIDE.md</code> by <code>scripts/build_docs.py</code>.
+  Edit the markdown and re-run the script.
+</div>
+<h1 id="traxelos-one-user-guide">Traxelos One User Guide</h1>
+<p>Welcome to Traxelos One! This guide will help you get the most out of your physical counter device and companion app.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-what-is-traxelos-one">What is Traxelos One?</a></li>
+<li><a href="#2-getting-started">Getting Started</a></li>
+<li><a href="#3-connecting-your-device">Connecting Your Device</a></li>
+<li><a href="#4-creating--managing-items">Creating &amp; Managing Items</a></li>
+<li><a href="#5-using-your-traxelos-one-counter">Using Your Traxelos One Counter</a></li>
+<li><a href="#6-organizing-with-categories">Organizing with Categories</a></li>
+<li><a href="#7-setting-goals">Setting Goals</a></li>
+<li><a href="#8-setting-reminders">Setting Reminders</a></li>
+<li><a href="#9-viewing-your-data">Viewing Your Data</a></li>
+<li><a href="#10-exporting-your-data">Exporting Your Data</a></li>
+<li><a href="#11-managing-your-account">Managing Your Account</a></li>
+<li><a href="#12-firmware-updates">Firmware Updates</a></li>
+<li><a href="#13-battery-level">Battery Level</a></li>
+<li><a href="#14-tips--tricks">Tips &amp; Tricks</a></li>
+<li><a href="#15-troubleshooting">Troubleshooting</a></li>
+</ol>
+<hr />
+<h2 id="1-what-is-traxelos-one">1. What is Traxelos One?</h2>
+<p>Traxelos One is a <strong>physical counter device</strong> paired with a <strong>mobile app</strong> that makes tracking habits, inventory, or any countable activity effortless.</p>
+<p><strong>How it works:</strong>
+- Press the button on your device to count
+- Your counts sync automatically to the app
+- View analytics, set goals, and export data from your phone</p>
+<p><strong>What you can track:</strong>
+- Daily habits (water intake, exercise reps, meditation minutes)
+- Inventory counts (stock levels, audit tallies)
+- Work tasks (completed items, customer interactions)
+- Anything you want to count!</p>
+<hr />
+<h2 id="2-getting-started">2. Getting Started</h2>
+<h3 id="step-1-download-the-app">Step 1: Download the App</h3>
+<p>Download Traxelos One from the App Store (iOS) or Google Play (Android).</p>
+<h3 id="step-2-create-an-account">Step 2: Create an Account</h3>
+<ol>
+<li>Open the app</li>
+<li>Tap <strong>Create Account</strong></li>
+<li>Enter your email address</li>
+<li>Create a password and confirm it</li>
+<li>Tap <strong>Create Account</strong></li>
+</ol>
+<p><em>You can also sign in with Google (or Apple on iOS) for faster setup.</em></p>
+<h3 id="step-3-complete-onboarding">Step 3: Complete Onboarding</h3>
+<p>After creating your account, a guided setup walks you through four steps:</p>
+<ol>
+<li><strong>Your Profile</strong> — Enter your name, select your primary use case (e.g., Habit Tracking, Inventory), and how you heard about us. All fields are optional.</li>
+<li><strong>Welcome to Traxelos One</strong> — A quick overview of how it works, what you need, and what comes next.</li>
+<li><strong>Find Your Device</strong> — The app scans for your Traxelos One via Bluetooth. Tap your device in the list to connect and pair it. <em>(Tap "I don't have a device yet" to skip.)</em></li>
+<li><strong>You're All Set!</strong> — A confirmation screen showing your paired device. Tap <strong>Get Started</strong> to enter the app. <em>(Only shown if you paired a device in the previous step.)</em></li>
+</ol>
+<p><em>You can skip any step — tap "Skip for now" to move on or finish early.</em></p>
+<h3 id="step-4-sign-in">Step 4: Sign In</h3>
+<p>If you already have an account:
+1. Enter your email and password
+2. Tap <strong>Sign In</strong></p>
+<h3 id="step-5-pair-your-device">Step 5: Pair Your Device</h3>
+<p>See <a href="#3-connecting-your-device">Connecting Your Device</a> below.</p>
+<hr />
+<h2 id="3-connecting-your-device">3. Connecting Your Device</h2>
+<h3 id="first-time-pairing">First-Time Pairing</h3>
+<ol>
+<li>
+<p><strong>Turn on your Traxelos One device</strong>
+   - The device should be charged and powered on</p>
+</li>
+<li>
+<p><strong>Open the Bluetooth tab</strong> in the app
+   - Tap the Bluetooth icon in the bottom navigation</p>
+</li>
+<li>
+<p><strong>Grant Bluetooth permissions</strong> (if prompted)
+   - Tap "Grant Permissions"
+   - Allow Bluetooth and Location access</p>
+</li>
+<li>
+<p><strong>Tap "Find Device"</strong>
+   - The app will open the search page and automatically scan for nearby devices
+   - Your device will appear in the list (e.g., "Traxelos_One")</p>
+</li>
+<li>
+<p><strong>Select your device</strong>
+   - Tap the device name to connect (already-paired devices are hidden from scan results)
+   - If this is a new device, you'll see a <strong>"New Device Detected"</strong> setup dialog — tap <strong>"Set Up"</strong> to pair</p>
+</li>
+<li>
+<p><strong>You're connected!</strong>
+   - The device is now paired but starts with <strong>no items and no selection</strong>
+   - Go to the <strong>Home</strong> screen and tap an item to claim it for the device — this assigns the device to that item's category
+   - The Bluetooth icon in the bottom navigation turns <strong>green</strong> to indicate an active connection
+   - The device is automatically named "Traxelos One (1)", "Traxelos One (2)", etc. based on how many devices you've paired</p>
+</li>
+</ol>
+<h3 id="re-pairing-a-previously-unpaired-device">Re-pairing a Previously Unpaired Device</h3>
+<p>If you unpair a device and later reconnect to it (without factory resetting), the app treats it as a fresh setup:
+- The device starts <strong>empty</strong> with no items — same as first-time pairing
+- A new entry is added to your paired devices list with the next auto-numbered name
+- Any items previously on the device are cleared</p>
+<p><em>To fully reset the device before pairing to a different account, use <a href="#factory-reset">Factory Reset</a>.</em></p>
+<h3 id="reconnecting">Reconnecting</h3>
+<p>If your device disconnects unexpectedly, the app will automatically try to reconnect with increasing intervals. You'll see:
+- <strong>"Device disconnected. Reconnecting..."</strong> notification when the connection drops
+- <strong>"Reconnected to device"</strong> notification when it reconnects successfully</p>
+<p>If auto-reconnect doesn't work:
+1. Go to <strong>Account &gt; Paired Devices</strong> and tap your device to reconnect (no scan needed)
+2. Or go to <strong>Bluetooth &gt; Find Device</strong> and select your device from the scan list (already-paired devices are hidden — use the Paired Devices page instead)</p>
+<h3 id="disconnecting">Disconnecting</h3>
+<p>To manually disconnect:
+1. Go to <strong>Account &gt; Paired Devices</strong> and tap the three-dot menu &gt; <strong>Disconnect</strong>
+2. Or go to the <strong>Bluetooth tab</strong> and tap <strong>"Disconnect"</strong></p>
+<hr />
+<h2 id="4-creating-managing-items">4. Creating &amp; Managing Items</h2>
+<blockquote>
+<p><strong>Note:</strong> Creating and editing items can be done without a device connection. A connected device is needed to sync items to the device.</p>
+</blockquote>
+<h3 id="creating-your-first-item">Creating Your First Item</h3>
+<ol>
+<li>Go to the <strong>Home tab</strong> (Items)</li>
+<li>Tap the <strong>+ button</strong> in the top right</li>
+<li>Fill in the details:
+   - <strong>Item Name</strong> (required, max 30 characters) - e.g., "Push-ups"
+   - <strong>Category</strong> (optional) - Select from the dropdown (see <a href="#6-organizing-with-categories">Organizing with Categories</a>)
+   - <strong>Initial Value</strong> (create only) - Starting count (default: 0)
+   - <strong>Goal</strong> (optional) - Target count
+   - <strong>Count Per Press</strong> - How much to add per button press (default: 1)
+   - <strong>Reminder (Vibration)</strong> (optional) - Choose a vibration alert type:<ul>
+<li>"None" - No vibration</li>
+<li>"At Target Count" - Vibrate when reaching your goal</li>
+<li>"Every X Increments" - Vibrate at regular intervals</li>
+<li><strong>Reminder Value</strong> - The count that triggers the vibration</li>
+</ul>
+</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>You can track up to <strong>100 items</strong>.</p>
+<h3 id="editing-an-item">Editing an Item</h3>
+<ol>
+<li>On the items list, <strong>swipe left</strong> on the item</li>
+<li>Tap the <strong>edit icon</strong> (pencil)</li>
+<li>Make your changes</li>
+<li>Tap <strong>Update</strong></li>
+</ol>
+<p><em>Note: You cannot change the initial value after creation.</em></p>
+<h3 id="deleting-an-item">Deleting an Item</h3>
+<ol>
+<li>On the items list, <strong>swipe left</strong> on the item</li>
+<li>Tap the <strong>delete icon</strong> (trash)</li>
+<li>Confirm deletion</li>
+</ol>
+<p><strong>Don't worry!</strong> Deleted items go to "Recently Deleted" for 30 days. You can restore them anytime (device connection required).</p>
+<h3 id="swipe-actions">Swipe Actions</h3>
+<p>Swiping left on an item reveals actions depending on context:</p>
+<table>
+<thead>
+<tr>
+<th>Icon</th>
+<th>Action</th>
+<th>When Shown</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pin</strong></td>
+<td>Activate</td>
+<td>Device connected, item unclaimed</td>
+<td>Assign item to a connected device</td>
+</tr>
+<tr>
+<td><strong>Open lock</strong></td>
+<td>Unlock</td>
+<td>Item claimed by a device</td>
+<td>Release the item from its device</td>
+</tr>
+<tr>
+<td><strong>Pencil</strong></td>
+<td>Edit</td>
+<td>Item editable (not locked by offline device)</td>
+<td>Open the item edit form</td>
+</tr>
+<tr>
+<td><strong>Trash</strong></td>
+<td>Delete</td>
+<td>Item editable (not locked by offline device)</td>
+<td>Delete the item (with confirmation)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="searching-items">Searching Items</h3>
+<p>Tap the <strong>search icon</strong> in the top right to filter items by name.</p>
+<h3 id="reordering-items">Reordering Items</h3>
+<ol>
+<li><strong>Long press</strong> on an item</li>
+<li><strong>Drag</strong> it to the new position within its category</li>
+<li><strong>Release</strong> to save</li>
+</ol>
+<p>Your custom order is saved and synced to your device.</p>
+<hr />
+<h2 id="5-using-your-traxelos-one-counter">5. Using Your Traxelos One Counter</h2>
+<h3 id="basic-counting">Basic Counting</h3>
+<ol>
+<li>Make sure your device is connected (check the Bluetooth tab)</li>
+<li>Press the <strong>count button</strong> on your device</li>
+<li>The app updates automatically</li>
+</ol>
+<blockquote>
+<p>When you first connect, a brief <strong>"Syncing..."</strong> indicator appears on the items list while your counts update from the device. This disappears once sync is complete.</p>
+</blockquote>
+<p><em>You'll feel a triple vibration when you reach an item's goal, or a single vibration when a reminder condition is met (see <a href="#8-setting-reminders">Setting Reminders</a>).</em></p>
+<p><em>The maximum count for any item is </em><em>9,999</em><em>. When you reach this limit, the device will display "MAX REACHED" and give a double vibration on each press. Reset the item to continue counting.</em></p>
+<h3 id="device-buttons">Device Buttons</h3>
+<h4 id="traxelos-one-device">Traxelos One Device</h4>
+<p><strong>Button A</strong></p>
+<table>
+<thead>
+<tr>
+<th>Interaction</th>
+<th>Location</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Press</td>
+<td>Main Item View</td>
+<td>Add to your current item's count</td>
+</tr>
+<tr>
+<td>Press</td>
+<td>Item Menu View</td>
+<td>Confirm item selection (Menu view)</td>
+</tr>
+<tr>
+<td>Press</td>
+<td>Sleep Mode</td>
+<td>Awake the device</td>
+</tr>
+<tr>
+<td>Press &amp; Hold 3 seconds</td>
+<td>Main Item View</td>
+<td>Display time, Current Category, and Current Item for 10 seconds or until a button is pressed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Button B</strong></p>
+<table>
+<thead>
+<tr>
+<th>Interaction</th>
+<th>Location</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Press</td>
+<td>Main Item View</td>
+<td>Enter item menu view</td>
+</tr>
+<tr>
+<td>Press</td>
+<td>Item Menu View</td>
+<td>Next item in the menu</td>
+</tr>
+<tr>
+<td>Press</td>
+<td>Sleep Mode</td>
+<td>Awake the device</td>
+</tr>
+<tr>
+<td>Press &amp; Hold</td>
+<td>Item Menu View</td>
+<td>Rapidly loop through the items in the menu</td>
+</tr>
+<tr>
+<td>Press &amp; Hold 3 seconds</td>
+<td>Main Item View</td>
+<td>Reset the selected item's count (Enter the next cycle)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> When the device is not connected to the app, switching items is disabled. Pressing Button B will show "SWITCH DISABLED — SYNC TO APP". Counting and resetting still work normally. Connect to the app to switch items again.</p>
+</blockquote>
+<p><strong>Automatic Behaviors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Trigger</th>
+<th>Location</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5 secs of inactivity</td>
+<td>Item Menu View</td>
+<td>Leave the menu to the Main Item View</td>
+</tr>
+<tr>
+<td>5 mins of inactivity</td>
+<td>Main Item View</td>
+<td>Enter Power Saving mode (Display Off)</td>
+</tr>
+<tr>
+<td>Turn on device</td>
+<td>When device is on before pairing</td>
+<td>Show "Welcome" on the display</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Factory Reset</strong></p>
+<p>To erase all data and restore the device to its original state, hold <strong>both A and B buttons for 7 seconds</strong>. The device will clear all items, counts, and pairing information.</p>
+<p><strong>When to factory reset:</strong>
+- Before pairing a device to a different account
+- After unpairing or deleting your account while the device was not connected
+- If the device is behaving unexpectedly and reconnecting doesn't resolve it</p>
+<p><em>After a factory reset, the device will show "Welcome" and is ready to be paired as a new device.</em></p>
+<h3 id="understanding-your-counts">Understanding Your Counts</h3>
+<p>Each item tracks two numbers:</p>
+<ul>
+<li><strong>Total Count</strong> - All-time total since you created the item</li>
+<li><strong>Today Count</strong> - Count since midnight (resets daily)</li>
+</ul>
+<h3 id="what-happens-at-midnight">What Happens at Midnight?</h3>
+<p>Every night at midnight (local time):
+- Your "Today Count" resets to 0
+- Your "Total Count" stays the same
+- This happens automatically on the device</p>
+<h3 id="counting-without-your-phone">Counting Without Your Phone</h3>
+<p>Your device works independently! You can:
+- Count without your phone nearby
+- Counts are stored on the device
+- Everything syncs when you reconnect</p>
+<p>For best results, sync regularly by opening the app near your device — this backs up your data to the cloud and keeps everything up to date.</p>
+<hr />
+<h2 id="6-organizing-with-categories">6. Organizing with Categories</h2>
+<p>Categories help you group related items together.</p>
+<h3 id="creating-a-category">Creating a Category</h3>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap <strong>"Manage Categories"</strong></li>
+<li>Tap the <strong>+ Add</strong> icon in the top right</li>
+<li>Enter a name (e.g., "Fitness", "Work", "Health")</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<h3 id="assigning-items-to-categories">Assigning Items to Categories</h3>
+<p>When creating or editing an item:
+1. Tap the <strong>Category</strong> dropdown
+2. Select a category
+3. Save your item</p>
+<p><em>Tip: The category dropdown also has a "Manage Categories" shortcut at the bottom.</em></p>
+<h3 id="reordering-categories">Reordering Categories</h3>
+<ol>
+<li>Go to <strong>Manage Categories</strong></li>
+<li><strong>Long press</strong> a category</li>
+<li><strong>Drag</strong> to reorder</li>
+<li>Release to save</li>
+</ol>
+<h3 id="renaming-or-deleting-a-category">Renaming or Deleting a Category</h3>
+<ol>
+<li>Tap the <strong>three-dot menu</strong> next to the category</li>
+<li>Choose <strong>Rename</strong> or <strong>Delete</strong></li>
+<li>Confirm if deleting</li>
+</ol>
+<p><em>Items in a deleted category become "Uncategorized" (they're not deleted).</em></p>
+<hr />
+<h2 id="7-setting-goals">7. Setting Goals</h2>
+<p>Goals let you set a target count for any item and track your progress visually.</p>
+<h3 id="adding-a-goal">Adding a Goal</h3>
+<ol>
+<li>Create or edit an item</li>
+<li>Enter a number in the <strong>Goal</strong> field (e.g., 100)</li>
+<li>Save</li>
+</ol>
+<h3 id="viewing-goal-progress">Viewing Goal Progress</h3>
+<p>On the <strong>Item Detail Page</strong> (tap any item), you'll see:
+- A <strong>progress ring</strong> showing how close you are to your goal
+- Your current count vs. your target</p>
+<p><em>When you reach a goal, your device gives a distinctive </em><em>triple vibration</em><em> so you know you've hit your target without looking at the screen.</em></p>
+<hr />
+<h2 id="8-setting-reminders">8. Setting Reminders</h2>
+<p>Reminders make your physical device vibrate to keep you on track — no need to check your phone.</p>
+<h3 id="types-of-reminders">Types of Reminders</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>How It Works</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>None</strong></td>
+<td>No vibration alerts</td>
+<td>-</td>
+</tr>
+<tr>
+<td><strong>At Target Count</strong></td>
+<td>Vibrates when you reach your goal</td>
+<td>Vibrate at 100 push-ups</td>
+</tr>
+<tr>
+<td><strong>Every X Increments</strong></td>
+<td>Vibrates every N counts</td>
+<td>Vibrate every 10 counts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="setting-up-a-reminder">Setting Up a Reminder</h3>
+<ol>
+<li>Create or edit an item</li>
+<li>Choose <strong>Reminder (Vibration)</strong> type:
+   - "At Target Count" — vibrates when goal reached
+   - "Every X Increments" — vibrates at intervals</li>
+<li>Enter the <strong>Reminder Value</strong> (the count that triggers vibration)</li>
+<li>Save</li>
+</ol>
+<h3 id="how-reminders-work">How Reminders Work</h3>
+<ul>
+<li>Your <strong>device vibrates</strong> (not your phone)</li>
+<li>Single vibration when a reminder condition is met (reaching target or hitting interval)</li>
+<li>Triple vibration when you reach an item's goal (takes priority over reminders)</li>
+<li>Works even without your phone nearby</li>
+</ul>
+<hr />
+<h2 id="9-viewing-your-data">9. Viewing Your Data</h2>
+<h3 id="item-detail-page">Item Detail Page</h3>
+<p>Tap any item to see detailed analytics (the page title shows the item name):</p>
+<ul>
+<li><strong>Count Card</strong> - Large count with goal progress ring, date info, and config stats (Per Press, Reminder)</li>
+<li><strong>Cycle Note</strong> - Optional text note for each cycle (tap to edit, 250 character limit)</li>
+<li><strong>Activity</strong> - Charts showing visual trends over time</li>
+<li><strong>Cycle History</strong> - Table of all your tracking periods with counts and durations</li>
+<li><strong>Export shortcut</strong> - Tap the export icon in the top right to jump directly to the Export page with this item pre-selected</li>
+</ul>
+<p>When viewing a historical cycle, the count card shows that cycle's total and date range. Config stats (Per Press, Reminder) appear grayed out since they only apply to the current cycle.</p>
+<h3 id="understanding-reset-cycles">Understanding Reset Cycles</h3>
+<p>Every time you reset an item's count, a new <strong>cycle</strong> begins. This lets you track progress in separate periods.</p>
+<p><strong>Example:</strong> If you track push-ups and reset weekly, you'll have:
+- Cycle 1: Week 1 counts
+- Cycle 2: Week 2 counts
+- Current Cycle: This week's counts</p>
+<p>You can <strong>name your cycles</strong> and <strong>add notes</strong> to remember what each period was about (e.g., "Training block A" or "Started new routine").</p>
+<h3 id="filtering-by-reset-cycle">Filtering by Reset Cycle</h3>
+<p>Tap the <strong>cycle selector chip</strong> at the top of the item detail page to open a bottom sheet where you can:</p>
+<ul>
+<li><strong>Select a cycle</strong> to view its data</li>
+<li><strong>Rename cycles</strong> by tapping the edit icon next to any cycle name</li>
+<li><strong>See All Time</strong> summary across all cycles</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What It Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>All Time</strong></td>
+<td>Complete history across all cycles</td>
+</tr>
+<tr>
+<td><strong>Current Cycle</strong></td>
+<td>Only counts since your last reset</td>
+</tr>
+<tr>
+<td><strong>Previous cycles</strong></td>
+<td>A specific named or numbered cycle</td>
+</tr>
+</tbody>
+</table>
+<p>The charts, statistics, and cycle note update based on your selected cycle.</p>
+<h3 id="cycle-notes">Cycle Notes</h3>
+<p>Each cycle can have an optional text note (up to 250 characters). Use notes to record context like why you started a new cycle or what changed.</p>
+<ul>
+<li>Tap the <strong>"Add a note..."</strong> area below the count card to start writing</li>
+<li>Tap <strong>Done</strong> or tap outside the text field to save</li>
+<li>Notes are saved per-cycle and hidden when viewing All Time</li>
+<li>Notes sync with your account and persist across devices</li>
+</ul>
+<h3 id="understanding-the-charts">Understanding the Charts</h3>
+<p><strong>Bar Chart</strong> (Activity)
+- Shows how much you counted each day/hour
+- Taller bars = more activity
+- Tap a bar to see exact values</p>
+<p><strong>Cumulative Chart</strong> (Running Total)
+- Shows your total count growing over time
+- Bars grow taller as you count more
+- Good for seeing overall progress</p>
+<h3 id="changing-the-time-range">Changing the Time Range</h3>
+<table>
+<thead>
+<tr>
+<th>Time Range</th>
+<th>What It Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1D</strong></td>
+<td>Hourly breakdown for one day</td>
+</tr>
+<tr>
+<td><strong>7D</strong></td>
+<td>Daily breakdown for one week</td>
+</tr>
+<tr>
+<td><strong>30D</strong></td>
+<td>Daily breakdown for one month</td>
+</tr>
+</tbody>
+</table>
+<h3 id="refreshing-data">Refreshing Data</h3>
+<p>Pull down on the screen to refresh and get the latest data.</p>
+<hr />
+<h2 id="10-exporting-your-data">10. Exporting Your Data</h2>
+<p>Export your tracking data as a CSV file (opens in Excel, Google Sheets, etc.).</p>
+<h3 id="how-to-export">How to Export</h3>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap <strong>"Export My Data"</strong></li>
+<li>Choose an <strong>Aggregation Level</strong>:
+   - <strong>Raw</strong> — every single count event
+   - <strong>By Day</strong> — button presses per item per day (resets and initial counts not included)
+   - <strong>By Cycle</strong> — total button presses per item per reset cycle (initial counts not included)</li>
+<li>Configure additional options:
+   - <em>Raw / By Day:</em> Select a <strong>Date Range</strong> (start and end dates)
+   - <em>By Cycle:</em> Choose <strong>All Cycles</strong> or <strong>Latest Cycle Only</strong>
+   - <strong>Items</strong> — Tap to open a searchable picker and select which items to include (all selected by default)</li>
+<li>Enter your <strong>email address</strong></li>
+<li>Review the <strong>Export Preview</strong> card to confirm your settings</li>
+<li>Tap <strong>"Export to Email"</strong></li>
+</ol>
+<h3 id="aggregation-options">Aggregation Options</h3>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>What You Get</th>
+<th>Extra Options</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Raw</strong></td>
+<td>Every single count event with full timestamp</td>
+<td>Date range picker</td>
+</tr>
+<tr>
+<td><strong>By Day</strong></td>
+<td>Button presses per item per day (resets and initial counts not included)</td>
+<td>Date range picker</td>
+</tr>
+<tr>
+<td><strong>By Cycle</strong></td>
+<td>Total button presses per item per reset cycle (initial counts not included)</td>
+<td>All Cycles / Latest Cycle toggle</td>
+</tr>
+</tbody>
+</table>
+<h3 id="whats-in-the-export">What's in the Export?</h3>
+<p><strong>Raw export</strong> columns: Item Name, Category, Event Type, Cycle, Cycle Note, Timestamp, Event Count, Device
+- Every event (increment, reset, created) as a separate row
+- <strong>Device</strong> column shows which device logged each event
+- <strong>Timezone offset</strong> — timestamps include your local UTC offset (e.g., <code>+05:30</code>, <code>-08:00</code>) so the data is unambiguous when shared</p>
+<p><strong>By Day export</strong> columns: Item Name, Category, Event Type, Date, Event Count
+- Daily totals per item (reset and created events are excluded)</p>
+<p><strong>By Cycle export</strong> columns: Item Name, Category, Cycle, Cycle Name, Cycle Note, Total Count
+- One row per item per cycle, showing the total count for that cycle
+- Includes <strong>Cycle Name</strong> and <strong>Cycle Note</strong> if you've named your cycles or added notes
+- Cycles with names or notes appear even if they have 0 events (e.g., empty cycles from quick resets)</p>
+<hr />
+<h2 id="11-managing-your-account">11. Managing Your Account</h2>
+<h3 id="dark-mode">Dark Mode</h3>
+<p>Toggle between light and dark themes:</p>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap the <strong>Dark Mode</strong> switch</li>
+</ol>
+<p>Your preference is saved automatically.</p>
+<h3 id="editing-your-profile">Editing Your Profile</h3>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap <strong>"Edit Profile"</strong></li>
+<li>Update your name</li>
+<li>Tap <strong>Save</strong></li>
+</ol>
+<h3 id="managing-paired-devices">Managing Paired Devices</h3>
+<p>View and manage all devices paired to your account:</p>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap <strong>"Paired Devices"</strong></li>
+</ol>
+<p>On this page you can:
+- See all paired devices and their pairing date
+- Identify the currently connected device (green indicator)
+- <strong>Connect to a device</strong> - Tap the device tile, or use the three-dot menu &gt; Connect (no scan needed)
+- <strong>Disconnect a device</strong> - Tap the three-dot menu &gt; Disconnect (only shown for connected device)
+- <strong>Rename a device</strong> - Tap the three-dot menu &gt; Rename
+- <strong>Unpair a device</strong> - Tap the three-dot menu &gt; Unpair</p>
+<p><em>After unpairing, factory reset the device before pairing it to another account.</em></p>
+<h3 id="how-multi-device-works">How Multi-Device Works</h3>
+<p>You can pair up to <strong>10</strong> Traxelos One devices to your account, with up to <strong>5 connected simultaneously</strong>. When <strong>two or more devices are connected simultaneously</strong>, exclusive leasing activates automatically — each item is assigned to one device at a time.</p>
+<p><strong>Single device connected (classic mode):</strong>
+- All your items sync to the connected device
+- No color indicators or claim UI — works exactly as before</p>
+<p><strong>Multiple devices connected (exclusive leasing):</strong>
+- Swipe an item and tap <strong>Activate</strong> to assign it to a device. If multiple devices are online, a <strong>device selector sheet</strong> appears — tap the device you want
+- Assigned items show a <strong>colored left border</strong> and the <strong>device name</strong> below the item name
+- The physical device's switch button only cycles through items assigned to it
+- To reassign an item, simply <strong>Activate</strong> it on a different device — the previous device's claim is released automatically
+- <strong>Per-device active item pills</strong> appear at the top of the items list — one colored pill per connected device showing each device's currently selected item. Tap a pill to filter to that item's category</p>
+<p><strong>Changing device colors:</strong>
+- Go to <strong>Paired Devices</strong> page
+- Tap the three-dot menu on a device &gt; <strong>Change Color</strong>
+- Pick from 10 colors — this color appears on item tiles assigned to that device</p>
+<p><strong>Offline claims (break-glass release):</strong>
+- If a device disconnects, its claimed items show a <strong>grayed color</strong> and "· disconnected" subtitle
+- You cannot edit or delete these items until the device reconnects or you release them
+- To force-release: swipe the item and tap <strong>Unlock</strong> — a warning explains that unsynced counts will be lost when the device reconnects</p>
+<p><strong>What happens when a device reconnects after force-release:</strong>
+- An <strong>"Items Released"</strong> dialog appears listing the items that were released while the device was away
+- Tap <strong>"Sync Now"</strong> — the released items are removed from the device and any unsynced counts on them are discarded
+- Or tap <strong>"Keep Offline"</strong> to disconnect without syncing (the device retains its local data)
+- This is expected — the break-glass warning explains this consequence before you release</p>
+<p><strong>CSV export with device info:</strong>
+- Raw exports automatically include a <strong>Device</strong> column showing which device logged each event</p>
+<blockquote>
+<p><strong>Important:</strong> If you force-release an item while its device is offline, any counts on that device since last sync will be discarded when it reconnects. The app will show a stale claim dialog — choose "Sync Now" to overwrite the device.</p>
+</blockquote>
+<h3 id="starting-a-new-cycle">Starting a New Cycle</h3>
+<p>Reset all your counts to start fresh:</p>
+<ol>
+<li>Connect <strong>all paired devices</strong> (the action is blocked if any device is disconnected)</li>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap <strong>"Start New Cycle"</strong></li>
+<li>Tap <strong>"Start New Cycle"</strong> to confirm</li>
+</ol>
+<p><em>This resets all counts to 0 on both app and all connected devices.</em></p>
+<blockquote>
+<p><strong>If a device is disconnected:</strong> You'll see a "Devices Disconnected" dialog listing the offline devices. Connect them or release their claimed items first before starting a new cycle.</p>
+</blockquote>
+<h3 id="restoring-deleted-items">Restoring Deleted Items</h3>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap <strong>"Recently Deleted"</strong></li>
+<li>Find the item you want back</li>
+<li>Tap <strong>"Restore"</strong> (device connection required)</li>
+</ol>
+<p>Items stay in Recently Deleted for 30 days before permanent deletion.</p>
+<p><em>Note: Restored items are placed in "Uncategorized" regardless of their original category. You can reassign them to a category by editing the item after restoring.</em></p>
+<h3 id="help-support">Help &amp; Support</h3>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Tap <strong>"Help &amp; Support"</strong></li>
+</ol>
+<p>On this page you can:
+- Browse <strong>Frequently Asked Questions</strong> about using your device
+- Tap <strong>"Email Support"</strong> to contact us directly</p>
+<p><strong>Support Email:</strong> support@digi1st.com</p>
+<h3 id="logging-out">Logging Out</h3>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Scroll to bottom</li>
+<li>Tap <strong>"Log Out"</strong></li>
+<li>Confirm by tapping <strong>"Sign Out"</strong></li>
+</ol>
+<h3 id="deleting-your-account">Deleting Your Account</h3>
+<p><strong>Warning: This is permanent!</strong></p>
+<ol>
+<li>Go to <strong>Account tab</strong></li>
+<li>Scroll to "Danger Zone"</li>
+<li>Tap <strong>"Delete Account"</strong></li>
+<li>Read the device notice and tap <strong>"Delete"</strong></li>
+<li>Type <strong>DELETE</strong> to confirm</li>
+<li>Tap <strong>"Delete Account"</strong> — all your data will be permanently deleted</li>
+</ol>
+<p><strong>Device behavior:</strong>
+- <strong>Connected:</strong> The device is automatically unpaired and reset, and can be paired to a new account immediately.
+- <strong>Not connected:</strong> You must factory reset the device before it can be paired to another account. On device: hold <strong>both A and B buttons for 7 seconds</strong>.</p>
+<hr />
+<h2 id="12-firmware-updates">12. Firmware Updates</h2>
+<p>Your Traxelos One devices receive firmware updates through the app. Updates bring new features, improvements, and bug fixes.</p>
+<h3 id="how-updates-work">How Updates Work</h3>
+<ol>
+<li>When you connect your devices, the app automatically checks <strong>each device</strong> for a newer firmware version</li>
+<li>If an update is found, a <strong>banner</strong> appears on the Bluetooth page <strong>for each device</strong> that needs updating, showing the device name (e.g., "Traxelos One: Firmware v2.1.1 available")</li>
+<li>Tap a device's banner to see update details and start the update</li>
+</ol>
+<h3 id="updating-your-device">Updating Your Device</h3>
+<ol>
+<li>Make sure the device is <strong>connected</strong> and has <strong>at least 20% battery</strong></li>
+<li>Tap the update banner for the device you want to update</li>
+<li>Review the update details and tap <strong>"Update Now"</strong></li>
+<li>The app will:
+   - <strong>Download</strong> the update (requires internet connection)
+   - <strong>Transfer</strong> the update to your device over Bluetooth
+   - <strong>Verify</strong> the update on the device
+   - <strong>Reboot</strong> your device with the new firmware</li>
+<li>Your device will briefly disconnect and reconnect automatically</li>
+<li>The progress sheet confirms the update is complete</li>
+</ol>
+<h3 id="what-youll-see-during-an-update">What You'll See During an Update</h3>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What the Banner Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Downloading</td>
+<td>"<em>DeviceName</em>: Downloading firmware..." with progress bar</td>
+</tr>
+<tr>
+<td>Transferring</td>
+<td>"<em>DeviceName</em>: Transferring to device..." with progress bar and "Don't turn off your device" warning</td>
+</tr>
+<tr>
+<td>Verifying</td>
+<td>"<em>DeviceName</em>: Verifying firmware..." with a spinner</td>
+</tr>
+<tr>
+<td>Rebooting</td>
+<td>"<em>DeviceName</em>: Device is rebooting..."</td>
+</tr>
+</tbody>
+</table>
+<h3 id="multiple-devices">Multiple Devices</h3>
+<ul>
+<li>Each connected device gets its <strong>own update banner</strong> with the device name</li>
+<li><strong>Only one device can update at a time</strong> — you must wait for one update to finish before starting another</li>
+<li>Banners for other devices remain visible while one device is updating</li>
+<li>You can <strong>dismiss</strong> each device's banner independently</li>
+</ul>
+<h3 id="important-notes">Important Notes</h3>
+<ul>
+<li><strong>Don't turn off your device</strong> during the transfer or verification steps</li>
+<li>Your <strong>counts are synced before the update starts</strong>, so nothing is lost</li>
+<li>If something goes wrong, your device will <strong>automatically keep the previous firmware</strong> — it won't be left in a broken state</li>
+<li>If a device <strong>disconnects during transfer</strong>, the update is cancelled and an error is shown (disconnecting during reboot is normal — the device reconnects automatically)</li>
+<li><strong>Optional updates</strong> can be dismissed by tapping the X on the banner</li>
+<li><strong>Required updates</strong> show a persistent banner that cannot be dismissed — these are needed for your device to work correctly with the latest app version</li>
+</ul>
+<h3 id="app-update-required-banner">"App update required" Banner</h3>
+<p>If you see a banner saying "<em>DeviceName</em>: Update the Traxelos app to use this feature", it means the firmware update requires a newer version of the app. Update the Traxelos app from the App Store or Google Play, then try again.</p>
+<hr />
+<h2 id="13-battery-level">13. Battery Level</h2>
+<p>Your device's battery level is displayed on the <strong>Bluetooth</strong> page when connected.</p>
+<h3 id="where-to-find-it">Where to Find It</h3>
+<p>On the Bluetooth page, the battery level appears next to your device's connection information. You'll see:
+- A <strong>battery icon</strong> that changes based on the charge level
+- The <strong>percentage</strong> (e.g., "85%")</p>
+<h3 id="battery-icons">Battery Icons</h3>
+<table>
+<thead>
+<tr>
+<th>Icon</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Full battery (green)</td>
+<td>Above 75% — fully charged</td>
+</tr>
+<tr>
+<td>3-bar battery</td>
+<td>26-75% — good charge</td>
+</tr>
+<tr>
+<td>1-bar battery</td>
+<td>11-25% — getting low</td>
+</tr>
+<tr>
+<td>Battery alert (red)</td>
+<td>10% or below — charge soon</td>
+</tr>
+<tr>
+<td>Unknown battery</td>
+<td>Battery level not available (older device firmware)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tips">Tips</h3>
+<ul>
+<li>Keep your device charged above 20% to ensure firmware updates can complete</li>
+<li>The battery level updates automatically while connected</li>
+<li>If no battery icon appears, your device may be running older firmware that doesn't report battery level</li>
+</ul>
+<hr />
+<h2 id="14-tips-tricks">14. Tips &amp; Tricks</h2>
+<h3 id="get-the-most-out-of-traxelos-one">Get the Most Out of Traxelos One</h3>
+<ol>
+<li>
+<p><strong>Keep your device charged</strong> - Low battery can cause connection issues</p>
+</li>
+<li>
+<p><strong>Time syncs automatically</strong> - Your device syncs its clock when it connects via Bluetooth. Keep your phone's clock accurate for correct timestamps.</p>
+</li>
+<li>
+<p><strong>Use categories</strong> - Organize items for easier filtering</p>
+</li>
+<li>
+<p><strong>Set realistic goals</strong> - Start small and increase over time</p>
+</li>
+<li>
+<p><strong>Check your charts weekly</strong> - Spot patterns and trends</p>
+</li>
+<li>
+<p><strong>Export monthly</strong> - Keep a backup of your data</p>
+</li>
+</ol>
+<h3 id="battery-saving">Battery Saving</h3>
+<p>Your device has two power modes:
+- <strong>Active</strong> - Fast response when you're counting
+- <strong>Low Power</strong> - Saves battery when idle for 5+ minutes</p>
+<p>The device switches automatically - no action needed!</p>
+<hr />
+<h2 id="15-troubleshooting">15. Troubleshooting</h2>
+<h3 id="i-cant-find-my-device">"I can't find my device"</h3>
+<ol>
+<li>Make sure Bluetooth is <strong>ON</strong> on your phone</li>
+<li>Check that your device is <strong>powered on</strong> and <strong>charged</strong></li>
+<li>Move closer to your device (within 10 feet / 3 meters)</li>
+<li>Try <strong>restarting the app</strong></li>
+<li>Try <strong>restarting your device</strong> (power off and on)</li>
+</ol>
+<h3 id="my-device-keeps-disconnecting">"My device keeps disconnecting"</h3>
+<ol>
+<li>Check battery level on your device</li>
+<li>Stay within range (Bluetooth has limited distance)</li>
+<li>Close other Bluetooth-heavy apps</li>
+<li>On Android: Disable battery optimization for Traxelos One</li>
+</ol>
+<p><em>The app will automatically try to reconnect. Watch for the "Reconnecting..." notification and the bottom nav Bluetooth icon (green = connected).</em></p>
+<h3 id="my-counts-arent-syncing">"My counts aren't syncing"</h3>
+<ol>
+<li>Check the bottom nav Bluetooth icon — green means connected</li>
+<li>Disconnect and reconnect your device to trigger a fresh sync</li>
+<li>Pull-to-refresh on the Items page</li>
+</ol>
+<h3 id="i-lost-my-counts">"I lost my counts!"</h3>
+<p>Don't panic! Your counts are stored in multiple places:
+- On your device (survives power loss)
+- In the cloud (synced from app)
+- In Recently Deleted (if you deleted an item)</p>
+<p>Try:
+1. Reconnect your device
+2. Wait for sync to complete
+3. Check Recently Deleted for missing items</p>
+<h3 id="the-time-on-my-device-is-wrong">"The time on my device is wrong"</h3>
+<p>Time syncs automatically when your device connects via Bluetooth. If the time seems wrong:
+1. Disconnect your device
+2. Reconnect — time will sync automatically
+3. Your device will update to your phone's time</p>
+<h3 id="i-forgot-my-password">"I forgot my password"</h3>
+<ol>
+<li>On the login screen, tap <strong>"Forgot password?"</strong></li>
+<li>Enter your email</li>
+<li>Check your inbox for a reset link</li>
+<li>Create a new password</li>
+</ol>
+<h3 id="still-need-help">Still Need Help?</h3>
+<ol>
+<li>Go to <strong>Account &gt; Help &amp; Support</strong></li>
+<li>Browse the FAQ section</li>
+<li>Tap <strong>"Email Support"</strong> to contact us</li>
+</ol>
+<p><strong>Support Email:</strong> support@digi1st.com</p>
+<hr />
+<h2 id="quick-reference-card">Quick Reference Card</h2>
+<h3 id="navigation">Navigation</h3>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Icon</th>
+<th>What It Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Home</strong></td>
+<td>House</td>
+<td>View and manage all items</td>
+</tr>
+<tr>
+<td><strong>Bluetooth</strong></td>
+<td>Bluetooth (green when connected, default when not)</td>
+<td>Connect and manage your device</td>
+</tr>
+<tr>
+<td><strong>Account</strong></td>
+<td>Person</td>
+<td>Account, settings, export, support</td>
+</tr>
+</tbody>
+</table>
+<h3 id="device-buttons-traxelos-one-device">Device Buttons — Traxelos One Device</h3>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Interaction</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>Press</td>
+<td>Add to count / Confirm selection / Wake device</td>
+</tr>
+<tr>
+<td>A</td>
+<td>Hold 3s</td>
+<td>Show time, category, and item info</td>
+</tr>
+<tr>
+<td>B</td>
+<td>Press</td>
+<td>Enter menu / Next item</td>
+</tr>
+<tr>
+<td>B</td>
+<td>Hold</td>
+<td>Rapidly loop through items</td>
+</tr>
+<tr>
+<td>B</td>
+<td>Hold 3s</td>
+<td>Reset item count (new cycle)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="key-features">Key Features</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Where to Find It</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create item</td>
+<td>Home &gt; + button (requires device)</td>
+</tr>
+<tr>
+<td>Edit item</td>
+<td>Swipe left on item &gt; Edit icon</td>
+</tr>
+<tr>
+<td>Delete item</td>
+<td>Swipe left on item &gt; Trash icon</td>
+</tr>
+<tr>
+<td>Activate item</td>
+<td>Swipe left on item &gt; Pin icon</td>
+</tr>
+<tr>
+<td>Search items</td>
+<td>Home &gt; Search icon (top right)</td>
+</tr>
+<tr>
+<td>Reorder</td>
+<td>Long press &amp; drag</td>
+</tr>
+<tr>
+<td>Categories</td>
+<td>Account &gt; Manage Categories</td>
+</tr>
+<tr>
+<td>Paired Devices</td>
+<td>Account &gt; Paired Devices</td>
+</tr>
+<tr>
+<td>Export</td>
+<td>Account &gt; Export My Data, or Item Detail &gt; Export icon</td>
+</tr>
+<tr>
+<td>Restore deleted</td>
+<td>Account &gt; Recently Deleted (requires device)</td>
+</tr>
+<tr>
+<td>Connect device</td>
+<td>Bluetooth &gt; Find Device, or Account &gt; Paired Devices &gt; tap device</td>
+</tr>
+<tr>
+<td>Sync time</td>
+<td>Automatic on device connect</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><strong>Thank you for using Traxelos One!</strong></p>
+<p>One button. Instant count. Full insights.</p>
 </div>
 </body>
 </html>

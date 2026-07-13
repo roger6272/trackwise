@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Flow & Sync Scenarios - Traxelos</title>
-    <style>
-        :root {
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Flow & Sync Scenarios - Traxelos</title>
+<style>
+:root {
             --primary-color: #2563eb;
             --secondary-color: #1e40af;
             --bg-color: #f8fafc;
@@ -320,217 +320,244 @@
                 border: 1px solid #ccc;
             }
         }
-    </style>
+
+
+.alert { border-left: 5px solid; border-radius: 6px; padding: 12px 16px; margin: 18px 0; }
+.alert .alert-title { font-weight: 700; margin-bottom: 6px; letter-spacing: .02em; }
+.alert > :last-child { margin-bottom: 0; }
+.generated-banner { background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px;
+  padding:10px 14px; margin-bottom:24px; font-size:.9em; color:#475569; }
+
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>Data Flow & Sync Scenarios</h1>
-        <blockquote>Visual guide to how data moves through the Traxelos system.</blockquote>
-
-        <hr>
-
-        <h2 style="border: none; padding-top: 0;">Glossary</h2>
-        <table>
-            <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
-            <tbody>
-                <tr><td><strong>Activate</strong></td><td>User action: swipe item &rarr; tap Pin icon &rarr; select device. Creates a claim in Firestore.</td></tr>
-                <tr><td><strong>Claim</strong></td><td>Firestore mechanism: <code>claimed_by</code> field on an Item document set to a <code>deviceInstanceId</code>. At most one device can claim an item at a time.</td></tr>
-                <tr><td><strong>Exclusive Leasing</strong></td><td>The multi-device feature: each device &ldquo;leases&rdquo; items exclusively. Enforced by claims in Firestore + filtered item lists sent to devices. Active when 2+ devices are connected.</td></tr>
-                <tr><td><strong>atomicClaimSwap</strong></td><td>Firestore transaction that atomically releases the previous claim and creates the new one. Prevents partial states.</td></tr>
-                <tr><td><strong>Stale Claim</strong></td><td>A claim left behind when a device disconnects. The device still believes it owns the item, but the user may have force-released it. Detected on reconnect; override dialog shown.</td></tr>
-                <tr><td><strong>Force-Release</strong></td><td>Break-glass action: swipe item &rarr; tap Unlock &rarr; confirm warning. Clears <code>claimed_by</code> for an offline device&rsquo;s item. Unsynced counts on the device will be lost on next sync.</td></tr>
-                <tr><td><strong>Global Claim Queue</strong></td><td>Single <code>Future&lt;void&gt;</code> that serializes all claim operations across all devices. Prevents concurrent Firestore transactions from reading stale <code>claimed_by</code> state. See <a href="decisions/ADR-005-global-claim-queue.md">ADR-005</a>.</td></tr>
-            </tbody>
-        </table>
-
-        <hr>
-
-        <nav class="toc">
-            <h2 style="margin-top: 0; border: none; padding-top: 0;">Table of Contents</h2>
-            <ol>
-                <li><a href="#system-overview">System Overview</a></li>
-                <li><a href="#data-storage">Data Storage Layers</a></li>
-                <li><a href="#connection-handshake">Connection & Handshake Flow</a></li>
-                <li><a href="#sync-scenarios">Sync Scenarios</a></li>
-                <li><a href="#realtime-events">Real-time Event Flow</a></li>
-                <li><a href="#offline-reconnection">Offline & Reconnection</a></li>
-                <li><a href="#multi-device">Multi-Device Sync</a></li>
-                <li><a href="#consistency-rules">Data Consistency Rules</a></li>
-            </ol>
-        </nav>
-
-        <hr>
-
-        <h2 id="system-overview">1. System Overview</h2>
-
-        <h3>1.1 Three-Tier Architecture</h3>
-
-        <div class="architecture">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;                              <span style="color: #60a5fa; font-weight: bold;">CLOUD</span>                                       &#9474;
-&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
-&#9474;  &#9474;                         <span style="color: #fbbf24; font-weight: bold;">FIRESTORE</span>                                  &#9474;  &#9474;
-&#9474;  &#9474;                                                                    &#9474;  &#9474;
-&#9474;  &#9474;   users/{uid}/items/{itemId}     &#8592; Item definitions + counts      &#9474;  &#9474;
-&#9474;  &#9474;   users/{uid}/syncState          &#8592; last sync time                 &#9474;  &#9474;
-&#9474;  &#9474;   users/{uid}/deviceMappings     &#8592; deviceItemId &#8596; Firestore ID    &#9474;  &#9474;
-&#9474;  &#9474;                                                                    &#9474;  &#9474;
-&#9474;  &#9474;   <span style="color: #4ade80;">Source of truth for: Multi-device consistency</span>                   &#9474;  &#9474;
-&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-                                    &#9474;
-                                    &#9474; Cloud Sync
-                                    &#9660;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;                              <span style="color: #a78bfa; font-weight: bold;">APP (Flutter)</span>                               &#9474;
-&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
-&#9474;  &#9474;                      <span style="color: #c4b5fd;">BLoC State + Local Cache</span>                      &#9474;  &#9474;
-&#9474;  &#9474;                                                                    &#9474;  &#9474;
-&#9474;  &#9474;   &#8226; Item list with counts                                         &#9474;  &#9474;
-&#9474;  &#9474;   &#8226; Selected item                                                 &#9474;  &#9474;
-&#9474;  &#9474;   &#8226; Connection state (per-device)                                 &#9474;  &#9474;
-&#9474;  &#9474;   &#8226; Paired devices list + claim state                             &#9474;  &#9474;
-&#9474;  &#9474;                                                                    &#9474;  &#9474;
-&#9474;  &#9474;   <span style="color: #4ade80;">Source of truth for: UI state, sync orchestration</span>               &#9474;  &#9474;
-&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-                                    &#9474;
-                                    &#9474; BLE (JSON over GATT)
-                                    &#9660;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;                           <span style="color: #34d399; font-weight: bold;">DEVICE (ESP32)</span>                                 &#9474;
-&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
-&#9474;  &#9474;                      <span style="color: #6ee7b7;">NVS (Flash) + RAM</span>                             &#9474;  &#9474;
-&#9474;  &#9474;                                                                    &#9474;  &#9474;
-&#9474;  &#9474;   NVS:                           RAM:                             &#9474;  &#9474;
-&#9474;  &#9474;   &#8226; Item data (name, count...)   &#8226; Current item counts            &#9474;  &#9474;
-&#9474;  &#9474;   &#8226; paired_uid                   &#8226; Event log buffer (1000)        &#9474;  &#9474;
-&#9474;  &#9474;                                   &#8226; Dirty flags                    &#9474;  &#9474;
-&#9474;  &#9474;   &#8226; selected_did                 &#8226; BLE transmit queue             &#9474;  &#9474;
-&#9474;  &#9474;                                                                    &#9474;  &#9474;
-&#9474;  &#9474;   <span style="color: #4ade80;">Source of truth for: Counts during normal sync</span>                  &#9474;  &#9474;
-&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
-
-        <h3>1.2 Source of Truth by Scenario</h3>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Scenario</th>
-                    <th>Source of Truth</th>
-                    <th>Why</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Normal sync (<code>in_sync</code>)</td>
-                    <td><strong>Device &rarr; Firestore &rarr; Device</strong></td>
-                    <td>Device counts forwarded to Firestore, then claim-filtered items pushed back</td>
-                </tr>
-                <tr>
-                    <td>New device setup</td>
-                    <td><strong>App (empty)</strong></td>
-                    <td>Device starts with no items; user claims one to assign category</td>
-                </tr>
-                <tr>
-                    <td>Re-pairing (<code>in_sync</code> + unknown)</td>
-                    <td><strong>App (empty)</strong></td>
-                    <td>Device was unpaired; treat as fresh setup even though handshake says <code>in_sync</code></td>
-                </tr>
-                <tr>
-                    <td>Real-time (connected)</td>
-                    <td><strong>Device</strong></td>
-                    <td>Immediate feedback on button press</td>
-                </tr>
-                <tr>
-                    <td>Offline (disconnected)</td>
-                    <td><strong>Device</strong></td>
-                    <td>Only place tracking increments</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <blockquote><strong>Note:</strong> After handshake, the app pushes claim-filtered items to the device via <code>RefreshDeviceItemsUseCase</code>.</blockquote>
-
-        <hr>
-
-        <h2 id="data-storage">2. Data Storage Layers</h2>
-
-        <h3>2.1 Firestore Schema</h3>
-
-        <pre><code>users/
-&#9492;&#9472;&#9472; {uid}/
-    &#9474;
-    &#9474;   &#9472;&#9472; User document fields &#9472;&#9472;
-    &#9474;   last_selected_device_item_id: 3     &#8592; Device slot of last selected item
-    &#9474;   onboarding_completed: true
-    &#9474;   onboarding_device_paired: true
-    &#9474;   onboarding_item_created: true
-    &#9474;   primary_use_case: "habit_tracking"  &#8592; Optional
-    &#9474;   referral_source: "friend"           &#8592; Optional
-    &#9474;
-    &#9474;   paired_devices: [                   &#8592; Array of paired device objects
-    &#9474;     {
-    &#9474;       device_instance_id: "AA:BB:CC:DD:EE:FF"
-    &#9474;       device_name: "Traxelos One (1)"
-    &#9474;       paired_at: Timestamp
-    &#9474;       color: 0                        &#8592; Palette index (0-9)
-    &#9474;       stale_claims: ["Water"]         &#8592; Items released while offline
-    &#9474;     }
-    &#9474;   ]
-    &#9474;
-    &#9500;&#9472;&#9472; items/
-    &#9474;   &#9492;&#9472;&#9472; {itemId}/
-    &#9474;       &#9500;&#9472;&#9472; item_name: "Push-ups"       &#8592; Note: "item_name" not "name"
-    &#9474;       &#9500;&#9472;&#9472; count: 1523
-    &#9474;       &#9500;&#9472;&#9472; todaycount: 75              &#8592; Note: lowercase, no underscore
-    &#9474;       &#9500;&#9472;&#9472; increment_by: 1
-    &#9474;       &#9500;&#9472;&#9472; reminder: "NONE"            &#8592; "NONE" | "TARGET" | "INTERVAL"
-    &#9474;       &#9500;&#9472;&#9472; reminder_value: 100
-    &#9474;       &#9500;&#9472;&#9472; lastResetTime: int (ms)     &#8592; Milliseconds since epoch
-    &#9474;       &#9500;&#9472;&#9472; reset_number: 15
-    &#9474;       &#9500;&#9472;&#9472; lastUpdated: int (ms)
-    &#9474;       &#9500;&#9472;&#9472; uid: DocumentReference      &#8592; Reference to users/{uid}
-    &#9474;       &#9500;&#9472;&#9472; user_id: "abc123"           &#8592; String copy of uid
-    &#9474;       &#9500;&#9472;&#9472; order: 0                    &#8592; Global sort order
-    &#9474;       &#9500;&#9472;&#9472; initial_count: 0            &#8592; Count at start of current cycle
-    &#9474;       &#9500;&#9472;&#9472; goal: 100                   &#8592; Optional daily goal
-    &#9474;       &#9500;&#9472;&#9472; category_id: "cat123"       &#8592; Optional category reference
-    &#9474;       &#9500;&#9472;&#9472; category_order: 0           &#8592; Sort order within category
-    &#9474;       &#9500;&#9472;&#9472; device_item_id: 0           &#8592; Maps to device slot (0-99)
-    &#9474;       &#9500;&#9472;&#9472; cycle_names: {              &#8592; Optional per-cycle labels
-    &#9474;       &#9474;     "1": "Week 1", "2": "Week 2"
-    &#9474;       &#9474;   }
-    &#9474;       &#9500;&#9472;&#9472; cycle_notes: {              &#8592; Optional per-cycle notes
-    &#9474;       &#9474;     "1": "Started strong"
-    &#9474;       &#9474;   }
-    &#9474;       &#9500;&#9472;&#9472; claimed_by: "AA:BB:CC:DD:EE:FF"  &#8592; Device instance ID
-    &#9474;       &#9500;&#9472;&#9472; claimed_at: Timestamp       &#8592; When claimed
-    &#9474;       &#9492;&#9472;&#9472; deletedAt: int (ms)         &#8592; Soft-delete timestamp
-    &#9474;
-    &#9492;&#9472;&#9472; (No separate syncState or devices subcollection &#8212;
-         sync state and paired devices are fields on the user document)</code></pre>
-
-        <h3>2.2 Device NVS Schema</h3>
-
-        <pre><code>NVS Namespace: "counter"
+<div class="container">
+<div class="generated-banner">
+  <strong>Generated file — do not edit.</strong>
+  Built from <code>docs/DATA_FLOW.md</code> by <code>scripts/build_docs.py</code>.
+  Edit the markdown and re-run the script.
+</div>
+<h1 id="data-flow-sync-scenarios">Data Flow &amp; Sync Scenarios</h1>
+<blockquote>
+<p>Visual guide to how data moves through the Traxelos system.</p>
+<p><strong>Related docs:</strong> <a href="BLE_PROTOCOL.md">BLE Protocol</a> · <a href="DEVICE_DISPLAY.md">Device Display</a> · <a href="TROUBLESHOOTING.md">Troubleshooting</a></p>
+</blockquote>
+<hr />
+<h2 id="glossary">Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Activate</strong></td>
+<td>User action: swipe item → tap Pin icon → select device. Creates a claim in Firestore.</td>
+</tr>
+<tr>
+<td><strong>Claim</strong></td>
+<td>Firestore mechanism: <code>claimed_by</code> field on an Item document set to a <code>deviceInstanceId</code>. At most one device can claim an item at a time.</td>
+</tr>
+<tr>
+<td><strong>Exclusive Leasing</strong></td>
+<td>The multi-device feature: each device "leases" items exclusively. Enforced by claims in Firestore + filtered item lists sent to devices. Active when 2+ devices are connected.</td>
+</tr>
+<tr>
+<td><strong>atomicClaimSwap</strong></td>
+<td>Firestore transaction that atomically releases the previous claim and creates the new one. Prevents partial states.</td>
+</tr>
+<tr>
+<td><strong>Stale Claim</strong></td>
+<td>A claim left behind when a device disconnects. The device still believes it owns the item, but the user may have force-released it. Detected on reconnect; override dialog shown.</td>
+</tr>
+<tr>
+<td><strong>Force-Release</strong></td>
+<td>Break-glass action: swipe item → tap Unlock → confirm warning. Clears <code>claimed_by</code> for an offline device's item. Unsynced counts on the device will be lost on next sync.</td>
+</tr>
+<tr>
+<td><strong>Global Claim Queue</strong></td>
+<td>Single <code>Future&lt;void&gt;</code> that serializes all claim operations across all devices. Prevents concurrent Firestore transactions from reading stale <code>claimed_by</code> state. See <a href="decisions/ADR-005-global-claim-queue.md">ADR-005</a>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-system-overview">System Overview</a></li>
+<li><a href="#2-data-storage-layers">Data Storage Layers</a></li>
+<li><a href="#3-connection--handshake-flow">Connection &amp; Handshake Flow</a></li>
+<li><a href="#4-sync-scenarios">Sync Scenarios</a></li>
+<li><a href="#5-real-time-event-flow">Real-time Event Flow</a> (incl. category deletion)</li>
+<li><a href="#6-offline--reconnection">Offline &amp; Reconnection</a></li>
+<li><a href="#7-multi-device-sync">Multi-Device Sync</a></li>
+<li><a href="#8-data-consistency-rules">Data Consistency Rules</a></li>
+<li><a href="#9-ota-firmware-update-flow">OTA Firmware Update Flow</a></li>
+</ol>
+<hr />
+<h2 id="1-system-overview">1. System Overview</h2>
+<h3 id="11-three-tier-architecture">1.1 Three-Tier Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                              CLOUD                                       │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                         FIRESTORE                                  │  │
+│  │                                                                    │  │
+│  │   users/{uid}/items/{itemId}     ← Item definitions + counts      │  │
+│  │   users/{uid}/syncState          ← last sync time                 │  │
+│  │   users/{uid}/deviceMappings     ← deviceItemId ↔ Firestore ID    │  │
+│  │                                                                    │  │
+│  │   Source of truth for: Multi-device consistency                   │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ Cloud Sync
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              APP (Flutter)                               │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                      BLoC State + Local Cache                      │  │
+│  │                                                                    │  │
+│  │   • Item list with counts                                         │  │
+│  │   • Selected item                                                 │  │
+│  │   • Connection state (per-device)                                 │  │
+│  │   • Paired devices list + claim state                             │  │
+│  │                                                                    │  │
+│  │   Source of truth for: UI state, sync orchestration               │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ BLE (JSON over GATT)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           DEVICE (ESP32)                                 │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                      NVS (Flash) + RAM                             │  │
+│  │                                                                    │  │
+│  │   NVS:                           RAM:                             │  │
+│  │   • Item data (name, count...)   • Current item counts            │  │
+│  │   • paired_uid                   • Event log buffer (1000)        │  │
+│  │                                   • Dirty flags                    │  │
+│  │   • selected_did                 • BLE transmit queue             │  │
+│  │                                                                    │  │
+│  │   Source of truth for: Counts during normal sync                  │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="12-source-of-truth-by-scenario">1.2 Source of Truth by Scenario</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Source of Truth</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normal sync (<code>in_sync</code>)</td>
+<td><strong>Device → Firestore → Device</strong></td>
+<td>Device counts forwarded to Firestore, then claim-filtered items pushed back</td>
+</tr>
+<tr>
+<td>New device setup</td>
+<td><strong>App (empty)</strong></td>
+<td>Device starts with no items; user claims one to assign category</td>
+</tr>
+<tr>
+<td>Re-pairing (<code>in_sync</code> + unknown)</td>
+<td><strong>App (empty)</strong></td>
+<td>Device was unpaired; treat as fresh setup even though handshake says <code>in_sync</code></td>
+</tr>
+<tr>
+<td>Real-time (connected)</td>
+<td><strong>Device</strong></td>
+<td>Immediate feedback on button press</td>
+</tr>
+<tr>
+<td>Offline (disconnected)</td>
+<td><strong>Device</strong></td>
+<td>Only place tracking increments</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> After handshake, the app pushes claim-filtered items to the device via <code>RefreshDeviceItemsUseCase</code>.</p>
+</blockquote>
+<hr />
+<h2 id="2-data-storage-layers">2. Data Storage Layers</h2>
+<h3 id="21-firestore-schema">2.1 Firestore Schema</h3>
+<pre><code>users/
+└── {uid}/
+    │
+    │   ── User document fields ──
+    │   last_selected_device_item_id: 3     ← Device slot of last selected item
+    │   onboarding_completed: true
+    │   onboarding_device_paired: true
+    │   onboarding_item_created: true
+    │   primary_use_case: &quot;habit_tracking&quot;  ← Optional
+    │   referral_source: &quot;friend&quot;           ← Optional
+    │
+    │   paired_devices: [                   ← Array of paired device objects
+    │     {
+    │       device_instance_id: &quot;AA:BB:CC:DD:EE:FF&quot;
+    │       device_name: &quot;Traxelos One (1)&quot;
+    │       paired_at: Timestamp
+    │       color: 0                        ← Palette index (0-9)
+    │       stale_claims: [&quot;Water&quot;]         ← Items released while offline
+    │     }
+    │   ]
+    │
+    ├── items/
+    │   └── {itemId}/
+    │       ├── item_name: &quot;Push-ups&quot;       ← Note: &quot;item_name&quot; not &quot;name&quot;
+    │       ├── count: 1523
+    │       ├── todaycount: 75              ← Note: lowercase, no underscore
+    │       ├── increment_by: 1
+    │       ├── reminder: &quot;NONE&quot;            ← &quot;NONE&quot; | &quot;TARGET&quot; | &quot;INTERVAL&quot;
+    │       ├── reminder_value: 100
+    │       ├── lastResetTime: int (ms)     ← Milliseconds since epoch
+    │       ├── reset_number: 15
+    │       ├── lastUpdated: int (ms)
+    │       ├── uid: DocumentReference      ← Reference to users/{uid}
+    │       ├── user_id: &quot;abc123&quot;           ← String copy of uid
+    │       ├── order: 0                    ← Global sort order
+    │       ├── initial_count: 0            ← Count at start of current cycle
+    │       ├── goal: 100                   ← Optional daily goal
+    │       ├── category_id: &quot;cat123&quot;       ← Optional category reference
+    │       ├── category_order: 0           ← Sort order within category
+    │       ├── device_item_id: 0           ← Maps to device slot (0-99)
+    │       ├── cycle_names: {              ← Optional per-cycle labels
+    │       │     &quot;1&quot;: &quot;Week 1&quot;, &quot;2&quot;: &quot;Week 2&quot;
+    │       │   }
+    │       ├── cycle_notes: {              ← Optional per-cycle notes
+    │       │     &quot;1&quot;: &quot;Started strong&quot;
+    │       │   }
+    │       ├── claimed_by: &quot;AA:BB:CC:DD:EE:FF&quot;  ← Device instance ID
+    │       ├── claimed_at: Timestamp       ← When claimed
+    │       └── deletedAt: int (ms)         ← Soft-delete timestamp
+    │
+    └── (No separate syncState or devices subcollection —
+         sync state and paired devices are fields on the user document)
+</code></pre>
+<h3 id="22-device-nvs-schema">2.2 Device NVS Schema</h3>
+<pre><code>NVS Namespace: &quot;counter&quot;
 
 Per-Item (index 0-99):              Global:
-&#9500;&#9472;&#9472; did_&lt;i&gt;   &#8594; deviceItemId        &#9500;&#9472;&#9472; item_total     &#8594; count of items
-&#9500;&#9472;&#9472; n_&lt;i&gt;     &#8594; name                &#9500;&#9472;&#9472; selected_did   &#8594; current selection
-&#9500;&#9472;&#9472; cat_&lt;i&gt;   &#8594; category            &#9500;&#9472;&#9472; selected_index &#8594; index of selection
-&#9500;&#9472;&#9472; c_&lt;i&gt;     &#8594; count               &#9500;&#9472;&#9472; paired_uid     &#8594; Firebase UID
-&#9500;&#9472;&#9472; tc_&lt;i&gt;    &#8594; todaycount          &#9500;&#9472;&#9472; tz_offset      &#8594; minutes from UTC
-&#9500;&#9472;&#9472; i_&lt;i&gt;     &#8594; increment           &#9492;&#9472;&#9472; last_reset_date&#8594; "YYYY-MM-DD"
-&#9500;&#9472;&#9472; r_&lt;i&gt;     &#8594; reminder type
-&#9500;&#9472;&#9472; rv_&lt;i&gt;    &#8594; reminder value
-&#9500;&#9472;&#9472; lr_&lt;i&gt;    &#8594; lastResetTime
-&#9492;&#9472;&#9472; rn_&lt;i&gt;    &#8594; resetNumber</code></pre>
-
-        <h3>2.3 App State (BLoC)</h3>
-
-        <pre><code>class BluetoothState {
+├── did_&lt;i&gt;   → deviceItemId        ├── item_total     → count of items
+├── n_&lt;i&gt;     → name                ├── selected_did   → current selection
+├── cat_&lt;i&gt;  → category            ├── selected_index → index of selection
+├── c_&lt;i&gt;    → count               ├── paired_uid     → Firebase UID
+├── tc_&lt;i&gt;   → todaycount          ├── tz_offset      → minutes from UTC
+├── i_&lt;i&gt;    → increment           └── last_reset_date→ &quot;YYYY-MM-DD&quot;
+├── r_&lt;i&gt;    → reminder type
+├── rv_&lt;i&gt;   → reminder value
+├── g_&lt;i&gt;    → goal
+├── lr_&lt;i&gt;   → lastResetTime
+└── rn_&lt;i&gt;   → resetNumber
+</code></pre>
+<h3 id="23-app-state-bloc">2.3 App State (BLoC)</h3>
+<pre><code class="language-dart">class BluetoothState {
   // Connection (multi-device)
   BluetoothStatus status;                              // ready, scanning, etc.
   Map&lt;String, DeviceConnectionState&gt; connectedDevices;  // instanceId → state
@@ -540,809 +567,979 @@ Per-Item (index 0-99):              Global:
   // Per-device connection state
   // DeviceConnectionState tracks: device info, sync status (handshaking,
   // synced, staleClaim, etc.), and the device's selected item
-}</code></pre>
+}
+</code></pre>
+<blockquote>
+<p><strong>Single-device vs multi-device:</strong> When <code>connectedDevices.length &lt; 2</code>, the app operates in classic single-device mode — no color tinting, no claim UI. When <code>&gt;= 2</code>, exclusive leasing activates: each item can be claimed by one device at a time, and devices only see their claimed items.</p>
+</blockquote>
+<hr />
+<h2 id="3-connection-handshake-flow">3. Connection &amp; Handshake Flow</h2>
+<h3 id="31-connection-sequence">3.1 Connection Sequence</h3>
+<pre><code>┌─────────────────┐                              ┌─────────────────┐
+│       APP       │                              │     DEVICE      │
+└────────┬────────┘                              └────────┬────────┘
+         │                                                │
+         │  ① BLE Scan (filter: service UUID)              │
+         │ ─────────────────────────────────────────────►│
+         │                                                │
+         │  ② Stop scan + wait 2s (GATT 133 prevention)  │
+         │                                                │
+         │  ③ Connect + MTU negotiation                  │
+         │ ◄─────────────────────────────────────────────│
+         │                                                │
+         │  ④ Subscribe to NOTIFY characteristic         │
+         │ ─────────────────────────────────────────────►│
+         │                                                │
+         │  ⑤ Send handshake (FIRST command!)              │
+         │ ─────────────────────────────────────────────►│
+         │  {&quot;cmd&quot;:&quot;handshake&quot;,&quot;uid&quot;:&quot;xxx&quot;}              │
+         │                                                │
+         │  ⑥ Receive handshake response                 │
+         │ ◄─────────────────────────────────────────────│
+         │  {&quot;status&quot;:&quot;...&quot;,                            │
+         │   &quot;protocol_version&quot;:3,                      │
+         │   &quot;firmware_version&quot;:&quot;2.1.0&quot;}                │
+         │                                                │
+         │  ⑦ Branch based on status...                  │
+         │                                                │
+</code></pre>
+<h3 id="32-handshake-decision-tree">3.2 Handshake Decision Tree</h3>
+<pre><code>                        ┌──────────────────┐
+                        │   HANDSHAKE      │
+                        │   RESPONSE       │
+                        └────────┬─────────┘
+                                 │
+         ┌───────────────────────┴───────────────────────┐
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐                            ┌─────────────────┐
+│   &quot;in_sync&quot;     │                            │ &quot;uninitialized&quot; │
+│                 │                            │                 │
+│ Device paired   │                            │ No UID stored   │
+│ to this UID     │                            │                 │
+└────────┬────────┘                            └────────┬────────┘
+         │                                              │
+         ▼                                              ▼
+┌─────────────────┐                            ┌─────────────────┐
+│ Is device in    │                            │ Device shows    │
+│ pairedDevices?  │                            │ &quot;AWAITING       │
+│                 │                            │  SETUP&quot;         │
+└────────┬────────┘                            └────────┬────────┘
+    ┌────┴────┐                                         │
+    │YES      │NO                                       │
+    ▼         ▼                                         ▼
+┌────────┐ ┌────────┐                         ┌─────────────────┐
+│ Normal │ │Redirect│                         │ App shows       │
+│ sync:  │ │to      │                         │ setup wizard    │
+│ prefs  │ │Device  │                         │                 │
+│ + logs │ │Setup   │                         └────────┬────────┘
+└───┬────┘ │Required│                                  │
+    │      │(empty) │                                  │
+    │      └───┬────┘                                  │
+    │          └───────────────────────────┬───────────┘
+    ▼                                      │
+┌─────────────────┐                        ▼
+│ Refresh device  │             ┌─────────────────┐
+│ items (set_items│             │ Override        │
+│ with claims)    │             │ Protocol        │
+└─────────────────┘             │ (App → Device)  │
+                                └─────────────────┘
 
-        <p><strong>Single-device vs multi-device:</strong> When <code>connectedDevices.length &lt; 2</code>, the app operates in classic single-device mode — no color tinting, no claim UI. When <code>&gt;= 2</code>, exclusive leasing activates: each item can be claimed by one device at a time, and devices only see their claimed items.</p>
+                                         │
+                        ┌────────────────┴────────────────┐
+                        ▼                                 │
+              ┌─────────────────┐                         │
+              │ &quot;wrong_account&quot; │                         │
+              │                 │                         │
+              │ UID mismatch    │                         │
+              └────────┬────────┘                         │
+                       │                                  │
+                       ▼                                  │
+              ┌─────────────────┐                         │
+              │ Device shows    │                         │
+              │ &quot;PAIRED TO      │                         │
+              │  OTHER ACCOUNT&quot; │                         │
+              └────────┬────────┘                         │
+                       │                                  │
+                       ▼                                  │
+              ┌─────────────────┐                         │
+              │ App shows error │                         │
+              │ Must factory    │                         │
+              │ reset device    │                         │
+              └─────────────────┘                         │
+</code></pre>
+<hr />
+<h2 id="4-sync-scenarios">4. Sync Scenarios</h2>
+<h3 id="41-normal-sync">4.1 Normal Sync</h3>
+<p><strong>When:</strong> Any paired device connects
+<strong>Flow:</strong> Device counts → Firestore, then claim-filtered items → Device</p>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① handshake(uid)    │
+     │                     │ ───────────────────►│
+     │                     │                     │
+     │                     │ ② {status:in_sync,  │
+     │                     │    device_instance_id,
+     │                     │    protocol_version:3}
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │                     │ ③ prefs (automatic) │
+     │                     │ ◄───────────────────│
+     │                     │   [Device counts!]  │
+     │                     │                     │
+     │                     │ ④ logs (automatic)  │
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │ ⑤ Write counts      │                     │
+     │ ◄───────────────────│                     │
+     │   (from device)     │                     │
+     │                     │                     │
+     │ ⑥ Read claimed items│                     │
+     │ ◄───────────────────│                     │
+     │   (for this device) │                     │
+     │                     │                     │
+     │                     │ ⑦ RefreshDeviceItems │
+     │                     │   (claim-filtered)  │
+     │                     │ ───────────────────►│
+     │                     │                     │ Updates NVS with
+     │                     │                     │ claimed items only
+     │                     │                     │
 
-        <hr>
+Data Flow:
+  1. Device counts → App state → Firestore (preserve device's work)
+  2. Firestore claimed items → App → Device (push latest assignments)
+</code></pre>
+<h3 id="42-new-device-setup">4.2 New Device Setup</h3>
+<p><strong>When:</strong> Device has never been paired (<code>paired_uid</code> empty)
+<strong>Source of Truth:</strong> Firestore</p>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① handshake(uid)    │
+     │                     │ ───────────────────►│ No UID stored
+     │                     │                     │
+     │                     │ ② {status:          │
+     │                     │    uninitialized,   │
+     │                     │    protocol_version:3}
+     │                     │ ◄───────────────────│ Shows &quot;AWAITING
+     │                     │                     │  SETUP&quot;
+     │                     │                     │
+     │                     │ ③ Show setup wizard │
+     │                     │                     │
+     │                     │ ④ override_start    │
+     │                     │ ───────────────────►│
+     │                     │ (uid, 0 items)      │ Stores UID!
+     │                     │                     │ (Pairing complete)
+     │                     │                     │
+     │                     │ ⑤ override_end      │
+     │                     │ ───────────────────►│
+     │                     │ (selected_id: -1)   │ No selection
+     │                     │                     │
+     │                     │ ⑥ {override_complete}
+     │                     │ ◄───────────────────│
+     │                     │                     │
 
-        <h2 id="connection-handshake">3. Connection & Handshake Flow</h2>
+Data Flow:
+  App → Device NVS (UID only; no items sent)
+  Device starts empty — user must claim an item to assign it a category.
+</code></pre>
+<h3 id="43-re-pairing-after-path-a-unpair">4.3 Re-pairing After Path A Unpair</h3>
+<p><strong>When:</strong> User previously unpaired the device via Paired Devices → three-dot → <strong>Unpair</strong> (without factory-resetting the device), then re-connects to it. The device's <code>paired_uid</code> still matches, so handshake returns <code>in_sync</code> — but the app has no record of this device.
+<strong>Source of Truth:</strong> App (empty) — same outcome as new-device setup
+<strong>Key behavior:</strong> App <strong>drops</strong> the firmware's initial prefs/logs storm because the device is not in <code>paired_devices</code>. This prevents the old <code>selectedDeviceItemId</code> from being mapped back to a Firestore item and writing a ghost <code>claim_by</code>.</p>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① handshake(uid)    │
+     │                     │ ───────────────────►│ paired_uid matches
+     │                     │                     │
+     │                     │ ② {status: in_sync, │
+     │                     │    protocol_version:3}
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │                     │ ③ ~100ms later:     │
+     │                     │   prefs (old items, │
+     │                     │   old selected_id)  │
+     │                     │ ◄───────────────────│
+     │                     │   logs (old data)   │
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │                     │ ④ APP DROPS BOTH    │
+     │                     │   (device not in    │
+     │                     │   paired_devices)   │
+     │                     │                     │
+     │                     │ ⑤ _onHandshakeCompleted:
+     │                     │   &quot;in_sync + unknown&quot;
+     │                     │   → DeviceSetupRequired
+     │                     │                     │
+     │                     │ ⑥ Show setup dialog │
+     │                     │   &quot;New Device       │
+     │                     │    Detected&quot;        │
+     │                     │                     │
+     │ User taps &quot;Set Up&quot;  │                     │
+     │                     │                     │
+     │                     │ ⑦ override_start    │
+     │                     │ ───────────────────►│
+     │                     │ (uid, 0 items)      │ clearAllItemSlots
+     │                     │                     │
+     │                     │ ⑧ override_end      │
+     │                     │ ───────────────────►│
+     │                     │ (selected_id: -1)   │ No selection
+     │                     │                     │
+     │                     │ ⑨ {override_complete}
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │ addPairedDevice     │                     │
+     │ ◄───────────────────│                     │
 
-        <h3>3.1 Connection Sequence</h3>
-
-        <div class="sequence-diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                              &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;       <span style="color: #a78bfa;">APP</span>       &#9474;                              &#9474;     <span style="color: #34d399;">DEVICE</span>      &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                              &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-         &#9474;                                                &#9474;
-         &#9474;  <span style="color: #fbbf24;">&#9312;</span> BLE Scan (filter: service UUID)             &#9474;
-         &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474;
-         &#9474;                                                &#9474;
-         &#9474;  <span style="color: #fbbf24;">&#9313;</span> Stop scan + wait 2s (GATT 133 prevention)  &#9474;
-         &#9474;                                                &#9474;
-         &#9474;  <span style="color: #fbbf24;">&#9314;</span> Connect + MTU negotiation                  &#9474;
-         &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-         &#9474;                                                &#9474;
-         &#9474;  <span style="color: #fbbf24;">&#9315;</span> Subscribe to NOTIFY characteristic         &#9474;
-         &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474;
-         &#9474;                                                &#9474;
-         &#9474;  <span style="color: #fbbf24;">&#9316;</span> Send handshake (<span style="color: #f87171;">FIRST command!</span>)              &#9474;
-         &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474;
-         &#9474;  {"cmd":"handshake","uid":"xxx"}              &#9474;
-         &#9474;                                                &#9474;
-         &#9474;  <span style="color: #fbbf24;">&#9317;</span> Receive handshake response                 &#9474;
-         &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-         &#9474;  {"status":"...",                             &#9474;
-         &#9474;   "protocol_version":3,                      &#9474;
-         &#9474;   "firmware_version":"2.1.0"}                &#9474;
-         &#9474;                                                &#9474;
-         &#9474;  <span style="color: #fbbf24;">&#9318;</span> Branch based on status...                  &#9474;
-         &#9474;                                                &#9474;</div>
-
-        <h3>3.2 Handshake Decision Tree</h3>
-
-        <div class="decision-tree">
-                        &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-                        &#9474;   <span style="color: #fbbf24;">HANDSHAKE</span>      &#9474;
-                        &#9474;   <span style="color: #fbbf24;">RESPONSE</span>       &#9474;
-                        &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-                                 &#9474;
-         &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-         &#9474;                                               &#9474;
-         &#9660;                                               &#9660;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                            &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;   <span style="color: #4ade80;">"in_sync"</span>     &#9474;                            &#9474; <span style="color: #60a5fa;">"uninitialized"</span> &#9474;
-&#9474;                 &#9474;                            &#9474;                 &#9474;
-&#9474; Device paired   &#9474;                            &#9474; No UID stored   &#9474;
-&#9474; to this UID     &#9474;                            &#9474;                 &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                            &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-         &#9474;                                              &#9474;
-         &#9660;                                              &#9660;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                            &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474; Is device in    &#9474;                            &#9474; Device shows    &#9474;
-&#9474; pairedDevices?  &#9474;                            &#9474; "AWAITING       &#9474;
-&#9474;                 &#9474;                            &#9474;  SETUP"         &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                            &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-    &#9484;&#9472;&#9472;&#9472;&#9472;&#9524;&#9472;&#9472;&#9472;&#9472;&#9488;                                         &#9474;
-    &#9474;YES      &#9474;NO                                       &#9474;
-    &#9660;         &#9660;                                         &#9660;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                         &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474; Normal &#9474; &#9474;Redirect&#9474;                         &#9474; App shows       &#9474;
-&#9474; sync:  &#9474; &#9474;to      &#9474;                         &#9474; setup wizard    &#9474;
-&#9474; prefs  &#9474; &#9474;Device  &#9474;                         &#9474;                 &#9474;
-&#9474; + logs &#9474; &#9474;Setup   &#9474;                         &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-&#9492;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496; &#9474;Required&#9474;                                  &#9474;
-    &#9474;      &#9474;(empty) &#9474;                                  &#9474;
-    &#9474;      &#9492;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;                                  &#9474;
-    &#9660;          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                        &#9660;
-&#9474; Refresh device  &#9474;             &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474; items (set_items&#9474;             &#9474; <span style="color: #f87171;">Override</span>        &#9474;
-&#9474; with claims)    &#9474;             &#9474; <span style="color: #f87171;">Protocol</span>        &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;             &#9474; (App &#8594; Device)  &#9474;
-                                 &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-
-                                         &#9474;
-                        &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9524;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-                        &#9660;                                 &#9474;
-              &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                         &#9474;
-              &#9474; "wrong_account" &#9474;                         &#9474;
-              &#9474;                 &#9474;                         &#9474;
-              &#9474; UID mismatch    &#9474;                         &#9474;
-              &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                         &#9474;
-                       &#9474;                                  &#9474;
-                       &#9660;                                  &#9474;
-              &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                         &#9474;
-              &#9474; Device shows    &#9474;                         &#9474;
-              &#9474; "PAIRED TO      &#9474;                         &#9474;
-              &#9474;  OTHER ACCOUNT" &#9474;                         &#9474;
-              &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                         &#9474;
-                       &#9474;                                  &#9474;
-                       &#9660;                                  &#9474;
-              &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                         &#9474;
-              &#9474; App shows error &#9474;                         &#9474;
-              &#9474; Must factory    &#9474;                         &#9474;
-              &#9474; reset device    &#9474;                         &#9474;
-              &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                         &#9474;</div>
-
-        <hr>
-
-        <h2 id="sync-scenarios">4. Sync Scenarios</h2>
-
-        <h3>4.1 Normal Sync</h3>
-
-        <p><strong>When:</strong> Any paired device connects<br>
-        <strong>Flow:</strong> Device counts &rarr; Firestore, then claim-filtered items &rarr; Device</p>
-
-        <div class="sequence-diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;<span style="color: #fbbf24;">FIRESTORE</span>&#9474;           &#9474;   <span style="color: #a78bfa;">APP</span>   &#9474;           &#9474; <span style="color: #34d399;">DEVICE</span>  &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9312;</span> handshake(uid)    &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9313;</span> {status:in_sync,  &#9474;
-     &#9474;                     &#9474;    device_instance_id,
-     &#9474;                     &#9474;    protocol_version:3}
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9314;</span> prefs (automatic) &#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;   <span style="color: #4ade80;">[Device counts!]</span>  &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9315;</span> logs (automatic)  &#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474; <span style="color: #fbbf24;">&#9316;</span> Write counts      &#9474;                     &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                     &#9474;
-     &#9474;   (from device)     &#9474;                     &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474; <span style="color: #fbbf24;">&#9317;</span> Read claimed items&#9474;                     &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                     &#9474;
-     &#9474;   (for this device) &#9474;                     &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9318;</span> RefreshDeviceItems &#9474;
-     &#9474;                     &#9474;   (claim-filtered)  &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; Updates NVS with
-     &#9474;                     &#9474;                     &#9474; claimed items only
-     &#9474;                     &#9474;                     &#9474;
-
-<span style="color: #4ade80;">Data Flow:</span>
-  1. Device counts &#8594; App state &#8594; Firestore (preserve device's work)
-  2. Firestore claimed items &#8594; App &#8594; Device (push latest assignments)</div>
-
-        <h3>4.3 Re-pairing After Path A Unpair</h3>
-
-        <p><strong>When:</strong> User previously unpaired the device via Paired Devices &rarr; three-dot &rarr; <strong>Unpair</strong> (without factory-resetting the device), then re-connects to it. The device's <code>paired_uid</code> still matches, so handshake returns <code>in_sync</code> &mdash; but the app has no record of this device.<br>
-        <strong>Source of Truth:</strong> App (empty) &mdash; same outcome as new-device setup<br>
-        <strong>Key behavior:</strong> App <strong>drops</strong> the firmware's initial prefs/logs storm because the device is not in <code>paired_devices</code>. This prevents the old <code>selectedDeviceItemId</code> from being mapped back to a Firestore item and writing a ghost <code>claim_by</code>.</p>
-
-        <div class="sequence-diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;<span style="color: #fbbf24;">FIRESTORE</span>&#9474;           &#9474;   <span style="color: #a78bfa;">APP</span>   &#9474;           &#9474; <span style="color: #34d399;">DEVICE</span>  &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9312;</span> handshake(uid)    &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; paired_uid matches
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9313;</span> {status: in_sync} &#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9314;</span> ~100ms later:     &#9474;
-     &#9474;                     &#9474;   prefs (old items, &#9474;
-     &#9474;                     &#9474;   old selected_id)  &#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;   logs (old data)   &#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #f87171;">&#9315; APP DROPS BOTH</span>    &#9474;
-     &#9474;                     &#9474;   (device not in    &#9474;
-     &#9474;                     &#9474;   paired_devices)   &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9316;</span> _onHandshakeCompleted: &#9474;
-     &#9474;                     &#9474;   "in_sync + unknown"  &#9474;
-     &#9474;                     &#9474;   &rarr; DeviceSetupRequired &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9317;</span> Show setup dialog &#9474;
-     &#9474;                     &#9474;   "New Device       &#9474;
-     &#9474;                     &#9474;    Detected"        &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474; User taps "Set Up"  &#9474;                     &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9318;</span> override_start    &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; clearAllItemSlots
-     &#9474;                     &#9474; (uid, 0 items)      &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9319;</span> override_end      &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; No selection
-     &#9474;                     &#9474; (selected_id: -1)   &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9320;</span> {override_complete}&#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474; addPairedDevice     &#9474;                     &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                     &#9474;
-
-<span style="color: #4ade80;">Data Flow:</span>
-  Device's old NVS state &#8594; <span style="color: #f87171;">discarded by App during &#9315;</span>
+Data Flow:
+  Device's old NVS state → discarded by App during ④
   App empties device's NVS slots via override
   Device ends up paired to the same UID but with no items and no selection
-  &mdash; identical end state to a fresh New Device Setup.
+  — identical end state to a fresh New Device Setup.
 
-<span style="color: #f87171;">Why dropping &#9315; matters:</span>
+Why dropping ④ matters:
   Firmware fires notifyPrefsToApp + notifyLogsToApp unconditionally after
   in_sync (Trackwise_ESP32.ino:3143-3163). It has no way to know the app
   unpaired the device. Without the paired_devices filter in
   _onMessageReceived, the old selectedDeviceItemId maps to a still-existing
-  Firestore item and triggers a ClaimItem &rarr; atomicClaimSwap that writes
+  Firestore item and triggers a ClaimItem → atomicClaimSwap that writes
   claim_by onto the just-unpaired device. The setup-route via
   DeviceSetupRequired races the prefs and can lose. See
-  docs/TROUBLESHOOTING.md &sect;10.13.</div>
-
-        <hr>
-
-        <h2 id="realtime-events">5. Real-time Event Flow</h2>
-
-        <h3>5.1 Button Press (Connected)</h3>
-
-        <div class="sequence-diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;<span style="color: #fbbf24;">FIRESTORE</span>&#9474;           &#9474;   <span style="color: #a78bfa;">APP</span>   &#9474;           &#9474; <span style="color: #34d399;">DEVICE</span>  &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9312;</span> User presses
-     &#9474;                     &#9474;                     &#9474;   increment button
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9313;</span> count++ in RAM
-     &#9474;                     &#9474;                     &#9474;   Check reminder
-     &#9474;                     &#9474;                     &#9474;   Log to buffer
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9314;</span> event notification&#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474; {type:event,        &#9474;
-     &#9474;                     &#9474;  event:increment,   &#9474;
-     &#9474;                     &#9474;  timestamp, count}  &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9315;</span> item_delta notif. &#9474;
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474; {type:item_delta,   &#9474;
-     &#9474;                     &#9474;  count, todaycount} &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9316;</span> Update BLoC state &#9474;
-     &#9474;                     &#9474;   Update UI         &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474; <span style="color: #fbbf24;">&#9317;</span> Write to Firestore&#9474;                     &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                     &#9474;
-     &#9474;   (async)           &#9474;                     &#9474;
-
-<span style="color: #60a5fa;">Timing:</span>
-  Button &#8594; Event (immediate) &#8594; item_delta (+50ms)
-
-<span style="color: #60a5fa;">Why two notifications?</span>
-  &#8226; <span style="color: #fbbf24;">event</span>: For history/logging (has timestamp, event type)
-  &#8226; <span style="color: #34d399;">item_delta</span>: For UI state (has todaycount, lastResetTime)</div>
-
-        <h3>5.4 Category Deletion (While Connected)</h3>
-
-        <div class="diagram-box">
-<span style="color: #94a3b8;">┌─────────┐           ┌─────────┐           ┌─────────┐</span>
-<span style="color: #94a3b8;">│</span>FIRESTORE<span style="color: #94a3b8;">│           │</span>   APP   <span style="color: #94a3b8;">│           │</span> DEVICE  <span style="color: #94a3b8;">│</span>
-<span style="color: #94a3b8;">└────┬────┘           └────┬────┘           └────┬────┘</span>
+  docs/TROUBLESHOOTING.md §10.13.
+</code></pre>
+<h3 id="44-wrong-account">4.4 Wrong Account</h3>
+<p><strong>When:</strong> Device paired to different Firebase UID
+<strong>Resolution:</strong> Factory reset required</p>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
      │                     │                     │
-     │                     │ <span style="color: #f87171;">① Delete category</span>   │
-     │                     │   (Manage Categories)│
+     │                     │ ① handshake(uid_A)  │
+     │                     │ ───────────────────►│ Has uid_B stored
      │                     │                     │
-     │ <span style="color: #fbbf24;">② Soft-delete</span>       │                     │
-     │ <span style="color: #fbbf24;">   category</span>          │                     │
+     │                     │ ② {status:          │
+     │                     │    wrong_account,   │
+     │                     │    protocol_version:3}
+     │                     │ ◄───────────────────│ Shows &quot;PAIRED TO
+     │                     │                     │  OTHER ACCOUNT&quot;
+     │                     │                     │
+     │                     │ ③ Show error dialog │
+     │                     │   &quot;Device belongs   │
+     │                     │    to another       │
+     │                     │    account&quot;         │
+     │                     │                     │
+     │                     │ ④ Disconnect        │
+     │                     │ ───────────────────►│
+     │                     │                     │
+
+Resolution options:
+  A) Log into the correct account (uid_B)
+  B) Factory reset the device (clears paired_uid)
+</code></pre>
+<hr />
+<h2 id="5-real-time-event-flow">5. Real-time Event Flow</h2>
+<h3 id="51-button-press-connected">5.1 Button Press (Connected)</h3>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │                     │ ① User presses
+     │                     │                     │   increment button
+     │                     │                     │
+     │                     │                     │ ② count++ in RAM
+     │                     │                     │   Check reminder
+     │                     │                     │   Log to buffer
+     │                     │                     │
+     │                     │ ③ event notification│
+     │                     │ ◄───────────────────│
+     │                     │ {type:event,        │
+     │                     │  event:increment,   │
+     │                     │  timestamp, count}  │
+     │                     │                     │
+     │                     │ ④ item_delta notif. │
+     │                     │ ◄───────────────────│
+     │                     │ {type:item_delta,   │
+     │                     │  count, todaycount} │
+     │                     │                     │
+     │                     │ ⑤ Update BLoC state │
+     │                     │   Update UI         │
+     │                     │                     │
+     │ ⑥ Write to Firestore│                     │
+     │ ◄───────────────────│                     │
+     │   (async)           │                     │
+     │                     │                     │
+
+Timing:
+  Button → item_delta (inline) → Event (queued, ~10ms later)
+
+Why two notifications?
+  • event: For history/logging (has timestamp, event type)
+  • item_delta: For UI state (has todaycount, lastResetTime)
+</code></pre>
+<h3 id="52-selection-change-from-app">5.2 Selection Change (From App)</h3>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① User taps item   │
+     │                     │   in app UI        │
+     │                     │                     │
+     │                     │ ② set_selected(id) │
+     │                     │ ───────────────────►│
+     │                     │                     │ ③ Flush old item
+     │                     │                     │   Load new item
+     │                     │                     │   Update display
+     │                     │                     │
+     │                     │ ④ item_delta       │
+     │                     │ ◄───────────────────│
+     │                     │ {id, count,        │
+     │                     │  todaycount,...}   │
+     │                     │                     │
+     │                     │ ⑤ Update BLoC      │
+     │                     │   (use device vals)│
+     │                     │                     │
+
+Note: No 'event' notification because no action occurred
+      (switching is not an increment/reset)
+</code></pre>
+<h3 id="53-selection-change-from-device">5.3 Selection Change (From Device)</h3>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │                     │ ① User presses
+     │                     │                     │   switch button
+     │                     │                     │
+     │                     │                     │ ② Change selection
+     │                     │                     │   (cycle to next)
+     │                     │                     │
+     │                     │ ③ event notification│
+     │                     │ ◄───────────────────│
+     │                     │ {type:event,        │
+     │                     │  event:switch,      │
+     │                     │  itemId:newId}      │
+     │                     │                     │
+     │                     │ ④ Update BLoC      │
+     │                     │   selectedId       │
+     │                     │                     │
+
+Note: Only 'event', no 'item_delta'
+      (item_delta for the new item wasn't needed
+       because counts didn't change)
+</code></pre>
+<h3 id="54-category-deletion-while-connected">5.4 Category Deletion (While Connected)</h3>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① User deletes      │
+     │                     │   category from      │
+     │                     │   Manage Categories  │
+     │                     │                     │
+     │ ② Soft-delete       │                     │
+     │   category          │                     │
      │ ◄───────────────────│                     │
      │   (set deleted_at)  │                     │
      │                     │                     │
-     │ <span style="color: #fbbf24;">③ Batch clear</span>       │                     │
-     │ <span style="color: #fbbf24;">   category_id</span>       │                     │
+     │ ③ Batch clear       │                     │
+     │   category_id from  │                     │
+     │   all items         │                     │
      │ ◄───────────────────│                     │
      │                     │                     │
-     │                     │ ④ Wait 500ms        │
+     │                     │ ④ Wait 500ms for    │
+     │                     │   Firestore batch   │
      │                     │                     │
-     │                     │ <span style="color: #60a5fa;">⑤ Fetch items</span>       │
-     │ ────────────────────►                     │
+     │                     │ ⑤ Fetch updated     │
+     │ ──────────────────► │   items             │
      │                     │                     │
-     │                     │ <span style="color: #4ade80;">⑥ If selected item</span>  │
-     │                     │ <span style="color: #4ade80;">   in deleted cat:</span>  │
+     │                     │ ⑥ If selected item  │
+     │                     │   was in deleted    │
+     │                     │   category:         │
      │                     │   set_items (uncat) │
      │                     │ ───────────────────►│
      │                     │   set_selected      │
      │                     │ ───────────────────►│
-     │                     │                     │ <span style="color: #34d399;">⑦ Device shows</span>
-     │                     │                     │ <span style="color: #34d399;">   uncategorized</span>
+     │                     │                     │ ⑦ Device updates
+     │                     │                     │   to uncategorized
+     │                     │                     │   items
+     │                     │                     │
 
-<span style="color: #60a5fa;">Key points:</span>
-  &#8226; Sync from <span style="color: #fbbf24;">manage_categories_page</span>, not items_list_page
-    (items page disposed on tab switch — ShellRoute)
-  &#8226; Only syncs if selected item was in the deleted category
-  &#8226; Items list resets stale BLoC filter on return</div>
+Key points:
+  • Sync happens from manage_categories_page, not items_list_page
+    (items page is disposed on tab switch — ShellRoute)
+  • Only syncs if selected item was in the deleted category
+  • Items list page resets stale BLoC filter on return via
+    FilterByCategoryEvent(null)
+</code></pre>
+<hr />
+<h2 id="6-offline-reconnection">6. Offline &amp; Reconnection</h2>
+<h3 id="61-offline-operation">6.1 Offline Operation</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    DEVICE (Disconnected)                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  User presses buttons...                                            │
+│                                                                      │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
+│  │  Button     │───►│  RAM        │───►│  NVS        │             │
+│  │  Press      │    │  count++    │    │  (every 10) │             │
+│  └─────────────┘    │  log event  │    └─────────────┘             │
+│                     └─────────────┘                                  │
+│                                                                      │
+│  Data accumulates:                                                   │
+│  • Counts in RAM (flushed to NVS every 10 increments)               │
+│  • Events in RAM buffer (up to 1000 entries)                        │
+│                                                                      │
+│  ⚠️ Risk: Up to 9 increments lost on sudden power loss              │
+│     (mitigated by 5-minute periodic flush)                          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="62-reconnection-sync">6.2 Reconnection Sync</h3>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICE  │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① Connect          │
+     │                     │ ───────────────────►│
+     │                     │                     │
+     │                     │ ② handshake(uid)   │
+     │                     │ ───────────────────►│
+     │                     │                     │
+     │                     │ ③ {status:in_sync, │
+     │                     │    device_instance_id,
+     │                     │    protocol_version:3}
+     │                     │ ◄───────────────────│
+     │                     │                     │
+     │                     │ ④ Check stale claims│
+     │                     │   (from paired_devices
+     │                     │    staleClaims list) │
+     │                     │                     │
+     │                     │ ⑤ prefs             │ Includes offline
+     │                     │ ◄───────────────────│ increments!
+     │                     │ [count: 1598]       │
+     │                     │                     │
+     │                     │ ⑥ logs              │ Includes offline
+     │                     │ ◄───────────────────│ events!
+     │                     │ [15 events...]      │
+     │                     │                     │
+     │ ⑦ Write new counts  │                     │
+     │ ◄───────────────────│                     │
+     │   1523 → 1598       │                     │
+     │                     │                     │
+     │ ⑧ Write events      │                     │
+     │ ◄───────────────────│                     │
+     │   (to activity log) │                     │
+     │                     │                     │
+     │                     │ ⑨ RefreshDeviceItems│
+     │                     │ ───────────────────►│ Push claim-filtered
+     │                     │   (claimed items)   │ items to device
+     │                     │                     │
+     │                     │ ⑩ clear_logs        │
+     │                     │ ───────────────────►│ Prevent duplicates
+     │                     │                     │
 
-        <hr>
+Key insight: Device accumulated counts while offline
+             → App forwards device counts to Firestore
+             → App pushes claim-filtered items back to device
+             → If stale claims detected, &quot;Items Released&quot; dialog shown first
+</code></pre>
+<hr />
+<h2 id="7-multi-device-sync">7. Multi-Device Sync</h2>
+<h3 id="71-two-devices-same-account-stateless-model">7.1 Two Devices, Same Account (Stateless Model)</h3>
+<pre><code>Timeline showing Device A and Device B connecting to same account:
 
-        <h2 id="offline-reconnection">6. Offline & Reconnection</h2>
+Time    App                  Device A              Device B
+────    ───────              ────────              ────────
+T0      [Firestore: item &quot;Water&quot; claimed by A]
 
-        <h3>6.1 Offline Operation</h3>
-
-        <div class="diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;                    <span style="color: #34d399; font-weight: bold;">DEVICE (Disconnected)</span>                             &#9474;
-&#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
-&#9474;                                                                      &#9474;
-&#9474;  User presses buttons...                                            &#9474;
-&#9474;                                                                      &#9474;
-&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;             &#9474;
-&#9474;  &#9474;  <span style="color: #fbbf24;">Button</span>     &#9474;&#9472;&#9472;&#9472;&#9654;&#9474;  <span style="color: #a78bfa;">RAM</span>        &#9474;&#9472;&#9472;&#9472;&#9654;&#9474;  <span style="color: #60a5fa;">NVS</span>        &#9474;             &#9474;
-&#9474;  &#9474;  <span style="color: #fbbf24;">Press</span>      &#9474;    &#9474;  count++    &#9474;    &#9474;  (every 10) &#9474;             &#9474;
-&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;    &#9474;  log event  &#9474;    &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;             &#9474;
-&#9474;                     &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                                  &#9474;
-&#9474;                                                                      &#9474;
-&#9474;  <span style="color: #94a3b8;">Data accumulates:</span>                                                   &#9474;
-&#9474;  &#8226; Counts in RAM (flushed to NVS every 10 increments)               &#9474;
-&#9474;  &#8226; Events in RAM buffer (up to 1000 entries)                        &#9474;
-&#9474;                                                                      &#9474;
-&#9474;  <span style="color: #f87171;">&#9888;&#65039; Risk: Up to 9 increments lost on sudden power loss</span>              &#9474;
-&#9474;     <span style="color: #94a3b8;">(mitigated by 5-minute periodic flush)</span>                          &#9474;
-&#9474;                                                                      &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
-
-        <h3>6.2 Reconnection Sync</h3>
-
-        <div class="sequence-diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;           &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;<span style="color: #fbbf24;">FIRESTORE</span>&#9474;           &#9474;   <span style="color: #a78bfa;">APP</span>   &#9474;           &#9474; <span style="color: #34d399;">DEVICE</span>  &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;           &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9312;</span> Connect          &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9313;</span> handshake(uid)   &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9314;</span> {status:in_sync, &#9474;
-     &#9474;                     &#9474;    device_instance_id,
-     &#9474;                     &#9474;    protocol_version:3}
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9315;</span> Check stale claims&#9474;
-     &#9474;                     &#9474;   (from paired_devices
-     &#9474;                     &#9474;    staleClaims list) &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9316;</span> prefs             &#9474; Includes offline
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474; increments!
-     &#9474;                     &#9474; [count: 1598]       &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9317;</span> logs              &#9474; Includes offline
-     &#9474;                     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474; events!
-     &#9474;                     &#9474; [15 events...]      &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474; <span style="color: #fbbf24;">&#9318;</span> Write new counts  &#9474;                     &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                     &#9474;
-     &#9474;   1523 &#8594; 1598       &#9474;                     &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474; <span style="color: #fbbf24;">&#9319;</span> Write events      &#9474;                     &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                     &#9474;
-     &#9474;   (to activity log) &#9474;                     &#9474;
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9320;</span> RefreshDeviceItems&#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; Push claim-filtered
-     &#9474;                     &#9474;   (claimed items)   &#9474; items to device
-     &#9474;                     &#9474;                     &#9474;
-     &#9474;                     &#9474; <span style="color: #fbbf24;">&#9321;</span> clear_logs        &#9474;
-     &#9474;                     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;&#9474; Prevent duplicates
-     &#9474;                     &#9474;                     &#9474;
-
-<span style="color: #4ade80;">Key insight:</span> Device accumulated counts while offline
-             &#8594; App forwards device counts to Firestore
-             &#8594; App pushes claim-filtered items back to device
-             &#8594; If stale claims detected, "Items Released" dialog shown first</div>
-
-        <hr>
-
-        <h2 id="multi-device">7. Multi-Device Sync</h2>
-
-        <h3>7.1 Two Devices, Same Account (Stateless Model)</h3>
-
-        <div class="timeline">
-Timeline showing Device A and Device B connecting to same account:
-
-<span style="color: #94a3b8;">Time    App                  Device A              Device B</span>
-<span style="color: #94a3b8;">&#9472;&#9472;&#9472;&#9472;    &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;              &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;              &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</span>
-T0      [Firestore: item "Water" claimed by A]
-
-T1      <span style="color: #4ade80;">Connect A</span> &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;
-        handshake(uid) &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;
+T1      Connect A ───────────►
+        handshake(uid) ──────►
                               {in_sync}
-                              prefs: count=105 &#9472;&#9472;&#9654;
-        Write Firestore &#9668;&#9472;&#9472;&#9472; count=105
-        RefreshDeviceItems &#9472;&#9654; (A's claimed items)
+                              prefs: count=105 ──►
+        Write Firestore ◄──── count=105
+        RefreshDeviceItems ──► (A's claimed items)
 
-T2      <span style="color: #f87171;">Disconnect A</span> &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
+T2      Disconnect A ◄────────
 
 T3                            User increments
-                              count &#8594; 108
-                              <span style="color: #94a3b8;">(offline)</span>
+                              count → 108
+                              (offline)
 
-T4      <span style="color: #4ade80;">Connect B</span> &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;
-        handshake(uid) &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;
+T4      Connect B ────────────────────────────────►
+        handshake(uid) ──────────────────────────►
                                                    {in_sync}
-                                                   prefs: count=200 &#9472;&#9654;
-        Write Firestore &#9668;&#9472;&#9472;&#9472; count=200 (B's items)
-        RefreshDeviceItems &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654; (B's claimed items)
+                                                   prefs: count=200 ─►
+        Write Firestore ◄──── count=200 (B's items)
+        RefreshDeviceItems ──────────────────────► (B's claimed items)
 
-T5      <span style="color: #4ade80;">Connect A</span> &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;
-        handshake(uid) &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;
+T5      Connect A ───────────►
+        handshake(uid) ─────►
                               {in_sync}
-                              prefs: count=108 &#9472;&#9472;&#9654;
-        Write Firestore &#9668;&#9472;&#9472;&#9472; count=108 (A's items)
-        RefreshDeviceItems &#9472;&#9654; (A's claimed items)
+                              prefs: count=108 ──►
+        Write Firestore ◄──── count=108 (A's items)
+        RefreshDeviceItems ──► (A's claimed items)
 
-<span style="color: #4ade80;">No conflicts by design!</span> Each device only reports counts for its
+No conflicts by design! Each device only reports counts for its
 own items. Exclusive leasing (claimed_by) prevents two devices
-from modifying the same item.</div>
+from modifying the same item.
+</code></pre>
+<h3 id="72-handshake-decision-logic">7.2 Handshake Decision Logic</h3>
+<pre><code>                ┌─────────────────────────────┐
+                │   App connects to device     │
+                │   App sends handshake(uid)   │
+                └──────────────┬──────────────┘
+                               │
+                               ▼
+                  ┌────────────────────────┐
+                  │ Device checks UID      │
+                  └──────────┬─────────────┘
+                             │
+         ┌───────────────────┼───────────────────┐
+         │                   │                   │
+         ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│  UID matches    │ │  No UID stored  │ │  UID mismatch   │
+│                 │ │                 │ │                 │
+│ &quot;in_sync&quot;       │ │ &quot;uninitialized&quot; │ │ &quot;wrong_account&quot; │
+│                 │ │                 │ │                 │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Normal flow:    │ │ Override flow:  │ │ Error dialog:   │
+│ prefs/logs      │ │ empty setup    │ │ factory reset   │
+│ then push items │ │ (App → Device) │ │ required        │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+</code></pre>
+<h3 id="73-cross-category-push-optimization">7.3 Cross-Category Push Optimization</h3>
+<p>When a device switches items, the app pushes updated item lists to other connected devices. However, devices in different categories don't need each other's updates.</p>
+<pre><code>BLoC maintains: _deviceCategories = { deviceId → categoryId }
 
-        <h3>7.2 Handshake Decision Logic</h3>
+On claim change (device A switches item):
+  1. resolveCategory(A) → look up A's new category from Firestore (no BLE send)
+  2. _deviceCategories[A] = resolved category
+  3. For each other online device B:
+     - If _deviceCategories[B] != _deviceCategories[A] → SKIP (different category)
+     - Otherwise → RefreshDeviceItems(B) → sends filtered item list over BLE
 
-        <div class="decision-tree">
-                &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-                &#9474;   App connects to device     &#9474;
-                &#9474;   App sends handshake(uid)   &#9474;
-                &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-                               &#9474;
-                               &#9660;
-                  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-                  &#9474; Device checks UID      &#9474;
-                  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-                             &#9474;
-         &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-         &#9474;                   &#9474;                   &#9474;
-         &#9660;                   &#9660;                   &#9660;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;  UID matches    &#9474; &#9474;  No UID stored  &#9474; &#9474;  UID mismatch   &#9474;
-&#9474;                 &#9474; &#9474;                 &#9474; &#9474;                 &#9474;
-&#9474; UID matches     &#9474; &#9474; "uninitialized" &#9474; &#9474; "wrong_account" &#9474;
-&#9474;                 &#9474; &#9474;                 &#9474; &#9474;                 &#9474;
-&#9474;                 &#9474; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-&#9474; <span style="color: #4ade80;">"in_sync"</span>       &#9474;          &#9474;                   &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;          &#9660;                   &#9660;
-         &#9474;          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-         &#9660;          &#9474; Override flow:  &#9474; &#9474; Error dialog:   &#9474;
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9474; empty setup    &#9474; &#9474; factory reset   &#9474;
-&#9474; Normal flow:    &#9474; &#9474; (App &#8594; Device) &#9474; &#9474; required        &#9474;
-&#9474; prefs/logs      &#9474; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-&#9474; then push items &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
+Result: If BLUE is in &quot;Fruits&quot; and GREEN is in &quot;Vegetables&quot;,
+        switching an item on BLUE does NOT push to GREEN.
+</code></pre>
+<p><strong>Key design choice:</strong> <code>resolveCategory()</code> is a lightweight Firestore-only lookup (no BLE send). The full <code>RefreshDeviceItemsUseCase.call()</code> sends items over BLE — calling it on the source device would redundantly push items it already has.</p>
+<h3 id="74-item-reorder-drag-and-drop-multi-device">7.4 Item Reorder / Drag-and-Drop (Multi-Device)</h3>
+<pre><code>┌─────────┐           ┌─────────┐           ┌─────────┐
+│FIRESTORE│           │   APP   │           │ DEVICES │
+└────┬────┘           └────┬────┘           └────┬────┘
+     │                     │                     │
+     │                     │ ① User reorders     │
+     │                     │   items via drag    │
+     │                     │                     │
+     │ ② Write new order   │                     │
+     │ ◄───────────────────│                     │
+     │   (categoryOrder)   │                     │
+     │                     │                     │
+     │ ③ watchItems stream │                     │
+     │ ───────────────────►│                     │
+     │                     │                     │
+     │                     │ ④ _checkDeviceSync  │
+     │                     │   detects signature │
+     │                     │   change            │
+     │                     │                     │
+     │                     │ ⑤ RefreshAllDevices │
+     │                     │ ───────────────────►│
+     │                     │   (each device gets │
+     │                     │    claim-filtered   │
+     │                     │    item list)       │
+     │                     │                     │
 
-        <h3>7.5 Item Claim Sequence (Multi-Device)</h3>
+Single device: uses SendItemsToDevice (legacy path)
+Multi-device:  uses RefreshAllDevices → _pushToAllDevices()
+               Each device receives only its claimed items
+               in the updated order.
+               Only devices in affected categories get pushed
+               (source + target of the move); others are skipped.
+</code></pre>
+<h3 id="75-item-claim-sequence-multi-device">7.5 Item Claim Sequence (Multi-Device)</h3>
+<p>When a user activates (claims) an item for a device, the following sequence runs. Claiming is entirely app-side — no BLE "claim" command exists. The device learns about claims when the app sends filtered item lists.</p>
+<pre><code>User              App (BLoC)           Firestore              Device A        Device B
+│                 │                    │                      │               │
+│ ① Swipe item,  │                    │                      │               │
+│   tap Activate, │                    │                      │               │
+│   select Dev A  │                    │                      │               │
+│ ───────────────►│                    │                      │               │
+│                 │                    │                      │               │
+│                 │ ② Optimistic       │                      │               │
+│                 │   selectedItemId   │                      │               │
+│                 │   = item X         │                      │               │
+│                 │   (instant UI)     │                      │               │
+│                 │                    │                      │               │
+│                 │ ③ ClaimItem enters │                      │               │
+│                 │   global queue     │                      │               │
+│                 │   ─────────────────┤                      │               │
+│                 │                    │                      │               │
+│                 │ ④ atomicClaimSwap  │                      │               │
+│                 │ ───────────────────►                      │               │
+│                 │   (transaction:    │                      │               │
+│                 │    release prev,   │                      │               │
+│                 │    claim new)      │                      │               │
+│                 │                    │                      │               │
+│                 │ ⑤ watchItems       │                      │               │
+│                 │ ◄──────────────────┤ stream fires         │               │
+│                 │   claimed_by = A   │                      │               │
+│                 │                    │                      │               │
+│                 │ ⑥ _pushToOtherDevices (skips Device A)    │               │
+│                 │ ──────────────────────────────────────────────────────────►
+│                 │   (B gets: unclaimed + B's items — item X removed)        │
+│                 │                    │                      │               │
+│                 │ ⑦ watchItems stream updates Device A's local state        │
+│                 │   (A sees confirmed claim; no direct BLE push needed)     │
+│                 │                    │                      │               │
 
-        <p>When a user activates (claims) an item for a device, the following sequence runs. Claiming is entirely app-side &mdash; no BLE &ldquo;claim&rdquo; command exists. The device learns about claims when the app sends filtered item lists.</p>
+On claim FAILURE (item already claimed by another device):
+│                 │ ④' ClaimConflict   │                      │               │
+│                 │ ◄──────────────────┤                      │               │
+│                 │                    │                      │               │
+│                 │ ⑤' Corrective push │                      │               │
+│                 │ ──────────────────────────────────────────►               │
+│                 │   (revert device   │                      │               │
+│                 │    to correct list)│                      │               │
+│                 │                    │                      │               │
+│                 │ ⑥' Revert BLoC     │                      │               │
+│                 │   selectedItemId   │                      │               │
+│                 │   = previousItemId │                      │               │
+</code></pre>
+<p><strong>Device-filtered item lists:</strong> When the app sends items to a device via <code>set_items</code>, it filters:
+- <code>claimedBy == null</code> (unclaimed) OR <code>claimedBy == thisDevice</code>
+- Within the selected item's category only</p>
+<p>Each device sees only its own items. Devices in different categories don't affect each other.</p>
+<h3 id="76-atomicclaimswap-internals">7.6 atomicClaimSwap Internals</h3>
+<p>The claim transaction (<code>item_remote_datasource_impl.dart</code>) runs inside the global claim queue (see <a href="decisions/ADR-005-global-claim-queue.md">ADR-005</a>):</p>
+<pre><code>atomicClaimSwap(newItemId, deviceInstanceId, previousItemId):
 
-        <div class="diagram">
-User              App (BLoC)           Firestore              Device A        Device B
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474; &#9312; Swipe item,  &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;   tap Activate, &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;   select Dev A  &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474; &rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9313; Optimistic       &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;   selectedItemId   &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;   = item X (UI)    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9314; ClaimItem enters &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;   global queue     &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9315; atomicClaimSwap  &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;   (release prev,   &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;    claim new)      &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9316; watchItems       &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&larr;&#9474; stream fires         &#9474;               &#9474;
-&#9474;                 &#9474;   claimed_by = A   &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9317; _pushToOtherDevices (skips Device A)    &#9474;               &#9474;
-&#9474;                 &#9474; &rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&#9474;
-&#9474;                 &#9474;   (B gets: unclaimed + B's items &mdash; item X removed)                  &#9474;
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-&#9474;                 &#9474; &#9318; watchItems stream updates A's local state                  &#9474;
-&#9474;                 &#9474;   (A sees confirmed claim; no direct BLE push needed)           &#9474;
-&#9474;                 &#9474;                    &#9474;                      &#9474;               &#9474;
-
-On claim FAILURE (item claimed by another device):
-  &#9315;' ClaimConflictException &larr; Firestore transaction
-  &#9316;' Corrective push to device (revert to correct item list)
-  &#9317;' Revert BLoC selectedItemId = previousItemId</div>
-
-        <p><strong>Device-filtered item lists:</strong> When the app sends items to a device via <code>set_items</code>, it filters: <code>claimedBy == null</code> (unclaimed) OR <code>claimedBy == thisDevice</code>, within the selected item&rsquo;s category only. Each device sees only its own items.</p>
-
-        <h3>7.6 atomicClaimSwap Internals</h3>
-
-        <p>The claim transaction (<code>item_remote_datasource_impl.dart</code>) runs inside the global claim queue (see <a href="decisions/ADR-005-global-claim-queue.md">ADR-005</a>):</p>
-
-        <div class="diagram">
-atomicClaimSwap(newItemId, deviceInstanceId, previousItemId):
-
-  1. PRE-QUERY (outside transaction)
-     Query: WHERE claimed_by == deviceInstanceId
-     Result: actualPrevId (real claim, not stale BLoC state)
-
-  2. FIRESTORE TRANSACTION
-     a) Read newItem document
-     b) Read actualPrevItem document (if different)
-        (all reads before any writes &mdash; Firestore requirement)
-
-     c) Validate newItem:
-        - claimed_by == deviceInstanceId? &rarr; no-op (already owned)
-        - claimed_by == someOtherDevice? &rarr; ClaimConflictException
-        - claimed_by == null? &rarr; proceed
-
-     d) Release previous (if we still own it):
-        UPDATE actualPrevItem SET claimed_by = null, claimed_at = null
-        (ownership check: only if prevItem.claimed_by == deviceInstanceId)
-
-     e) Claim new:
-        UPDATE newItem SET claimed_by = deviceInstanceId,
-                           claimed_at = serverTimestamp()
+  ┌─────────────────────────────────────────────────┐
+  │ 1. PRE-QUERY (outside transaction)              │
+  │    Query: WHERE claimed_by == deviceInstanceId   │
+  │    Result: actualPrevId (real claim, not stale   │
+  │    BLoC state)                                   │
+  └──────────────────────┬──────────────────────────┘
+                         │
+  ┌──────────────────────▼──────────────────────────┐
+  │ 2. FIRESTORE TRANSACTION                        │
+  │                                                  │
+  │  a) Read newItem document                       │
+  │  b) Read actualPrevItem document (if different) │
+  │     (all reads before any writes — Firestore    │
+  │      requirement)                                │
+  │                                                  │
+  │  c) Validate newItem:                           │
+  │     - claimed_by == deviceInstanceId? → no-op   │
+  │     - claimed_by == someOtherDevice?            │
+  │       → ClaimConflictException                  │
+  │     - claimed_by == null? → proceed             │
+  │                                                  │
+  │  d) Release previous (if we still own it):      │
+  │     UPDATE actualPrevItem                       │
+  │       SET claimed_by = null, claimed_at = null  │
+  │     (ownership check: only if                   │
+  │      prevItem.claimed_by == deviceInstanceId)   │
+  │                                                  │
+  │  e) Claim new:                                  │
+  │     UPDATE newItem                              │
+  │       SET claimed_by = deviceInstanceId         │
+  │           claimed_at = serverTimestamp()         │
+  └─────────────────────────────────────────────────┘
 
 Key properties:
-  - Atomic: release + claim in one transaction (no partial states)
+  - Atomic: release + claim happen in one transaction (no partial states)
   - Ownership-checked: only releases items we actually own
   - Idempotent: re-claiming our own item is a no-op
-  - Serialized: global claim queue ensures no concurrent transactions</div>
+  - Serialized: global claim queue ensures no concurrent transactions
+</code></pre>
+<hr />
+<h2 id="8-data-consistency-rules">8. Data Consistency Rules</h2>
+<h3 id="81-golden-rules">8.1 Golden Rules</h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Handshake First</strong></td>
+<td>Always send handshake as the first command after connecting</td>
+</tr>
+<tr>
+<td><strong>Simple Handshake</strong></td>
+<td>Send <code>handshake(uid)</code> — device checks UID and returns status</td>
+</tr>
+<tr>
+<td><strong>Device Counts Forwarded</strong></td>
+<td>After <code>in_sync</code>, write device prefs/logs to Firestore</td>
+</tr>
+<tr>
+<td><strong>Push Claimed Items</strong></td>
+<td>After forwarding, push claim-filtered items back to device</td>
+</tr>
+<tr>
+<td><strong>Exclusive Leasing</strong></td>
+<td>Each item claimed by at most one device (<code>claimed_by</code> field)</td>
+</tr>
+<tr>
+<td><strong>Atomic Override</strong></td>
+<td>Override is all-or-nothing (start → chunks → end)</td>
+</tr>
+<tr>
+<td><strong>Log Before Clear</strong></td>
+<td>Retrieve all log pages before calling clear_logs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-count-flow-summary">8.2 Count Flow Summary</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│   ┌──────────────┐                                                  │
+│   │  in_sync     │                                                  │
+│   └──────┬───────┘                                                  │
+│          │                                                          │
+│          ▼                                                          │
+│   Device → App → Firestore                                          │
+│                                                                      │
+│   ┌──────────────┐                                                  │
+│   │  override    │                                                  │
+│   │  (new device │                                                  │
+│   │  or stale)   │                                                  │
+│   └──────┬───────┘                                                  │
+│          │                                                          │
+│          ▼                                                          │
+│   Firestore → App → Device                                          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="83-what-can-go-wrong">8.3 What Can Go Wrong</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Problem</th>
+<th>Prevention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>App crashes mid-sync</td>
+<td>Firestore updated, device not</td>
+<td>Override on next connect</td>
+</tr>
+<tr>
+<td>Power loss on device</td>
+<td>Up to 9 increments lost</td>
+<td>5-min periodic flush</td>
+</tr>
+<tr>
+<td>Both devices sync simultaneously</td>
+<td>Race condition</td>
+<td>Firestore transactions</td>
+</tr>
+<tr>
+<td>Disconnect during override</td>
+<td>Incomplete data on device</td>
+<td>override_end validation</td>
+</tr>
+<tr>
+<td>Network error to Firestore</td>
+<td>App and device out of sync</td>
+<td>Retry with backoff</td>
+</tr>
+</tbody>
+</table>
+<h3 id="84-recovery-patterns">8.4 Recovery Patterns</h3>
+<p><strong>App Crash Recovery:</strong></p>
+<pre><code>1. Next connect → handshake
+2. App detects stale claim → override (Firestore wins)
+3. If in_sync → normal flow (device has correct data)
+</code></pre>
+<p><strong>Device Power Loss Recovery:</strong></p>
+<pre><code>1. Device boots with last NVS data
+2. May have lost up to 9 increments
+3. Next sync → device data is source of truth
+4. Lost increments cannot be recovered
+</code></pre>
+<p><strong>Network Error Recovery:</strong></p>
+<pre><code>1. Device sync completed, Firestore write failed
+2. Next connect → normal sync (device counts forwarded again)
+3. Firestore write retried
+⚠️ If Firestore write keeps failing, counts may be lost
+</code></pre>
+<hr />
+<h2 id="9-ota-firmware-update-flow">9. OTA Firmware Update Flow</h2>
+<h3 id="91-multi-device-ota-awareness">9.1 Multi-Device OTA Awareness</h3>
+<p>The app tracks OTA update status <strong>per device</strong> independently. State is split into two dimensions:</p>
+<ul>
+<li><strong>Device statuses</strong> (<code>Map&lt;deviceId, OtaDeviceStatus&gt;</code>): Which devices need updates, are up-to-date, dismissed, or require an app update. Each connected device gets checked against <code>firmware/&lt;channel&gt;/latest.json</code> after handshake.</li>
+<li><strong>Active transfer</strong> (<code>OtaTransferState?</code>): At most one OTA transfer at a time. Starting an update on one device blocks starting on another until the first completes.</li>
+</ul>
+<pre><code>Device A connects → handshake → check firmware version → banner: &quot;Device A: v2.1.1 available&quot;
+Device B connects → handshake → check firmware version → banner: &quot;Device B: v2.1.1 available&quot;
+User taps Device A banner → transfer starts → Device B banner still visible
+Transfer completes → Device A marked up-to-date → User can now update Device B
+</code></pre>
+<p><strong>Disconnect during transfer:</strong> If a device disconnects while OTA is actively transferring (downloading, transferring, or verifying), the transfer is cancelled with an error. Disconnect during <strong>rebooting</strong> is expected and does not cancel — the device reconnects after reboot.</p>
+<h3 id="92-full-ota-sequence">9.2 Full OTA Sequence</h3>
+<p><strong>When:</strong> App detects newer firmware via Firebase Storage check after device connect.</p>
+<div class="alert" style="border-color:#d97706;background:#fffbeb"><div class="alert-title" style="color:#d97706">Warning</div><p><strong>NOT IMPLEMENTED — this document used to describe it as if it were.</strong>
+Device count logs are RAM-only and <strong>are destroyed by the OTA reboot.</strong> The PRD required a sync before OTA (US-3, task #43, marked complete); the code does not do it. <code>PerformOtaUpdateUseCase</code> declines the job in a comment ("Sync before OTA is the caller's responsibility"), and no caller does it — <code>lib/features/ota/</code> contains zero sync calls.</p>
+<p><strong>Blast radius:</strong> cumulative and today counts live in NVS flash and <strong>survive</strong>. What is lost is the per-press <strong>event history</strong> since the last sync. Real data loss, narrower than it sounds.</p>
+<p>Either implement it in <code>OtaBloc._onStartUpdate</code>, or delete the claim. Do not leave it described-but-absent.</p></div>
 
-        <hr>
+<pre><code>┌──────────┐        ┌─────────┐        ┌─────────┐        ┌─────────┐
+│ FIREBASE │        │   APP   │        │ DEVICE  │        │  USER   │
+│ STORAGE  │        │         │        │         │        │         │
+└────┬─────┘        └────┬────┘        └────┬────┘        └────┬────┘
+     │                    │                  │                   │
+     │                    │                  │                   │
+     │                    │ ① Check latest.json                 │
+     │ ◄──────────────────│                  │                   │
+     │                    │                  │                   │
+     │ ② {version, sha256,│                  │                   │
+     │    filePath, ...}  │                  │                   │
+     │ ──────────────────►│                  │                   │
+     │                    │                  │                   │
+     │                    │ ③ Compare device │                   │
+     │                    │   firmware_version                   │
+     │                    │   (from handshake)                   │
+     │                    │                  │                   │
+     │                    │ ④ Show update    │                   │
+     │                    │   banner         │──────────────────►│
+     │                    │                  │                   │
+     │                    │                  │              ⑤ User taps
+     │                    │ ◄───────────────────────────────────│
+     │                    │                  │              &quot;Update&quot;
+     │                    │                  │                   │
+     │                    │ ⑥ Sync logs to   │                   │
+     │                    │   Firestore first │                  │
+     │                    │   (count logs are │                  │
+     │                    │    RAM-only!)     │                  │
+     │                    │                  │                   │
+     │ ⑦ Download binary  │                  │                   │
+     │ ◄──────────────────│                  │                   │
+     │                    │                  │                   │
+     │ ⑧ Binary data      │                  │                   │
+     │ ──────────────────►│                  │                   │
+     │                    │                  │                   │
+     │                    │ ⑨ ota_start      │                   │
+     │                    │ {size, sha256,   │                   │
+     │                    │  version}        │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │                   │
+     │                    │ ⑩ {ota_ready}    │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ⑪ Binary chunks  │                   │
+     │                    │ (CHAR_OTA_DATA,  │                   │
+     │                    │  write-with-resp)│                   │
+     │                    │ ════════════════►│                   │
+     │                    │  ... repeat ...  │                   │
+     │                    │ ════════════════►│                   │
+     │                    │                  │                   │
+     │                    │ ⑫ ota_end        │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │ ⑬ SHA256 verify   │
+     │                    │ ⑭ {ota_verified} │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ⑮ reboot         │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │                   │
+     │                    │ ⑯ {ota_rebooting}│                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │ ⑰ Device reboots  │
+     │                    │  ~~disconnect~~  │    with new       │
+     │                    │                  │    firmware        │
+     │                    │                  │                   │
+     │                    │  ...wait up to 60s...                │
+     │                    │                  │                   │
+     │                    │ ⑱ Reconnect      │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ⑲ handshake      │                   │
+     │                    │ ────────────────►│                   │
+     │                    │                  │                   │
+     │                    │ ⑳ {in_sync,      │                   │
+     │                    │  firmware_version│                   │
+     │                    │  :&quot;2.1.0&quot;}       │                   │
+     │                    │ ◄────────────────│                   │
+     │                    │                  │                   │
+     │                    │ ㉑ Version match! │                   │
+     │                    │   Show success   │──────────────────►│
+     │                    │                  │                   │
 
-        <h2 id="consistency-rules">8. Data Consistency Rules</h2>
+Data flow:
+  Firebase Storage → App (binary) → Device (OTA partition)
+  Device reboots → reconnects → handshake confirms new version
 
-        <h3>8.1 Golden Rules</h3>
+⚠️ Critical: Count logs are RAM-only on the device and ARE LOST on the
+   OTA reboot. A pre-OTA sync was specified but is NOT IMPLEMENTED —
+   see the warning at the top of section 9. Counts survive (NVS);
+   the per-press event history since the last sync does not.
+</code></pre>
+<h3 id="93-ota-error-recovery">9.3 OTA Error Recovery</h3>
+<pre><code>Error during download:
+  → App shows error banner
+  → User can retry (re-download from Firebase Storage)
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Rule</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Handshake First</strong></td>
-                    <td>Always send handshake as the first command after connecting</td>
-                </tr>
-                <tr>
-                    <td><strong>Stateless Handshake</strong></td>
-                    <td>Handshake only sends UID — no sequence comparison needed</td>
-                </tr>
-                <tr>
-                    <td><strong>Device Counts Forwarded</strong></td>
-                    <td>After <code>in_sync</code>, write device prefs/logs to Firestore</td>
-                </tr>
-                <tr>
-                    <td><strong>Push Claimed Items</strong></td>
-                    <td>After forwarding, push claim-filtered items back to device</td>
-                </tr>
-                <tr>
-                    <td><strong>Exclusive Leasing</strong></td>
-                    <td>Each item claimed by at most one device (<code>claimed_by</code> field)</td>
-                </tr>
-                <tr>
-                    <td><strong>Atomic Override</strong></td>
-                    <td>Override is all-or-nothing (start &rarr; chunks &rarr; end)</td>
-                </tr>
-                <tr>
-                    <td><strong>Log Before Clear</strong></td>
-                    <td>Retrieve all log pages before calling clear_logs</td>
-                </tr>
-            </tbody>
-        </table>
+Error during transfer (write_failed, timeout):
+  → Device returns to IDLE state
+  → App shows error, user retries from step ⑨
 
-        <h3>8.2 Count Flow Summary</h3>
+Error during verification (hash_mismatch):
+  → Device stays on current firmware (OTA partition discarded)
+  → App shows error, user re-downloads and retries
 
-        <div class="diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;                                                                      &#9474;
-&#9474;   &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                                                  &#9474;
-&#9474;   &#9474;  <span style="color: #4ade80;">in_sync</span>     &#9474;                                                  &#9474;
-&#9474;   &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                                                  &#9474;
-&#9474;          &#9474;                                                          &#9474;
-&#9474;          &#9660;                                                          &#9474;
-&#9474;   <span style="color: #34d399;">Device</span> &#8594; <span style="color: #a78bfa;">App</span> &#8594; <span style="color: #fbbf24;">Firestore</span>                                          &#9474;
-&#9474;                                                                      &#9474;
-&#9474;   &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                                                  &#9474;
-&#9474;   &#9474;  <span style="color: #60a5fa;">uninitialized</span>&#9474;                                                 &#9474;
-&#9474;   &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                                                  &#9474;
-&#9474;          &#9474;                                                          &#9474;
-&#9474;          &#9660;                                                          &#9474;
-&#9474;   <span style="color: #fbbf24;">Firestore</span> &#8594; <span style="color: #a78bfa;">App</span> &#8594; <span style="color: #34d399;">Device</span>                                          &#9474;
-&#9474;                                                                      &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
-
-        <h3>8.3 What Can Go Wrong</h3>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Scenario</th>
-                    <th>Problem</th>
-                    <th>Prevention</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>App crashes mid-sync</td>
-                    <td>Firestore updated, device not</td>
-                    <td>Override on next connect</td>
-                </tr>
-                <tr>
-                    <td>Power loss on device</td>
-                    <td>Up to 9 increments lost</td>
-                    <td>5-min periodic flush</td>
-                </tr>
-                <tr>
-                    <td>Both devices sync simultaneously</td>
-                    <td>Race condition</td>
-                    <td>Firestore transactions</td>
-                </tr>
-                <tr>
-                    <td>Disconnect during override</td>
-                    <td>Incomplete data on device</td>
-                    <td>override_end validation</td>
-                </tr>
-                <tr>
-                    <td>Network error to Firestore</td>
-                    <td>App and device out of sync</td>
-                    <td>Retry with backoff</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <hr>
-
-        <h2>9. OTA Firmware Update Flow</h2>
-
-        <h3>9.1 Multi-Device OTA Awareness</h3>
-
-        <p>The app tracks OTA update status <strong>per device</strong> independently. State is split into two dimensions:</p>
-
-        <ul>
-            <li><strong>Device statuses</strong> (<code>Map&lt;deviceId, OtaDeviceStatus&gt;</code>): Which devices need updates, are up-to-date, dismissed, or require an app update. Each connected device gets checked against <code>firmware/latest.json</code> after handshake.</li>
-            <li><strong>Active transfer</strong> (<code>OtaTransferState?</code>): At most one OTA transfer at a time. Starting an update on one device blocks starting on another until the first completes.</li>
-        </ul>
-
-        <div class="sequence-diagram">
-Device A connects &#8594; handshake &#8594; check firmware version &#8594; banner: "Device A: v2.1.1 available"
-Device B connects &#8594; handshake &#8594; check firmware version &#8594; banner: "Device B: v2.1.1 available"
-User taps Device A banner &#8594; transfer starts &#8594; Device B banner still visible
-Transfer completes &#8594; Device A marked up-to-date &#8594; User can now update Device B
-        </div>
-
-        <p><strong>Disconnect during transfer:</strong> If a device disconnects while OTA is actively transferring (downloading, transferring, or verifying), the transfer is cancelled with an error. Disconnect during <strong>rebooting</strong> is expected and does not cancel &mdash; the device reconnects after reboot.</p>
-
-        <h3>9.2 Full OTA Sequence</h3>
-
-        <p><strong>When:</strong> App detects newer firmware via Firebase Storage check after device connect.<br>
-        <strong>Critical prerequisite:</strong> Sync device count logs to Firestore before starting OTA (logs are RAM-only, lost on reboot).</p>
-
-        <div class="sequence-diagram">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;        &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;        &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;        &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474; FIREBASE &#9474;        &#9474;   APP   &#9474;        &#9474; DEVICE  &#9474;        &#9474;  USER   &#9474;
-&#9474; STORAGE  &#9474;        &#9474;         &#9474;        &#9474;         &#9474;        &#9474;         &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;        &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;        &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;        &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9496;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9312; Check latest.json                 &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474; &#9313; Firmware info   &#9474;                  &#9474;                   &#9474;
-     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;&#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9314; Compare vs    &#9474;                   &#9474;
-     &#9474;                    &#9474;   device version  &#9474;                   &#9474;
-     &#9474;                    &#9474;   (from handshake)&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9315; Show update   &#9474;                   &#9474;
-     &#9474;                    &#9474;   banner         &#9474;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;&#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;              &#9316; User taps
-     &#9474;                    &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;
-     &#9474;                    &#9474;                  &#9474;              "Update"
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9317; Sync count    &#9474;                   &#9474;
-     &#9474;                    &#9474;   logs first      &#9474;                   &#9474;
-     &#9474;                    &#9474;   (RAM-only!)     &#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474; &#9318; Download binary &#9474;                  &#9474;                   &#9474;
-     &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                  &#9474;                   &#9474;
-     &#9474; &#9319; Binary data    &#9474;                  &#9474;                   &#9474;
-     &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;&#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9320; ota_start      &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9321; {ota_ready}    &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9322; Binary chunks  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9658;&#9474;                   &#9474;
-     &#9474;                    &#9474;  ... repeat ...  &#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9323; ota_end        &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474; SHA256 verify   &#9474;
-     &#9474;                    &#9474; &#9324; {ota_verified} &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9325; reboot         &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474; Device reboots  &#9474;
-     &#9474;                    &#9474;  ~~disconnect~~ &#9474; with new FW     &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474;  ...60s wait... &#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9326; Reconnect      &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9668;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9327; handshake      &#9474;                   &#9474;
-     &#9474;                    &#9474;   &#8594; firmware_    &#9474;                   &#9474;
-     &#9474;                    &#9474;   version:"2.1.0"&#9474;                   &#9474;
-     &#9474;                    &#9474;                  &#9474;                   &#9474;
-     &#9474;                    &#9474; &#9328; Show success   &#9474;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;&#9474;
-
-<span style="color: #f87171;">&#9888;&#65039; Critical: Count logs are RAM-only on the device.</span>
-<span style="color: #f87171;">   Sync logs to Firestore BEFORE starting OTA, or they</span>
-<span style="color: #f87171;">   will be lost when the device reboots.</span></div>
-
-        <h3>9.3 OTA Error Recovery</h3>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Failure Point</th>
-                    <th>Device Behavior</th>
-                    <th>App Recovery</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Download fails</td>
-                    <td>No impact (transfer not started)</td>
-                    <td>Show error banner, user retries</td>
-                </tr>
-                <tr>
-                    <td>Transfer timeout / write_failed</td>
-                    <td>Returns to IDLE state</td>
-                    <td>Show error, restart from ota_start</td>
-                </tr>
-                <tr>
-                    <td>Hash mismatch (ota_end)</td>
-                    <td>Stays on current firmware, OTA partition discarded</td>
-                    <td>Show error, re-download and retry</td>
-                </tr>
-                <tr>
-                    <td>Device doesn't reconnect after reboot</td>
-                    <td>Rollback to last working firmware</td>
-                    <td>Show timeout error, user power-cycles device</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <hr>
-
-        <h2>Quick Reference</h2>
-
-        <div class="quick-reference">
-&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-&#9474;                    <span style="color: #fbbf24; font-weight: bold;">DATA FLOW QUICK REFERENCE</span>                         &#9474;
-&#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
-&#9474;                                                                      &#9474;
-&#9474;  <span style="color: #60a5fa;">SOURCE OF TRUTH:</span>                                                    &#9474;
-&#9474;    &#8226; <span style="color: #4ade80;">in_sync</span> (known device) &#8594; Device counts &#8594; Firestore &#8594; push back&#9474;
-&#9474;    &#8226; <span style="color: #4ade80;">in_sync</span> (unknown)      &#8594; App empty (re-pair as fresh setup)    &#9474;
-&#9474;    &#8226; <span style="color: #fbbf24;">stale claim</span>            &#8594; Firestore (override for paired)       &#9474;
-&#9474;    &#8226; <span style="color: #a78bfa;">new device</span>             &#8594; App empty (device starts clean)       &#9474;
-&#9474;                                                                      &#9474;
-&#9474;  <span style="color: #60a5fa;">SYNC FLOW (stateless):</span>                                              &#9474;
-&#9474;    1. Connect                                                        &#9474;
-&#9474;    2. handshake(uid) &#8594; in_sync / uninitialized / wrong_account      &#9474;
-&#9474;    3. Receive prefs/logs &#8594; write to Firestore                       &#9474;
-&#9474;    4. RefreshDeviceItems &#8594; push claim-filtered items to device      &#9474;
-&#9474;                                                                      &#9474;
-&#9474;  <span style="color: #60a5fa;">NOTIFICATIONS:</span>                                                      &#9474;
-&#9474;    &#8226; <span style="color: #fbbf24;">event</span>      = what happened (history)                           &#9474;
-&#9474;    &#8226; <span style="color: #34d399;">item_delta</span> = current state (UI)                                &#9474;
-&#9474;    &#8226; Both sent on button press; serve different purposes            &#9474;
-&#9474;                                                                      &#9474;
-&#9474;  <span style="color: #f87171;">CRITICAL:</span>                                                           &#9474;
-&#9474;    &#8226; ALWAYS handshake first after connect                           &#9474;
-&#9474;    &#8226; Exclusive leasing (claimed_by) prevents conflicts by design   &#9474;
-&#9474;    &#8226; ALWAYS forward device counts to Firestore                     &#9474;
-&#9474;    &#8226; ALWAYS push claim-filtered items after forwarding             &#9474;
-&#9474;    &#8226; NEVER assume app state is current - verify with handshake      &#9474;
-&#9474;                                                                      &#9474;
-&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
-
-    </div>
+Error after reboot (device doesn't reconnect in 60s):
+  → App shows timeout error
+  → User can power-cycle device
+  → Rollback: device boots to last working firmware
+</code></pre>
+<hr />
+<h2 id="quick-reference">Quick Reference</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                    DATA FLOW QUICK REFERENCE                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  SOURCE OF TRUTH:                                                    │
+│    • in_sync (known device) → Device counts → Firestore → push back│
+│    • in_sync (unknown)      → App empty (re-pair as fresh setup)    │
+│    • stale claim            → Firestore (override device)           │
+│    • new device             → App empty (device starts clean)       │
+│                                                                      │
+│  SYNC FLOW:                                                          │
+│    1. Connect                                                        │
+│    2. handshake(uid) → in_sync / uninitialized / wrong_account      │
+│    3. Receive prefs/logs → write to Firestore                       │
+│    4. RefreshDeviceItems → push claim-filtered items to device      │
+│                                                                      │
+│  NOTIFICATIONS:                                                      │
+│    • event      = what happened (history)                           │
+│    • item_delta = current state (UI)                                │
+│    • Both sent on button press; serve different purposes            │
+│                                                                      │
+│  CRITICAL:                                                           │
+│    • ALWAYS handshake first after connect                           │
+│    • ALWAYS send handshake(uid) as first command                   │
+│    • ALWAYS forward device counts to Firestore                     │
+│    • ALWAYS push claim-filtered items after forwarding             │
+│    • NEVER assume app state is current - verify with handshake      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+</code></pre>
+</div>
 </body>
 </html>
