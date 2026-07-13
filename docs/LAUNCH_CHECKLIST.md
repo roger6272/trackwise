@@ -11,7 +11,7 @@
 - [x] Update CI/CD pipeline (signing, obfuscation, iOS build, Firebase config)
 - [x] Register `com.traxelos.app` in Firebase Console (Android + iOS)
 - [x] Update `GOOGLE_SERVICES_JSON` GitHub secret
-- [x] Verify all tests pass (847/847)
+- [x] Verify all tests pass (`flutter test` — don't record the count here, it moves)
 - [x] Verify debug, release, and obfuscated builds succeed
 - [x] CI green on master
 

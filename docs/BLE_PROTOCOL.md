@@ -2,10 +2,17 @@
 
 > **Protocol Version:** 3
 > **Last Updated:** 2026-03-01
-> **Device:** ESP32 (Traxelos One)
+> **Device firmware:** ESP32/Arduino (reference implementation) · nRF (shipping port)
 > **App:** Flutter (Traxelos One)
 
-This document defines the Bluetooth Low Energy communication protocol between the Traxelos One mobile app and ESP32 firmware. It serves as the **source of truth** for app-device communication.
+This document defines the Bluetooth Low Energy communication protocol between the Traxelos One mobile app and the device firmware. It is the **normative source of truth** for app-device communication.
+
+> [!IMPORTANT]
+> **This spec is a contract between two independent firmware implementations.**
+>
+> The ESP32/Arduino firmware in `firmware/Trackwise_ESP32/` is a **reference implementation**. The firmware that **ships in the product is a separate nRF port** maintained outside this repo. Both must satisfy this document.
+>
+> That makes this the only artifact keeping two chips in agreement. **A change here is a change to the product**, not just to a doc — if you change behavior, this file and the other implementation both have to move.
 
 **Related docs:** [Device Display](DEVICE_DISPLAY.md) · [Data Flow](DATA_FLOW.md) · [User Guide](USER_GUIDE.md) · [Troubleshooting](TROUBLESHOOTING.md)
 
@@ -22,6 +29,32 @@ This document defines the Bluetooth Low Energy communication protocol between th
 | v2 | 1.1.0+ | Added `protocol_version` and `firmware_version` to handshake responses |
 | v2 | 1.0.x | Multi-device sync with handshake-first approach |
 | v1 | 0.x | Initial protocol (single device) |
+
+---
+
+## 0. Portability — what is contract, and what is an ESP32 artifact
+
+Any implementation (ESP32, nRF, or a future chip) must honor everything in this document. But a few things in here **leak ESP32 implementation details into the protocol**, and a port should not mistake them for promises. This section exists so the nRF implementer knows which is which.
+
+**Contract — every implementation must match exactly:**
+
+- All service and characteristic **UUIDs**, including `CHAR_OTA_DATA` (`12345678-1234-1234-1234-123456789011`) and the standard Battery Service (`0x180F` / `0x2A19`).
+- The **JSON command and notification schemas** — names, types, required fields.
+- **`error_code` numbers.** The numbers are contract even where their names aren't (see below).
+- The **OTA command sequence** (`ota_start` → chunks over `CHAR_OTA_DATA` → `ota_end` → `reboot`), including abort and SHA256 verification.
+- `protocol_version` and `firmware_version` reported in the handshake. **Every device must report the firmware it is running** — this is what makes "which build is on this unit" observable rather than remembered.
+
+**ESP32 artifacts — a port should reimplement the *intent*, not the mechanism:**
+
+| Leak | What it actually means | For a non-ESP32 port |
+|---|---|---|
+| `ERR_OTA_BEGIN_FAILED` (503), `ERR_OTA_WRITE_FAILED` (504), `ERR_OTA_END_FAILED` (506) | Named after `esp_ota_begin()` / `esp_ota_write()` / `esp_ota_end()`. There is no such API on nRF. | **Keep the numbers, remap the meanings** to the equivalent DFU stage (e.g. MCUboot slot open / write / finalize). The app only ever sees the number. |
+| Partition-size checks in the OTA flow | ESP32 flashes into an OTA **partition**. | nRF/MCUboot uses **image slots** with different sizing rules. Enforce the same *"will this image fit"* guarantee; don't assume partitions. |
+| Firmware image is a raw ESP32 `.bin` with a SHA256 pre-check | The app validates size + hash before sending. | An MCUboot **signed image** has its own header and signature. Keep the size+hash guarantee at the protocol layer; the image *format* is platform-specific and belongs in `latest.json` metadata, not in this contract. |
+
+**Rule of thumb:** if the **app** can observe it, it's contract. If it only exists inside the firmware, it's an implementation detail — and it should not have leaked into this document in the first place. When you find a new leak, add it to the table above rather than quietly matching ESP32 behavior.
+
+> **Not yet done:** nothing currently *verifies* that a given firmware build satisfies this spec. There is no conformance test. Until there is, "the nRF build is correct" is a belief, not a fact.
 
 ---
 

@@ -143,6 +143,28 @@ Follow existing patterns in the codebase.
 - Use `AppColors.success` for success feedback
 - Add debouncing (300ms) to search/filter inputs that trigger on every keystroke
 
+## Codebase Gotchas
+
+Non-obvious things that cost time if you don't know them.
+
+**Adding a field to `Item` fans out further than you'd expect.** `ItemModel extends Item` (the model adds Firestore serialization). A new field must be added to: the entity, the model's constructor / `fromFirestore` / `toFirestore` / `copyWith`, and **every manual `ItemModel(...)` construction** — they're spread across `item_model.dart`, the repository impl, the datasource impl, `test_fixtures.dart`, and the item test files. Grep for `ItemModel(` and fix all of them; the count moves, so don't trust a number written anywhere.
+
+**For a targeted field update** (not a whole-item write), the path is: abstract datasource → datasource impl → abstract repository → repository impl. Follow `cycleNames` / `cycleNotes` as the template.
+
+**Firestore naming crosses a boundary:** `snake_case` in Firestore (`cycle_names`, `item_name`, `increment_by`), `camelCase` in Dart (`cycleNames`, `itemName`, `incrementBy`). `uid` is stored as a **`DocumentReference`, not a String**.
+
+**Tests use `mocktail`, not `mockito`.** Follow the existing patterns — the `cycleNames` tests are a good template for any new `Map` field.
+
+## Facts vs. copies — how this repo avoids doc drift
+
+**Derive, never copy.** Do not write test counts, version numbers, or `file:line` references into any doc. They rot silently. Cite a *function or symbol name* instead of a line number, and compute counts when you need them.
+
+This repo has been burned by this: `TROUBLESHOOTING.md` §1.6/§1.7 were committed a month before the code they described, citing line numbers for a fix that wasn't in the tree. `LAUNCH_CHECKLIST.md` still claims `847/847` tests.
+
+**A corollary rule, which overrides the "when possible" below:** never commit docs describing behavior that isn't landing in the same commit.
+
+**Where non-engineering facts go:** business/venture context (who owns what, costs, launch decisions, the nRF firmware arrangement) lives in Obsidian at `ObsidianVault/Traxelos/`, **not** in this repo. Don't mirror it here, and don't mirror repo docs there.
+
 ## Documentation Maintenance
 
 **When making changes, always check if documentation needs updating.**
