@@ -1092,17 +1092,31 @@ The device is gone from the Paired Devices list (so unpair "worked"), but the re
 
 ### 11.3 "Device not responding after update"
 
-**Symptoms:** OTA appeared to complete (reboot stage) but the device doesn't reconnect within 60 seconds. App shows a timeout error.
+> [!DANGER]
+> **Do NOT power-cycle the device.** This section used to say "wait 30s, then power cycle." That advice was wrong and dangerous — see below.
 
-**Root Cause:** The device is rebooting with the new firmware. Reboot typically takes 5-10 seconds, but may take longer depending on the firmware initialization.
+**Symptoms:** OTA reached the reboot stage but the device hasn't reconnected yet. The app may show "The device is taking longer than expected to restart."
+
+**Root Cause — it is almost certainly still working.** How long the device is gone depends on the chip, and the difference is large:
+
+| Platform | Time to come back | Why |
+|---|---|---|
+| **ESP32** | ~1–2s | The bootloader flips a pointer to the other OTA partition. Nothing is copied. |
+| **nRF (MCUboot)** | **30–60s** | The bootloader **bank-swaps** — it physically copies the new image between flash banks before it will run it. Gets slower as the firmware grows. |
+| **nRF, rolling back** | **up to ~2 min** | A rollback is a *second* bank swap. |
 
 **Resolution:**
-1. **Wait 30 seconds** — the device may still be booting
-2. If still unresponsive, **power cycle the device** (turn off and on)
-3. The device has rollback protection — if the new firmware fails to boot, it will automatically revert to the last working firmware
-4. Open the app and reconnect to check the firmware version
+1. **Keep the device powered and near the phone.** The app retries the connection every 5s for up to 3 minutes (`OtaBloc._rebootTimeout`).
+2. **Wait.** On nRF a minute of silence is normal, not a failure.
+3. If it still hasn't returned after ~3 minutes, *then* something is genuinely wrong — capture the serial log before doing anything else.
 
-**Key Lesson:** Rollback protection means the device will always boot to a working firmware. A failed update cannot brick the device.
+**Key Lesson — this is the important one:**
+
+**Never tell a user to power-cycle a device that hasn't come back from an update.** It may be mid-bank-swap, and cutting power during a flash swap is the one action that can actually damage it. MCUboot's swap is *designed* to be resumable, but that depends on the configured swap mode, and it is not a bet worth making on a customer's device.
+
+The old advice ("wait 30s, then power cycle") fired **inside** the nRF swap window. The app carried the same instruction in its timeout message until `aade27d`. Both are fixed; the test at `ota_bloc_test.dart` now asserts the *safety property* — it bans power-cycle wording by substring so a copy edit cannot quietly reintroduce it.
+
+Also note: the claim "a failed update cannot brick the device" is **only true if nobody pulls the power mid-swap.** Rollback protects you from bad *firmware*. It does not protect you from an interrupted *swap*.
 
 ---
 
@@ -1181,6 +1195,43 @@ The device is gone from the Paired Devices list (so unpair "worked"), but the re
 
 ---
 
+### 11.9 "Every update shows 'Update failed', then flips to 'Complete'"
+
+**Symptoms:** OTA completes, the device reboots, and the app briefly shows **"Update failed"** — then, once the device reconnects, the error is replaced by **"Complete."** Reported from the field as *"the reboot breaks Bluetooth."* Happens on **every** update, not intermittently.
+
+**Root Cause — two bugs cancelling each other out.**
+
+1. `reboot` was the only OTA command **not deferred**. The firmware called `esp_restart()` from *inside* the BLE write callback, so the chip restarted before the stack could send the write-response. `CHAR_WRITE` is `PROPERTY_WRITE` (write-*with-response*) and the app writes with `withoutResponse: false` — so the app's write was **never ACKed**, failed, and raised `OtaError('Failed to send reboot')`. Deterministic, every time.
+
+2. The error should have been *permanent*. It wasn't, because on error the app clears its awaiting-reboot flag by iterating **`connectedDevices`** — and the device had already disconnected, so the loop body never ran, the flag survived, the post-reboot handshake was recognised, and `OtaTransferComplete` overwrote the error.
+
+**The Fix (`b5ec108`, `4dc9a65`):** defer `reboot` via `pendingReboot`, consumed in `loop()` — the same pattern already used for `ota_start` (`esp_ota_begin` erases flash) and `ota_end` (`esp_ota_end` flushes flash). The callback now returns, the ACK goes out, *then* the device restarts. App-side, a failed `reboot` write is now logged and ignored: after `ota_verified` the boot partition is committed and the update **cannot** fail.
+
+> [!WARNING]
+> **Do not "fix" the cleanup loop in isolation.** Tightening it to iterate all known devices instead of only connected ones looks obviously correct — and would clear the flag, leave the reconnect unrecognised, and give **every user a permanent "Update failed"** on a successful update. It is only safe because the app no longer raises the error.
+
+**Key Lesson:** after `ota_verified`, the update is **done** — the image is hashed and the boot partition is set. Everything after that is choreography. Treating a transport error at that point as an update failure inverts the truth. And when two bugs cancel out, fixing either one alone ships a regression.
+
+---
+
+### 11.10 "The same update is offered again right after installing it"
+
+**Symptoms:** User accepts an update, it succeeds, the device reboots — and the app immediately offers **the same update again.** Forever.
+
+**Root Cause:** The device's `firmware_version` did not match the version the binary was **published** as. The app compares what the device reports against the manifest, sees the update as still pending, and re-offers it. The device's own `ota_start` version gate doesn't stop it either — the incoming version really *is* newer than what the device claims — so it re-flashes every time.
+
+This was live: `trackwise_2.1.1.bin` had **`2.1.0` compiled into it** (the binary contains the string `2.1.0` and not `2.1.1`). The version is a **copied fact** — hand-typed in `FIRMWARE_VERSION` in the `.ino`, and again on the `publish_firmware.sh` command line, with nothing comparing them.
+
+**The Fix (`7130210`):** `publish_firmware.sh` now refuses to publish unless **both** hold:
+- `FIRMWARE_VERSION` in the `.ino` matches the version being published (catches "forgot to bump the `#define`")
+- the `.bin` actually **contains** that version string, which it must, since the macro is compiled in (catches "published a stale `.bin`")
+
+> Note the guard uses `grep -F`. Without it, the dots in `2.2.0` are regex wildcards matching any `2?2?0` byte sequence — which occurs by chance in any megabyte-sized binary, so the check silently passed on every build. It did exactly that on the first attempt.
+
+**Key Lesson:** everything downstream keys off the device's self-reported version — the update check, the `ota_start` gate, and rollback detection. **Derive it, never copy it.** A version that can disagree with itself isn't a version, it's a guess.
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -1229,7 +1280,9 @@ The device is gone from the Paired Devices list (so unpair "worked"), but the re
 | Scan shows non-Traxelos devices | Missing service UUID filter on `startScan()` — add `withServices` — see 10.11 |
 | OTA: low battery error | Charge device above 20%, retry — see 11.1 |
 | OTA: verification/hash error | Re-download firmware, check BLE signal, retry — see 11.2 |
-| OTA: device not responding | Wait 30s, then power cycle. Rollback protects device — see 11.3 |
+| OTA: device not responding | **Keep it powered — do NOT power-cycle.** nRF bank-swaps and can be gone 30–60s (2 min if rolling back). See 11.3 |
+| OTA: "Update failed" then flips to "Complete" | Device restarted before ACKing `reboot`, so the write failed — fixed in `b5ec108`. See 11.9 |
+| OTA: same update offered again after installing it | Firmware reports a different version than it was published as — see 11.10 |
 | OTA: banner won't dismiss | Required update (below min version) — must complete update — see 11.4 |
 | OTA: app too old | Update Traxelos app from app store — see 11.5 |
 | OTA: counts missing after update | Pre-OTA sync may have failed. Reconnect to re-sync — see 11.6 |

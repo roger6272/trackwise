@@ -1057,7 +1057,13 @@ Transfer completes → Device A marked up-to-date → User can now update Device
 ### 9.2 Full OTA Sequence
 
 **When:** App detects newer firmware via Firebase Storage check after device connect.
-**Critical prerequisite:** Sync device count logs to Firestore before starting OTA (logs are RAM-only, lost on reboot).
+> [!WARNING]
+> **NOT IMPLEMENTED — this document used to describe it as if it were.**
+> Device count logs are RAM-only and **are destroyed by the OTA reboot.** The PRD required a sync before OTA (US-3, task #43, marked complete); the code does not do it. `PerformOtaUpdateUseCase` declines the job in a comment ("Sync before OTA is the caller's responsibility"), and no caller does it — `lib/features/ota/` contains zero sync calls.
+>
+> **Blast radius:** cumulative and today counts live in NVS flash and **survive**. What is lost is the per-press **event history** since the last sync. Real data loss, narrower than it sounds.
+>
+> Either implement it in `OtaBloc._onStartUpdate`, or delete the claim. Do not leave it described-but-absent.
 
 ```
 ┌──────────┐        ┌─────────┐        ┌─────────┐        ┌─────────┐
@@ -1146,9 +1152,10 @@ Data flow:
   Firebase Storage → App (binary) → Device (OTA partition)
   Device reboots → reconnects → handshake confirms new version
 
-⚠️ Critical: Count logs are RAM-only on the device.
-   Sync logs to Firestore BEFORE starting OTA, or they will be
-   lost when the device reboots.
+⚠️ Critical: Count logs are RAM-only on the device and ARE LOST on the
+   OTA reboot. A pre-OTA sync was specified but is NOT IMPLEMENTED —
+   see the warning at the top of section 9. Counts survive (NVS);
+   the per-press event history since the last sync does not.
 ```
 
 ### 9.3 OTA Error Recovery

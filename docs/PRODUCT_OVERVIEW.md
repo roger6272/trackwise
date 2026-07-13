@@ -2,7 +2,10 @@
 
 ## What is Traxelos One?
 
-Traxelos One is a **physical counter device with companion mobile app** that enables hands-free tracking of habits, inventory, or any countable activity. Unlike app-only solutions, Traxelos One combines a dedicated ESP32-based hardware counter with a feature-rich Flutter app, allowing users to track with a physical button press while maintaining full analytics and cloud synchronization.
+Traxelos One is a **physical counter device with companion mobile app** that enables hands-free tracking of habits, inventory, or any countable activity. Unlike app-only solutions, Traxelos One combines a dedicated hardware counter with a feature-rich Flutter app, allowing users to track with a physical button press while maintaining full analytics and cloud synchronization.
+
+> [!NOTE]
+> **Hardware:** the firmware in this repo (`firmware/Trackwise_ESP32/`) is an **ESP32 reference implementation**. The **shipping** device runs an **nRF** port maintained outside this repo. They are not interchangeable — notably, nRF's bootloader bank-swaps on update, so it is gone for 30–60s after a firmware update where the ESP32 returns in ~1–2s. See `BLE_PROTOCOL.md` §0.
 
 ---
 

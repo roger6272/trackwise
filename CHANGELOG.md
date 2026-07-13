@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Nothing yet
+### Fixed
+- **OTA: successful updates no longer report as failed.** The device restarted before acknowledging the `reboot` command, so the app's write failed and it declared the (already-committed) update a failure. It only *looked* intermittent because a second bug hid it. Firmware now acknowledges before restarting; the app no longer treats a lost acknowledgement as a failure.
+- **OTA: the same update is no longer offered forever.** The published binary reported a different version than it was published as, so the app never saw the update as applied. `publish_firmware.sh` now refuses to publish a binary whose version disagrees with the manifest.
+- **OTA: a rollback is now detected.** Reconnecting was being treated as proof of success — so firmware that crashed on boot and reverted still reported "Complete."
+- **OTA: reboot wait now fits the hardware.** The reconnect made a single attempt at 3s and gave up at 60s — numbers tuned to the ESP32. The shipping nRF bank-swaps and is legitimately gone for 30–60s (2 min if rolling back). Now retries for up to 3 minutes.
+- **OTA: the app no longer tells users to power-cycle mid-update.** The timeout message said "try turning it off and on again" — which, during a bank swap, is the one action that can damage the device.
+- **OTA: a dropped connection no longer discards a committed update**, and `ota_abort` is refused once the image is committed rather than falsely reporting "cancelled."
+
+### Known issues
+- **Sync-before-OTA is not implemented** despite being documented. Unsynced per-press event history is lost on the update reboot (counts survive in flash).
+- **Firmware images are unsigned.** The SHA256 proves the transfer wasn't corrupted, not that the image is authentic.
+- **The battery gate is bypassable**: `readBatterySOC()` returns 100% when the fuel gauge doesn't respond, so the <20% check never fires on hardware without it.
 
 ### Changed
 - Nothing yet
