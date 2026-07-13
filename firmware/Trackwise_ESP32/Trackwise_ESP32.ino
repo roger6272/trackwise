@@ -2408,11 +2408,23 @@ class ServerCallbacks : public BLEServerCallbacks {
     // zeroed otaHandle). Aborting here would drop back to OTA_IDLE, which also kills
     // the 10s auto-reboot in loop() — leaving the device running the OLD firmware
     // with the NEW one committed, and the app unable to tell the difference.
-    // A dropped link is not a reason to throw away a finished update: stay VERIFIED
-    // and let the auto-reboot finish the job.
+    // A dropped link is not a reason to throw away a finished update.
     if (otaState != OTA_IDLE && otaState != OTA_REBOOTING && otaState != OTA_VERIFIED) {
       DEBUG_PRINTLN("⚠️ Disconnect during OTA - aborting");
       otaAbort("disconnect");
+    }
+
+    // Verified + link gone: reboot NOW rather than waiting out the remaining
+    // OTA_VERIFIED_TIMEOUT_MS. The countdown starts at VERIFICATION, not at
+    // disconnect, so up to ~10s of it may be left — and the app reconnects 3s
+    // after an OTA disconnect. If we idled here it would re-handshake with the
+    // OLD firmware still running, read the OLD version, and report a rollback
+    // that never happened. There is no app left to talk to and the boot partition
+    // is already committed, so there is nothing to wait for.
+    // (Deferred to loop(); esp_restart() must not run in a BLE callback.)
+    if (otaState == OTA_VERIFIED) {
+      DEBUG_PRINTLN("🔄 Disconnect while VERIFIED - rebooting now");
+      pendingReboot = true;
     }
 
     // Flush any pending NVS writes before disconnecting to prevent data loss
