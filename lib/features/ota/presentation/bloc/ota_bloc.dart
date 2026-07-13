@@ -33,6 +33,15 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
   final Map<String, String> _deviceFirmwareVersions = {};
   DateTime? _otaStartTime;
 
+  /// Whether the in-flight transfer was for a *required* update.
+  ///
+  /// Captured at start because it cannot be recovered later: the OTA reboot
+  /// disconnects the device, and _onDeviceDisconnected prunes its entry from
+  /// deviceStatuses. Reading isRequired back out of state after the reboot always
+  /// yields false, which would silently downgrade a mandatory update to a
+  /// dismissable one if the firmware rolled back.
+  bool _activeTransferWasRequired = false;
+
   /// Duration to wait for device reconnect after OTA reboot.
   static const Duration _rebootTimeout = Duration(seconds: 60);
 
@@ -124,6 +133,13 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
 
     final deviceId = event.deviceInstanceId;
     _otaStartTime = DateTime.now();
+
+    // Capture now — the reboot disconnect prunes this device's status, so it is
+    // unrecoverable afterwards. See the field doc.
+    final startStatus = state.deviceStatuses[deviceId];
+    _activeTransferWasRequired =
+        startStatus is OtaDeviceUpdateAvailable && startStatus.isRequired;
+
     _setWakelock(true);
 
     emit(state.copyWith(
@@ -340,15 +356,14 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
       );
 
       // Preserve isRequired — a mandatory update stays mandatory after a rollback.
-      final previousStatus = state.deviceStatuses[deviceId];
-      final wasRequired = previousStatus is OtaDeviceUpdateAvailable &&
-          previousStatus.isRequired;
-
+      // Read from the field, NOT from state: the reboot disconnect already pruned
+      // this device's entry from deviceStatuses, so a lookup here always misses and
+      // would silently make a required update dismissable.
       final rolledBackStatuses =
           Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
       rolledBackStatuses[deviceId] = OtaDeviceUpdateAvailable(
         info: info,
-        isRequired: wasRequired,
+        isRequired: _activeTransferWasRequired,
       );
 
       emit(state.copyWith(

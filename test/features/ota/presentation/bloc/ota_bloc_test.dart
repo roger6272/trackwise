@@ -584,6 +584,60 @@ void main() {
             reason: 'the update is still pending — it must stay on offer');
       },
     );
+
+    blocTest<OtaBloc, OtaBlocState>(
+      'a REQUIRED update that rolls back stays required',
+      // isRequired cannot be read back from state after the reboot: the disconnect
+      // prunes the device's entry from deviceStatuses, so a lookup in the rollback
+      // path always misses and silently downgrades a mandatory update to one the
+      // user can dismiss. It must be captured when the transfer starts.
+      build: () {
+        when(() => mockCheckForUpdate(any())).thenAnswer(
+          (_) async => Right(UpdateAvailable(
+            isRequired: true, // <-- mandatory
+            firmwareInfo: testFirmwareInfo, // version 2.1.0
+          )),
+        );
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 100,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const OtaProgressUpdated(domain.OtaRebooting()));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // The reboot disconnect prunes the device's status — this is what makes a
+        // state lookup in the rollback path unreliable.
+        bloc.add(const OtaDeviceDisconnected(deviceInstanceId: _deviceId));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Comes back on the OLD firmware: rolled back.
+        bloc.add(const OtaRebootCompleted(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+      },
+      verify: (bloc) {
+        final status = bloc.state.deviceStatuses[_deviceId];
+        expect(status, isA<OtaDeviceUpdateAvailable>());
+        expect((status! as OtaDeviceUpdateAvailable).isRequired, isTrue,
+            reason: 'a mandatory update must not become dismissable after a '
+                'rollback — the user could then wave away an update you require');
+      },
+    );
   });
 
   group('OtaRebootTimedOut', () {
