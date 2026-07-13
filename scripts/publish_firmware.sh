@@ -114,6 +114,47 @@ fi
 validate_version "$VERSION" "version"
 validate_version "$MIN_APP_VERSION" "min-app-version"
 
+# --- Version drift guard -----------------------------------------------------
+# The device reports FIRMWARE_VERSION on handshake, and EVERYTHING keys off that:
+# the app's update check, the ota_start "is newer" gate, and rollback detection.
+# If the manifest claims a version the firmware doesn't actually report, the app
+# re-offers the same update forever. This has already happened once: the published
+# trackwise_2.1.1.bin has "2.1.0" compiled into it.
+#
+# Two independent checks, because they catch different mistakes:
+#   1. the source says what you claim   -> catches "forgot to bump the #define"
+#   2. the BINARY contains what you claim -> catches "published a stale .bin"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+INO_FILE="$REPO_ROOT/firmware/Trackwise_ESP32/Trackwise_ESP32.ino"
+
+if [ -f "$INO_FILE" ]; then
+    SRC_VERSION=$(grep -m1 '^#define FIRMWARE_VERSION' "$INO_FILE" \
+                  | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ "$SRC_VERSION" != "$VERSION" ]; then
+        echo -e "${RED}Error: version mismatch — refusing to publish.${NC}"
+        echo -e "  You are publishing:       ${VERSION}"
+        echo -e "  Firmware source reports:  ${SRC_VERSION}   (FIRMWARE_VERSION in Trackwise_ESP32.ino)"
+        echo -e ""
+        echo -e "  The device would report ${SRC_VERSION} after updating, so the app would"
+        echo -e "  never see the update as applied and would offer it again, forever."
+        echo -e "  Bump FIRMWARE_VERSION to ${VERSION} (and rebuild), or publish as ${SRC_VERSION}."
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}Warning: firmware source not found at ${INO_FILE} — skipping source version check${NC}"
+fi
+
+# -F is load-bearing: without it the dots in "2.2.0" are regex wildcards matching any
+# 2?2?0 byte sequence, which occurs by chance in any megabyte-sized binary — the check
+# would silently pass on every build.
+if ! grep -qaF "$VERSION" "$BIN_FILE"; then
+    echo -e "${RED}Error: ${BIN_FILE} does not contain the string '${VERSION}'.${NC}"
+    echo -e "  FIRMWARE_VERSION is compiled into the binary, so a matching build must"
+    echo -e "  contain it. This binary was almost certainly built from different source."
+    echo -e "  Rebuild after bumping FIRMWARE_VERSION, then publish the fresh .bin."
+    exit 1
+fi
+
 if [ -n "$MIN_FIRMWARE_VERSION" ]; then
     validate_version "$MIN_FIRMWARE_VERSION" "min-firmware-version"
 fi

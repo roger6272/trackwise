@@ -78,7 +78,11 @@ static const esp_task_wdt_config_t wdtConfig = {
 #define PROTOCOL_VERSION 3
 
 // Firmware version: Semantic versioning (major.minor.patch)
-#define FIRMWARE_VERSION "2.1.0"
+// MUST match the version passed to scripts/publish_firmware.sh — the script reads
+// this line and refuses to publish on a mismatch. Everything downstream keys off the
+// version the device reports here: the app's update check, the ota_start "is newer"
+// gate, and post-reboot rollback detection. A stale value here loops users forever.
+#define FIRMWARE_VERSION "2.2.0"
 
 // ============== MULTI-DEVICE NVS KEYS ==============
 // NVS keys for multi-device pairing support
@@ -2396,8 +2400,17 @@ class ServerCallbacks : public BLEServerCallbacks {
     DEBUG_PRINTLN("✅ Connected!");
   }
   void onDisconnect(BLEServer* p) override {
-    // Abort OTA if in progress (app disconnected mid-transfer)
-    if (otaState != OTA_IDLE && otaState != OTA_REBOOTING) {
+    // Abort OTA if in progress (app disconnected mid-transfer).
+    //
+    // OTA_VERIFIED is excluded on purpose: by then the image is hashed and
+    // esp_ota_set_boot_partition() has already committed it, so there is nothing
+    // left to fail and nothing to clean up (handleOtaEnd freed the SHA context and
+    // zeroed otaHandle). Aborting here would drop back to OTA_IDLE, which also kills
+    // the 10s auto-reboot in loop() — leaving the device running the OLD firmware
+    // with the NEW one committed, and the app unable to tell the difference.
+    // A dropped link is not a reason to throw away a finished update: stay VERIFIED
+    // and let the auto-reboot finish the job.
+    if (otaState != OTA_IDLE && otaState != OTA_REBOOTING && otaState != OTA_VERIFIED) {
       DEBUG_PRINTLN("⚠️ Disconnect during OTA - aborting");
       otaAbort("disconnect");
     }

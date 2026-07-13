@@ -313,19 +313,66 @@ class OtaBloc extends Bloc<OtaEvent, OtaBlocState> {
     final durationSeconds = _otaStartTime != null
         ? DateTime.now().difference(_otaStartTime!).inSeconds
         : 0;
+    final fromVersion = _deviceFirmwareVersions[deviceId] ?? 'unknown';
+    final info = state.activeTransfer?.info;
+
+    _setWakelock(false);
+
+    // The device is back — but is it actually running what we installed? Reconnecting
+    // is NOT proof of success. If the new image boots and crashes before it finishes
+    // starting up, the bootloader silently reverts to the previous firmware and the
+    // device comes back on the OLD version. Without this check the app would report
+    // "Complete" on an update that was rolled back, and mark the device up to date.
+    //
+    // This check is only trustworthy because publish_firmware.sh now refuses to ship
+    // a binary whose FIRMWARE_VERSION disagrees with the manifest — see the version
+    // drift guard there. If those two ever diverge again, this reports false failures.
+    if (info != null &&
+        CheckForUpdateUseCase.compareSemver(event.newVersion, info.version) < 0) {
+      AppLogger.error(
+        'OTA: device came back on v${event.newVersion}, expected v${info.version} — '
+        'firmware was rolled back or never applied',
+      );
+      _analytics.logOtaFailed(
+        reason: 'rolled_back',
+        fromVersion: fromVersion,
+        toVersion: info.version,
+      );
+
+      // Preserve isRequired — a mandatory update stays mandatory after a rollback.
+      final previousStatus = state.deviceStatuses[deviceId];
+      final wasRequired = previousStatus is OtaDeviceUpdateAvailable &&
+          previousStatus.isRequired;
+
+      final rolledBackStatuses =
+          Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
+      rolledBackStatuses[deviceId] = OtaDeviceUpdateAvailable(
+        info: info,
+        isRequired: wasRequired,
+      );
+
+      emit(state.copyWith(
+        deviceStatuses: rolledBackStatuses,
+        activeTransfer: OtaTransferError(
+          deviceInstanceId: deviceId,
+          info: info,
+          message: 'The device restarted on its old software. '
+              'The update did not take effect — please try again.',
+        ),
+      ));
+      return;
+    }
+
     _analytics.logOtaCompleted(
-      fromVersion: _deviceFirmwareVersions[deviceId] ?? 'unknown',
+      fromVersion: fromVersion,
       toVersion: event.newVersion,
       durationSeconds: durationSeconds,
     );
-
-    _setWakelock(false);
 
     final updatedStatuses =
         Map<String, OtaDeviceStatus>.from(state.deviceStatuses);
     updatedStatuses[deviceId] = const OtaDeviceUpToDate();
 
-    final info = state.activeTransfer?.info;
     if (info != null) {
       emit(state.copyWith(
         deviceStatuses: updatedStatuses,

@@ -20,6 +20,7 @@ This document defines the Bluetooth Low Energy communication protocol between th
 
 | Protocol | Firmware | Changes |
 |----------|----------|---------|
+| v3 | 2.2.0+ | No wire changes. **Behavioural fixes, both required of any implementation:** `reboot` is now ACKed before the device restarts (previously the ACK was never sent, so every successful update reported as "Update failed"), and a disconnect no longer aborts an already-verified update. See §0. |
 | v3 | 2.1.0+ | Added OTA firmware update commands (`ota_start`, `ota_end`, `reboot`), OTA Data characteristic, Battery Service |
 | v3 | 2.0.0+ | Removed `sync_seq` from handshake/override, removed `sync_complete` command, removed conflict state |
 | v2 | 1.5.0+ | Added `unpair` command for account deletion flow |
@@ -40,15 +41,31 @@ Any implementation (ESP32, nRF, or a future chip) must honor everything in this 
 
 - All service and characteristic **UUIDs**, including `CHAR_OTA_DATA` (`12345678-1234-1234-1234-123456789011`) and the standard Battery Service (`0x180F` / `0x2A19`).
 - The **JSON command and notification schemas** — names, types, required fields.
-- **`error_code` numbers.** The numbers are contract even where their names aren't (see below).
 - The **OTA command sequence** (`ota_start` → chunks over `CHAR_OTA_DATA` → `ota_end` → `reboot`), including abort and SHA256 verification.
-- `protocol_version` and `firmware_version` reported in the handshake. **Every device must report the firmware it is running** — this is what makes "which build is on this unit" observable rather than remembered.
+- The **OTA `reason` strings** (below). OTA errors do **not** carry an `error_code`.
+- `protocol_version` and `firmware_version` reported in the handshake. **Every device must report the firmware it is running, and it must be the version that was published** — see "Version honesty" below. This is what makes "which build is on this unit" observable rather than remembered, and it is the only way the app can detect a rollback.
+
+> [!WARNING]
+> **OTA errors use a different message shape from every other error in this protocol, and both are contract.**
+>
+> Normal errors (§5.6): `{"type": "error", "cmd": …, "error_code": 101, "reason": …}`
+> **OTA errors:** `{"status": "error", "cmd": "ota_start", "reason": "low_battery"}` — keyed on **`status`**, and with **no `error_code` at all**.
+>
+> The `ERR_OTA_*` 5xx constants exist in the ESP32 source but are **never emitted**; the app matches on the `reason` string only. A dispatcher keyed on `type` will silently drop every OTA error. This is a wart, not a design — but it is what the app implements, so a port must reproduce it exactly until both sides are changed together.
+
+**Behavioural requirements — a port MUST honour these, and they are not obvious from reading the ESP32 source:**
+
+| Requirement | Why — the bug it prevents |
+|---|---|
+| **Acknowledge `reboot` before restarting.** The write must be ACKed (the command characteristic is write-*with-response*), and only then may the device reset. | ESP32 originally called `esp_restart()` from inside the BLE write callback, so the ACK was never sent. The app's write failed and it reported every successful update as **"Update failed."** Do the restart after the callback returns. |
+| **Do NOT abort a verified update when the link drops.** Once `ota_verified` has been sent, the image is committed — a disconnect must leave the device in VERIFIED so the auto-reboot still fires. | Aborting here drops to IDLE, which also kills the auto-reboot. The device then keeps running the **old** firmware with the **new** one committed, and the app cannot tell the difference. |
+| **Version honesty.** The `firmware_version` reported on handshake MUST be the version the image was published as. | The ESP32 published a binary as `2.1.1` that reported `2.1.0`. The app never saw the update as applied and would have re-offered it **forever**. `scripts/publish_firmware.sh` now refuses to publish on a mismatch. |
 
 **ESP32 artifacts — a port should reimplement the *intent*, not the mechanism:**
 
 | Leak | What it actually means | For a non-ESP32 port |
 |---|---|---|
-| `ERR_OTA_BEGIN_FAILED` (503), `ERR_OTA_WRITE_FAILED` (504), `ERR_OTA_END_FAILED` (506) | Named after `esp_ota_begin()` / `esp_ota_write()` / `esp_ota_end()`. There is no such API on nRF. | **Keep the numbers, remap the meanings** to the equivalent DFU stage (e.g. MCUboot slot open / write / finalize). The app only ever sees the number. |
+| `reason: "no_partition"` | ESP32 has OTA **partitions**. | nRF/MCUboot has image **slots**. Keep the reason string (the app matches on it), but it means "no slot available to write into." |
 | Partition-size checks in the OTA flow | ESP32 flashes into an OTA **partition**. | nRF/MCUboot uses **image slots** with different sizing rules. Enforce the same *"will this image fit"* guarantee; don't assume partitions. |
 | Firmware image is a raw ESP32 `.bin` with a SHA256 pre-check | The app validates size + hash before sending. | An MCUboot **signed image** has its own header and signature. Keep the size+hash guarantee at the protocol layer; the image *format* is platform-specific and belongs in `latest.json` metadata, not in this contract. |
 

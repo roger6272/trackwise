@@ -529,6 +529,61 @@ void main() {
         ];
       },
     );
+
+    blocTest<OtaBloc, OtaBlocState>(
+      'reports FAILURE (not complete) when the device comes back on the OLD '
+      'version — the firmware was rolled back',
+      // Reconnecting is not proof of success. If the new image boots and crashes
+      // before it finishes starting up, the bootloader silently reverts and the
+      // device returns on the previous firmware. Without this check the app marks
+      // the device up to date and reports "Complete" on an update that was thrown
+      // away — the only signal that it happened is the version it reports back.
+      build: () {
+        when(() => mockCheckForUpdate(any())).thenAnswer(
+          (_) async => Right(UpdateAvailable(
+            isRequired: false,
+            firmwareInfo: testFirmwareInfo, // version 2.1.0
+          )),
+        );
+        when(() => mockConnectivity.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockPerformOtaUpdate.execute(
+              firmwareInfo: any(named: 'firmwareInfo'),
+              negotiatedMtu: any(named: 'negotiatedMtu'),
+            )).thenAnswer((_) => const Stream.empty());
+        return buildBloc();
+      },
+      act: (bloc) async {
+        bloc.add(const CheckForUpdateRequested(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(StartUpdateRequested(
+          deviceInstanceId: _deviceId,
+          firmwareInfo: testFirmwareInfo,
+          negotiatedMtu: 100,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const OtaProgressUpdated(domain.OtaRebooting()));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Rolled back: we installed 2.1.0, but it came back on 1.0.0.
+        bloc.add(const OtaRebootCompleted(
+          '1.0.0',
+          deviceInstanceId: _deviceId,
+        ));
+      },
+      verify: (bloc) {
+        final transfer = bloc.state.activeTransfer;
+        expect(transfer, isA<OtaTransferError>(),
+            reason: 'a rolled-back update must not be reported as complete');
+        expect((transfer! as OtaTransferError).message,
+            contains('old software'));
+        expect(bloc.state.deviceStatuses[_deviceId],
+            isA<OtaDeviceUpdateAvailable>(),
+            reason: 'the update is still pending — it must stay on offer');
+      },
+    );
   });
 
   group('OtaRebootTimedOut', () {
