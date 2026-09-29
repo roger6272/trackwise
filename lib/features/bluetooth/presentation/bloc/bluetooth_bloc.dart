@@ -85,6 +85,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
   final Map<String, Timer> _reconnectTimers = {};
   bool _wasBluetoothOff = false; // Keep global — adapter state is global
   final Map<String, int> _reconnectAttempts = {};
+  // Devices whose current connection was started by a reconnect timer, not the user
+  final Set<String> _autoReconnecting = {};
 
   // OTA reboot tracking: suppress disconnect error UI when OTA reboot is in progress
   final Set<String> _awaitingOtaReboot = {};
@@ -192,6 +194,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // Wrong account events
     on<WrongAccountDetected>(_onWrongAccountDetected);
     on<DismissWrongAccount>(_onDismissWrongAccount);
+    on<DeviceOwnershipLost>(_onDeviceOwnershipLost);
     // Handshake completed event (stub for Task 10)
     on<HandshakeCompleted>(_onHandshakeCompleted);
     // Claim events (stub handlers, implemented in Task 13)
@@ -246,7 +249,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
                   state.status == BluetoothStatus.ready &&
                   !isClosed) {
                 _reconnectAttempts[deviceId] = (_reconnectAttempts[deviceId] ?? 0) + 1;
-                add(ConnectToDevice(deviceId));
+                add(ConnectToDevice(deviceId, isAutoReconnect: true));
               }
             });
           }
@@ -431,6 +434,12 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       _devicesToReconnect.remove(id);
       _reconnectAttempts.remove(id);
       return;
+    }
+
+    if (event.isAutoReconnect) {
+      _autoReconnecting.add(id);
+    } else {
+      _autoReconnecting.remove(id);
     }
 
     // Cancel any pending reconnect for this device
@@ -708,7 +717,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
                 state.status == BluetoothStatus.ready &&
                 !isClosed) {
               _reconnectAttempts[disconnectedId] = (_reconnectAttempts[disconnectedId] ?? 0) + 1;
-              add(ConnectToDevice(disconnectedId));
+              add(ConnectToDevice(disconnectedId, isAutoReconnect: true));
             }
           });
         }
@@ -783,12 +792,24 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       PerformSyncParams(deviceId: deviceInstanceId),
     );
 
+    final wasAutoReconnect = _autoReconnecting.remove(deviceInstanceId);
+
     syncResult.fold(
       (failure) {
-        if (failure is DeviceUninitializedFailure) {
+        if (wasAutoReconnect &&
+            (failure is DeviceUninitializedFailure || failure is WrongAccountFailure)) {
+          // Reset or re-owned since we last saw it. The user didn't ask to
+          // connect, so don't prompt — a Set Up dialog here could re-claim a
+          // device someone else is setting up.
+          AppLogger.debug('Auto-reconnect found $deviceInstanceId no longer ours (${failure.runtimeType}) — dropping silently');
+          add(DeviceOwnershipLost(deviceInstanceId: deviceInstanceId));
+        } else if (failure is DeviceUninitializedFailure) {
           // Device needs setup (factory reset or new device)
           AppLogger.debug('Device uninitialized: deviceInstanceId=${failure.deviceInstanceId}');
-          add(DeviceSetupRequired(deviceInstanceId: failure.deviceInstanceId));
+          add(DeviceSetupRequired(
+            deviceInstanceId: failure.deviceInstanceId,
+            firmwareVersion: failure.firmwareVersion,
+          ));
         } else if (failure is WrongAccountFailure) {
           AppLogger.debug('Wrong account - device locked to different user');
           add(const WrongAccountDetected());
@@ -1433,6 +1454,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     }
     _reconnectTimers.clear();
     _reconnectAttempts.clear();
+    _autoReconnecting.clear();
 
     // 2. Clear tracking sets
     _manualDisconnects.clear();
@@ -1504,16 +1526,34 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     // If not yet in map, add it
     final existing = state.connectedDevices[deviceInstanceId];
     final updated = existing != null
-        ? _updateDevice(deviceInstanceId, (d) => d.copyWith(syncStatus: DeviceSyncStatus.setup))
+        ? _updateDevice(deviceInstanceId, (d) => d.copyWith(
+            syncStatus: DeviceSyncStatus.setup,
+            firmwareVersion: event.firmwareVersion,
+            clearSelectedItemId: true,
+          ))
         : {
             ...state.connectedDevices,
             deviceInstanceId: DeviceConnectionState(
               device: state.connectedDevice ?? BleDevice(id: deviceInstanceId, name: 'Traxelos Device', rssi: 0),
               syncStatus: DeviceSyncStatus.setup,
+              firmwareVersion: event.firmwareVersion,
             ),
           };
 
     emit(state.copyWith(connectedDevices: updated));
+
+    // A device needing setup holds nothing the app should show as assigned
+    // (factory reset keeps device_instance_id, so old claims would linger).
+    // Release now, not on confirm, so cancelling setup doesn't leave them.
+    await _claimQueue;
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (userId.isNotEmpty) {
+      final releaseResult = await _itemRepository.releaseAllClaims(deviceInstanceId, userId);
+      releaseResult.fold(
+        (failure) => AppLogger.debug('Failed to release claims for $deviceInstanceId: ${failure.message}'),
+        (_) => AppLogger.debug('Released all claims for device needing setup $deviceInstanceId'),
+      );
+    }
   }
 
   /// User confirmed device setup - perform override to transfer items.
@@ -1559,7 +1599,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         emit(state.copyWith(
           connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
             isOverriding: false,
-            selectedItemId: syncResult.selectedFirestoreId,
+            // Setup always starts empty; a null in copyWith would keep the
+            // pre-factory-reset selection instead of clearing it.
+            clearSelectedItemId: true,
           )),
         ));
 
@@ -1638,6 +1680,27 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     }
   }
 
+  /// Background reconnect found the device reset or owned by another account.
+  /// Let go of the BLE link (the device accepts one connection, so holding it
+  /// blocks the new owner) and release our claims — nothing on it is ours now.
+  Future<void> _onDeviceOwnershipLost(
+    DeviceOwnershipLost event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final id = event.deviceInstanceId;
+    add(DisconnectFromDevice(deviceInstanceId: id));
+
+    await _claimQueue;
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (userId.isNotEmpty) {
+      final releaseResult = await _itemRepository.releaseAllClaims(id, userId);
+      releaseResult.fold(
+        (failure) => AppLogger.debug('Failed to release claims for $id: ${failure.message}'),
+        (_) => AppLogger.debug('Released all claims for device no longer owned $id'),
+      );
+    }
+  }
+
   // ========== Handshake Handler ==========
 
   /// Handles successful handshake completion, updating device sync status.
@@ -1659,6 +1722,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           emit(state.copyWith(
             connectedDevices: _updateDevice(deviceId, (d) => d.copyWith(
               syncStatus: DeviceSyncStatus.staleClaim,
+              firmwareVersion: result.firmwareVersion,
             )),
           ));
           // Refresh paired devices so dialog can read device name + stale claim items
@@ -1674,7 +1738,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         );
         if (!isKnownDevice) {
           AppLogger.debug('in_sync but device not in pairedDevices — redirecting to device setup');
-          add(DeviceSetupRequired(deviceInstanceId: deviceId));
+          add(DeviceSetupRequired(
+            deviceInstanceId: deviceId,
+            firmwareVersion: result.firmwareVersion,
+          ));
           return;
         }
 

@@ -662,8 +662,8 @@ All responses include `protocol_version` (int) and `firmware_version` (string) f
 | Status | Device Action | App Action |
 |--------|---------------|------------|
 | `in_sync` | Automatically sends prefs + logs via NOTIFY ~100ms after handshake response | If device is in `paired_devices`: process prefs, sync to Firestore. If NOT in `paired_devices` (re-pair after user-initiated Unpair): **drop the messages** and route via `DeviceSetupRequired` so the user re-confirms setup. See note below. |
-| `wrong_account` | Shows "PAIRED TO OTHER ACCOUNT" | Show error dialog, disconnect |
-| `uninitialized` | Shows "AWAITING SETUP" | Show setup dialog, send override on user confirm |
+| `wrong_account` | Shows "PAIRED TO OTHER ACCOUNT" | Show error dialog, disconnect. If the connection came from a background auto-reconnect: no dialog — disconnect, stop retrying, release the device's claims (ADR-009). |
+| `uninitialized` | Shows "AWAITING SETUP" | Show setup dialog, send override on user confirm. If the connection came from a background auto-reconnect: no dialog — disconnect, stop retrying, release the device's claims (ADR-009). |
 
 **Example Flow (in_sync):**
 ```

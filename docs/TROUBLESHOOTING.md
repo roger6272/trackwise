@@ -1053,6 +1053,24 @@ The device is gone from the Paired Devices list (so unpair "worked"), but the re
 
 **Key Lesson:** Synchronous state emits that flip `isConnected` or similar derived properties need to set the *full* set of fields that downstream listeners use to interpret the change. `connectedDevices.remove(id)` alone is ambiguous — it could mean "user unpaired", "OTA reboot", "BLE flapped". The `lastDisconnectWasManual` flag is the disambiguator; forgetting to set it makes the same state change trigger different UX. Similarly: timer callbacks that dispatch events check state at fire-time, but the dispatched event is processed later — defending the handler entry itself (not just the dispatch site) is the only way to avoid stale-event races.
 
+### 10.15 "After factory reset, app still shows the old item selected on a still-paired device"
+
+**Symptoms:** User factory-resets a device that is still in Paired Devices, reconnects, and completes the Set Up dialog. The device is empty with nothing selected, but the app still shows the pre-reset item as selected / assigned to that device.
+
+**Root Cause:** Two layers kept the old selection alive, and neither was cleared by the empty Set Up override:
+
+1. **Firestore `claimed_by`.** Factory reset clears items and `paired_uid` but deliberately **keeps `device_instance_id`**. The item claimed before the reset still has `claimed_by = <this device>`, and because the device is still paired, the items list resolves that id to its name and shows the item as assigned. Unlike 10.13 (Unpair → re-pair), no unpair ran, so `releaseAllClaims` was never called.
+2. **BLoC `selectedItemId`.** `_onConfirmDeviceSetup` wrote `selectedItemId: syncResult.selectedFirestoreId`, which is `null` for an empty setup. `DeviceConnectionState.copyWith` treats `null` as "keep the current value", so the pre-reset id survived.
+
+**Fix Applied:**
+
+1. `_onDeviceSetupRequired` clears the device's `selectedItemId` and calls `releaseAllClaims` (after draining `_claimQueue`, like `_onRemovePairedDevice`) **as soon as setup is detected** — so cancelling the Set Up dialog doesn't leave the stale assignment behind.
+2. `PerformOverrideUseCase._sendEmptyOverride` also calls `releaseAllClaims` after the device confirms the empty override. It is the unit-tested invariant (a device holding no items owns no claims); bloc tests are device-only. A no-op in the normal case.
+3. `_onConfirmDeviceSetup` uses `clearSelectedItemId: true` instead of passing `null`.
+4. **Follow-on — the previous owner's phone.** If the device changes hands, the old owner's app keeps retrying in the background and used to pop Set Up (inviting them to re-claim it) or the wrong-account dialog (holding the device's only BLE link, so the new owner couldn't connect). Now a connection started by a reconnect timer that gets `uninitialized` or `wrong_account` is dropped silently via `DeviceOwnershipLost`: disconnect, stop retrying, release claims. User-tapped Connect still shows the dialogs. Rationale in ADR-009.
+
+**Key Lesson:** A value that survives factory reset (`device_instance_id`) makes every server-side record keyed on it outlive the reset too. Anything that says "the device is now empty" must clear the records keyed to that device. Also: with a `copyWith` that uses `??`, passing `null` never clears a field. Use the explicit `clear…` flag.
+
 ---
 
 ## 11. OTA Firmware Update Issues
@@ -1232,6 +1250,25 @@ This was live: `trackwise_2.1.1.bin` had **`2.1.0` compiled into it** (the binar
 
 ---
 
+### 11.11 "No update banner after factory reset / re-pair, until a manual disconnect-reconnect"
+
+**Symptoms:** Device reverts to an older firmware version (factory reset, manual reflash) and reboots. The user reconnects (a background auto-reconnect now drops a reset device silently — §10.15), the device successfully re-pairs (handshake `uninitialized` → setup dialog → override → `synced`) — but no OTA banner appears even though the device is now behind. Manually disconnecting and reconnecting makes the banner appear immediately.
+
+**Root Cause:** `handshake.firmwareVersion` is only ever written into `DeviceConnectionState` from the plain `success`-type handshake path (`bluetooth_bloc.dart` `_onHandshakeCompleted`, the non-stale-claim / already-known-device branch). Every other branch that can lead to a device reaching `synced` — `uninitialized` (`DeviceUninitializedFailure` → `DeviceSetupRequired` → setup/override), the "`in_sync` but not in `pairedDevices`" redirect, and the stale-claim dialog — drops the firmware version somewhere along the way, because none of them perform a second handshake. The override flow (`PerformOverrideUseCase`) never captures it either; its `SyncResult`s always carry `firmwareVersion: null`.
+
+The OTA check in `bluetooth_page.dart` (`firmwareVersion != null && syncStatus == synced`) then never fires — not because it's wrong, but because `firmwareVersion` never got set. It looks like a one-shot-gate problem (`_otaCheckedDevices`) at first, but that gate is *correctly* cleared on every real disconnect; the actual bug is upstream of it. Only a subsequent full reconnect — which runs a fresh plain `success` handshake — populates it, which is why manually forcing a disconnect/reconnect "fixes" it.
+
+**The Fix:** Capture `handshake.firmwareVersion` at every point a handshake response is read, not just the plain-`success` path:
+- `DeviceUninitializedFailure` now carries `firmwareVersion` (set in `PerformSyncUseCase.call()` where the raw handshake is still in scope), threaded through `DeviceSetupRequired` into `_onDeviceSetupRequired`.
+- The "`in_sync` but not in `pairedDevices`" redirect passes `result.firmwareVersion` into `DeviceSetupRequired` too.
+- The stale-claim branch stores `result.firmwareVersion` immediately, before the dialog blocks on user input.
+
+This relies on `DeviceConnectionState.copyWith`'s existing `firmwareVersion ?? this.firmwareVersion` behavior — passing `null` (e.g. from an override's `SyncResult`) is a no-op that preserves whatever was captured earlier, so once one of these paths stores the version, later `copyWith` calls in the same connection session can't clobber it.
+
+**Key Lesson:** `firmwareVersion` is populated once, at the handshake, and several downstream code paths (override, stale-claim, setup redirect) don't re-handshake — they just carry state forward via `copyWith`. Any new branch that reaches `synced` without repeating the handshake needs to explicitly thread the version through, or it silently reads as "never checked."
+
+---
+
 ## Quick Reference: Error → Solution
 
 | Error/Symptom | First Thing to Check |
@@ -1283,6 +1320,7 @@ This was live: `trackwise_2.1.1.bin` had **`2.1.0` compiled into it** (the binar
 | OTA: device not responding | **Keep it powered — do NOT power-cycle.** nRF bank-swaps and can be gone 30–60s (2 min if rolling back). See 11.3 |
 | OTA: "Update failed" then flips to "Complete" | Device restarted before ACKing `reboot`, so the write failed — fixed in `b5ec108`. See 11.9 |
 | OTA: same update offered again after installing it | Firmware reports a different version than it was published as — see 11.10 |
+| OTA: no banner after factory reset/re-pair until manual reconnect | `firmwareVersion` never captured outside the plain `success` handshake path — see 11.11 |
 | OTA: banner won't dismiss | Required update (below min version) — must complete update — see 11.4 |
 | OTA: app too old | Update Traxelos app from app store — see 11.5 |
 | OTA: counts missing after update | Pre-OTA sync may have failed. Reconnect to re-sync — see 11.6 |

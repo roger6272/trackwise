@@ -66,10 +66,14 @@ class StopScan extends BluetoothEvent {
 class ConnectToDevice extends BluetoothEvent {
   final String deviceId;
 
-  const ConnectToDevice(this.deviceId);
+  /// True when fired by a background reconnect timer rather than the user.
+  /// A reset or re-owned device found this way is dropped silently.
+  final bool isAutoReconnect;
+
+  const ConnectToDevice(this.deviceId, {this.isAutoReconnect = false});
 
   @override
-  List<Object?> get props => [deviceId];
+  List<Object?> get props => [deviceId, isAutoReconnect];
 }
 
 /// Disconnect from a connected BLE device.
@@ -313,7 +317,26 @@ class CancelSyncDialog extends BluetoothEvent {
 class DeviceSetupRequired extends BluetoothEvent {
   final String deviceInstanceId;
 
-  const DeviceSetupRequired({required this.deviceInstanceId});
+  /// Firmware version from the handshake that triggered this setup flow
+  /// (uninitialized status, or in_sync from an unknown/re-paired device).
+  /// Carried through so the OTA check has a version to compare once the
+  /// device reaches `synced` — the setup/override flow itself never
+  /// performs another handshake.
+  final String? firmwareVersion;
+
+  const DeviceSetupRequired({required this.deviceInstanceId, this.firmwareVersion});
+
+  @override
+  List<Object?> get props => [deviceInstanceId, firmwareVersion];
+}
+
+/// Internal event: a background reconnect found the device factory-reset or
+/// owned by another account. Drop it without a dialog so the phone doesn't
+/// hold the device's single BLE link or invite re-claiming someone else's device.
+class DeviceOwnershipLost extends BluetoothEvent {
+  final String deviceInstanceId;
+
+  const DeviceOwnershipLost({required this.deviceInstanceId});
 
   @override
   List<Object?> get props => [deviceInstanceId];

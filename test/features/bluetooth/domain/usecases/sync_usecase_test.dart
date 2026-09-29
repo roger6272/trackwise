@@ -423,6 +423,42 @@ void main() {
       )).called(1);
     });
 
+    test('startEmpty should release claims the device held before a factory reset', () async {
+      // Factory reset wipes the device's items but keeps device_instance_id,
+      // so Firestore claims from before the reset still point at this device.
+      when(() => mockConnectivityService.hasInternetConnection())
+          .thenAnswer((_) async => true);
+      when(() => mockUserRepository.getCurrentUser())
+          .thenAnswer((_) async => Right(tUserWithDevice));
+      when(() => mockBluetoothRepository.sendOverrideChunked(
+        deviceId: tDeviceId,
+        uid: tUserId,
+        selectedId: -1,
+        items: const [],
+        categoryNames: any(named: 'categoryNames'),
+      )).thenAnswer((_) async => const Right(OverrideResult(
+        status: 'override_complete',
+      )));
+      when(() => mockUserRepository.updateLastSelectedItem(
+        lastSelectedDeviceItemId: -1,
+      )).thenAnswer((_) async => const Right(null));
+      when(() => mockUserRepository.addPairedDevice(any()))
+          .thenAnswer((_) async => const Right(null));
+      when(() => mockItemRepository.releaseAllClaims(tDeviceInstanceId, tUserId))
+          .thenAnswer((_) async => const Right(null));
+
+      final result = await performOverrideUseCase(
+        const PerformOverrideParams(
+          deviceId: tDeviceId,
+          deviceInstanceId: tDeviceInstanceId,
+          startEmpty: true,
+        ),
+      );
+
+      expect(result.isRight(), true);
+      verify(() => mockItemRepository.releaseAllClaims(tDeviceInstanceId, tUserId)).called(1);
+    });
+
     test('should exclude items claimed by other devices from override payload', () async {
       // arrange — item-2 is claimed by a different device
       final itemClaimedByOther = Item(

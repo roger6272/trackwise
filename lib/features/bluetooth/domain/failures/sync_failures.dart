@@ -51,16 +51,22 @@ class DeviceUninitializedFailure extends SyncFailure {
   /// Device instance ID (needed to add device after successful setup).
   final String deviceInstanceId;
 
+  /// Firmware version reported by device during the uninitialized handshake.
+  /// Carried through so the setup dialog flow doesn't lose it — the device
+  /// won't send another handshake until the next full reconnect.
+  final String? firmwareVersion;
+
   const DeviceUninitializedFailure({
     required this.deviceInstanceId,
+    this.firmwareVersion,
     String message = 'New device detected.',
   }) : super(message);
 
   @override
-  List<Object> get props => [message, deviceInstanceId];
+  List<Object> get props => [message, deviceInstanceId, firmwareVersion ?? ''];
 
   @override
-  String toString() => 'DeviceUninitializedFailure(deviceInstanceId: $deviceInstanceId)';
+  String toString() => 'DeviceUninitializedFailure(deviceInstanceId: $deviceInstanceId, firmwareVersion: $firmwareVersion)';
 }
 
 /// Firestore update failed after successful device sync.

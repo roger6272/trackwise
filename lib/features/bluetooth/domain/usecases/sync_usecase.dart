@@ -156,6 +156,7 @@ class PerformSyncUseCase {
     if (handshake.status == SyncStatus.uninitialized) {
       return Left(DeviceUninitializedFailure(
         deviceInstanceId: deviceInstanceId,
+        firmwareVersion: handshake.firmwareVersion,
       ));
     }
 
@@ -585,6 +586,15 @@ class PerformOverrideUseCase {
         (_) => const Left(FirestoreUpdateFailure()),
       );
     }
+
+    // The device now holds no items, so it can't own any claims. A factory
+    // reset keeps device_instance_id, so pre-reset claims would otherwise
+    // keep showing the old item as selected on this device.
+    final releaseResult = await _itemRepository.releaseAllClaims(params.deviceInstanceId, user.id);
+    releaseResult.fold(
+      (failure) => AppLogger.debug('Failed to release claims for ${params.deviceInstanceId}: ${failure.message}'),
+      (_) {},
+    );
 
     // Add device to paired devices
     final usedColors = user.pairedDevices.map((d) => d.color).toSet();
