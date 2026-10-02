@@ -89,6 +89,12 @@ class OnboardingStepDone extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          Text(
+                            'You can rename it later.',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: secondaryText,
+                            ),
+                          ),
                         ],
                       ),
                     ),
