@@ -312,13 +312,13 @@ class CancelSyncDialog extends BluetoothEvent {
 
 // ========== Device Setup Events (for uninitialized/factory reset devices) ==========
 
-/// Internal event when an uninitialized device is detected.
-/// UI should show setup dialog: "New device detected. Transfer your items?"
+/// Internal event when a device needs setup (see [DeviceUninitializedFailure]).
+/// UI shows the setup dialog.
 class DeviceSetupRequired extends BluetoothEvent {
   final String deviceInstanceId;
 
   /// Firmware version from the handshake that triggered this setup flow
-  /// (uninitialized status, or in_sync from an unknown/re-paired device).
+  /// (uninitialized status, or in_sync from a device not in the paired list).
   /// Carried through so the OTA check has a version to compare once the
   /// device reaches `synced` — the setup/override flow itself never
   /// performs another handshake.
@@ -340,6 +340,18 @@ class DeviceOwnershipLost extends BluetoothEvent {
 
   @override
   List<Object?> get props => [deviceInstanceId];
+}
+
+/// Internal event: a device not in the paired list connected while the
+/// account is at the device limit. Disconnect and say why, before any dialog.
+class DeviceLimitReached extends BluetoothEvent {
+  final String deviceInstanceId;
+  final String message;
+
+  const DeviceLimitReached({required this.deviceInstanceId, required this.message});
+
+  @override
+  List<Object?> get props => [deviceInstanceId, message];
 }
 
 /// User confirmed device setup in dialog.

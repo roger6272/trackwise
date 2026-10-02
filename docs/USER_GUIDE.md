@@ -100,7 +100,7 @@ See [Connecting Your Device](#3-connecting-your-device) below.
 
 5. **Select your device**
    - Tap the device name to connect (already-paired devices are hidden from scan results)
-   - If this is a new device, you'll see a **"New Device Detected"** setup dialog — tap **"Set Up"** to pair
+   - If the device isn't paired to your account yet (new, factory reset, or previously unpaired), you'll see a **"Set Up Device"** dialog — tap **"Set Up"** to pair, or **"Cancel"** to leave it unpaired
 
 6. **You're connected!**
    - The device is now paired but starts with **no items and no selection**

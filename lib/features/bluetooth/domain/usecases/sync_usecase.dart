@@ -82,8 +82,8 @@ class PerformSyncParams extends Equatable {
 /// Handles:
 /// 1. Internet connectivity check
 /// 2. Handshake with device
-/// 3. Wrong account / uninitialized detection
-/// 4. New device registration (with limit check)
+/// 3. Wrong account detection
+/// 4. Setup detection (uninitialized, or not in the paired list) with limit check
 ///
 /// After success, the BLoC pushes claim-filtered items via
 /// [RefreshDeviceItemsUseCase].
@@ -107,8 +107,8 @@ class PerformSyncUseCase {
   /// Steps:
   /// 1. Check internet connectivity
   /// 2. Send handshake to device
-  /// 3. Handle wrong account / uninitialized (return error)
-  /// 4. Add to paired_devices if new (check limit)
+  /// 3. Handle wrong account (return error)
+  /// 4. Not paired → limit check, then setup required; uninitialized → setup required
   /// 5. Return success — BLoC pushes items via RefreshDeviceItemsUseCase
   Future<Either<Failure, SyncResult>> call(PerformSyncParams params) async {
     // Step 1: Check internet connectivity FIRST
@@ -151,41 +151,24 @@ class PerformSyncUseCase {
     // Normalize device instance ID to uppercase (ESP32 returns lowercase, Flutter Blue Plus uses uppercase)
     final deviceInstanceId = handshake.deviceInstanceId.toUpperCase();
 
-    // Step 5: Check for uninitialized device (factory reset or new)
-    // User must confirm setup before we proceed
-    if (handshake.status == SyncStatus.uninitialized) {
+    final isPaired = user.pairedDevices.any(
+      (d) => d.deviceInstanceId.toUpperCase() == deviceInstanceId,
+    );
+
+    // Step 5: A device not in the paired list can only join via Set Up, so
+    // check the limit before the user is asked to set it up.
+    if (!isPaired && user.pairedDevices.length >= maxDevices) {
+      return const Left(DeviceLimitFailure());
+    }
+
+    // Step 6: Needs setup — factory reset / new (uninitialized), or unpaired
+    // in the app but never reset (in_sync, still holds our uid). Pairing
+    // happens only when the user confirms Set Up, so Cancel leaves no trace.
+    if (handshake.status == SyncStatus.uninitialized || !isPaired) {
       return Left(DeviceUninitializedFailure(
         deviceInstanceId: deviceInstanceId,
         firmwareVersion: handshake.firmwareVersion,
       ));
-    }
-
-    // Step 6: Device is in sync - add to paired devices if new
-    final isNewDevice = !user.pairedDevices.any(
-      (d) => d.deviceInstanceId.toUpperCase() == deviceInstanceId,
-    );
-
-    if (isNewDevice) {
-      // Check device limit
-      if (user.pairedDevices.length >= maxDevices) {
-        return const Left(DeviceLimitFailure());
-      }
-
-      // Compute next available color
-      final usedColors = user.pairedDevices.map((d) => d.color).toSet();
-      var nextColor = 0;
-      for (var i = 0; i < 10; i++) {
-        if (!usedColors.contains(i)) { nextColor = i; break; }
-      }
-
-      await _userRepository.addPairedDevice(
-        PairedDevice(
-          deviceInstanceId: deviceInstanceId,
-          deviceName: 'Traxelos One (${user.pairedDevices.length + 1})',
-          pairedAt: DateTime.now(),
-          color: nextColor,
-        ),
-      );
     }
 
     // Step 7: Check for stale claims (items released while device was offline).

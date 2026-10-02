@@ -38,15 +38,13 @@ class DeviceLimitFailure extends SyncFailure {
   ]) : super(message);
 }
 
-/// Device is uninitialized (factory reset or new device).
-///
-/// Device has no UID stored and needs setup. User must confirm
-/// before items are transferred.
+/// Device needs setup: uninitialized (factory reset or new), or not in the
+/// paired list (unpaired in the app but never reset, so it still holds our uid).
 ///
 /// When this failure is returned, the UI should:
-/// 1. Show setup dialog: "New device detected. Transfer your items?"
-/// 2. Allow user to confirm (proceed with override to set up device)
-/// 3. Allow user to cancel (disconnect, device stays empty)
+/// 1. Show the setup dialog
+/// 2. Allow user to confirm (empty override pairs the device)
+/// 3. Allow user to cancel (disconnect; nothing is paired)
 class DeviceUninitializedFailure extends SyncFailure {
   /// Device instance ID (needed to add device after successful setup).
   final String deviceInstanceId;
@@ -59,7 +57,7 @@ class DeviceUninitializedFailure extends SyncFailure {
   const DeviceUninitializedFailure({
     required this.deviceInstanceId,
     this.firmwareVersion,
-    String message = 'New device detected.',
+    String message = 'Device needs setup.',
   }) : super(message);
 
   @override

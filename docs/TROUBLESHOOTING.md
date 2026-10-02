@@ -1072,6 +1072,21 @@ The device is gone from the Paired Devices list (so unpair "worked"), but the re
 
 **Key Lesson:** A value that survives factory reset (`device_instance_id`) makes every server-side record keyed on it outlive the reset too. Anything that says "the device is now empty" must clear the records keyed to that device. Also: with a `copyWith` that uses `??`, passing `null` never clears a field. Use the explicit `clear…` flag.
 
+### 10.16 "Cancelled Set Up after Unpair → re-pair, but the device is back in Paired Devices"
+
+**Symptoms:** User unpairs a device (without factory reset), connects to it again from Search, and taps **Cancel** on the setup dialog. The device still shows up in Paired Devices. Related: at the 10-device limit, re-connecting such a device silently fell into the offline (legacy) sync path instead of saying the limit was reached. The dialog also said "New Device Detected" for a device the user had just unpaired.
+
+**Root Cause:** The "needs setup" decision for this case was split across two layers. `PerformSyncUseCase` saw `in_sync` + not in `paired_devices` and **added it to `paired_devices` during the handshake**; the BLoC then compared against its in-memory (pre-add) `pairedDevices`, saw it missing, and routed to `DeviceSetupRequired`. So the device was already paired before the user chose anything — Cancel only disconnected. The limit check also lived on that handshake path, and the BLoC had no branch for `DeviceLimitFailure`, so it hit the generic fallback (legacy sync). Meanwhile the real Set Up path (`_sendEmptyOverride`) had no limit check at all.
+
+**Fix Applied:**
+
+1. `PerformSyncUseCase` no longer pairs on handshake. A device not in `paired_devices` — `uninitialized` **or** `in_sync` — returns `DeviceUninitializedFailure`, the same path as new/factory-reset devices. Pairing happens only in the Set Up override, so Cancel leaves nothing behind.
+2. The limit is checked in the handshake **before** the dialog, for any device not in `paired_devices` (a factory-reset device already in the list is exempt). The BLoC handles `DeviceLimitFailure` via `DeviceLimitReached`: disconnect and show the limit message.
+3. Removed the BLoC's own "in_sync but not in pairedDevices" redirect in `_onHandshakeCompleted`: the use case now decides from Firestore, while the BLoC's list could be stale.
+4. Dialog title is "Set Up Device" — accurate for new, factory-reset and unpaired-but-not-reset devices.
+
+**Key Lesson:** When one condition ("is this device paired?") is decided in two layers from two sources (Firestore vs. a cached list), the layers can disagree and each acts on its own answer. Decide once, from the source of truth, and have the other layer act on the result. And don't write the outcome of a user decision (pairing) before the user makes it.
+
 ---
 
 ## 11. OTA Firmware Update Issues

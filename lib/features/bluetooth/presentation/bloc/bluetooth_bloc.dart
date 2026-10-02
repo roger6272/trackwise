@@ -190,6 +190,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     on<DeviceSetupRequired>(_onDeviceSetupRequired);
     on<ConfirmDeviceSetup>(_onConfirmDeviceSetup);
     on<CancelDeviceSetup>(_onCancelDeviceSetup);
+    on<DeviceLimitReached>(_onDeviceLimitReached);
     on<ClearSetupState>(_onClearSetupState);
     // Wrong account events
     on<WrongAccountDetected>(_onWrongAccountDetected);
@@ -813,6 +814,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
         } else if (failure is WrongAccountFailure) {
           AppLogger.debug('Wrong account - device locked to different user');
           add(const WrongAccountDetected());
+        } else if (failure is DeviceLimitFailure) {
+          AppLogger.debug('Device limit reached - not offering setup for $deviceInstanceId');
+          add(DeviceLimitReached(deviceInstanceId: deviceInstanceId, message: failure.message));
         } else if (failure is NoInternetFailure) {
           AppLogger.debug('No internet - falling back to old sync flow');
           // Fall back to old sync flow when offline
@@ -1626,6 +1630,25 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     ));
   }
 
+  /// Device can't be set up because the account is at the device limit.
+  Future<void> _onDeviceLimitReached(
+    DeviceLimitReached event,
+    Emitter<BluetoothState> emit,
+  ) async {
+    final deviceId = event.deviceInstanceId;
+    _manualDisconnects.add(deviceId);
+    _devicesToReconnect.remove(deviceId);
+    await _bluetoothRepository.disconnect(deviceId);
+    emit(state.copyWith(
+      status: BluetoothStatus.error,
+      errorMessage: event.message,
+      connectedDevices: _removeDevice(deviceId),
+    ));
+    // Error is a one-shot for the snackbar; leaving it set would stall
+    // auto-reconnect of other devices (their timers require `ready`).
+    emit(state.copyWith(status: BluetoothStatus.ready));
+  }
+
   /// Clears setup state after it's been handled.
   Future<void> _onClearSetupState(
     ClearSetupState event,
@@ -1730,20 +1753,9 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
           return; // Wait for user decision via dialog
         }
 
-        // Device returned in_sync but is NOT in our paired list → it was
-        // unpaired and is being re-connected.  Treat like a fresh device
-        // setup so it starts empty (user picks a category from the app).
-        final isKnownDevice = state.pairedDevices.any(
-          (d) => d.deviceInstanceId.toUpperCase() == deviceId.toUpperCase(),
-        );
-        if (!isKnownDevice) {
-          AppLogger.debug('in_sync but device not in pairedDevices — redirecting to device setup');
-          add(DeviceSetupRequired(
-            deviceInstanceId: deviceId,
-            firmwareVersion: result.firmwareVersion,
-          ));
-          return;
-        }
+        // A device not in the paired list never gets here: PerformSyncUseCase
+        // returns DeviceUninitializedFailure for it (checked against Firestore,
+        // not this bloc's possibly stale pairedDevices).
 
         final mtu = _bluetoothRepository.getNegotiatedMtu(deviceId);
         emit(state.copyWith(

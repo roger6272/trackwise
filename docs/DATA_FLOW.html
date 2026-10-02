@@ -772,13 +772,16 @@ Data Flow:
      │                     │   (device not in    │
      │                     │   paired_devices)   │
      │                     │                     │
-     │                     │ ⑤ _onHandshakeCompleted:
-     │                     │   &quot;in_sync + unknown&quot;
-     │                     │   → DeviceSetupRequired
+     │                     │ ⑤ PerformSyncUseCase:│
+     │                     │   &quot;in_sync + not in │
+     │                     │   paired_devices&quot;   │
+     │                     │   → setup required  │
+     │                     │   (nothing paired   │
+     │                     │   yet — Cancel is   │
+     │                     │   a clean no-op)    │
      │                     │                     │
      │                     │ ⑥ Show setup dialog │
-     │                     │   &quot;New Device       │
-     │                     │    Detected&quot;        │
+     │                     │   &quot;Set Up Device&quot;   │
      │                     │                     │
      │ User taps &quot;Set Up&quot;  │                     │
      │                     │                     │

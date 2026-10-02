@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
-/// Dialog shown when an uninitialized device is detected (factory reset or new).
+/// Dialog shown when a device needs setup: new, factory reset, or unpaired in
+/// the app but never reset.
 ///
 /// Asks the user to confirm pairing the device to their account.
 ///
@@ -53,7 +54,7 @@ class DeviceSetupDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.0),
       ),
       title: Text(
-        'New Device Detected',
+        'Set Up Device',
         style: TextStyle(
           fontWeight: FontWeight.w600,
           color: primaryText,

@@ -614,8 +614,8 @@ Dual-purpose: create (no item passed) or edit (item passed via route extra).
 These appear over any screen, triggered by BLE state changes from `main.dart`.
 
 ### DeviceSetupDialog
-- **Trigger:** New/factory-reset device detected (status: `uninitialized`)
-- **Title:** "New Device Detected"
+- **Trigger:** Device needs setup — new/factory-reset (status: `uninitialized`), or `in_sync` but not in the paired list (unpaired, never reset)
+- **Title:** "Set Up Device"
 - **Content:** Pairing explanation
 - **Actions:** "Cancel" (disconnects) | "Set Up" (triggers pairing)
 - Non-dismissible (`barrierDismissible: false`)

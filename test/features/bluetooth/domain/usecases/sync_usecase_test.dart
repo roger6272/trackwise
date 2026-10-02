@@ -222,8 +222,9 @@ void main() {
         );
       });
 
-      test('should add new device to paired list when not already paired', () async {
-        // arrange
+      test('in_sync device not in paired list needs setup and is not paired yet', () async {
+        // Unpaired in the app but never reset: the device still holds our uid.
+        // Pairing must wait for Set Up, or Cancel would leave it paired.
         when(() => mockConnectivityService.hasInternetConnection())
             .thenAnswer((_) async => true);
         when(() => mockUserRepository.getCurrentUser())
@@ -235,16 +236,74 @@ void main() {
           status: SyncStatus.inSync,
           deviceInstanceId: tDeviceInstanceId,
         )));
-        when(() => mockUserRepository.addPairedDevice(any()))
-            .thenAnswer((_) async => const Right(null));
 
-        // act
-        await performSyncUseCase(
+        final result = await performSyncUseCase(
           const PerformSyncParams(deviceId: tDeviceId),
         );
 
-        // assert
-        verify(() => mockUserRepository.addPairedDevice(any())).called(1);
+        result.fold(
+          (failure) => expect(failure, isA<DeviceUninitializedFailure>()),
+          (_) => fail('Should require setup'),
+        );
+        verifyNever(() => mockUserRepository.addPairedDevice(any()));
+      });
+
+      test('uninitialized device at the limit gets DeviceLimitFailure before setup', () async {
+        when(() => mockConnectivityService.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockUserRepository.getCurrentUser())
+            .thenAnswer((_) async => Right(tUser.copyWith(
+              pairedDevices: List.generate(10, (i) => PairedDevice(
+                deviceInstanceId: 'device-$i',
+                deviceName: 'Device $i',
+                pairedAt: DateTime.now(),
+              )),
+            )));
+        when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
+          uid: tUserId,
+        )).thenAnswer((_) async => const Right(HandshakeResult(
+          status: SyncStatus.uninitialized,
+          deviceInstanceId: 'new-device',
+        )));
+
+        final result = await performSyncUseCase(
+          const PerformSyncParams(deviceId: tDeviceId),
+        );
+
+        result.fold(
+          (failure) => expect(failure, isA<DeviceLimitFailure>()),
+          (_) => fail('Should return failure'),
+        );
+      });
+
+      test('factory-reset device already in the paired list still gets setup at the limit', () async {
+        when(() => mockConnectivityService.hasInternetConnection())
+            .thenAnswer((_) async => true);
+        when(() => mockUserRepository.getCurrentUser())
+            .thenAnswer((_) async => Right(tUser.copyWith(
+              pairedDevices: List.generate(10, (i) => PairedDevice(
+                deviceInstanceId: i == 0 ? tDeviceInstanceId.toUpperCase() : 'device-$i',
+                deviceName: 'Device $i',
+                pairedAt: DateTime.now(),
+              )),
+            )));
+        when(() => mockBluetoothRepository.sendHandshake(
+          deviceId: tDeviceId,
+          uid: tUserId,
+        )).thenAnswer((_) async => const Right(HandshakeResult(
+          status: SyncStatus.uninitialized,
+          deviceInstanceId: tDeviceInstanceId,
+        )));
+
+        final result = await performSyncUseCase(
+          const PerformSyncParams(deviceId: tDeviceId),
+        );
+
+        result.fold(
+          (failure) => expect(failure, isA<DeviceUninitializedFailure>()),
+          (_) => fail('Should require setup'),
+        );
       });
 
       test('should return success immediately without Firestore update', () async {
