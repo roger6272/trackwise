@@ -1772,7 +1772,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
 
         // Always push claim-filtered items on connection. When
         // selectedFirestoreId is null (normal sync), RefreshDeviceItemsUseCase
-        // falls back to the device's claimedBy item for correct selection.
+        // falls back to the device's claimedBy item; with no claim either, the
+        // device is sent an empty list.
         _refreshAndUpdateCategory(deviceId, result.selectedFirestoreId);
     }
   }
@@ -1884,8 +1885,8 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       (_) {
         AppLogger.debug('Released claim on item ${event.itemId}');
         // Push only to devices in the same category as the released item.
-        // Claiming device gets -1 (no selection) because its selectedItemId
-        // was cleared above.
+        // Claiming device is emptied (no assigned item) because its
+        // selectedItemId was cleared above.
         final affected = affectedCategory != null ? {affectedCategory} : null;
         _pushToAllDevices(affectedCategories: affected);
       },

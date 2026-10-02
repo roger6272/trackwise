@@ -65,12 +65,25 @@ class RefreshDeviceItemsUseCase {
       orElse: () => null,
     );
 
+    // No selection and no claim → the device has no assigned item, so it
+    // stays empty until the user picks one in the app (same promise as Set Up).
+    // Pushing a category list with -1 instead left firmware to decide what to
+    // show, and the nRF build selects an item the app doesn't highlight.
+    if (selectedItem == null) {
+      AppLogger.debug('RefreshDeviceItems: ${params.deviceId} has no assigned item — sending empty list');
+      final clearResult = await _bluetoothRepository.sendItems(params.deviceId, const []);
+      if (clearResult.isLeft()) {
+        return clearResult.fold(
+          (f) => Left(f),
+          (_) => const Left(ServerFailure('Failed to send items')),
+        );
+      }
+      await _bluetoothRepository.sendSelectedItem(params.deviceId, -1);
+      return Right(RefreshDeviceItemsResult(categoryId: params.categoryId ?? ''));
+    }
+
     // 5. Filter by category
-    // When selectedItem exists, use its categoryId (even if null = Uncategorized).
-    // Only fall back to params.categoryId when there's no selectedItem at all.
-    final categoryId = selectedItem != null
-        ? (selectedItem.categoryId ?? '')
-        : (params.categoryId ?? '');
+    final categoryId = selectedItem.categoryId ?? '';
     var deviceItems = syncedItems.where((i) =>
       (i.categoryId ?? '') == categoryId).toList();
 
@@ -84,7 +97,8 @@ class RefreshDeviceItemsUseCase {
 
     // 8. Validate selected item is still in claim-filtered list
     // If the selected item was claimed by another device, redirect to first available
-    if (selectedItem != null && !deviceItems.any((i) => i.id == selectedItem!.id)) {
+    final assignedId = selectedItem.id;
+    if (!deviceItems.any((i) => i.id == assignedId)) {
       selectedItem = deviceItems.isNotEmpty ? deviceItems.first : null;
     }
 
