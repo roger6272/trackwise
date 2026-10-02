@@ -1087,6 +1087,16 @@ The device is gone from the Paired Devices list (so unpair "worked"), but the re
 
 **Key Lesson:** When one condition ("is this device paired?") is decided in two layers from two sources (Firestore vs. a cached list), the layers can disagree and each acts on its own answer. Decide once, from the source of truth, and have the other layer act on the result. And don't write the outcome of a user decision (pairing) before the user makes it.
 
+### 10.17 "'Device disconnected. Reconnecting...' after deleting the account (or another deliberate disconnect)"
+
+**Symptoms:** After deleting the account with a device connected, AppShell shows "Device disconnected. Reconnecting..." — but nothing reconnects (the log shows no "Auto-reconnect … scheduled"). Intermittent: it appears only if the previous disconnect was unexpected. Same for Sign Out, Cancel on the Set Up dialog, Keep Offline on the stale-claim dialog, OK on the Wrong Account dialog, and the device-limit disconnect.
+
+**Root Cause:** AppShell shows the snackbar when `isConnected` flips to false and `lastDisconnectWasManual` is false. That flag is set per disconnect, but `copyWith` **keeps** its old value when a handler doesn't pass it. These handlers removed the device from `connectedDevices` without passing it, so the flip carried the value from the last disconnect — `false` after any unexpected drop. `_onResetBluetoothState` (account deletion / sign out) also cancels the connection subscriptions first, so `_onConnectionStateChanged`, which would set the flag, never runs.
+
+**Fix Applied:** Every handler that removes a device on purpose passes `lastDisconnectWasManual: true` in the same emit.
+
+**Key Lesson:** Same as 10.14 — an emit that flips `isConnected` must carry the field listeners use to interpret it. A sticky field makes the omission intermittent, which hides it: the bug only shows when the *previous* disconnect happened to be unexpected.
+
 ---
 
 ## 11. OTA Firmware Update Issues

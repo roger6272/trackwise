@@ -1441,6 +1441,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     emit(state.copyWith(
       status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
       connectedDevices: _removeDevice(deviceId),
+      lastDisconnectWasManual: true,
     ));
   }
 
@@ -1496,6 +1497,10 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       discoveredDevices: const [],
       clearConnectingDeviceId: true,
       clearErrorMessage: true,
+      // Subscriptions were cancelled above, so _onConnectionStateChanged never
+      // runs; without this AppShell shows "Reconnecting..." for a deliberate
+      // disconnect (the flag otherwise carries over from the last drop).
+      lastDisconnectWasManual: true,
     ));
   }
 
@@ -1627,6 +1632,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
     emit(state.copyWith(
       status: state.connectedDevices.length <= 1 ? BluetoothStatus.ready : null,
       connectedDevices: _removeDevice(deviceId),
+      lastDisconnectWasManual: true,
     ));
   }
 
@@ -1643,6 +1649,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       status: BluetoothStatus.error,
       errorMessage: event.message,
       connectedDevices: _removeDevice(deviceId),
+      lastDisconnectWasManual: true,
     ));
     // Error is a one-shot for the snackbar; leaving it set would stall
     // auto-reconnect of other devices (their timers require `ready`).
@@ -1699,6 +1706,7 @@ class BluetoothBloc extends Bloc<BluetoothEvent, BluetoothState> {
       emit(state.copyWith(
         status: BluetoothStatus.ready,
         connectedDevices: _removeDevice(connectedInstId),
+        lastDisconnectWasManual: true,
       ));
     }
   }
