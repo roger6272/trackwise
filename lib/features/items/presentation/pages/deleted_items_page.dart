@@ -22,7 +22,7 @@ import '../bloc/deleted_items_state.dart';
 /// Page displaying soft-deleted items that can be restored.
 ///
 /// Items are shown with their deletion date and days remaining before
-/// permanent deletion (90-day retention period).
+/// permanent deletion (30-day retention period).
 class DeletedItemsPage extends StatefulWidget {
   const DeletedItemsPage({super.key});
 
@@ -141,7 +141,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                       return _buildEmptyState(context);
                     }
 
-                    return _buildItemsList(context, items, state, isConnected);
+                    return _buildItemsList(context, items, state);
                   },
                 );
               },
@@ -199,24 +199,23 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
     BuildContext context,
     List<Item> items,
     DeletedItemsState state,
-    bool isConnected,
   ) {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
       itemCount: items.length + 1, // +1 for header
       itemBuilder: (context, index) {
         if (index == 0) {
-          return _buildHeader(context, items.length, isConnected);
+          return _buildHeader(context, items.length);
         }
         final item = items[index - 1];
         final isRestoring =
             state is ItemRestoring && state.itemId == item.id;
-        return _buildItemCard(context, item, isRestoring, isConnected);
+        return _buildItemCard(context, item, isRestoring);
       },
     );
   }
 
-  Widget _buildHeader(BuildContext context, int count, bool isConnected) {
+  Widget _buildHeader(BuildContext context, int count) {
     final brightness = Theme.of(context).brightness;
     final secondaryText = AppColors.secondaryText(brightness);
 
@@ -231,42 +230,6 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
               color: secondaryText,
             ),
           ),
-          if (!isConnected) ...[
-            const SizedBox(height: 8.0),
-            Center(
-              child: GestureDetector(
-                onTap: () => context.go('/bluetooth'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
-                  ),
-                  decoration: BoxDecoration(
-                    color: secondaryText.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(20.0),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.bluetooth_disabled_rounded,
-                        size: 14.0,
-                        color: secondaryText,
-                      ),
-                      const SizedBox(width: 6.0),
-                      Text(
-                        'Connect to restore items',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: secondaryText,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -276,7 +239,6 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
     BuildContext context,
     Item item,
     bool isRestoring,
-    bool isConnected,
   ) {
     final brightness = Theme.of(context).brightness;
     final primaryText = AppColors.primaryText(brightness);
@@ -285,7 +247,9 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
 
     final daysRemaining = _getDaysRemaining(item.deletedAt);
     final deletedDateStr = _formatDeletedDate(item.deletedAt);
-    final canRestore = isConnected && !isRestoring;
+    // Restore is Firestore-only; a device not connected now gets the item on
+    // its next handshake refresh, so no connection is required.
+    final canRestore = !isRestoring;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12.0),
@@ -342,8 +306,7 @@ class _DeletedItemsPageState extends State<DeletedItemsPage> {
                         )
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isConnected ? AppColors.primary : AppColors.disabled,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: AppColors.disabled,
                   disabledForegroundColor: AppColors.disabledForeground,

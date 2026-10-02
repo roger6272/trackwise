@@ -173,7 +173,7 @@ You can track up to **100 items**.
 2. Tap the **delete icon** (trash)
 3. Confirm deletion
 
-**Don't worry!** Deleted items go to "Recently Deleted" for 30 days. You can restore them anytime (device connection required).
+**Don't worry!** Deleted items go to "Recently Deleted" for 30 days. You can restore them anytime — no device connection needed.
 
 ### Swipe Actions
 
@@ -581,7 +581,7 @@ Reset all your counts to start fresh:
 1. Go to **Account tab**
 2. Tap **"Recently Deleted"**
 3. Find the item you want back
-4. Tap **"Restore"** (device connection required)
+4. Tap **"Restore"**
 
 Items stay in Recently Deleted for 30 days before permanent deletion.
 
