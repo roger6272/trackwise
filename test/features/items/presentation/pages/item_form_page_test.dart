@@ -22,6 +22,7 @@ import 'package:traxelos/features/items/presentation/bloc/items_bloc.dart';
 import 'package:traxelos/features/items/presentation/bloc/items_event.dart';
 import 'package:traxelos/features/items/presentation/bloc/items_state.dart';
 import 'package:traxelos/features/items/domain/repositories/item_repository.dart';
+import 'package:traxelos/features/categories/domain/entities/category.dart' as cat;
 import 'package:traxelos/features/items/presentation/pages/item_form_page.dart';
 
 class MockItemsBloc extends MockBloc<ItemsEvent, ItemsState>
@@ -340,6 +341,33 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('At Target Count'), findsOneWidget);
+    });
+  });
+
+  group('newestCategoryCreatedSince', () {
+    cat.Category category(String id, int minute) => cat.Category(
+          id: id,
+          name: id,
+          userId: 'u',
+          order: 0,
+          createdAt: DateTime(2026, 10, 2, 12, minute),
+          lastUpdated: DateTime(2026, 10, 2, 12, minute),
+        );
+
+    test('returns null when nothing was created', () {
+      final now = [category('a', 0), category('b', 1)];
+      expect(newestCategoryCreatedSince({'a', 'b'}, now), isNull);
+    });
+
+    test('returns the one category created', () {
+      final now = [category('a', 0), category('new', 5)];
+      expect(newestCategoryCreatedSince({'a'}, now), 'new');
+    });
+
+    test('returns the newest when several were created, regardless of list order', () {
+      // List order follows the user's category order, not creation time.
+      final now = [category('later', 9), category('a', 0), category('first', 5)];
+      expect(newestCategoryCreatedSince({'a'}, now), 'later');
     });
   });
 }

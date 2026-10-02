@@ -302,7 +302,7 @@ When creating or editing an item:
 2. Select a category
 3. Save your item
 
-*Tip: The category dropdown also has a "Manage Categories" shortcut at the bottom.*
+*Tip: The category dropdown also has a "Manage Categories" shortcut at the bottom. If you create a category there and come back, it's selected for the item automatically (the newest one, if you created several).*
 
 ### Reordering Categories
 

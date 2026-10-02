@@ -21,6 +21,17 @@ import '../../domain/repositories/item_repository.dart';
 import '../bloc/items_bloc.dart';
 import '../bloc/items_state.dart';
 
+/// The newest category in [now] whose id isn't in [before], or null if none.
+///
+/// Used after returning from Manage Categories: a category created there was
+/// almost certainly meant for this item. With several, the newest wins.
+String? newestCategoryCreatedSince(Set<String> before, List<cat.Category> now) {
+  final created = now.where((c) => !before.contains(c.id)).toList();
+  if (created.isEmpty) return null;
+  created.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  return created.last.id;
+}
+
 class ItemFormPage extends StatefulWidget {
   const ItemFormPage({super.key, this.item});
 
@@ -59,6 +70,10 @@ class _ItemFormPageState extends State<ItemFormPage> {
 
   // Key to force dropdown rebuild after returning from Manage Categories
   int _categoryDropdownKey = 0;
+
+  // Category ids when Manage Categories was opened; null when not tracking.
+  // Cleared once the user picks a category by hand.
+  Set<String>? _categoryIdsBeforeManage;
 
   @override
   void initState() {
@@ -220,7 +235,11 @@ class _ItemFormPageState extends State<ItemFormPage> {
                           ),
                         ),
                         // Category dropdown
-                        BlocBuilder<CategoriesBloc, CategoriesState>(
+                        BlocListener<CategoriesBloc, CategoriesState>(
+                          // A category created in Manage Categories can reach
+                          // this stream after the user is already back.
+                          listener: (context, state) => _selectNewlyCreatedCategory(state),
+                          child: BlocBuilder<CategoriesBloc, CategoriesState>(
                           builder: (context, categoriesState) {
                             List<cat.Category> categories = [];
                             if (categoriesState is CategoriesLoaded) {
@@ -280,13 +299,22 @@ class _ItemFormPageState extends State<ItemFormPage> {
                                 onChanged: (val) {
                                   // Handle "Manage Categories" navigation
                                   if (val == '__manage__') {
+                                    final categoriesBloc = context.read<CategoriesBloc>();
+                                    _categoryIdsBeforeManage = categoriesState is CategoriesLoaded
+                                        ? categories.map((c) => c.id).toSet()
+                                        : null;
                                     context.push('/profile/categories').then((_) {
+                                      if (!mounted) return;
                                       // Increment key to force dropdown rebuild with correct value
-                                      if (mounted) setState(() => _categoryDropdownKey++);
+                                      setState(() => _categoryDropdownKey++);
+                                      _selectNewlyCreatedCategory(categoriesBloc.state);
                                     });
                                     return;
                                   }
-                                  setState(() => selectedCategoryId = val ?? '');
+                                  setState(() {
+                                    selectedCategoryId = val ?? '';
+                                    _categoryIdsBeforeManage = null;
+                                  });
                                 },
                                 style: textTheme.bodyLarge?.copyWith(
                                   color: primaryText,
@@ -313,6 +341,7 @@ class _ItemFormPageState extends State<ItemFormPage> {
                               ),
                             );
                           },
+                          ),
                         ),
                         // Only show Initial Value field when creating (not editing)
                         if (!isEditMode)
@@ -745,6 +774,18 @@ class _ItemFormPageState extends State<ItemFormPage> {
         },
       );
     }
+  }
+
+  /// Selects a category created during the last Manage Categories visit.
+  void _selectNewlyCreatedCategory(CategoriesState state) {
+    final before = _categoryIdsBeforeManage;
+    if (before == null || state is! CategoriesLoaded) return;
+    final newestId = newestCategoryCreatedSince(before, state.categories);
+    if (newestId == null || newestId == selectedCategoryId) return;
+    setState(() {
+      selectedCategoryId = newestId;
+      _categoryDropdownKey++;
+    });
   }
 
   /// Gets the current user ID from AuthBloc

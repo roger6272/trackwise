@@ -388,7 +388,7 @@ Dual-purpose: create (no item passed) or edit (item passed via route extra).
 | Field | Type | Constraints | Notes |
 |-------|------|-------------|-------|
 | Item Name | Text | Required, max 30 chars, word caps | Duplicates allowed — items are identified by id (export groups by id) |
-| Category | Dropdown | Optional | Lists categories + "Uncategorized" + "Manage Categories" |
+| Category | Dropdown | Optional | Lists categories + "Uncategorized" + "Manage Categories". Returning from Manage Categories selects the newest category created there (if any) |
 | Initial Value | Numeric | 0 to max | Create mode only |
 | Goal | Numeric | Optional | |
 | Count Per Press | Numeric | 1–1000, default 1 | |
