@@ -387,7 +387,7 @@ Dual-purpose: create (no item passed) or edit (item passed via route extra).
 
 | Field | Type | Constraints | Notes |
 |-------|------|-------------|-------|
-| Item Name | Text | Required, max 30 chars, word caps | Duplicate name check |
+| Item Name | Text | Required, max 30 chars, word caps | Duplicates allowed — items are identified by id (export groups by id) |
 | Category | Dropdown | Optional | Lists categories + "Uncategorized" + "Manage Categories" |
 | Initial Value | Numeric | 0 to max | Create mode only |
 | Goal | Numeric | Optional | |

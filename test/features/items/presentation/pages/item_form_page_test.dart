@@ -1,5 +1,4 @@
 import 'package:bloc_test/bloc_test.dart';
-import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,12 +94,6 @@ void main() {
     sl.registerFactory<ItemsBloc>(() => mockItemsBloc);
     sl.registerFactory<CategoriesBloc>(() => mockCategoriesBloc);
     sl.registerLazySingleton<ItemRepository>(() => mockItemRepository);
-
-    // Default: no duplicate items
-    when(() => mockItemRepository.getItems(any()))
-        .thenAnswer((_) async => const Right(<Item>[]));
-    when(() => mockItemRepository.getDeletedItems(any()))
-        .thenAnswer((_) async => const Right(<Item>[]));
 
     when(() => mockItemsBloc.state).thenReturn(ItemsInitial());
     when(() => mockBluetoothBloc.state).thenReturn(const BluetoothState());

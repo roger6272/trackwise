@@ -627,67 +627,6 @@ class _ItemFormPageState extends State<ItemFormPage> {
     );
   }
 
-  /// Checks if an item with the same name already exists (case-insensitive).
-  /// Checks both active and soft-deleted items.
-  /// Returns true if duplicate exists, false otherwise.
-  Future<bool> _checkDuplicateName(String name) async {
-    final userId = _getUserId();
-    AppLogger.debug('_checkDuplicateName: userId=$userId, name=$name');
-
-    if (userId.isEmpty) {
-      AppLogger.debug('_checkDuplicateName: userId is empty, skipping check');
-      return false;
-    }
-
-    final itemRepository = sl<ItemRepository>();
-    final normalizedName = name.toLowerCase();
-
-    // Fetch active items
-    AppLogger.debug('_checkDuplicateName: fetching active items...');
-    final activeResult = await itemRepository.getItems(userId);
-    final activeItems = activeResult.fold(
-      (failure) {
-        AppLogger.debug('_checkDuplicateName: failed to fetch active items: ${failure.message}');
-        return <Item>[];
-      },
-      (items) {
-        AppLogger.debug('_checkDuplicateName: got ${items.length} active items');
-        return items;
-      },
-    );
-
-    // Fetch deleted items
-    AppLogger.debug('_checkDuplicateName: fetching deleted items...');
-    final deletedResult = await itemRepository.getDeletedItems(userId);
-    final deletedItems = deletedResult.fold(
-      (failure) {
-        AppLogger.debug('_checkDuplicateName: failed to fetch deleted items: ${failure.message}');
-        return <Item>[];
-      },
-      (items) {
-        AppLogger.debug('_checkDuplicateName: got ${items.length} deleted items');
-        return items;
-      },
-    );
-
-    // Combine all items
-    final allItems = [...activeItems, ...deletedItems];
-    AppLogger.debug('_checkDuplicateName: checking ${allItems.length} total items');
-
-    // Check for duplicate (excluding current item if editing)
-    for (final item in allItems) {
-      // Skip the item being edited
-      if (isEditMode && item.id == widget.item!.id) continue;
-
-      if (item.name.toLowerCase() == normalizedName) {
-        AppLogger.debug('_checkDuplicateName: DUPLICATE FOUND - ${item.name}');
-        return true; // Duplicate found
-      }
-    }
-
-    return false; // No duplicate
-  }
-
   Future<void> _handleSave(BuildContext blocContext) async {
     AppLogger.debug('_handleSave called');
 
@@ -706,19 +645,9 @@ class _ItemFormPageState extends State<ItemFormPage> {
     // Set loading state to prevent further taps
     setState(() => _isLoading = true);
 
+    // Names need not be unique — items are identified by id everywhere,
+    // including export grouping.
     final name = nameController.text.trim();
-    AppLogger.debug('Checking for duplicate name: $name');
-
-    // Check for duplicate item name
-    final duplicateExists = await _checkDuplicateName(name);
-    AppLogger.debug('Duplicate check result: $duplicateExists');
-    if (duplicateExists) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        showErrorSnackBar(context, 'An item with this name already exists');
-      }
-      return;
-    }
     final initialValue = int.tryParse(initialValueController.text) ?? 0;
     final goalText = goalController.text.trim();
     final goal = goalText.isEmpty ? null : int.tryParse(goalText);

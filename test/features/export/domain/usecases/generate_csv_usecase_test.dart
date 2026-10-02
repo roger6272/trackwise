@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:traxelos/core/error/failures.dart';
 import 'package:traxelos/features/categories/domain/entities/category.dart';
+import 'package:traxelos/features/events/domain/entities/event_log.dart';
 import 'package:traxelos/features/export/domain/entities/csv_export_config.dart';
 import 'package:traxelos/features/export/domain/usecases/generate_csv_usecase.dart';
 import 'package:traxelos/features/items/domain/entities/item.dart' show Item, ReminderType;
@@ -281,6 +282,75 @@ void main() {
             expect(lines.any((l) => l.contains('Tea') && l.contains(',1')), true);
           },
         );
+      });
+    });
+
+    group('items sharing a name', () {
+      // Item names are not unique, so grouping must be by item id.
+      void setupTwoPopcorns() {
+        Item popcorn(String id) => Item(
+              id: id,
+              name: 'Popcorn',
+              categoryId: 'cat_1',
+              userId: 'user_1',
+              count: 0,
+              todayCount: 0,
+              incrementBy: 1,
+              reminder: ReminderType.none,
+              reminderValue: 0,
+              lastUpdated: DateTime.now(),
+            );
+        when(() => mockItemRepository.getItems(any()))
+            .thenAnswer((_) async => Right([popcorn('item_a'), popcorn('item_b')]));
+        when(() => mockCategoryRepository.getCategories(any()))
+            .thenAnswer((_) async => const Right(<Category>[]));
+      }
+
+      EventLog event(String id, String itemId, int increment, {int resetNumber = 0}) => EventLog(
+            id: id,
+            createdTime: DateTime(2024, 1, 15, 10, 0),
+            itemId: itemId,
+            eventName: 'increment',
+            increment: increment,
+            currentCount: increment,
+            userId: 'user_1',
+            resetNumber: resetNumber,
+          );
+
+      test('daily export keeps same-named items as separate rows', () async {
+        setupTwoPopcorns();
+        when(() => mockEventRepository.getEventsByDateRange(any(), any())).thenAnswer(
+          (_) async => Right([event('e1', 'item_a', 3), event('e2', 'item_b', 4)]),
+        );
+
+        final result = await useCase(testCSVConfig);
+
+        final rows = result.getOrElse(() => '').trim().split('\n').skip(1).toList();
+        expect(rows.length, 2, reason: 'must not merge into one row of 7');
+        expect(rows.map((r) => r.split(',').last), containsAll(['3', '4']));
+      });
+
+      test('byCycle export keeps each same-named item\'s rows together', () async {
+        setupTwoPopcorns();
+        when(() => mockEventRepository.getEventsByDateRange(any(), any())).thenAnswer(
+          (_) async => Right([
+            event('e1', 'item_a', 1),
+            event('e2', 'item_a', 10, resetNumber: 1),
+            event('e3', 'item_b', 2),
+            event('e4', 'item_b', 20, resetNumber: 1),
+          ]),
+        );
+
+        final result = await useCase(CSVExportConfig(
+          startDate: testStartDate,
+          endDate: testEndDate,
+          aggregationLevel: ExportAggregationLevel.byCycle,
+        ));
+
+        final totals = result.getOrElse(() => '').trim().split('\n').skip(1)
+            .map((r) => r.split(',').last).toList();
+        // Either item may come first, but its two cycles must be adjacent.
+        expect(totals, anyOf(equals(['1', '10', '2', '20']), equals(['2', '20', '1', '10'])));
       });
     });
 

@@ -188,11 +188,13 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
       final aggregated = _aggregateEvents(incrementEvents, aggregationLevel, itemCategoryMap, categoryNameMap, itemNameMap);
 
-      // Sort by item name, then by date
+      // Sort by item name, then item id (names aren't unique), then date
       final sortedKeys = aggregated.keys.toList()
         ..sort((a, b) {
           final nameCompare = a.itemName.compareTo(b.itemName);
           if (nameCompare != 0) return nameCompare;
+          final idCompare = a.itemId.compareTo(b.itemId);
+          if (idCompare != 0) return idCompare;
           return a.date.compareTo(b.date);
         });
 
@@ -264,6 +266,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
       for (final cycleEntry in entry.value.entries) {
         final resetNumber = cycleEntry.key;
         rows.add(_ByCycleRow(
+          itemId: itemId,
           itemName: itemName,
           category: category,
           cycle: resetNumber + 1, // 1-based display
@@ -277,6 +280,8 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
     rows.sort((a, b) {
       final nameCompare = a.itemName.compareTo(b.itemName);
       if (nameCompare != 0) return nameCompare;
+      final idCompare = a.itemId.compareTo(b.itemId);
+      if (idCompare != 0) return idCompare;
       return a.cycle.compareTo(b.cycle);
     });
 
@@ -311,6 +316,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
     for (final event in events) {
       final key = AggregationKey(
+        itemId: event.itemId,
         itemName: getItemName(event.itemId),
         category: getCategoryName(event.itemId),
         eventType: event.eventName,
@@ -361,6 +367,7 @@ class GenerateCSVUseCase implements UseCase<String, CSVExportConfig> {
 
 /// Internal helper for by-cycle row data.
 class _ByCycleRow {
+  final String itemId;
   final String itemName;
   final String category;
   final int cycle;
@@ -369,6 +376,7 @@ class _ByCycleRow {
   final int totalCount;
 
   _ByCycleRow({
+    required this.itemId,
     required this.itemName,
     required this.category,
     required this.cycle,
