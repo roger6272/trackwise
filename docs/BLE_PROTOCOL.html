@@ -450,6 +450,10 @@
 <td>The ESP32 published a binary as <code>2.1.1</code> that reported <code>2.1.0</code>. The app never saw the update as applied and would have re-offered it <strong>forever</strong>. <code>scripts/publish_firmware.sh</code> now refuses to publish on a mismatch.</td>
 </tr>
 <tr>
+<td><strong>The daily reset decides "new day" from the device's local date, never from an item's <code>lastResetTime</code>.</strong> <code>lastResetTime: 0</code> means <em>never reset</em> — an item that has not been reset is not "last reset on an earlier day".</td>
+<td>Seen on the nRF build: on wake from sleep, each item whose <code>lastResetTime</code> predates local midnight got its <code>todaycount</code> zeroed (and <code>lastResetTime</code> set to midnight). Every new item arrives with <code>0</code>, so the first sleep after creating one silently dropped that day's counts while <code>count</code> kept them — a user pressed 122 times and saw 105 today. The ESP32 tracks one <code>last_reset_date</code> for the whole device and is unaffected. As a workaround the app sends today's local midnight instead of <code>0</code> for a never-reset item created or edited today (<code>deviceLastResetTimeSeconds</code>), but a device must not depend on that — older never-reset items still arrive as <code>0</code>.</td>
+</tr>
+<tr>
 <td><strong><code>ota_abort</code> MUST be refused once the image is committed</strong> (VERIFIED or REBOOTING) — reply <code>reason: "already_committed"</code>.</td>
 <td>The boot partition is already set, so the new image <em>will</em> boot on the next reset. Honouring the abort would reset to IDLE and tell the app "cancelled", and the device would then silently come up on the new firmware anyway. Refuse rather than lie.</td>
 </tr>
@@ -1168,7 +1172,7 @@ final offset = now.timeZoneOffset.inMinutes;
 <td>int</td>
 <td>Yes</td>
 <td>Unix timestamp</td>
-<td>Last reset time (UTC)</td>
+<td>Last reset time (UTC), daily or cycle. <code>0</code> = never reset — must not trigger a daily reset (see §0)</td>
 </tr>
 <tr>
 <td><code>reset_number</code></td>

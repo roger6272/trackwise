@@ -60,6 +60,7 @@ Any implementation (ESP32, nRF, or a future chip) must honor everything in this 
 | **Acknowledge `reboot` before restarting.** The write must be ACKed (the command characteristic is write-*with-response*), and only then may the device reset. | ESP32 originally called `esp_restart()` from inside the BLE write callback, so the ACK was never sent. The app's write failed and it reported every successful update as **"Update failed."** Do the restart after the callback returns. |
 | **Do NOT abort a verified update when the link drops.** Once `ota_verified` has been sent, the image is committed — a disconnect must leave the device in VERIFIED so the auto-reboot still fires. | Aborting here drops to IDLE, which also kills the auto-reboot. The device then keeps running the **old** firmware with the **new** one committed, and the app cannot tell the difference. |
 | **Version honesty.** The `firmware_version` reported on handshake MUST be the version the image was published as. | The ESP32 published a binary as `2.1.1` that reported `2.1.0`. The app never saw the update as applied and would have re-offered it **forever**. `scripts/publish_firmware.sh` now refuses to publish on a mismatch. |
+| **The daily reset decides "new day" from the device's local date, never from an item's `lastResetTime`.** `lastResetTime: 0` means *never reset* — an item that has not been reset is not "last reset on an earlier day". | Seen on the nRF build: on wake from sleep, each item whose `lastResetTime` predates local midnight got its `todaycount` zeroed (and `lastResetTime` set to midnight). Every new item arrives with `0`, so the first sleep after creating one silently dropped that day's counts while `count` kept them — a user pressed 122 times and saw 105 today. The ESP32 tracks one `last_reset_date` for the whole device and is unaffected. As a workaround the app sends today's local midnight instead of `0` for a never-reset item created or edited today (`deviceLastResetTimeSeconds`), but a device must not depend on that — older never-reset items still arrive as `0`. |
 | **`ota_abort` MUST be refused once the image is committed** (VERIFIED or REBOOTING) — reply `reason: "already_committed"`. | The boot partition is already set, so the new image *will* boot on the next reset. Honouring the abort would reset to IDLE and tell the app "cancelled", and the device would then silently come up on the new firmware anyway. Refuse rather than lie. |
 
 ### Post-reboot timing envelope — this is contract, and it is platform-dependent
@@ -448,7 +449,7 @@ Send full item list to device. Uses **CHAR_SET_ITEMS** characteristic (not CHAR_
 | `reminder` | int | Yes | 0-2 | Reminder type |
 | `reminder_value` | int | Yes | 0-9999 | Target/interval value |
 | `goal` | int | Yes | 0-9999 | Target goal count (0 = no goal) |
-| `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC) |
+| `lastResetTime` | int | Yes | Unix timestamp | Last reset time (UTC), daily or cycle. `0` = never reset — must not trigger a daily reset (see §0) |
 | `reset_number` | int | Yes | 0+ | Reset counter |
 
 **Field Validation (Device-side):**

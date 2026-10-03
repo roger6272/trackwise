@@ -1097,6 +1097,31 @@ The device is gone from the Paired Devices list (so unpair "worked"), but the re
 
 **Key Lesson:** Same as 10.14 — an emit that flips `isConnected` must carry the field listeners use to interpret it. A sticky field makes the omission intermittent, which hides it: the bug only shows when the *previous* disconnect happened to be unexpected.
 
+### 10.18 "Items list shows a count one lower than the device / detail page" (every message processed twice)
+
+**Symptoms:** After a disconnect and reconnect, an item's count in the items list (and in Firestore) is lower than on the device, while the item detail page shows the right number. In the log every BLE message appears twice (`Parsing BLE message` duplicated), and the reconnect shows two MTU negotiations, two service discoveries and two `Initial sync` runs.
+
+**Root Cause:** Two connection setups for one device ran in parallel. A connect attempt failed (`GATT_CONNECTION_TIMEOUT`); the datasource's `_connectWithRetry` scheduled a retry, but the failure also reached the bloc as a disconnect, so `_onConnectionStateChanged` scheduled an auto-reconnect. Both succeeded. Each built its own `DeviceConnection` and subscribed to the notify characteristic; the second replaced the first in `_connections` without cancelling the first one's subscriptions, so both fed the shared message stream. Each `item_delta` then wrote its absolute count to Firestore twice, concurrently — a delayed duplicate of an older value (5) landed after the newer one (6). The detail page counts EventLogs, whose deterministic ids collapse duplicates, so it stayed right.
+
+**Fix Applied:**
+
+1. `BluetoothRepositoryImpl.connect` keeps one in-flight connect per device; a second caller awaits the first instead of starting another setup.
+2. `BluetoothDataSourceImpl.connect` cancels a replaced connection's listeners before storing the new one, so a stray subscription can't outlive it even when setups run back to back.
+
+The stale Firestore value heals on the item's next `item_delta` (the device is the source of truth for counts).
+
+**Key Lesson:** Absolute-value writes ("set count to N") are only safe if they arrive in order — a duplicated pipeline turns them into last-writer-wins. And `Future.whenComplete(() => map.remove(key))` deadlocks if the removed value is that same future: `whenComplete` waits on a returned Future. Use a block body.
+
+### 10.19 "Today count dropped while total kept the counts" (new item, after the device slept)
+
+**Symptoms:** On the day an item is created, its "today" count suddenly drops (e.g. 122 total, 105 today) though every count was today. It happens once per new item, after the device first goes to sleep and wakes; the item's `lastResetTime` changes from `0` to today's local midnight at that moment.
+
+**Root Cause:** Firmware, not app. The nRF build runs a per-item daily-reset check on wake: an item whose `lastResetTime` predates local midnight gets `todaycount = 0` and `lastResetTime = midnight`. New items arrive with `lastResetTime: 0`, meaning *never reset*, which that check reads as "reset on an earlier day". The ESP32 reference keeps one device-wide `last_reset_date` and is unaffected. Requirement added to `BLE_PROTOCOL.md` §0.
+
+**Fix Applied (app workaround):** `deviceLastResetTimeSeconds` sends a never-reset item that was created or edited today with today's local midnight instead of `0` — the value the nRF writes itself after a daily reset, so Firestore and the UI end up exactly as before, minus the wipe. Items last touched before today still go out as `0` (a reset is right for them).
+
+**Key Lesson:** A sentinel (`0` = never) only works if every implementation reads it as a sentinel. `lastResetTime` also mixes daily and cycle resets (both firmwares write daily resets into it while the item detail page reads it as a cycle boundary) — a separate, pre-existing ambiguity worth untangling.
+
 ---
 
 ## 11. OTA Firmware Update Issues

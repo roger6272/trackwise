@@ -17,6 +17,7 @@ import '../../domain/entities/sync_state.dart';
 import '../../domain/repositories/bluetooth_repository.dart';
 import '../datasources/bluetooth_datasource.dart';
 import '../models/ble_message_model.dart';
+import '../models/device_last_reset_time.dart';
 
 /// Implementation of BluetoothRepository using BluetoothDataSource.
 ///
@@ -57,8 +58,24 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
     }
   }
 
+  // One connect per device at a time. A failed attempt that the datasource
+  // is still retrying surfaces as a disconnect, and the bloc's auto-reconnect
+  // then calls connect() again; two parallel setups each subscribed to the
+  // notify characteristic, so every device message was processed twice and
+  // out-of-order Firestore writes left stale counts (TROUBLESHOOTING §10.18).
+  final Map<String, Future<Either<Failure, bool>>> _connectsInFlight = {};
+
   @override
-  Future<Either<Failure, bool>> connect(String deviceId) async {
+  Future<Either<Failure, bool>> connect(String deviceId) {
+    // Block body: remove() returns this very future, and whenComplete would
+    // wait on it — a self-deadlock.
+    return _connectsInFlight[deviceId] ??=
+        _connect(deviceId).whenComplete(() {
+          _connectsInFlight.remove(deviceId);
+        });
+  }
+
+  Future<Either<Failure, bool>> _connect(String deviceId) async {
     try {
       final device = await dataSource.connect(deviceId);
       await dataSource.discoverServices(device);
@@ -161,7 +178,7 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
       'reminder': _reminderTypeToInt(item.reminder),
       'reminder_value': item.reminderValue,
       'goal': item.goal ?? 0,
-      'lastResetTime': (item.lastResetTime?.toUtc().millisecondsSinceEpoch ?? 0) ~/ 1000,
+      'lastResetTime': deviceLastResetTimeSeconds(item),
       'count': item.count,
       'todaycount': item.todayCount,
       'reset_number': item.resetNumber,

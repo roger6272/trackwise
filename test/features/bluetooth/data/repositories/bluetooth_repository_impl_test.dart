@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -141,6 +143,34 @@ void main() {
       // assert
       expect(result, isA<Left>());
       expect((result as Left).value, isA<BluetoothFailure>());
+    });
+
+    test('overlapping connects for one device share a single setup', () async {
+      // A retry still in progress plus an auto-reconnect used to run two
+      // setups, each subscribing to notifications — every message twice.
+      final connecting = Completer<BluetoothDevice>();
+      when(() => mockDataSource.connect(tDeviceId)).thenAnswer((_) => connecting.future);
+      when(() => mockDataSource.discoverServices(tBluetoothDevice)).thenAnswer((_) async {});
+
+      final first = repository.connect(tDeviceId);
+      final second = repository.connect(tDeviceId);
+      connecting.complete(tBluetoothDevice);
+
+      expect(await first, const Right(true));
+      expect(await second, const Right(true));
+      verify(() => mockDataSource.connect(tDeviceId)).called(1);
+      verify(() => mockDataSource.discoverServices(tBluetoothDevice)).called(1);
+      verify(() => mockDataSource.emitConnectedState(tDeviceId)).called(1);
+    });
+
+    test('a connect after the previous one finished runs again', () async {
+      when(() => mockDataSource.connect(tDeviceId)).thenAnswer((_) async => tBluetoothDevice);
+      when(() => mockDataSource.discoverServices(tBluetoothDevice)).thenAnswer((_) async {});
+
+      await repository.connect(tDeviceId);
+      await repository.connect(tDeviceId);
+
+      verify(() => mockDataSource.connect(tDeviceId)).called(2);
     });
   });
 

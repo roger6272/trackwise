@@ -16,6 +16,7 @@ import '../models/ble_device_model.dart';
 import '../models/ble_message_model.dart';
 import 'bluetooth_datasource.dart';
 import 'device_connection.dart';
+import '../models/device_last_reset_time.dart';
 
 /// Real implementation of BluetoothDataSource using flutter_blue_plus.
 ///
@@ -237,6 +238,15 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       }
     });
 
+    // A connection being replaced must not keep listening: its notify
+    // subscription would feed every message into _messageController a second
+    // time, and its state listener would tear down the new connection.
+    final previous = _connections[deviceId];
+    if (previous != null) {
+      previous.connectionSubscription?.cancel();
+      previous.connectionSubscription = null;
+      previous.clearConnectionState();
+    }
     _connections[deviceId] = conn;
 
     // NOTE: Do NOT emit connected state here!
@@ -918,7 +928,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
       'reminder': _reminderTypeToInt(item.reminder),
       'reminder_value': item.reminderValue,
       'goal': item.goal ?? 0,
-      'lastResetTime': (item.lastResetTime?.toUtc().millisecondsSinceEpoch ?? 0) ~/ 1000,
+      'lastResetTime': deviceLastResetTimeSeconds(item),
       'reset_number': item.resetNumber,
     };
   }
